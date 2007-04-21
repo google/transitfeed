@@ -1,0 +1,606 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+    "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xmlns:v="urn:schemas-microsoft-com:vml">
+  <head>
+    <meta http-equiv="content-type" content="text/html; charset=utf-8"/>
+    <title>[agency]</title>
+    <link href="file/style.css" rel="stylesheet" type="text/css" />
+    <style type="text/css">
+    v\:* {
+      behavior:url(#default#VML);
+    }
+    </style>
+    <script src="http://maps.google.com/maps?file=api&amp;v=2&amp;key=[key]" type="text/javascript"></script>
+    <script src="/file/labeled_marker.js" type="text/javascript"></script>
+    <script type="text/javascript">
+    //<![CDATA[
+    var map;
+    // Set to true when debugging for log statements about HTTP requests.
+    var log = false;
+    var twelveHourTime = false;  // set to true to see AM/PM
+    var selectedRoute = null;
+
+    function load() {
+      if (GBrowserIsCompatible()) {
+        sizeRouteList();
+        var map_dom = document.getElementById("map");
+        map = new GMap2(map_dom);
+        map.addControl(new GLargeMapControl());
+        map.addControl(new GMapTypeControl());
+        map.addControl(new GOverviewMapControl());
+        var bb = new GLatLngBounds(new GLatLng([min_lat], [min_lon]),new GLatLng([max_lat], [max_lon]));
+        map.setCenter(bb.getCenter(), map.getBoundsZoomLevel(bb));
+        map.enableDoubleClickZoom();
+        initIcons();
+        GEvent.addListener(map, "moveend", callbackMoveEnd);
+        GEvent.addListener(map, "zoomend", callbackZoomEnd);
+        callbackMoveEnd();  // Pretend we just moved to current center
+        fetchRoutes();
+      }
+    }
+
+    function callbackZoomEnd() {
+    }
+
+    function callbackMoveEnd() {
+      // Map moved, search for stops near the center
+      fetchStopsInBounds(map.getBounds());
+    }
+
+    /**
+     * Fetch a sample of stops in the bounding box.
+     */
+    function fetchStopsInBounds(bounds) {
+      url = "/json/boundboxstops?n=" + bounds.getNorthEast().lat()
+                             + "&e=" + bounds.getNorthEast().lng()
+                             + "&s=" + bounds.getSouthWest().lat()
+                             + "&w=" + bounds.getSouthWest().lng()
+                             + "&limit=50";
+      if (log)
+        GLog.writeUrl(url);
+      GDownloadUrl(url, callbackDisplayStopsBackground);
+    }
+
+    /**
+     * Displays stops returned by the server on the map. Expected to be called
+     * when GDownloadUrl finishes.
+     *
+     * @param {String} data JSON encoded list of list, each
+     *     containing a row of stops.txt
+     * @param {Number} responseCode Response code from server
+     */
+    function callbackDisplayStops(data, responseCode) {
+      if (responseCode != 200) {
+        return;
+      }
+      clearMap();
+      var stops = eval(data);
+      if (stops.length == 1) {
+        var marker = addStopMarkerFromList(stops[0], true);
+        fetchStopInfoWindow(marker);
+      } else {
+        for (var i=0; i<stops.length; ++i) {
+          addStopMarkerFromList(stops[i], true);
+        }
+      }
+    }
+
+    function stopTextSearchSubmit() {
+      var text = document.getElementById("stopTextSearchInput").value;
+      var url = "/json/stopsearch?q=" + text;  // TODO URI escape
+      if (log)
+        GLog.writeUrl(url);
+      GDownloadUrl(url, callbackDisplayStops);
+    }
+
+    /**
+     * Add stops markers to the map and remove stops no longer in the
+     * background.
+     */
+    function callbackDisplayStopsBackground(data, responseCode) {
+      if (responseCode != 200) {
+        return;
+      }
+      var stops = eval(data);
+      // Make a list of all background markers
+      var oldStopMarkers = {};
+      for (var stopId in stopMarkersBackground) {
+        oldStopMarkers[stopId] = 1;
+      }
+      // Add new markers to the map and remove from oldStopMarkers
+      for (var i=0; i<stops.length; ++i) {
+        var marker = addStopMarkerFromList(stops[i], false);
+        if (oldStopMarkers[marker.stopId]) {
+          delete oldStopMarkers[marker.stopId];
+        }
+      }
+      // Delete all markers that remain in oldStopMarkers
+      for (var stopId in oldStopMarkers) {
+        GEvent.removeListener(stopMarkersBackground[stopId].clickListener);
+        map.removeOverlay(stopMarkersBackground[stopId]);
+        delete stopMarkersBackground[stopId]
+      }
+    }
+
+    /**
+     * Remove all overlays from the map
+     */
+    function clearMap() {
+      boundsOfPolyLine = null;
+      for (var stopId in stopMarkersSelected) {
+        GEvent.removeListener(stopMarkersSelected[stopId].clickListener);
+      }
+      for (var stopId in stopMarkersBackground) {
+        GEvent.removeListener(stopMarkersBackground[stopId].clickListener);
+      }
+      stopMarkersSelected = {};
+      stopMarkersBackground = {};
+      map.clearOverlays();
+    }
+
+    /**
+     * Return a new GIcon used for stops
+     */
+    function makeStopIcon() {
+      var icon = new GIcon();
+      icon.iconSize = new GSize(12, 20);
+      icon.shadowSize = new GSize(22, 20);
+      icon.iconAnchor = new GPoint(6, 20);
+      icon.infoWindowAnchor = new GPoint(5, 1);
+      return icon;
+    }
+
+    /**
+     * Initialize icons. Call once during load.
+     */
+    function initIcons() {
+      iconSelected = makeStopIcon();
+      iconSelected.image = "/file/mm_20_yellow.png";
+      iconSelected.shadow = "/file/mm_20_shadow.png";
+      iconBackground = makeStopIcon();
+      iconBackground.image = "/file/mm_20_blue_trans.png";
+      iconBackground.shadow = "/file/mm_20_shadow_trans.png";
+    }
+
+    var iconSelected;
+    var iconBackground;
+
+    // Map from stopId to GMarker object for stops selected because they are
+    // part of a trip, etc
+    var stopMarkersSelected = {};
+    // Map from stopId to GMarker object for stops found by the background
+    // passive search
+    var stopMarkersBackground = {};
+    /**
+     * Add a stop to the map, given a row from stops.txt.
+     */
+    function addStopMarkerFromList(list, selected, text) {
+      return addStopMarker(list[0], list[1], list[2], list[3], selected, text);
+    }
+
+    /**
+     * Add a stop to the map, returning the new marker
+     */
+    function addStopMarker(stopId, stopName, stopLat, stopLon, selected, text) {
+      if (stopMarkersSelected[stopId]) {
+        // stop was selected
+	var marker = stopMarkersSelected[stopId];
+	if (text) {
+	  // Reach inside the LabelMarker to extend div text
+	  marker.div_.innerHTML += "<br>" + text;
+	}
+        return marker;
+      }
+      if (stopMarkersBackground[stopId]) {
+        // Stop was in the background. Either delete it from the background or
+        // leave it where it is.
+        if (selected) {
+          map.removeOverlay(stopMarkersBackground[stopId]);
+          delete stopMarkersBackground[stopId];
+        } else {
+          return stopMarkersBackground[stopId];
+        }
+      }
+
+      var icon;
+      if (selected) {
+        icon = iconSelected;
+      } else {
+        icon = iconBackground;
+      }
+      var ll = new GLatLng(stopLat,stopLon);
+      var marker;
+      if (text) {
+        var markerOpts = new Object();
+	markerOpts.icon = icon;
+	markerOpts.labelText = text;
+	markerOpts.labelClass = "tooltip";
+	markerOpts.labelOffset = new GSize(6, -20);
+        marker = new LabeledMarker(ll, markerOpts);
+      } else {
+        marker = new GMarker(ll, icon);
+      }
+      marker.stopName = stopName;
+      marker.stopId = stopId;
+      if (selected) {
+        stopMarkersSelected[stopId] = marker;
+      } else {
+        stopMarkersBackground[stopId] = marker;
+      }
+      map.addOverlay(marker);
+      marker.clickListener = GEvent.addListener(marker, "click", function() {fetchStopInfoWindow(marker);});
+      return marker;
+    }
+
+    /**
+     * Fetch the next departing trips from the stop for display in an info
+     * window.
+     */
+    function fetchStopInfoWindow(marker) {
+      var url = "/json/stoptrips?stop=" + marker.stopId + "&time=" + parseTimeInput();
+      GDownloadUrl(url, function(data, responseCode) {
+          callbackDisplayStopInfoWindow(marker, data, responseCode); } );
+      if (log)
+        GLog.writeUrl(url);
+    }
+
+    function callbackDisplayStopInfoWindow(marker, data, responseCode) {
+      if (responseCode != 200) {
+        return;
+      }
+      var timeTrips = eval(data);
+      var html = "<b>" + marker.stopName + "</b> (" + marker.stopId + ")<br>";
+      html = html + "<table>";
+      for (var i=0; i < timeTrips.length; ++i) {
+        var trip = timeTrips[i][1];
+        if (trip[3] == null)
+          trip[3] = "";  // avoid printing "null"
+        html = html + "<tr onClick='map.closeInfoWindow();selectTrip(\"" + trip[2] + "\")'><td align='right'>" + formatTime(timeTrips[i][0]) + "<td>" + trip[3] + "</tr>";
+      }
+      html = html + "</table>";
+      marker.openInfoWindowHtml(html);
+    }
+
+    function leadingZero(digit) {
+      if (digit < 10)
+        return "0" + digit;
+      else
+        return "" + digit;
+    }
+
+    function formatTime(secSinceMidnight) {
+      var hours = Math.floor(secSinceMidnight / 3600);
+      var suffix = "";
+
+      if (twelveHourTime) {
+        suffix = (hours >= 12) ? "p" : "a";
+        suffix += (hours >= 24) ? " next day" : "";
+        hours = hours % 12;
+        if (hours == 0)
+          hours = 12;
+      }
+      var minutes = Math.floor(secSinceMidnight / 60) % 60;
+      var seconds = secSinceMidnight % 60;
+      if (seconds == 0) {
+        return hours + ":" + leadingZero(minutes) + suffix;
+      } else {
+        return hours + ":" + leadingZero(minutes) + ":" + leadingZero(seconds) + suffix;
+      }
+    }
+
+    function parseTimeInput() {
+      var text = document.getElementById("timeInput").value;
+      var m = text.match(/([012]?\d):([012345]?\d)(:([012345]?\d))?/);
+      if (m) {
+        var seconds = parseInt(m[1], 10) * 3600;
+        seconds += parseInt(m[2], 10) * 60;
+        if (m[4]) {
+          second += parseInt(m[4], 10);
+        }
+        return seconds;
+      } else {
+        if (log)
+          GLog.write("Couldn't match " + text);
+      }
+    }
+
+    /**
+     * Create a string of dots that gets longer with the log of count.
+     */
+    function countToRepeatedDots(count) {
+      // Find ln_2(count) + 1
+      var logCount = Math.ceil(Math.log(count) / 0.693148) + 1;
+      return new Array(logCount + 1).join(".");
+    }
+
+    function fetchRoutes() {
+      url = "/json/routes";
+      if (log)
+        GLog.writeUrl(url);
+      GDownloadUrl(url, callbackDisplayRoutes);
+    }
+
+    function callbackDisplayRoutes(data, responseCode) {
+      if (responseCode != 200) {
+        patternDiv.appendChild(div);
+      }
+      var routes = eval(data);
+      var routesList = document.getElementById("routeList");
+      while (routesList.hasChildNodes()) {
+        routesList.removeChild(routesList.firstChild);
+      }
+      for (i = 0; i < routes.length; ++i) {
+        var routeId = routes[i][0];
+        var shortName = document.createElement("span");
+        shortName.className = "shortName";
+        shortName.appendChild(document.createTextNode(routes[i][1] + " "));
+        var routeName = routes[i][2];
+        var elem = document.createElement("div");
+        elem.appendChild(shortName);
+        elem.appendChild(document.createTextNode(routeName));
+        elem.id = "route_" + routeId;
+        elem.className = "routeChoice";
+        elem.title = routeName;
+        GEvent.addDomListener(elem, "click", functionSelectRoute(routeId));
+
+        var routeContainer = document.createElement("div");
+        routeContainer.id = "route_container_" + routeId;
+        routeContainer.className = "routeContainer";
+        routeContainer.appendChild(elem);
+        routesList.appendChild(routeContainer);
+      }
+    }
+
+    function functionSelectRoute(routeId) {
+      return function() { selectRoute(routeId); };
+    }
+
+    function selectRoute(routeId) {
+      var routesList = document.getElementById("routeList");
+      routeSpans = routesList.getElementsByTagName("div");
+      for (var i = 0; i < routeSpans.length; ++i) {
+        if (routeSpans[i].className == "routeChoiceSelected") {
+          routeSpans[i].className = "routeChoice";
+        }
+      }
+
+      // remove any previously-expanded route
+      var tripInfo = document.getElementById("tripInfo");
+      if (tripInfo)
+        tripInfo.parentNode.removeChild(tripInfo);
+
+      selectedRoute = routeId;
+      var span = document.getElementById("route_" + routeId);
+      span.className = "routeChoiceSelected";
+      fetchPatterns(routeId);
+    }
+
+    function fetchPatterns(routeId) {
+      url = "/json/routepatterns?route=" + routeId + "&time=" + parseTimeInput();
+      if (log)
+        GLog.writeUrl(url);
+      GDownloadUrl(url, callbackDisplayPatterns);
+    }
+
+    function callbackDisplayPatterns(data, responseCode) {
+      if (responseCode != 200) {
+        return;
+      }
+      var div = document.createElement("div");
+      div.className = "tripSection";
+      div.id = "tripInfo";
+      var firstTrip = null;
+      var patterns = eval(data);
+      clearMap();
+      for (i = 0; i < patterns.length; ++i) {
+        var pat = patterns[i];  // [patName, patId, len(early trips), trips, len(later trips)]
+        div.appendChild(document.createTextNode(pat[0]));
+        div.appendChild(document.createTextNode(", " + (pat[2] + pat[3].length + pat[4]) + " runs: "));
+        if (pat[2] > 0) {
+          div.appendChild(document.createTextNode(countToRepeatedDots(pat[2]) + " "));
+        }
+        for (j = 0; j < pat[3].length; ++j) {
+          var trip = pat[3][j];
+          var tripId = trip[1];
+          if ((i == 0) && (j == 0))
+            firstTrip = tripId;
+          div.appendChild(document.createTextNode(" "));
+          var span = document.createElement("span");
+          span.appendChild(document.createTextNode(formatTime(trip[0])));
+          span.id = "trip_" + tripId;
+          GEvent.addDomListener(span, "click", functionSelectTrip(tripId));
+          div.appendChild(span)
+          span.className = "tripChoice";
+        }
+        if (pat[4] > 0) {
+          div.appendChild(document.createTextNode(" " + countToRepeatedDots(pat[4])));
+        }
+        div.appendChild(document.createElement("br"));
+      }
+      route = document.getElementById("route_container_" + selectedRoute);
+      route.appendChild(div);
+      if (tripId != null)
+        selectTrip(firstTrip);
+    }
+
+    // Needed to get around limitation in javascript scope rules.
+    // See http://calculist.blogspot.com/2005/12/gotcha-gotcha.html
+    function functionSelectTrip(tripId) {
+      return function() { selectTrip(tripId); };
+    }
+
+    function selectTrip(tripId) {
+      var tripInfo = document.getElementById("tripInfo");
+      if (tripInfo) {
+        tripSpans = tripInfo.getElementsByTagName('span');
+        for (var i = 0; i < tripSpans.length; ++i) {
+          tripSpans[i].className = 'tripChoice';
+        }
+      }
+      var span = document.getElementById("trip_" + tripId);
+      // Won't find the span if a different route is selected
+      if (span) {
+        span.className = 'tripChoiceSelected';
+      }
+      clearMap();
+      url = "/json/tripstoptimes?trip=" + tripId;
+      if (log)
+        GLog.writeUrl(url);
+      GDownloadUrl(url, callbackDisplayTripStopTimes);
+      fetchTripPolyLine(tripId);
+      fetchTripRows(tripId);
+    }
+
+    function callbackDisplayTripStopTimes(data, responseCode) {
+      if (responseCode != 200) {
+        return;
+      }
+      var stopsTimes = eval(data);
+      displayTripStopTimes(stopsTimes[0], stopsTimes[1]);
+    }
+
+    function fetchTripPolyLine(tripId) {
+      url = "/json/tripshape?trip=" + tripId;
+      if (log)
+        GLog.writeUrl(url);
+      GDownloadUrl(url, callbackDisplayTripPolyLine);
+    }
+
+    function callbackDisplayTripPolyLine(data, responseCode) {
+      if (responseCode != 200) {
+        return;
+      }
+      var points = eval(data);
+      displayPolyLine(points);
+    }
+
+    var boundsOfPolyLine = null;
+    function expandBoundingBox(latLng) {
+      if (boundsOfPolyLine == null) {
+        boundsOfPolyLine = new GLatLngBounds(latLng, latLng);
+      } else {
+        boundsOfPolyLine.extend(latLng);
+      }
+    }
+
+    /**
+     * Display a line given a list of points
+     *
+     * @param {Array} List of lat,lng pairs
+     */
+    function displayPolyLine(points) {
+      var linePoints = Array();
+      for (i = 0; i < points.length; ++i) {
+        var ll = new GLatLng(points[i][0], points[i][1]);
+        expandBoundingBox(ll);
+        linePoints[linePoints.length] = ll;
+      }
+      var polyline = new GPolyline(linePoints, "#FF0000", 4);
+      map.addOverlay(polyline);
+      map.setCenter(boundsOfPolyLine.getCenter(), map.getBoundsZoomLevel(boundsOfPolyLine));
+    }
+
+    function displayTripStopTimes(stops, times) {
+      for (i = 0; i < stops.length; ++i) {
+        var marker;
+        if (times && times[i] != null) {
+          marker = addStopMarkerFromList(stops[i], true, formatTime(times[i]));
+        } else {
+	  marker = addStopMarkerFromList(stops[i], true);
+	}
+        expandBoundingBox(marker.getPoint());
+      }
+      map.setCenter(boundsOfPolyLine.getCenter(), map.getBoundsZoomLevel(boundsOfPolyLine));
+    }
+
+    function fetchTripRows(tripId) {
+      url = "/json/triprows?trip=" + tripId;
+      if (log)
+        GLog.writeUrl(url);
+      GDownloadUrl(url, callbackDisplayTripRows);
+    }
+
+    function callbackDisplayTripRows(data, responseCode) {
+      if (responseCode != 200) {
+        return;
+      }
+      var rows = eval(data);
+      var html = "";
+      for (var i = 0; i < rows.length; ++i) {
+        var filename = rows[i][0];
+        var row = rows[i][1];
+        html += "<b>" + filename + "</b>: " + formatDictionary(row) + "<br>";
+      }
+      var bottombarDiv = document.getElementById("bottombar");
+      bottombarDiv.style.display = "block";
+      bottombarDiv.innerHTML = html;
+      sizeRouteList();
+    }
+
+  /**
+   * Format an Array object containing key-value pairs into a human readable
+   * string.
+   */
+  function formatDictionary(d) {
+    var output = "";
+    var first = 1;
+    for (var k in d) {
+      if (first) {
+        first = 0;
+      } else {
+       output += "&nbsp;&nbsp; ";
+      }
+      output += "<b>" + k + "</b>=" + d[k];
+    }
+    return output;
+  }
+
+
+  function windowHeight() {
+    // Standard browsers (Mozilla, Safari, etc.)
+    if (self.innerHeight)
+    	return self.innerHeight;
+    // IE 6
+    if (document.documentElement && document.documentElement.clientHeight)
+    	return document.documentElement.clientHeight;
+    // IE 5
+    if (document.body)
+    	return document.body.clientHeight;
+    // Just in case. 
+    return 0;
+  }
+    
+    function sizeRouteList() {
+      var bottombarHeight = 0;
+      var bottombarDiv = document.getElementById('bottombar');
+      if (bottombarDiv.style.display != 'none') {
+        bottombarHeight = document.getElementById('bottombar').offsetHeight
+	    + document.getElementById('bottombar').style.marginTop;
+      }
+      var height = windowHeight() - document.getElementById('topbar').offsetHeight - 15 - bottombarHeight;
+      document.getElementById('content').style.height = height + 'px';
+    }
+
+    //]]>
+    </script>
+  </head>
+
+<body class='sidebar-left' onload="load();" onunload="GUnload()" onresize="sizeRouteList()">
+<div id='topbar'>
+<div id="agencyHeader">[agency]</div>
+</div>
+<div id='content'>
+	<div id='sidebar-wrapper'><div id='sidebar'>
+	Time:&nbsp;<input type="text" value="8:00" width="9" id="timeInput"><br>
+	<form onSubmit="stopTextSearchSubmit(); return false;">
+	Find Station: <input type="text" id="stopTextSearchInput"><input value="Search" type="submit"></form><br>
+	<div id="routeList">routelist</div>
+	</div></div>
+
+	<div id='map-wrapper'> <div id='map'></div> </div>
+</div>
+
+<div id='bottombar'>bottom bar</div>
+
+</body>
+</html>

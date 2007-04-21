@@ -1,0 +1,144 @@
+html { overflow: hidden; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+}
+
+body { margin: 5px; }
+
+#content {
+  position: relative;
+  margin-top: 5px;
+}
+
+#map-wrapper {
+  position: relative;
+  height: 100%;
+  width: auto;
+  left: 0;
+  top: 0;
+  z-index: 100;
+}
+   
+#map {
+  position: relative;
+  height: 100%;
+  width: auto;
+  border: 1px solid #aaa;
+}
+
+#sidebar-wrapper {
+  position: absolute;
+  height: 100%;
+  width: 220px;
+  top: 0;
+  border: 1px solid #aaa;
+  overflow: auto;
+  z-index: 300;
+}
+
+#sidebar {
+  position: relative;
+  width: auto;
+  padding: 4px;
+  overflow: hidden;
+}
+
+#topbar {
+  position: relative;
+  padding: 2px;
+  border: 1px solid #aaa;
+  margin: 0;
+}
+
+#topbar h1 {
+  white-space: nowrap;
+  overflow: hidden;
+  font-size: 14pt;
+  font-weight: bold;
+  font-face:
+  margin: 0;
+}
+
+
+body.sidebar-right #map-wrapper { margin-right: 229px; }
+body.sidebar-right #sidebar-wrapper { right: 0; }
+
+body.sidebar-left #map { margin-left: 229px; }
+body.sidebar-left #sidebar { left: 0; }
+
+body.nosidebar #map { margin: 0; }
+body.nosidebar #sidebar { display: none; }
+
+#bottombar {
+  position: relative;
+  padding: 2px;
+  border: 1px solid #aaa;
+  margin-top: 5px;
+  display: none;
+}
+
+/* holly hack for IE to get position:bottom right
+   see: http://www.positioniseverything.net/abs_relbugs.html
+ \*/
+* html #topbar { height: 1px; }
+/* */
+
+body {
+  font-family:helvetica,arial,sans, sans-serif;
+}
+h1 {
+  margin-top: 0.5em;
+  margin-bottom: 0.5em;
+}
+h2 {
+  margin-top: 0.2em;
+  margin-bottom: 0.2em;
+}
+h3 {
+  margin-top: 0.2em;
+  margin-bottom: 0.2em;
+}
+.tooltip {
+  white-space: nowrap;
+  padding: 2px;
+  color: black;
+  font-size: 12px;
+  background-color: white;
+  border: 1px solid black;
+  cursor: pointer;
+  filter:alpha(opacity=60); 
+  -moz-opacity: 0.6; 
+  opacity: 0.6; 
+}
+#routeList {
+  border: 1px solid black;
+  overflow: auto;
+}
+.shortName {
+  font-size: bigger;
+  font-weight: bold;
+}
+.routeChoice,.tripChoice,.routeChoiceSelected,.tripChoiceSelected {
+  white-space: nowrap;
+  cursor: pointer;
+  padding: 0px 2px;
+  color: black;
+  line-height: 1.4em;
+  font-size: smaller;
+  overflow: hidden;
+}
+.tripChoice {
+  color: blue;
+}
+.routeChoiceSelected,.tripChoiceSelected {
+  background-color: blue;
+  color: white;
+}
+.tripSection {
+  padding-left: 10px;
+  font-size: 10pt;
+  background-color: lightblue;
+}
