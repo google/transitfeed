@@ -1271,7 +1271,7 @@ class Schedule:
   """Represents a Schedule, a collection of stops, routes, trips and
   an agency.  This is the main class for this module."""
 
-  def __init__(self, problem_reporter = ExceptionProblemReporter()):
+  def __init__(self, problem_reporter=default_problem_reporter):
     self.agencies = {}
     self.stops = {}
     self.routes = {}
@@ -1537,7 +1537,7 @@ class Schedule:
 
   def Load(self, feed_path):
     loader = Loader(feed_path, self)
-    loader.Load()
+    loader.Load(self.problem_reporter)
 
   def WriteGoogleTransitFeed(self, file_name):
     """Output this schedule as a Google Transit Feed in file_name.
@@ -1743,7 +1743,7 @@ class Loader:
   def __init__(self,
                feed_path,
                schedule=None,
-               problems=ProblemReporter(),
+               problems=default_problem_reporter,
                extra_validation=False):
     if not schedule:
       schedule = Schedule()
