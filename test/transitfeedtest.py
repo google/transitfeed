@@ -602,6 +602,28 @@ class TripHasStopTimeValidationTestCase(ValidationTestCase):
     trip.AddStopTime(stop, "5:15:00", "5:16:00")
     schedule.Validate(self.problems)
 
+    # Add some more stop times and test GetEndTime does the correct thing
+    self.assertEqual(transitfeed.FormatSecondsSinceMidnight(trip.GetStartTime()),
+        "05:11:00")
+    self.assertEqual(transitfeed.FormatSecondsSinceMidnight(trip.GetEndTime()),
+        "05:16:00")
+
+    trip.AddStopTime(stop, None, "05:20:00")
+    self.assertEqual(transitfeed.FormatSecondsSinceMidnight(trip.GetEndTime()),
+        "05:20:00")
+
+    trip.AddStopTime(stop, "05:22:00", None)
+    self.assertEqual(transitfeed.FormatSecondsSinceMidnight(trip.GetEndTime()),
+        "05:22:00")
+
+    # Last stop must always have a time
+    trip.AddStopTime(stop, None, None)
+    try:
+      trip.GetEndTime()
+      self.fail('exception expected')
+    except transitfeed.Error, e:
+      pass
+
 
 class BasicParsingTestCase(unittest.TestCase):
   """Checks that we're getting the number of child objects that we expect."""
@@ -1067,6 +1089,26 @@ class WriteSampleFeedTestCase(unittest.TestCase):
 
     self.assertEqual(1, len(read_schedule.GetShapeList()))
     self.assertEqual(shape, read_schedule.GetShape(shape.shape_id))
+
+
+class ApproximateDistanceBetweenStopsTestCase(unittest.TestCase):
+  def testEquator(self):
+    stop1 = transitfeed.Stop(lat=0, lng=100,
+                             name='Stop one', stop_id='1')
+    stop2 = transitfeed.Stop(lat=0.01, lng=100.01,
+                             name='Stop two', stop_id='2')
+    self.assertAlmostEqual(
+        transitfeed.ApproximateDistanceBetweenStops(stop1, stop2),
+        1570, -1)  # Compare first 3 digits
+
+  def testWhati(self):
+    stop1 = transitfeed.Stop(lat=63.1, lng=-117.2,
+                             name='Stop whati one', stop_id='1')
+    stop2 = transitfeed.Stop(lat=63.102, lng=-117.201,
+                             name='Stop whati two', stop_id='2')
+    self.assertAlmostEqual(
+        transitfeed.ApproximateDistanceBetweenStops(stop1, stop2),
+        228, 0)
 
 if __name__ == '__main__':
   unittest.main()

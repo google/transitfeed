@@ -42,10 +42,11 @@ Stop object which has attributes such as stop_lat and stop_name.
 # TODO: Preserve arbitrary columns?
 
 import bisect
-import codecs
 import cStringIO as StringIO
+import codecs
 import csv
 import logging
+import math
 import os
 import re
 import zipfile
@@ -261,6 +262,23 @@ def FormatSecondsSinceMidnight(s):
   """Formats an int number of seconds past midnight into a string
   as "HH:MM:SS"."""
   return "%02d:%02d:%02d" % (s / 3600, (s / 60) % 60, s % 60)
+
+
+EARTH_RADIUS = 6378135          # in meters
+def ApproximateDistanceBetweenStops(stop1, stop2):
+  """Compute approximate distance between two stops in meters. Assumes the
+  Earth is a sphere."""
+  # TODO: change to ellipsoid approximation, such as
+  # http://www.codeguru.com/Cpp/Cpp/algorithms/article.php/c5115/
+  lat1 = math.radians(stop1.stop_lat)
+  lat2 = math.radians(stop2.stop_lat)
+  lng1 = math.radians(stop1.stop_lon)
+  lng2 = math.radians(stop2.stop_lon)
+  dlat = math.sin(0.5 * (lat2 - lat1))
+  dlng = math.sin(0.5 * (lng2 - lng1))
+  x = dlat * dlat + dlng * dlng * math.cos(lat1) * math.cos(lat2)
+  return EARTH_RADIUS * (2 * math.atan2(math.sqrt(x),
+      math.sqrt(max(0.0, 1.0 - x))))
 
 
 def ReadCSV(str, encoding, cols):
@@ -584,6 +602,16 @@ class Trip(object):
       return self.timestop[0][1]
     else:
       raise Error("Trip without valid first time %s" % self.trip_id)
+
+  def GetEndTime(self):
+    """Return the last time of the trip. TODO: For trips defined by frequency
+    return the last time of the last trip."""
+    if self.timestop[-1][1] is not None:
+      return self.timestop[-1][1]
+    elif self.timestop[-1][0] is not None:
+      return self.timestop[-1][0]
+    else:
+      raise Error("Trip without valid last time %s" % self.trip_id)
 
   def _GenerateStopTimesTuples(self):
     """Generator for rows of the stop_times file"""
@@ -1281,7 +1309,6 @@ class Schedule:
     self.fare_zones = {}  # represents the set of all known fare zones
     self._shapes = {}  # shape_id to Shape
     self.active_service_period = None
-    self.save_all_stops = False
     self.problem_reporter = problem_reporter
 
   def GetStopBoundingBox(self):
@@ -1516,6 +1543,7 @@ class Schedule:
     """Return the n nearest stops to lat,lon"""
     dist_stop_list = []
     for s in self.stops.values():
+      # TODO: Use ApproximateDistanceBetweenStops?
       dist = (s.stop_lat - lat)**2 + (s.stop_lon - lon)**2
       if len(dist_stop_list) < n:
         bisect.insort(dist_stop_list, (dist, s))
@@ -1585,11 +1613,7 @@ class Schedule:
     stop_string = StringIO.StringIO()
     writer = csv.writer(stop_string)
     writer.writerow(Stop._FIELD_NAMES)
-    if self.save_all_stops:
-      writer.writerows(s.GetFieldValuesTuple() for s in self.stops.values())
-    else:
-      writer.writerows(s.GetFieldValuesTuple()
-                       for s in self._GetUsedStopGenerator())
+    writer.writerows(s.GetFieldValuesTuple() for s in self.stops.values())
     archive.writestr('stops.txt', stop_string.getvalue())
 
     route_string = StringIO.StringIO()
@@ -1658,11 +1682,6 @@ class Schedule:
       archive.writestr('shapes.txt', shape_string.getvalue())
 
     archive.close()
-
-  def _GetUsedStopGenerator(self):
-    for s in self.stops.values():
-      if len(s.trip_index) > 0:
-        yield s
 
   def Validate(self, problems=default_problem_reporter,
                validate_children=True):
