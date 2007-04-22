@@ -66,6 +66,12 @@ class LoadFromZipTestCase(unittest.TestCase):
       extra_validation = True)
     loader.Load()
 
+    # now try using Schedule.Load
+    schedule = transitfeed.Schedule(
+        problem_reporter=transitfeed.ExceptionProblemReporter())
+    schedule.Load(DataPath('good_feed.zip'), extra_validation=True)
+    
+
 class LoadFromDirectoryTestCase(unittest.TestCase):
   def runTest(self):
     loader = transitfeed.Loader(
@@ -171,6 +177,17 @@ class MissingColumnTestCase(unittest.TestCase):
 class ZeroBasedStopSequenceTestCase(LoadTestCase):
   def runTest(self):
     self.ExpectInvalidValue('zero_based_stop_sequence', 'stop_sequence')
+    
+    
+class DuplicateStopTestCase(unittest.TestCase):
+  def runTest(self):
+    schedule = transitfeed.Schedule(
+        problem_reporter=transitfeed.ExceptionProblemReporter())
+    try:
+      schedule.Load(DataPath('duplicate_stop'), extra_validation=True)
+      self.fail('OtherProblem exception expected')
+    except transitfeed.OtherProblem:
+      pass
 
 
 INVALID_VALUE = Exception()
@@ -725,6 +742,59 @@ class DuplicateTripIDValidationTestCase(unittest.TestCase):
     except transitfeed.DuplicateID, e:
       self.assertEqual("trip_id", e.column_name)
       self.assertEqual("SAMPLE_TRIP", e.value)
+
+
+class DuplicateStopValidationTestCase(ValidationTestCase):
+  def runTest(self):
+    schedule = transitfeed.Schedule(problem_reporter=self.problems)
+    schedule.AddAgency("Sample Agency", "http://example.com",
+                       "America/Los_Angeles")
+    route = transitfeed.Route()
+    route.route_id = "SAMPLE_ID"
+    route.route_type = 3
+    route.route_long_name = "Sample Route"
+    schedule.AddRouteObject(route)
+
+    trip = transitfeed.Trip()
+    trip.route_id = "SAMPLE_ID"
+    trip.service_id = "WEEK"
+    trip.trip_id = "SAMPLE_TRIP"
+    schedule.AddTripObject(trip)
+
+    stop1 = transitfeed.Stop()
+    stop1.stop_id = "STOP1"
+    stop1.stop_name = "Stop 1"
+    stop1.stop_lat = 78.243587
+    stop1.stop_lon = 32.258937
+    schedule.AddStopObject(stop1)
+    trip.AddStopTime(stop1, "12:00:00", "12:00:00")
+    
+    stop2 = transitfeed.Stop()
+    stop2.stop_id = "STOP2"
+    stop2.stop_name = "Stop 2"
+    stop2.stop_lat = 78.253587
+    stop2.stop_lon = 32.258937
+    schedule.AddStopObject(stop2)
+    trip.AddStopTime(stop2, "12:05:00", "12:05:00")
+    schedule.Validate()
+
+    stop3 = transitfeed.Stop()
+    stop3.stop_id = "STOP3"
+    stop3.stop_name = "Stop 3"
+    stop3.stop_lat = 78.243587
+    stop3.stop_lon = 32.268937
+    schedule.AddStopObject(stop3)
+    trip.AddStopTime(stop3, "12:10:00", "12:10:00")
+    schedule.Validate()
+
+    stop4 = transitfeed.Stop()
+    stop4.stop_id = "STOP4"
+    stop4.stop_name = "Stop 4"
+    stop4.stop_lat = 78.243588
+    stop4.stop_lon = 32.268936
+    schedule.AddStopObject(stop4)
+    trip.AddStopTime(stop4, "12:15:00", "12:15:00")
+    self.ExpectOtherProblem(schedule)
 
 
 class AgencyIDValidationTestCase(unittest.TestCase):

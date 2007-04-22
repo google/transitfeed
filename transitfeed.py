@@ -1563,9 +1563,10 @@ class Schedule:
           break
     return stop_list
 
-  def Load(self, feed_path):
-    loader = Loader(feed_path, self)
-    loader.Load(self.problem_reporter)
+  def Load(self, feed_path, extra_validation=False):
+    loader = Loader(feed_path, self, problems=self.problem_reporter,
+                    extra_validation=extra_validation)
+    loader.Load()
 
   def WriteGoogleTransitFeed(self, file_name):
     """Output this schedule as a Google Transit Feed in file_name.
@@ -1698,6 +1699,24 @@ class Schedule:
         problems.OtherProblem('The stop "%s" (with ID "%s") isn\'t '
                               'used for any trips.' %
                               (stop.stop_name, stop.stop_id))
+
+    # Check for stops that might represent the same location
+    # (specifically, stops that are less that 2 meters apart)
+    sorted_stops = self.GetStopList()
+    sorted_stops.sort(key=(lambda x: x.stop_lat))
+    TWO_METERS_LAT = 0.000018
+    for index, stop in enumerate(sorted_stops[:-1]):
+      index += 1
+      while ((index < len(sorted_stops)) and
+             ((sorted_stops[index].stop_lat - stop.stop_lat) < TWO_METERS_LAT)):
+        if ApproximateDistanceBetweenStops(stop, sorted_stops[index]) < 2:
+          problems.OtherProblem('The stops "%s" (ID "%s") and '
+                                '"%s" (ID "%s") are so close together that '
+                                'they probably represent the same location.' %
+                                (stop.stop_name, stop.stop_id,
+                                 sorted_stops[index].stop_name,
+                                 sorted_stops[index].stop_id))
+        index += 1
 
     # Check for multiple routes using same short + long name
     route_names = {}
