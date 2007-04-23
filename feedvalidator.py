@@ -32,9 +32,7 @@ class CountingProblemReporter(transitfeed.ProblemReporter):
 
   def _Report(self, problem_text):
     self.count += 1
-    print problem_text.encode(OUTPUT_ENCODING)
-    if self._context:
-      print self._context.encode(OUTPUT_ENCODING)
+    transitfeed.ProblemReporter._Report(self, problem_text)
     print
 
 if __name__ == '__main__':

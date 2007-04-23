@@ -67,9 +67,26 @@ class ProblemReporter:
                     (row_num, filename, ', '.join(map(unicode, row))))
 
   def _Report(self, problem_text):
-    print problem_text.encode(OUTPUT_ENCODING)
+    print self._LineWrap(problem_text.encode(OUTPUT_ENCODING), 80)
     if self._context:
-      print self._context.encode(OUTPUT_ENCODING)
+      print self._LineWrap(self._context.encode(OUTPUT_ENCODING), 80)
+      
+  def _LineWrap(self, text, width):
+    """
+    A word-wrap function that preserves existing line breaks
+    and most spaces in the text. Expects that existing line
+    breaks are posix newlines (\n).
+    
+    Taken from:
+    http://aspn.activestate.com/ASPN/Cookbook/Python/Recipe/148061
+    """
+    return reduce(lambda line, word, width=width: '%s%s%s' %
+                  (line,
+                   ' \n'[(len(line) - line.rfind('\n') - 1 +
+                         len(word.split('\n', 1)[0]) >= width)],
+                   word),
+                  text.split(' ')
+                 )
 
   def FeedNotFound(self, feed_name):
     self._Report('Couldn\'t find a feed named "%s"' % feed_name)
