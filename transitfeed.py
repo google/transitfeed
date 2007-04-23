@@ -1473,13 +1473,13 @@ class Schedule:
       return
 
     if trip.shape_id and trip.shape_id not in self._shapes:
-      self.problem_reporter.InvalidValue('shape_id', trip.shape_id)
+      problem_reporter.InvalidValue('shape_id', trip.shape_id)
 
     # TODO: validate distance values in stop times (if applicable)
 
     self.trips[trip.trip_id] = trip
     if trip.route_id not in self.routes:
-      self.problem_reporter.InvalidValue('route_id', trip.route_id)
+      problem_reporter.InvalidValue('route_id', trip.route_id)
     else:
       self.routes[trip.route_id].AddTripObject(trip)
 
@@ -2140,7 +2140,11 @@ class Loader:
 
     for trip_id, sequence in stoptimes.iteritems():
       sequence.sort()
-      trip = self._schedule.trips[trip_id]
+      try:
+        trip = self._schedule.GetTrip(trip_id)
+      except KeyError:
+        self._problems.InvalidValue('trip_id', trip_id)
+        continue
       if sequence[0][1] is None and sequence[0][2] is None:
         self._problems.OtherProblem(
           'No time for start of trip_id "%s" at stop_sequence "%d"' %

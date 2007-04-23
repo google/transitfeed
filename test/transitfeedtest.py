@@ -16,15 +16,18 @@
 
 # Unit tests for the transitfeed module.
 
+import dircache
+import os.path
+import sys
 import transitfeed
 import unittest
-import sys
-import os.path
 
 
 def DataPath(path):
   return os.path.join('data', path)
 
+def GetDataPathContents():
+  return dircache.listdir('data')
 
 class TestFailureProblemReporter(transitfeed.ProblemReporter):
   """Causes a test failure immediately on any problem."""
@@ -34,6 +37,27 @@ class TestFailureProblemReporter(transitfeed.ProblemReporter):
 
   def _Report(self, problem_text):
     self.test_case.fail(problem_text)
+    
+    
+class DoNothingProblemReporter(transitfeed.ProblemReporter):
+  """Ignores any problems."""
+  def __init__(self):
+    transitfeed.ProblemReporter.__init__(self)
+  
+  def _Report(self, problem_text):
+    pass
+
+
+# ensure that there are no exceptions when attempting to load
+# (so that the validator won't crash)
+class NoExceptionTestCase(unittest.TestCase):
+  def runTest(self):
+    problems = DoNothingProblemReporter()
+    for feed in GetDataPathContents():
+      loader = transitfeed.Loader(DataPath(feed), problems=problems,
+                                  extra_validation=True)
+      schedule = loader.Load()
+      schedule.Validate(problems=problems)
 
 
 class LoadTestCase(unittest.TestCase):

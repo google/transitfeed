@@ -17,7 +17,7 @@
 # Validates a Google Transit Feed Specification feed.
 #
 # Usage:
-# feed_validator.py [zip file or directory]
+# feed_validator.py [--noprompt] <feed zip file or directory>
 
 import optparse
 import transitfeed
@@ -39,20 +39,33 @@ class CountingProblemReporter(transitfeed.ProblemReporter):
 
 if __name__ == '__main__':
   parser = optparse.OptionParser()
+  parser.add_option('-n', '--noprompt', action='store_false',
+                    dest='manual_entry')
+  parser.set_defaults(manual_entry=True)
   (options, args) = parser.parse_args()
+  manual_entry = options.manual_entry
   if not len(args) == 1:
-    print """Usage: feedvalidator.py [feed file or directory name]"""
-    sys.exit(1)
+    if manual_entry:
+      feed = raw_input('Enter Feed Location: ')
+    else:
+      print 'Usage: feedvalidator [--noprompt] <feed_name>'
+      sys.exit(1)
+  else:
+    feed = args[0]
 
-  print 'validating %s' % args[0]
+  feed = feed.strip('"')
+  print 'validating %s\n' % feed
   problems = CountingProblemReporter()
-  loader = transitfeed.Loader(args[0],
-                              problems=problems,
-                              extra_validation = True)
+  loader = transitfeed.Loader(feed, problems=problems, extra_validation=True)
   loader.Load()
+  
+  exit_code = 0
   if problems.count:
     print 'ERROR: %d validation problem(s) found' % problems.count
-    sys.exit(1)
-
-  print 'feed validated successfully'
-  sys.exit(0)
+    exit_code = 1
+  else:
+    print 'feed validated successfully'
+    
+  if manual_entry:
+    raw_input('Press Enter to quit.')
+  sys.exit(exit_code)
