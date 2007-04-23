@@ -556,6 +556,8 @@ class Trip(object):
       self.route_id = route.route_id
     self.trip_id = trip_id
     self.service_period = service_period
+    self.direction_id = None
+    self.block_id = None
     if field_list:
       (self.route_id, self.service_id, self.trip_id, self.trip_headsign,
        self.direction_id, self.block_id, self.shape_id) = field_list

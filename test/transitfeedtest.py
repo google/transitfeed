@@ -819,7 +819,99 @@ class DuplicateStopValidationTestCase(ValidationTestCase):
     schedule.AddStopObject(stop4)
     trip.AddStopTime(stop4, "12:15:00", "12:15:00")
     self.ExpectOtherProblem(schedule)
+    
+    
+class MinimalWriteTestCase(unittest.TestCase):
+  """
+  This test case simply constructs an incomplete feed with very few
+  fields set and ensures that there are no exceptions when writing it out.
+  
+  This is very similar to TransitFeedSampleCodeTestCase below, but that one
+  will no doubt change as the sample code is altered.
+  """
+  def runTest(self):
+    schedule = transitfeed.Schedule()
+    schedule.AddAgency("Sample Agency", "http://example.com",
+                       "America/Los_Angeles")
+    route = transitfeed.Route()
+    route.route_id = "SAMPLE_ID"
+    route.route_type = 3
+    route.route_short_name = "66"
+    route.route_long_name = "Sample Route"
+    schedule.AddRouteObject(route)
 
+    trip = transitfeed.Trip()
+    trip.route_id = "SAMPLE_ID"
+    trip.service_id = "WEEK"
+    trip.trip_id = "SAMPLE_TRIP"
+    schedule.AddTripObject(trip)
+
+    stop1 = transitfeed.Stop()
+    stop1.stop_id = "STOP1"
+    stop1.stop_name = "Stop 1"
+    stop1.stop_lat = 78.243587
+    stop1.stop_lon = 32.258937
+    schedule.AddStopObject(stop1)
+    trip.AddStopTime(stop1, "12:00:00", "12:00:00")
+
+    stop2 = transitfeed.Stop()
+    stop2.stop_id = "STOP2"
+    stop2.stop_name = "Stop 2"
+    stop2.stop_lat = 78.253587
+    stop2.stop_lon = 32.258937
+    schedule.AddStopObject(stop2)
+    trip.AddStopTime(stop2, "12:05:00", "12:05:00")
+
+    schedule.Validate()
+    schedule.WriteGoogleTransitFeed("test_output.zip")
+    
+    
+class TransitFeedSampleCodeTestCase(unittest.TestCase):
+  """
+  This test should simply contain the sample code printed on the page:
+  http://code.google.com/p/googletransitdatafeed/wiki/TransitFeed
+  to ensure that it doesn't cause any exceptions.
+  """
+  def runTest(self):
+    import transitfeed
+
+    schedule = transitfeed.Schedule()
+    schedule.AddAgency("Sample Agency", "http://example.com",
+                       "America/Los_Angeles")
+    route = transitfeed.Route()
+    route.route_id = "SAMPLE_ID"
+    route.route_type = 3
+    route.route_short_name = "66"
+    route.route_long_name = "Sample Route"
+    schedule.AddRouteObject(route)
+
+    trip = transitfeed.Trip()
+    trip.route_id = "SAMPLE_ID"
+    trip.service_id = "WEEK"
+    trip.trip_id = "SAMPLE_TRIP"
+    trip.direction_id = "0"
+    trip.block_id = None
+    schedule.AddTripObject(trip)
+
+    stop1 = transitfeed.Stop()
+    stop1.stop_id = "STOP1"
+    stop1.stop_name = "Stop 1"
+    stop1.stop_lat = 78.243587
+    stop1.stop_lon = 32.258937
+    schedule.AddStopObject(stop1)
+    trip.AddStopTime(stop1, "12:00:00", "12:00:00")
+
+    stop2 = transitfeed.Stop()
+    stop2.stop_id = "STOP2"
+    stop2.stop_name = "Stop 2"
+    stop2.stop_lat = 78.253587
+    stop2.stop_lon = 32.258937
+    schedule.AddStopObject(stop2)
+    trip.AddStopTime(stop2, "12:05:00", "12:05:00")
+
+    schedule.Validate()  # not necessary, but helpful for finding problems
+    schedule.WriteGoogleTransitFeed("new_feed.zip")
+    
 
 class AgencyIDValidationTestCase(unittest.TestCase):
   def runTest(self):
