@@ -12,6 +12,7 @@
     </style>
     <script src="http://maps.google.com/maps?file=api&amp;v=2&amp;key=[key]" type="text/javascript"></script>
     <script src="/file/labeled_marker.js" type="text/javascript"></script>
+    <script language="VBScript" src="/file/svgcheck.vbs"></script>
     <script type="text/javascript">
     //<![CDATA[
     var map;
@@ -341,7 +342,7 @@
         elem.id = "route_" + routeId;
         elem.className = "routeChoice";
         elem.title = routeName;
-        GEvent.addDomListener(elem, "click", functionSelectRoute(routeId));
+        GEvent.addDomListener(elem, "click", makeClosure(selectRoute, routeId));
 
         var routeContainer = document.createElement("div");
         routeContainer.id = "route_container_" + routeId;
@@ -349,10 +350,6 @@
         routeContainer.appendChild(elem);
         routesList.appendChild(routeContainer);
       }
-    }
-
-    function functionSelectRoute(routeId) {
-      return function() { selectRoute(routeId); };
     }
 
     function selectRoute(routeId) {
@@ -395,7 +392,7 @@
       for (i = 0; i < patterns.length; ++i) {
         var pat = patterns[i];  // [patName, patId, len(early trips), trips, len(later trips)]
         div.appendChild(document.createTextNode(pat[0]));
-        div.appendChild(document.createTextNode(", " + (pat[2] + pat[3].length + pat[4]) + " runs: "));
+        div.appendChild(document.createTextNode(", " + (pat[2] + pat[3].length + pat[4]) + " trips: "));
         if (pat[2] > 0) {
           div.appendChild(document.createTextNode(countToRepeatedDots(pat[2]) + " "));
         }
@@ -408,7 +405,7 @@
           var span = document.createElement("span");
           span.appendChild(document.createTextNode(formatTime(trip[0])));
           span.id = "trip_" + tripId;
-          GEvent.addDomListener(span, "click", functionSelectTrip(tripId));
+          GEvent.addDomListener(span, "click", makeClosure(selectTrip, tripId));
           div.appendChild(span)
           span.className = "tripChoice";
         }
@@ -425,8 +422,14 @@
 
     // Needed to get around limitation in javascript scope rules.
     // See http://calculist.blogspot.com/2005/12/gotcha-gotcha.html
-    function functionSelectTrip(tripId) {
-      return function() { selectTrip(tripId); };
+    function makeClosure(f, a, b, c) {
+      return function() { f(a, b, c); };
+    }
+    function make1ArgClosure(f, a, b, c) {
+      return function(x) { f(x, a, b, c); };
+    }
+    function make2ArgClosure(f, a, b, c) {
+      return function(x, y) { f(x, y, a, b, c); };
     }
 
     function selectTrip(tripId) {
@@ -517,10 +520,10 @@
       url = "/json/triprows?trip=" + tripId;
       if (log)
         GLog.writeUrl(url);
-      GDownloadUrl(url, callbackDisplayTripRows);
+      GDownloadUrl(url, make2ArgClosure(callbackDisplayTripRows, tripId));
     }
 
-    function callbackDisplayTripRows(data, responseCode) {
+    function callbackDisplayTripRows(data, responseCode, tripId) {
       if (responseCode != 200) {
         return;
       }
@@ -531,10 +534,28 @@
         var row = rows[i][1];
         html += "<b>" + filename + "</b>: " + formatDictionary(row) + "<br>";
       }
+      html += svgTag("/ttablegraph?height=100&trip=" + tripId, "height='115' width='100%'");
       var bottombarDiv = document.getElementById("bottombar");
       bottombarDiv.style.display = "block";
       bottombarDiv.innerHTML = html;
       sizeRouteList();
+    }
+
+    /**
+     * Return HTML to embed a SVG object in this page. src is the location of
+     * the SVG and attributes is inserted directly into the object or embed
+     * tag.
+     */
+    function svgTag(src, attributes) {
+      if (navigator.userAgent.toLowerCase().indexOf("msie") != -1) {
+        if (isSVGControlInstalled()) {
+          return "<embed pluginspage='http://www.adobe.com/svg/viewer/install/' src='" + src + "' " + attributes +"></embed>";
+        } else {
+          return "<p>Please install the <a href='http://www.adobe.com/svg/viewer/install/'>Adobe SVG Viewer</a> to get SVG support in IE</p>";
+        }
+      } else {
+        return "<object data='" + src + "' type='image/svg+xml' " + attributes + "><p>No SVG support in your browser. Try Firefox 1.5 or newer or install the <a href='http://www.adobe.com/svg/viewer/install/'>Adobe SVG Viewer</a></p></object>";
+      }
     }
 
   /**
@@ -559,26 +580,30 @@
   function windowHeight() {
     // Standard browsers (Mozilla, Safari, etc.)
     if (self.innerHeight)
-    	return self.innerHeight;
+      return self.innerHeight;
     // IE 6
     if (document.documentElement && document.documentElement.clientHeight)
-    	return document.documentElement.clientHeight;
+      return document.documentElement.clientHeight;
     // IE 5
     if (document.body)
-    	return document.body.clientHeight;
-    // Just in case. 
+      return document.body.clientHeight;
+    // Just in case.
     return 0;
   }
-    
+
     function sizeRouteList() {
       var bottombarHeight = 0;
       var bottombarDiv = document.getElementById('bottombar');
       if (bottombarDiv.style.display != 'none') {
         bottombarHeight = document.getElementById('bottombar').offsetHeight
-	    + document.getElementById('bottombar').style.marginTop;
+            + document.getElementById('bottombar').style.marginTop;
       }
       var height = windowHeight() - document.getElementById('topbar').offsetHeight - 15 - bottombarHeight;
       document.getElementById('content').style.height = height + 'px';
+      if (map) {
+        // Without this displayPolyLine does not use the correct map size
+        map.checkResize();
+      }
     }
 
     //]]>
