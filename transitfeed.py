@@ -117,6 +117,10 @@ class ProblemReporter:
   def DuplicateID(self, column_name, value):
     self._Report('Duplicated ID "%s" found in "%s" column' %
                  (value, column_name))
+				 
+  def UnusedStop(self, stop_id, stop_name):
+    self._Report('The stop "%s" (with ID "%s") isn\'t '
+                 'used for any trips.' % (stop_name, stop_id))
 
   def OtherProblem(self, description):
     self._Report(description)
@@ -197,7 +201,16 @@ class DuplicateID(Exception):
 
   def __str__(self):
     return '"%s" in column "%s"' % (self.value, self.column_name)
+	
+	
+class UnusedStop(Exception):
+  def __init__(self, stop_id, stop_name):
+    Exception.__init__(self)
+    self.stop_id = stop_id
+    self.stop_name = stop_name
 
+  def __str__(self):
+    return '%s (ID %s)' % (self.stop_name, self.stop_id)
 
 class OtherProblem(Exception):
   def __init__(self, description):
@@ -232,6 +245,9 @@ class ExceptionProblemReporter(ProblemReporter):
 
   def DuplicateID(self, column_name, value):
     raise DuplicateID(column_name, value)
+	
+  def UnusedStop(self, stop_id, stop_name):
+    raise UnusedStop(stop_id, stop_name)
 
   def OtherProblem(self, description):
     raise OtherProblem(description)
@@ -1715,9 +1731,7 @@ class Schedule:
       if validate_children:
         stop.Validate(problems)
       if not stop.trip_index:
-        problems.OtherProblem('The stop "%s" (with ID "%s") isn\'t '
-                              'used for any trips.' %
-                              (stop.stop_name, stop.stop_id))
+	    problems.UnusedStop(stop.stop_id, stop.stop_name)
 
     # Check for stops that might represent the same location
     # (specifically, stops that are less that 2 meters apart)

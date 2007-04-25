@@ -710,8 +710,10 @@ class UnusedStopAgencyTestCase(unittest.TestCase):
       extra_validation = True)
     try:
       loader.Load()
-      self.fail('OtherProblem exception expected')
-    except transitfeed.OtherProblem:
+      self.fail('UnusedStop exception expected')
+    except transitfeed.UnusedStop, e:
+      self.assertEqual("Bogus Stop (Demo)", e.stop_name)
+      self.assertEqual("BOGUS", e.stop_id)
       pass
 
 

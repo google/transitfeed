@@ -24,12 +24,18 @@ import transitfeed
 import sys
 
 OUTPUT_ENCODING = 'utf-8'
+DEFAULT_UNUSED_LIMIT = 5  # number of unused stops to print
 
 class CountingProblemReporter(transitfeed.ProblemReporter):
   def __init__(self):
     transitfeed.ProblemReporter.__init__(self)
     self.count = 0
+    self.unused_stops = []  # [(stop_id, stop_name)...]
 
+  def UnusedStop(self, stop_id, stop_name):
+    self.count += 1
+    self.unused_stops.append((stop_id, stop_name))  
+	
   def _Report(self, problem_text):
     self.count += 1
     transitfeed.ProblemReporter._Report(self, problem_text)
@@ -56,6 +62,15 @@ if __name__ == '__main__':
   problems = CountingProblemReporter()
   loader = transitfeed.Loader(feed, problems=problems, extra_validation=True)
   loader.Load()
+  
+  if problems.unused_stops:
+    print ('%d stop(s) were found that weren\'t used in any trips:' %
+           len(problems.unused_stops))
+    if len(problems.unused_stops) > DEFAULT_UNUSED_LIMIT:
+      print '(the first %d are shown below)' % len(problems.unused_stops)
+    for stop_id, stop_name in problems.unused_stops:
+      print '"%s" (ID "%s")' % (stop_name, stop_id)
+    print
   
   exit_code = 0
   if problems.count:
