@@ -1510,6 +1510,14 @@ class Schedule:
     if trip.shape_id and trip.shape_id not in self._shapes:
       problem_reporter.InvalidValue('shape_id', trip.shape_id)
 
+    if not trip.service_period:
+      if trip.service_id not in self.service_periods:
+        problem_reporter.InvalidValue('service_id', trip.service_id)
+        return
+      else:
+        trip.service_period = self.service_periods[trip.service_id]
+        del trip.service_id  # so that trip only has one service member
+
     # TODO: validate distance values in stop times (if applicable)
 
     self.trips[trip.trip_id] = trip

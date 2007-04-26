@@ -609,6 +609,32 @@ class TripValidationTestCase(ValidationTestCase):
     self.ExpectOtherProblem(trip)
     trip.ClearHeadwayPeriods()
 
+    
+class TripServiceIDValidationTestCase(ValidationTestCase):
+  def runTest(self):
+    schedule = transitfeed.Schedule(self.problems)
+    schedule.AddAgency("Test Agency", "http://example.com",
+                       "America/Los_Angeles")
+    service_period = transitfeed.ServicePeriod("WEEK")
+    service_period.SetStartDate("20070101")
+    service_period.SetEndDate("20071231")
+    service_period.SetWeekdayService(True)
+    schedule.AddServicePeriodObject(service_period)
+    
+    schedule.AddRouteObject(
+        transitfeed.Route("54C", "Polish Hill", 3, "054C"))
+
+    trip1 = transitfeed.Trip()
+    trip1.route_id = "054C"
+    trip1.service_id = "WEEKDAY"
+    trip1.trip_id = "054C_WEEK"
+    try:
+      schedule.AddTripObject(trip1)
+      self.fail("Expected an InvalidValue for the service_id")
+    except transitfeed.InvalidValue, e:
+      self.assertEqual("service_id", e.field_name)
+      self.assertEqual("WEEKDAY", e.value)
+    
 
 class TripHasStopTimeValidationTestCase(ValidationTestCase):
   def runTest(self):
@@ -617,6 +643,12 @@ class TripHasStopTimeValidationTestCase(ValidationTestCase):
                        "America/Los_Angeles")
     schedule.AddRouteObject(
         transitfeed.Route("54C", "Polish Hill", 3, "054C"))
+
+    service_period = transitfeed.ServicePeriod("WEEK")
+    service_period.SetStartDate("20070101")
+    service_period.SetEndDate("20071231")
+    service_period.SetWeekdayService(True)
+    schedule.AddServicePeriodObject(service_period)
 
     trip = transitfeed.Trip()
     trip.route_id = '054C'
@@ -752,6 +784,12 @@ class DuplicateTripIDValidationTestCase(unittest.TestCase):
     route.route_long_name = "Sample Route"
     schedule.AddRouteObject(route)
 
+    service_period = transitfeed.ServicePeriod("WEEK")
+    service_period.SetStartDate("20070101")
+    service_period.SetEndDate("20071231")
+    service_period.SetWeekdayService(True)
+    schedule.AddServicePeriodObject(service_period)
+
     trip1 = transitfeed.Trip()
     trip1.route_id = "SAMPLE_ID"
     trip1.service_id = "WEEK"
@@ -780,6 +818,12 @@ class DuplicateStopValidationTestCase(ValidationTestCase):
     route.route_type = 3
     route.route_long_name = "Sample Route"
     schedule.AddRouteObject(route)
+
+    service_period = transitfeed.ServicePeriod("WEEK")
+    service_period.SetStartDate("20070101")
+    service_period.SetEndDate("20071231")
+    service_period.SetWeekdayService(True)
+    schedule.AddServicePeriodObject(service_period)
 
     trip = transitfeed.Trip()
     trip.route_id = "SAMPLE_ID"
@@ -842,9 +886,15 @@ class MinimalWriteTestCase(unittest.TestCase):
     route.route_long_name = "Sample Route"
     schedule.AddRouteObject(route)
 
+    service_period = transitfeed.ServicePeriod("WEEK")
+    service_period.SetStartDate("20070101")
+    service_period.SetEndDate("20071231")
+    service_period.SetWeekdayService(True)
+    schedule.AddServicePeriodObject(service_period)
+
     trip = transitfeed.Trip()
     trip.route_id = "SAMPLE_ID"
-    trip.service_id = "WEEK"
+    trip.service_period = service_period
     trip.trip_id = "SAMPLE_TRIP"
     schedule.AddTripObject(trip)
 
@@ -887,9 +937,15 @@ class TransitFeedSampleCodeTestCase(unittest.TestCase):
     route.route_long_name = "Sample Route"
     schedule.AddRouteObject(route)
 
+    service_period = transitfeed.ServicePeriod("WEEK")
+    service_period.SetStartDate("20070101")
+    service_period.SetEndDate("20071231")
+    service_period.SetWeekdayService(True)
+    schedule.AddServicePeriodObject(service_period)
+
     trip = transitfeed.Trip()
     trip.route_id = "SAMPLE_ID"
-    trip.service_id = "WEEK"
+    trip.service_period = service_period
     trip.trip_id = "SAMPLE_TRIP"
     trip.direction_id = "0"
     trip.block_id = None
@@ -1095,6 +1151,22 @@ class WriteSampleFeedTestCase(unittest.TestCase):
       shape.AddPoint(lat, lon)
     schedule.AddShapeObject(shape)
 
+    week_period = transitfeed.ServicePeriod()
+    week_period.service_id = "FULLW"
+    week_period.start_date = "20070101"
+    week_period.end_date = "20071231"
+    week_period.SetWeekdayService()
+    week_period.SetWeekendService()
+    week_period.SetDateHasService("20070604", False)
+    schedule.AddServicePeriodObject(week_period)
+
+    weekend_period = transitfeed.ServicePeriod()
+    weekend_period.service_id = "WE"
+    weekend_period.start_date = "20070101"
+    weekend_period.end_date = "20071231"
+    weekend_period.SetWeekendService()
+    schedule.AddServicePeriodObject(weekend_period)
+
     stops = []
     stop_data = [
         ("FUR_CREEK_RES", "Furnace Creek Resort (Demo)",
@@ -1199,22 +1271,6 @@ class WriteSampleFeedTestCase(unittest.TestCase):
     for trip_id in headway_trips:
       headway_trips[trip_id] = \
           schedule.GetTrip(trip_id).GetHeadwayPeriodTuples()
-
-    week_period = transitfeed.ServicePeriod()
-    week_period.service_id = "FULLW"
-    week_period.start_date = "20070101"
-    week_period.end_date = "20071231"
-    week_period.SetWeekdayService()
-    week_period.SetWeekendService()
-    week_period.SetDateHasService("20070604", False)
-    schedule.AddServicePeriodObject(week_period)
-
-    weekend_period = transitfeed.ServicePeriod()
-    weekend_period.service_id = "WE"
-    weekend_period.start_date = "20070101"
-    weekend_period.end_date = "20071231"
-    weekend_period.SetWeekendService()
-    schedule.AddServicePeriodObject(weekend_period)
 
     fare_data = [
         ("p", 1.25, "USD", 0, 0),
