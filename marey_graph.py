@@ -334,7 +334,7 @@ class MareyGraph:
       for j,freq_offset in enumerate(start_offsets):
         if j>0 and not colpar:
           color="purple"
-        scriptcall = 'onmouseover="LineClick(%s,\'Trip %s starting %s\')"' % (t.trip_id,
+        scriptcall = 'onmouseover="LineClick(\'%s\',\'Trip %s starting %s\')"' % (t.trip_id,
             t.trip_id, transitfeed.FormatSecondsSinceMidnight(t.GetStartTime()))
         tmpstrhead = '<polyline class="T" id="%s" stroke="%s" %s points="' % \
           (str(t.trip_id),color, scriptcall)
