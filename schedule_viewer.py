@@ -28,8 +28,16 @@ import mimetypes
 from optparse import OptionParser
 import os.path
 import re
+import signal
 import simplejson
+import time
 import transitfeed
+
+
+# By default Windows kills Python with Ctrl+Break. Instead make Ctrl+Break
+# raise a KeyboardInterrupt.
+if hasattr(signal, 'SIGBREAK'):
+  signal.signal(signal.SIGBREAK, signal.default_int_handler) 
 
 
 mimetypes.add_type('text/plain', '.vbs')
@@ -73,9 +81,12 @@ class ScheduleRequestHandler(BaseHTTPServer.BaseHTTPRequestHandler):
     # Restrict allowable file names to prevent relative path attacks etc
     m = re.match(r'/file/([a-z0-9_-]{1,64}\.?[a-z0-9_-]{1,64})$', path)
     if m and m.group(1):
-      file_path = os.path.join(self.server.file_dir, m.group(1))
-      if os.path.exists(file_path):
-        return self.handle_static_file_GET(file_path)
+      try:
+        f, mime_type = self.OpenFile(m.group(1))
+        return self.handle_static_file_GET(f, mime_type)
+      except IOError, e:
+        print "Error: unable to open %s" % m.group(1)
+        # Ignore and treat as 404
 
     m = re.match(r'/([a-z]{1,64})', path)
     if m:
@@ -84,15 +95,26 @@ class ScheduleRequestHandler(BaseHTTPServer.BaseHTTPRequestHandler):
       if callable(handler):
         return handler(parsed_params)
 
-    return self.handle_GET_default(parsed_params)
+    return self.handle_GET_default(parsed_params, path)
 
-  def handle_GET_default(self, parsed_params):
-    self.send_error(404)
-
-  def handle_static_file_GET(self, filename):
+  def OpenFile(self, filename):
+    """Try to open filename in the static files directory of this server.
+    Return a tuple (file object, string mime_type) or raise an exception."""
     (mime_type, encoding) = mimetypes.guess_type(filename)
     assert mime_type
-    content = open(filename).read()
+    # A crude guess of when we should use binary mode. Without it non-unix
+    # platforms may corrupt binary files.
+    if mime_type.startswith('text/'):
+      mode = 'r'
+    else:
+      mode = 'rb'
+    return open(os.path.join(self.server.file_dir, filename), mode), mime_type
+
+  def handle_GET_default(self, parsed_params, path):
+    self.send_error(404)
+
+  def handle_static_file_GET(self, fh, mime_type):
+    content = fh.read()
     self.send_response(200)
     self.send_header('Content-Type', mime_type)
     self.send_header('Content-Length', str(len(content)))
@@ -109,7 +131,8 @@ class ScheduleRequestHandler(BaseHTTPServer.BaseHTTPRequestHandler):
 
     # A very simple template system. For a fixed set of values replace [xxx]
     # with the value of local variable xxx
-    content = open('schedule_viewer.html').read()
+    f, _ = self.OpenFile('index.html')
+    content = f.read()
     for v in ('agency', 'min_lat', 'min_lon', 'max_lat', 'max_lon', 'key'):
       content = content.replace('[%s]' % v, str(locals()[v]))
 
@@ -312,6 +335,22 @@ class ScheduleRequestHandler(BaseHTTPServer.BaseHTTPRequestHandler):
     self.wfile.write(content)
 
 
+def StartServerThread(server):
+  """Start server in its own thread because KeyboardInterrupt doesn't
+  interrupt a socket call in Windows."""
+  # Code taken from
+  # http://mail.python.org/pipermail/python-list/2003-July/212751.html
+  # An alternate approach is shown at
+  # http://groups.google.com/group/webpy/msg/9f41fd8430c188dc
+  import threading
+  th = threading.Thread(target=lambda: server.serve_forever())
+  th.setDaemon(1)
+  th.start()
+  # I don't care about shutting down the server thread cleanly. If you kill
+  # python while it is serving a request the browser may get an incomplete
+  # reply.
+
+
 if __name__ == '__main__':
   parser = OptionParser()
   parser.add_option('--feed_filename', dest='feed_filename',
@@ -336,6 +375,12 @@ if __name__ == '__main__':
   server.schedule = schedule
   server.file_dir = options.file_dir
 
+  StartServerThread(server)  # Spawns a thread for server and returns
   print "To view, point your browser at http://%s:%d/" \
     % (server.server_name, server.server_port)
-  server.serve_forever()
+
+  try:
+    while 1:
+      time.sleep(0.5)
+  except KeyboardInterrupt:
+    pass
