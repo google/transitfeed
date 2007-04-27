@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<kml xmlns="http://earth.google.com/kml/2.0">
+<Document>
+  <name>A test file with one placemark</name>
+  <decription></decription>
+  <Placemark>
+    <name>Stop Name</name>
+    <description></description>
+    <Point>
+      <coordinates>-93.239037,44.854164,0.000000</coordinates>
+    </Point>
+  </Placemark>
+</Document>
+</kml>
