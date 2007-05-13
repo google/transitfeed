@@ -67,6 +67,7 @@ if __name__ == '__main__':
     print ('%d stop(s) were found that weren\'t used in any trips:' %
            len(problems.unused_stops))
     if len(problems.unused_stops) > DEFAULT_UNUSED_LIMIT:
+      problems.unused_stops = problems.unused_stops[:DEFAULT_UNUSED_LIMIT]
       print '(the first %d are shown below)' % len(problems.unused_stops)
     for stop_id, stop_name in problems.unused_stops:
       print '"%s" (ID "%s")' % (stop_name, stop_id)
