@@ -676,19 +676,8 @@ class TripHasStopTimeValidationTestCase(ValidationTestCase):
     trip.AddStopTime(stop, "5:15:00", "5:16:00")
     schedule.Validate(self.problems)
 
-    # Add some more stop times and test GetEndTime does the correct thing
-    self.assertEqual(transitfeed.FormatSecondsSinceMidnight(trip.GetStartTime()),
-        "05:11:00")
-    self.assertEqual(transitfeed.FormatSecondsSinceMidnight(trip.GetEndTime()),
-        "05:16:00")
-
     trip.AddStopTime(stop, None, "05:20:00")
-    self.assertEqual(transitfeed.FormatSecondsSinceMidnight(trip.GetEndTime()),
-        "05:20:00")
-
     trip.AddStopTime(stop, "05:22:00", None)
-    self.assertEqual(transitfeed.FormatSecondsSinceMidnight(trip.GetEndTime()),
-        "05:22:00")
 
     # Last stop must always have a time
     trip.AddStopTime(stop, None, None)
@@ -697,6 +686,46 @@ class TripHasStopTimeValidationTestCase(ValidationTestCase):
       self.fail('exception expected')
     except transitfeed.Error, e:
       pass
+
+
+class TripStopTimeAccessorsTestCase(unittest.TestCase):
+  def runTest(self):
+    schedule = transitfeed.Schedule(
+        problem_reporter=transitfeed.ExceptionProblemReporter())
+    schedule.NewDefaultAgency(agency_name="Test Agency",
+                              agency_url="http://example.com",
+                              agency_timezone="America/Los_Angeles")
+    route = schedule.AddRoute(short_name="54C", long_name="Polish Hill", route_type=3)
+
+    service_period = schedule.GetDefaultServicePeriod()
+    service_period.SetDateHasService("20070101")
+
+    trip = route.AddTrip(schedule, 'via Polish Hill')
+
+    stop1 = schedule.AddStop(36.425288, -117.133162, "Demo Stop 1")
+    stop2 = schedule.AddStop(36.424288, -117.133142, "Demo Stop 2")
+
+    trip.AddStopTime(stop1, "5:11:00", "5:12:00")
+    trip.AddStopTime(stop2, "5:15:00", "5:16:00")
+
+    # Add some more stop times and test GetEndTime does the correct thing
+    self.assertEqual(transitfeed.FormatSecondsSinceMidnight(trip.GetStartTime()),
+        "05:11:00")
+    self.assertEqual(transitfeed.FormatSecondsSinceMidnight(trip.GetEndTime()),
+        "05:16:00")
+
+    trip.AddStopTime(stop1, None, "05:20:00")
+    self.assertEqual(transitfeed.FormatSecondsSinceMidnight(trip.GetEndTime()),
+        "05:20:00")
+
+    trip.AddStopTime(stop2, "05:22:00", None)
+    self.assertEqual(transitfeed.FormatSecondsSinceMidnight(trip.GetEndTime()),
+        "05:22:00")
+    self.assertEqual(len(trip.GetStopTimesTuples()), 4)
+    self.assertEqual(trip.GetStopTimesTuples()[0], (trip.trip_id, "05:11:00",
+                                                    "05:12:00", stop1.stop_id, 1))
+    self.assertEqual(trip.GetStopTimesTuples()[3], (trip.trip_id, "05:22:00",
+                                                    "", stop2.stop_id, 4))
 
 
 class BasicParsingTestCase(unittest.TestCase):

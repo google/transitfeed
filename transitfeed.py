@@ -683,6 +683,7 @@ class Trip(object):
     results = []
     for time_tuple in self._GenerateStopTimesTuples():
       results.append(time_tuple)
+    return results
 
   def GetPattern(self):
     """Return a tuple of Stop objects, in the order visited"""
