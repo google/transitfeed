@@ -1,3 +1,5 @@
+include INSTALL
+include COPYING
 include schedule_viewer_files/*
-include schedule_viewer.html
 recursive-include test *
+recursive-exclude test *.pyc

@@ -1,5 +1,3 @@
-#!/usr/bin/python2.4
-
 # Copyright (C) 2007 Google Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -19,15 +17,18 @@
 import dircache
 import os.path
 import sys
+import tempfile
 import transitfeed
 import unittest
 
 
 def DataPath(path):
-  return os.path.join('data', path)
+  here = os.path.dirname(__file__)
+  return os.path.join(here, 'data', path)
 
 def GetDataPathContents():
-  return dircache.listdir('data')
+  here = os.path.dirname(__file__)
+  return dircache.listdir(os.path.join(here, 'data'))
 
 class TestFailureProblemReporter(transitfeed.ProblemReporter):
   """Causes a test failure immediately on any problem."""
@@ -866,8 +867,21 @@ class DuplicateStopValidationTestCase(ValidationTestCase):
     trip.AddStopTime(stop4, "12:15:00", "12:15:00")
     self.ExpectOtherProblem(schedule)
     
-    
-class MinimalWriteTestCase(unittest.TestCase):
+
+class TempFileTestCaseBase(unittest.TestCase):
+  """
+  Subclass of TestCase which sets self.tempfilepath to a valid temporary zip
+  file name and removes the file if it exists when the test is done.
+  """
+  def setUp(self):
+    (_, self.tempfilepath) = tempfile.mkstemp(".zip")
+
+  def tearDown(self):
+    if os.path.exists(self.tempfilepath):
+      os.remove(self.tempfilepath)
+
+
+class MinimalWriteTestCase(TempFileTestCaseBase):
   """
   This test case simply constructs an incomplete feed with very few
   fields set and ensures that there are no exceptions when writing it out.
@@ -915,7 +929,7 @@ class MinimalWriteTestCase(unittest.TestCase):
     trip.AddStopTime(stop2, "12:05:00", "12:05:00")
 
     schedule.Validate()
-    schedule.WriteGoogleTransitFeed("test_output.zip")
+    schedule.WriteGoogleTransitFeed(self.tempfilepath)
     
     
 class TransitFeedSampleCodeTestCase(unittest.TestCase):
@@ -1107,7 +1121,7 @@ class ScheduleBuilderTestCase(unittest.TestCase):
     self.assertEqual(1, len(schedule.GetRouteList()))
     self.assertEqual(3, len(schedule.GetStopList()))
 
-class WriteSampleFeedTestCase(unittest.TestCase):
+class WriteSampleFeedTestCase(TempFileTestCaseBase):
   def runTest(self):
     problems = TestFailureProblemReporter(self)
     schedule = transitfeed.Schedule(problem_reporter=problems)
@@ -1296,10 +1310,10 @@ class WriteSampleFeedTestCase(unittest.TestCase):
       schedule.AddFareRuleObject(rule, problems)
 
     schedule.Validate(problems)
-    schedule.WriteGoogleTransitFeed("test-output.zip")
+    schedule.WriteGoogleTransitFeed(self.tempfilepath)
 
     read_schedule = \
-        transitfeed.Loader("test-output.zip", problems=problems,
+        transitfeed.Loader(self.tempfilepath, problems=problems,
                            extra_validation=True).Load()
 
     self.assertEqual(1, len(read_schedule.GetAgencyList()))

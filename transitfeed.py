@@ -54,6 +54,10 @@ import zipfile
 
 OUTPUT_ENCODING = 'utf-8'
 
+
+__version__ = '1.0b7'
+
+
 class ProblemReporter:
   """This is a basic problem reporter that just prints to console."""
 

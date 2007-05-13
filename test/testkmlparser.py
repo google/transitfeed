@@ -22,9 +22,14 @@ import transitfeed
 import unittest
 
 
+def DataPath(path):
+  here = os.path.dirname(__file__)
+  return os.path.join(here, 'data', path)
+
+
 class TestStopsParsing(unittest.TestCase):
   def testSingleStop(self):
-    kmlFile = os.path.join('data', 'one_stop.kml')
+    kmlFile = DataPath('one_stop.kml')
     feed = transitfeed.Schedule()
     kmlparser.KmlParser().Parse(kmlFile, feed)
     stops = feed.GetStopList()

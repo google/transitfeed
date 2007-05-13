@@ -1,0 +1,21 @@
+INSTALL file for transitfeed distribution
+
+
+
+To download and install in one step make sure you have easy-install installed and run
+easy_install transitfeed
+
+
+
+Since you got this far chances are you have downloaded a copy of the source
+code. Install with the command
+
+python setup.py install
+
+
+
+If you don't want to install you may be able to run the scripts from this
+directory. For example, try running
+
+./feedvalidator.py -n test/data/good_feed.zip
+
