@@ -38,7 +38,8 @@ except ImportError, e:
 
 # py2exe doesn't automatically include pytz dependency because it is optional
 options = {'py2exe': {'packages': ['pytz']}}
-scripts = ['feedvalidator.py', 'schedule_viewer.py']
+scripts = ['feedvalidator.py', 'schedule_viewer.py',
+           'kmlparser.py', 'kmlwriter.py']
 kwargs = {}
 
 if has_py2exe:
