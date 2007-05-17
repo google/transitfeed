@@ -1,5 +1,5 @@
 stop_id,stop_name,stop_desc,stop_lat,stop_lon,zone_id,stop_url
-FUR_CREEK_RES,Furnace Creek Resort (DÃ©monstration),,36.425288,-117.133162
+FUR_CREEK_RES,Furnace Creek Resort (Demo) œ ,,36.425288,-117.133162
 BEATTY_AIRPORT,Nye County Airport (Demo),,36.868446,-116.784582
 BULLFROG,Bullfrog (Demo),,36.88108,-116.81797
 STAGECOACH,Stagecoach Hotel & Casino (Demo),,36.915682,-116.751677
