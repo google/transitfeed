@@ -558,6 +558,17 @@ class Route(object):
                             self.route_short_name,
                             'Both route_short_name and '
                             'route_long name are blank.')
+                            
+    if self.route_short_name and len(self.route_short_name) > 5:
+      problems.InvalidValue('route_short_name',
+                            self.route_short_name,
+                            'This route_short_name is relatively long, which '
+                            'probably means that it contains a place name.  '
+                            'You should only use this field to hold a short '
+                            'code that riders use to identify a route.  '
+                            'If this route doesn\'t have such a code, it\'s '
+                            'OK to leave this field empty.')
+                            
     if (self.route_short_name and
         (self.route_long_name.strip().lower().startswith(
             self.route_short_name.strip().lower() + ' ') or

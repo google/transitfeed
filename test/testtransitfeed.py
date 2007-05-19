@@ -397,6 +397,13 @@ class RouteValidationTestCase(ValidationTestCase):
     self.ExpectInvalidValue(route, 'route_short_name')
     route.route_short_name = '54C'
     route.route_long_name = 'South Side - North Side'
+    
+    # short name too long
+    route.route_short_name = 'South Side'
+    self.ExpectInvalidValue(route, 'route_short_name')
+    route.route_short_name = 'M7bis'  # 5 is OK
+    route.Validate(self.problems)
+    route.route_short_name = '54C'
 
     # long name contains short name
     route.route_long_name = '54C South Side - North Side'
