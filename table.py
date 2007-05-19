@@ -73,7 +73,7 @@ def TransposeTable(table):
   return transposed
 
 def ProcessOptions(schedule, table):
-  service_period = schedule.GetActiveServicePeriod()
+  service_period = schedule.NewActiveServicePeriod()
   agency_name, agency_url, agency_timezone = (None, None, None)
 
   for row in table[1:]:

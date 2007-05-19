@@ -392,7 +392,7 @@ class Stop(object):
       self.stop_lon = 0
     self.stop_name = name
     self.trip_index = []  # list of (trip, index) for each Trip object.
-                          # index is offset into trip timestop
+                          # index is offset into Trip _stoptimes
     self.stop_id = stop_id
 
   def GetFieldValuesTuple(self):
@@ -403,7 +403,7 @@ class Stop(object):
     TODO: handle stops between timed stops."""
     time_trips = []
     for trip, index in self.trip_index:
-      time_trips.append((trip.timestop[index][0], trip))
+      time_trips.append((trip._stoptimes[index].GetTimeSecs(), trip))
     return time_trips
 
   def _AddTripStop(self, trip, index):
@@ -613,19 +613,138 @@ def SortListOfTripByTime(trips):
   trips.sort(key=Trip.GetStartTime)
 
 
+class StopTime(object):
+  """
+  Represents a single stop of a trip. StopTime contains most of the columns
+  from the stop_times.txt file. It does not contain trip_id or stop_sequence,
+  which are implied by its position in a Trip._stoptimes list.
+
+  See the Google Transit Feed Specification for the semantic details.
+
+  stop: A Stop object
+  arrival_time: str in the form HH:MM:SS; readonly after __init__
+  departure_time: str in the form HH:MM:SS; readonly after __init__
+  arrival_secs: int number of seconds since midnight
+  departure_secs: int number of seconds since midnight
+  stop_headsign: str
+  pickup_type: int
+  drop_off_type: int
+  shape_dist_traveled: float
+  stop_id: str; readonly
+  """
+  _REQUIRED_FIELD_NAMES = ['trip_id', 'arrival_time', 'departure_time',
+                           'stop_id', 'stop_sequence']
+  _FIELD_NAMES = _REQUIRED_FIELD_NAMES + ['stop_headsign', 'pickup_type',
+                    'drop_off_type', 'shape_dist_traveled']
+
+  def __init__(self, problems, stop, arrival_time=None, departure_time=None,
+               stop_headsign=None, pickup_type=None, drop_off_type=None,
+               shape_dist_traveled=None, arrival_secs=None,
+               departure_secs=None):
+    if arrival_secs != None:
+      self.arrival_secs = arrival_secs
+    elif arrival_time in (None, ""):
+      self.arrival_secs = None  # Untimed
+    else:
+      try:
+        self.arrival_secs = TimeToSecondsSinceMidnight(arrival_time)
+      except Error:
+        problems.InvalidValue('arrival_time', arrival_time)
+
+    if departure_secs != None:
+      self.departure_secs = departure_secs
+    elif departure_time in (None, ""):
+      self.departure_secs = None
+    else:
+      try:
+        self.departure_secs = TimeToSecondsSinceMidnight(departure_time)
+      except Error:
+        problems.InvalidValue('departure_time', departure_time)
+
+    if not isinstance(stop, Stop):
+      # Not quite correct, but better than letting the problem propagate
+      problems.InvalidValue('stop', stop)
+    self.stop = stop
+    self.stop_headsign = stop_headsign
+
+    if pickup_type in (None, ""):
+      self.pickup_type = None
+    else:
+      try:
+        pickup_type = int(pickup_type)
+      except ValueError:
+        problems.InvalidValue('pickup_type', pickup_type)
+      if pickup_type < 0 or pickup_type > 3:
+        problems.InvalidValue('pickup_type', pickup_type)
+      self.pickup_type = pickup_type
+
+    if drop_off_type in (None, ""):
+      self.drop_off_type = None
+    else:
+      try:
+        drop_off_type = int(drop_off_type)
+      except ValueError:
+        problems.InvalidValue('drop_off_type', drop_off_type)
+      if drop_off_type < 0 or drop_off_type > 3:
+        problems.InvalidValue('drop_off_type', drop_off_type)
+      self.drop_off_type = drop_off_type
+
+    if shape_dist_traveled in (None, ""):
+      self.shape_dist_traveled = None
+    else:
+      try:
+        self.shape_dist_traveled = float(shape_dist_traveled)
+      except ValueError:
+        problems.InvalidValue('shape_dist_traveled', shape_dist_traveled)
+
+  def GetFieldValuesTuple(self, trip_id, sequence):
+    """Return a tuple that outputs a row of _FIELD_NAMES.
+
+    trip and sequence must be provided because they are not stored in StopTime.
+    """
+    result = []
+    for fn in StopTime._FIELD_NAMES:
+      if fn == 'trip_id':
+        result.append(trip_id)
+      elif fn == 'stop_sequence':
+        result.append(str(sequence))
+      else:
+        result.append(getattr(self, fn) or '' )
+    return tuple(result)
+
+  def GetTimeSecs(self):
+    """Return the first of arrival_secs and departure_secs that is not None.
+    If both are None return None."""
+    if self.arrival_secs != None:
+      return self.arrival_secs
+    elif self.departure_secs != None:
+      return self.departure_secs
+    else:
+      return None
+
+  def __getattr__(self, name):
+    if name == 'stop_id':
+      return self.stop.stop_id
+    elif name == 'arrival_time':
+      return (self.arrival_secs != None and
+          FormatSecondsSinceMidnight(self.arrival_secs) or '')
+    elif name == 'departure_time':
+      return (self.departure_secs != None and
+          FormatSecondsSinceMidnight(self.departure_secs) or '')
+    raise AttributeError(name)
+
+
 class Trip(object):
   _REQUIRED_FIELD_NAMES = ['route_id', 'service_id', 'trip_id']
   _FIELD_NAMES = _REQUIRED_FIELD_NAMES + [
     'trip_headsign', 'direction_id', 'block_id', 'shape_id'
     ]
-  _FIELD_NAMES_STOP_TIMES = ['trip_id', 'arrival_time', 'departure_time',
-                             'stop_id', 'stop_sequence']
   _FIELD_NAMES_HEADWAY = ['trip_id', 'start_time', 'end_time', 'headway_secs']
 
 
   def __init__(self, headsign=None, service_period=None,
                route=None, trip_id=None, field_list=None):
-    self.timestop = []  # [(time, Stop)]
+    self._stoptimes = []  # [StopTime, StopTime, ...]
     self._headways = []  # [(start_time, end_time, headway_secs)]
     self.trip_headsign = headsign
     self.shape_id = None
@@ -642,71 +761,79 @@ class Trip(object):
   def GetFieldValuesTuple(self):
     return [getattr(self, fn) or '' for fn in Trip._FIELD_NAMES]
 
-  def AddStopTime(self, stop, time_arr=None, time_dep=None):
+  def AddStopTime(self, stop, problems=default_problem_reporter, **kwargs):
     """Add a stop to this trip. Stops must be added in the order visited.
 
     Args:
       stop: A Stop object
-      time_arr: Time this trip arrives stop, in seconds past midnight. Use the
-          default value, None, for untimed stops. The first and last stops of
-          a trip must have times.
-      time_dep: Time this trip departs stop, in seconds past midnight. Use the
-          default value, None, for untimed stops. The first and last stops of
-          a trip must have times.
+      kwargs: remaining keyword args passed to StopTime.__init__
+
     Returns:
       None
     """
+    stoptime = StopTime(problems=problems, stop=stop, **kwargs)
+    self.AddStopTimeObject(stoptime, problems=problems)
 
-    if time_arr and isinstance(time_arr, basestring):
-      time_arr = TimeToSecondsSinceMidnight(time_arr)
-    if time_dep and isinstance(time_dep, basestring):
-      time_dep = TimeToSecondsSinceMidnight(time_dep)
+  def AddStopTimeObject(self, stoptime, problems=default_problem_reporter):
+    """Add a StopTime object to the end of this trip.
 
-    stop._AddTripStop(self, len(self.timestop))
-    self.timestop.append( (time_arr, time_dep, stop) )
+    Args:
+      stoptime: A StopTime object. Should not be reused in multiple trips.
+
+    Returns:
+      None
+    """
+    new_secs = stoptime.GetTimeSecs()
+    prev_secs = None
+    for st in reversed(self._stoptimes):
+      prev_secs = st.GetTimeSecs()
+      if prev_secs != None:
+        break
+    if new_secs != None and prev_secs != None and new_secs < prev_secs:
+      problems.OtherProblem('out of order stop time for stop_id=%s trip_id=%s %s < %s'
+                            % (stoptime.stop_id, self.trip_id,
+                               FormatSecondsSinceMidnight(new_secs),
+                               FormatSecondsSinceMidnight(prev_secs)))
+    else:
+      stoptime.stop._AddTripStop(self, len(self._stoptimes))
+      self._stoptimes.append(stoptime)
 
   def GetTimeStops(self):
-    """Return a list of (time_arr, time_dep, stop) tuples.
+    """Return a list of (arrival_secs, departure_secs, stop) tuples.
 
-    Caution: time_arr and time_dep may be 0, a false value meaning a stop at
-    midnight or None, a false value meaning the stop is untimed."""
-    return self.timestop
+    Caution: arrival_secs and departure_secs may be 0, a false value meaning a
+    stop at midnight or None, a false value meaning the stop is untimed."""
+    return [(st.arrival_secs, st.departure_secs, st.stop) for st in self._stoptimes]
+
+  def GetStopTimes(self):
+    """Return a sorted list of StopTime objects for this trip."""
+    return self._stoptimes
 
   def GetStartTime(self):
     """Return the first time of the trip. TODO: For trips defined by frequency
     return the first time of the first trip."""
-    if self.timestop[0][0] is not None:
-      return self.timestop[0][0]
-    elif self.timestop[0][1] is not None:
-      return self.timestop[0][1]
+    if self._stoptimes[0].arrival_secs is not None:
+      return self._stoptimes[0].arrival_secs
+    elif self._stoptimes[0].departure_secs is not None:
+      return self._stoptimes[0].departure_secs
     else:
       raise Error("Trip without valid first time %s" % self.trip_id)
 
   def GetEndTime(self):
     """Return the last time of the trip. TODO: For trips defined by frequency
     return the last time of the last trip."""
-    if self.timestop[-1][1] is not None:
-      return self.timestop[-1][1]
-    elif self.timestop[-1][0] is not None:
-      return self.timestop[-1][0]
+    if self._stoptimes[-1].departure_secs is not None:
+      return self._stoptimes[-1].departure_secs
+    elif self._stoptimes[-1].arrival_secs is not None:
+      return self._stoptimes[-1].arrival_secs
     else:
       raise Error("Trip without valid last time %s" % self.trip_id)
 
   def _GenerateStopTimesTuples(self):
     """Generator for rows of the stop_times file"""
-    for i in range(0, len(self.timestop)):
-      if self.timestop[i][0] is not None:
-        time_arr_str = FormatSecondsSinceMidnight(self.timestop[i][0])
-      else:
-        time_arr_str = ''
-      if self.timestop[i][1] is not None:
-        time_dep_str = FormatSecondsSinceMidnight(self.timestop[i][1])
-      else:
-        time_dep_str = ''
-      # Generates tuples to match _FIELD_NAMES_STOP_TIMES
-      # ['trip_id', 'arrival_time', 'departure_time', 'stop_id', 'stop_sequence']
-      yield (self.trip_id, time_arr_str, time_dep_str,
-             self.timestop[i][2].stop_id, i + 1)  # sequence is 1-based index
+    for i, st in enumerate(self._stoptimes):
+      # sequence is 1-based index
+      yield st.GetFieldValuesTuple(self.trip_id, i + 1)
 
   def GetStopTimesTuples(self):
     results = []
@@ -716,7 +843,7 @@ class Trip(object):
 
   def GetPattern(self):
     """Return a tuple of Stop objects, in the order visited"""
-    return tuple(timestop[2] for timestop in self.timestop)
+    return tuple(timestop.stop for timestop in self._stoptimes)
 
   def AddHeadwayPeriod(self, start_time, end_time, headway_secs,
                        problem_reporter=default_problem_reporter):
@@ -851,17 +978,6 @@ class Trip(object):
                                 '%s and %s' %
                                 (self._HeadwayOutputTuple(headway),
                                  self._HeadwayOutputTuple(other)))
-
-class StopTime:
-  """Represents an event of a vehicle being at a particular stop on
-     a particular transit trip."""
-  _REQUIRED_FIELD_NAMES = [
-    'trip_id', 'arrival_time', 'departure_time', 'stop_id', 'stop_sequence'
-    ]
-  _FIELD_NAMES = _REQUIRED_FIELD_NAMES + [
-    'stop_headsign', 'pickup_type', 'drop_off_type', 'shape_dist_traveled'
-    ]
-
 
 # TODO: move these into a separate file
 class ISO4217(object):
@@ -1817,7 +1933,7 @@ class Schedule:
       fare_string = StringIO.StringIO()
       writer = CsvUnicodeWriter(fare_string)
       writer.writerow(Fare._FIELD_NAMES)
-      writer.writerows(t.GetFieldValuesTuple() for t in self.GetFareList())
+      writer.writerows(f.GetFieldValuesTuple() for f in self.GetFareList())
       archive.writestr('fare_attributes.txt', fare_string.getvalue())
 
     # write fare rules (if applicable)
@@ -1834,7 +1950,7 @@ class Schedule:
 
     stop_times_string = StringIO.StringIO()
     writer = CsvUnicodeWriter(stop_times_string)
-    writer.writerow(Trip._FIELD_NAMES_STOP_TIMES)
+    writer.writerow(StopTime._FIELD_NAMES)
     for t in self.trips.values():
       writer.writerows(t._GenerateStopTimesTuples())
     archive.writestr('stop_times.txt', stop_times_string.getvalue())
@@ -2269,27 +2385,14 @@ class Loader:
       trip.Validate(self._problems)
 
   def _LoadStopTimes(self):
-    # ['trip_id', 'arrival_time', 'departure_time', 'stop_id', 'stop_sequence']
-    field_names = Trip._FIELD_NAMES_STOP_TIMES
     stoptimes = {}  # maps trip_id to list of stop time tuples
     for (row, row_num, cols) in self._ReadCSV('stop_times.txt',
-                                              field_names, field_names):
+                                              StopTime._FIELD_NAMES,
+                                              StopTime._REQUIRED_FIELD_NAMES):
       self._problems.SetFileContext('stop_times.txt', row_num, row)
 
-      (trip_id, arrival_time, departure_time, stop_id, stop_sequence) = row
-
-      departure_sec = None
-      if departure_time:
-        try:
-          departure_sec = TimeToSecondsSinceMidnight(departure_time)
-        except Error:
-          self._problems.InvalidValue('departure_time', departure_time)
-      arrival_sec = None
-      if arrival_time:
-        try:
-          arrival_sec = TimeToSecondsSinceMidnight(arrival_time)
-        except Error:
-          self._problems.InvalidValue('arrival_time', arrival_time)
+      (trip_id, arrival_time, departure_time, stop_id, stop_sequence,
+         stop_headsign, pickup_type, drop_off_type, shape_dist_traveled) = row
 
       # Check that the stop sequence is a one-based number.
       try:
@@ -2309,7 +2412,10 @@ class Loader:
         continue
       stop = self._schedule.stops[stop_id]
       stoptimes.setdefault(trip_id, []).append(
-          (int(stop_sequence), arrival_sec, departure_sec, stop))
+          (sequence, StopTime(self._problems, stop, arrival_time,
+                                   departure_time, stop_headsign,
+                                   pickup_type, drop_off_type,
+                                   shape_dist_traveled)))
 
       self._problems.SetContext(None)
 
@@ -2328,10 +2434,14 @@ class Loader:
         self._problems.OtherProblem(
           'No time for end of trip_id "%s" at stop_sequence "%d"' %
           (trip_id, sequence[-1][0]))
-      for stop_sequence, arrival_sec, departure_sec, stop in sequence:
-        trip.AddStopTime(stop=stop,
-                         time_arr=arrival_sec,
-                         time_dep=departure_sec)
+      expected_sequence = 1
+      for stop_sequence, stoptime in sequence:
+        if expected_sequence != stop_sequence:
+          self._problems.OtherProblem(
+            'Bad stop_sequence. Expected %i, found %i in trip_id "%s"' %
+            (expected_sequence, stop_sequence, trip_id))
+        trip.AddStopTimeObject(stoptime, problems=self._problems)
+        expected_sequence = stop_sequence + 1
 
   def Load(self):
     if not self._DetermineFormat():
