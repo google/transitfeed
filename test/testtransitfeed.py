@@ -149,6 +149,21 @@ class LoadUnknownFormatTestCase(unittest.TestCase):
       self.assertEqual(feed_name, e.feed_name)
 
 
+class LoadExtraCellValidationTestCase(unittest.TestCase):
+  """Checks to see that the validation detects too many cells in a row."""
+  def runTest(self):
+    feed_name = DataPath('extra_row_cells')
+    loader = transitfeed.Loader(
+      feed_name,
+      problems = transitfeed.ExceptionProblemReporter(),
+      extra_validation = True)
+    try:
+      loader.Load()
+      self.fail('OtherProblem exception expected')
+    except transitfeed.OtherProblem:
+      pass
+
+
 class LoadUTF8BOMTestCase(unittest.TestCase):
   def runTest(self):
     loader = transitfeed.Loader(

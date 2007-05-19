@@ -1983,6 +1983,7 @@ class Loader:
 
     return True
 
+  # TODO: Add testing for this specific function
   def _ReadCSV(self, file_name, cols, required):
     """Reads lines from file_name, yielding a list of unicode values
     corresponding to the column names in cols."""
@@ -2015,6 +2016,14 @@ class Loader:
       row_num += 1
       if len(row) == 0:  # skip extra empty lines in file
         continue
+        
+      if len(row) > len(header):
+        self._problems.OtherProblem('Found too many cells (commas) in line '
+                                    '%d of file "%s".  Every row in the file '
+                                    'should have the same number of cells as '
+                                    'the header (first line) does.' %
+                                    (row_num, file_name))
+        
       result = [None] * len(cols)
       for i in range(len(cols)):
         ci = col_index[i]
