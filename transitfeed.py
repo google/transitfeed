@@ -1344,7 +1344,7 @@ class ServicePeriod(object):
       self.day_of_week = [False] * len(self._DAYS_OF_WEEK)
 
       for day in self._DAYS_OF_WEEK:
-        value = field_list[self._FIELD_NAMES.index(day)]
+        value = field_list[self._FIELD_NAMES.index(day)] or ''  # can be None
         self.original_day_values += [value.strip()]
         self.day_of_week[self._DAYS_OF_WEEK.index(day)] = (value == u'1')
 
