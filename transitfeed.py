@@ -55,7 +55,7 @@ import zipfile
 OUTPUT_ENCODING = 'utf-8'
 
 
-__version__ = '1.0b7'
+__version__ = '1.0.7'
 
 
 class ProblemReporter:
