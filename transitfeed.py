@@ -2416,7 +2416,6 @@ class Loader:
                                    departure_time, stop_headsign,
                                    pickup_type, drop_off_type,
                                    shape_dist_traveled)))
-
       self._problems.SetContext(None)
 
     for trip_id, sequence in stoptimes.iteritems():
@@ -2457,6 +2456,10 @@ class Loader:
     self._LoadStopTimes()
     self._LoadFares()
     self._LoadFareRules()
+
+    if self._zip:
+      self._zip.close()
+      self._zip = None
 
     if self._extra_validation:
       self._schedule.Validate(self._problems, validate_children=False)
