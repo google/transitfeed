@@ -44,17 +44,35 @@ kwargs = {}
 
 if has_py2exe:
   kwargs['console'] = scripts
-
-
+  # py2exe seems to ignore package_data and not add marey_graph. This makes it
+  # work.
+  kwargs['data_files'] = \
+      [('schedule_viewer_files',
+          glob.glob(os.path.join('gtfsscheduleviewer', 'files', '*')))]
+  
 setup(
     version=VERSION,
     name='transitfeed',
     url='http://code.google.com/p/googletransitdatafeed/',
+    download_url='http://googletransitdatafeed.googlecode.com/'
+        'files/transitfeed-%s.tar.gz' % VERSION,
     maintainer='Tom Brown',
     maintainer_email='tom.brown.code@gmail.com',
+    description='Google Transit Feed Specification library and tools',
+    long_description='This module provides a library for reading, writing and '
+        'validating Google Transit Feed Specification files. It includes some '
+        'scripts that validate a feed, display it using the Google Maps API and '
+        'the start of a KML importer and exporter.',
+    platforms='OS Independent',
+    license='Apache License, Version 2.0',
+    packages=['gtfsscheduleviewer'],
     py_modules=['transitfeed'],
+    # Also need to list package_data contents in MANIFEST.in for it to be      
+    # included in sdist. See "[Distutils] package_data not used by sdist       
+    # command" Feb 2, 2007                                                     
+    package_data={'gtfsscheduleviewer': ['files/*']},
     scripts=scripts,
-    data_files=[('schedule_viewer_files', glob.glob(os.path.join('schedule_viewer_files', '*')))],
+    zip_safe=False,
     classifiers=[
         'Development Status :: 4 - Beta',
         'Intended Audience :: Developers',

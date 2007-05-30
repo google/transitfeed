@@ -23,7 +23,8 @@
 
 import BaseHTTPServer, sys, urlparse
 import bisect
-import marey_graph
+from gtfsscheduleviewer.marey_graph import MareyGraph
+import gtfsscheduleviewer
 import mimetypes
 from optparse import OptionParser
 import os.path
@@ -302,7 +303,7 @@ class ScheduleRequestHandler(BaseHTTPServer.BaseHTTPRequestHandler):
     """Draw a Marey graph in SVG for a pattern (collection of trips in a route
     that visit the same sequence of stops)."""
     schedule = self.server.schedule
-    marey = marey_graph.MareyGraph()
+    marey = MareyGraph()
     trip = schedule.GetTrip(params.get('trip', None))
     route = schedule.GetRoute(trip.route_id)
     height = int(params.get('height', 300))
@@ -335,6 +336,23 @@ class ScheduleRequestHandler(BaseHTTPServer.BaseHTTPRequestHandler):
     self.wfile.write(content)
 
 
+def FindDefaultFileDir():
+  """Return the path of the directory containing the static files. By default
+  the directory is called 'files'. The location depends on where setup.py put
+  it."""
+  # py2exe puts gtfsscheduleviewer in library.zip. For py2exe setup.py is
+  # configured to put the data next to library.zip.
+  windows_ending = gtfsscheduleviewer.__file__.find('\\library.zip\\')
+  if windows_ending != -1:
+    base = transitfeed.__file__[:windows_ending]
+    return os.path.join(base, 'schedule_viewer_files')
+  else:
+    # For all other distributions 'files' is in the gtfsscheduleviewer
+    # directory. 
+    base = os.path.dirname(gtfsscheduleviewer.__file__)  # Strip __init__.py
+    return os.path.join(base, 'files')
+
+
 def StartServerThread(server):
   """Start server in its own thread because KeyboardInterrupt doesn't
   interrupt a socket call in Windows."""
@@ -353,16 +371,36 @@ def StartServerThread(server):
 
 if __name__ == '__main__':
   parser = OptionParser()
-  parser.add_option('--feed_filename', dest='feed_filename',
+  parser.add_option('--feed_filename', '--feed', dest='feed_filename',
                     help='file name of feed to load')
   parser.add_option('--key', dest='key',
-                    help='Google Maps API key')
+                    help='Google Maps API key or the name '
+                    'of a text file that contains an API key')
   parser.add_option('--port', dest='port', type='int',
                     help='port on which to listen')
   parser.add_option('--file_dir', dest='file_dir',
                     help='directory containing static files')
-  parser.set_defaults(port=8765, file_dir='schedule_viewer_files')
+  parser.add_option('-n', '--noprompt', action='store_false',
+                    dest='manual_entry',
+                    help='disable interactive prompts')
+  parser.set_defaults(port=8765,
+                      file_dir=FindDefaultFileDir(),
+                      manual_entry=True)
   (options, args) = parser.parse_args()
+  
+  if not os.path.isfile(os.path.join(options.file_dir, 'index.html')):
+    print "Can't find index.html with --file_dir=%s" % options.file_dir
+    exit(1)
+
+  if not options.feed_filename and options.manual_entry:
+    options.feed_filename = raw_input('Enter Feed Location: ').strip('"')
+
+  if not options.key and options.manual_entry:
+    options.key = \
+        raw_input('Enter Google Maps API key or file containing it: ').strip('"')
+
+  if options.key and os.path.isfile(options.key):
+    options.key = open(options.key).read().strip()
 
   schedule = transitfeed.Schedule(problem_reporter=transitfeed.ProblemReporter())
   print 'Loading data from feed "%s"...' % options.feed_filename

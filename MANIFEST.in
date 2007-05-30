@@ -1,5 +1,5 @@
 include INSTALL
 include COPYING
-include schedule_viewer_files/*
+include gtfsscheduleviewer/files/*
 recursive-include test *
 recursive-exclude test *.pyc
