@@ -336,21 +336,40 @@ class ScheduleRequestHandler(BaseHTTPServer.BaseHTTPRequestHandler):
     self.wfile.write(content)
 
 
-def FindDefaultFileDir():
-  """Return the path of the directory containing the static files. By default
-  the directory is called 'files'. The location depends on where setup.py put
-  it."""
+def FindPy2ExeBase():
+  """If this is running in py2exe return the install directory else return
+  None"""
   # py2exe puts gtfsscheduleviewer in library.zip. For py2exe setup.py is
   # configured to put the data next to library.zip.
   windows_ending = gtfsscheduleviewer.__file__.find('\\library.zip\\')
   if windows_ending != -1:
-    base = transitfeed.__file__[:windows_ending]
+    return transitfeed.__file__[:windows_ending]
+  else:
+    return None
+
+
+def FindDefaultFileDir():
+  """Return the path of the directory containing the static files. By default
+  the directory is called 'files'. The location depends on where setup.py put
+  it."""
+  base = FindPy2ExeBase()
+  if base:
     return os.path.join(base, 'schedule_viewer_files')
   else:
     # For all other distributions 'files' is in the gtfsscheduleviewer
     # directory. 
     base = os.path.dirname(gtfsscheduleviewer.__file__)  # Strip __init__.py
     return os.path.join(base, 'files')
+
+
+def GetDefaultKeyFilePath():
+  """In py2exe return absolute path of file in the base directory and in all
+  other distributions return relative path 'key.txt'"""
+  windows_base = FindPy2ExeBase()
+  if windows_base:
+    return os.path.join(windows_base, 'key.txt')
+  else:
+    return 'key.txt'
 
 
 def StartServerThread(server):
@@ -395,9 +414,13 @@ if __name__ == '__main__':
   if not options.feed_filename and options.manual_entry:
     options.feed_filename = raw_input('Enter Feed Location: ').strip('"')
 
+  default_key_file = GetDefaultKeyFilePath()
+  if not options.key and os.path.isfile(default_key_file):
+    options.key = open(default_key_file).read().strip()
+
   if not options.key and options.manual_entry:
-    options.key = \
-        raw_input('Enter Google Maps API key or file containing it: ').strip('"')
+    options.key = raw_input('Enter Google Maps API key or file '
+                            'containing it: ').strip('"')
 
   if options.key and os.path.isfile(options.key):
     options.key = open(options.key).read().strip()
