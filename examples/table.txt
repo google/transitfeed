@@ -1,0 +1,29 @@
+options
+weekday
+start_date	20070315
+end_date	20071215
+remove_date	20070704
+agency_name	Gbus
+agency_url	http://shuttle/
+agency_timezone	America/Los_Angeles
+
+stops
+Stagecoach	36.915682	-116.751677
+N Ave / A Ave N	36.914944	-116.761472
+N Ave / D Ave N	36.914893	-116.76821
+Doing / D Ave N	36.909489	-116.768242
+E Main / S Irving	36.905697	-116.76218
+
+O in	Bar Circle Inbound
+Stagecoach	9:00:00	9:30:00	10:00:00	12:00:00
+N Ave / A Ave N	9:05:00	9:35:00	10:05:00	12:05:00
+N Ave / D Ave N	9:07:00	9:37:00	10:07:00	12:07:00
+Doing / D Ave N	9:09:00	9:39:00	10:09:00	12:09:00
+E Main / S Irving	9:11:00	9:41:00	10:11:00	12:11:00
+
+O out	Bar Circle Outbound
+E Main / S Irving	15:00:00	15:30:00	16:00:00	18:00:00
+Doing / D Ave N	15:05:00	15:35:00	16:05:00	18:05:00
+N Ave / D Ave N	15:07:00	15:37:00	16:07:00	18:07:00
+N Ave / A Ave N	15:09:00	15:39:00	16:09:00	18:09:00
+Stagecoach	15:11:00	15:41:00	16:11:00	18:11:00

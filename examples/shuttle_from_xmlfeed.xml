@@ -1,0 +1,29 @@
+<shuttle><office id="us-nye" name="US Nye County">
+<stops>
+<stop id="1" name="Stagecoach Hotel and Casino" shortName="Stagecoach" lat="36.915682" lng="-116.751677" />
+<stop id="2" name="North Ave / N A Ave" shortName="N Ave / A Ave N" lat="36.914944" lng="-116.761472" />
+<stop id="3" name="North Ave / D Ave N" shortName="N Ave / D Ave N" lat="36.914893" lng="-116.76821" />
+<stop id="4" name="Doing Ave / D Ave N" shortName="Doing / D Ave N" lat="36.909489" lng="-116.768242" />
+<stop id="5" name="E Main St / S Irving St" shortName="E Main / S Irving" lat="36.905697" lng="-116.76218" />
+</stops>
+<shuttleGroups>
+<shuttleGroup id="4" name="Bar Circle Loop" >
+<routes>
+<route id="1" name="Outbound">
+<schedules>
+<schedule id="164" stopId="1" time="60300000"/>
+<schedule id="165" stopId="2" time="60600000"/>
+<schedule id="166" stopId="3" time="60720000"/>
+<schedule id="167" stopId="4" time="60780000"/>
+<schedule id="168" stopId="5" time="60900000"/>
+</schedules><meta></meta></route>
+<route id="2" name="Inbound">
+<schedules>
+<schedule id="260" stopId="5" time="30000000"/>
+<schedule id="261" stopId="4" time="30120000"/>
+<schedule id="262" stopId="3" time="30180000"/>
+<schedule id="263" stopId="2" time="30300000"/>
+<schedule id="264" stopId="1" time="30600000"/>
+</schedules><meta></meta></route></routes>
+</shuttleGroup>
+</shuttleGroups></office></shuttle>

@@ -14,8 +14,23 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# An example script that hopefully demonstrates that programattically making a
-# Google Transit Feed file can be very easy.
+# An example script that demonstrates converting a proprietary format to a
+# Google Transit Feed Specification file. 
+# 
+# You can load table.txt, the example input, in Excel. It contains three
+# sections:
+# 1) A list of global options, starting with a line containing the word
+#    'options'. Each option has an name in the first column and most options
+#    have a value in the second column.
+# 2) A table of stops, starting with a line containing the word 'stops'. Each
+#    row of the table has 3 columns: name, latitude, longitude
+# 3) A list of routes. There is an empty row between each route. The first row
+#    for a route lists the short_name and long_name. After the first row the
+#    left-most column lists the stop names visited by the route. Each column
+#    contains the times a single trip visits the stops.
+#
+# This is very simple example which you could use as a base for your own
+# transit feed builder.
 
 import transitfeed
 from optparse import OptionParser
@@ -31,19 +46,20 @@ stops = {}
 #   ... ]
 def AddRouteToSchedule(schedule, table):
   if len(table) >= 2:
-    r = schedule.AddRoute(short_name=table[0][0], long_name=table[0][1], type='Bus')
+    r = schedule.AddRoute(short_name=table[0][0], long_name=table[0][1], route_type='Bus')
     for trip in table[2:]:
       if len(trip) > len(table[1]):
         print "ignoring %s" % trip[len(table[1]):]
         trip = trip[0:len(table[1])]
-      t = r.AddTrip(headsign='My headsign')
+      t = r.AddTrip(schedule, headsign='My headsign')
       trip_stops = []  # Build a list of (time, stopname) tuples
       for i in range(0, len(trip)):
         if re.search(r'\S', trip[i]):
           trip_stops.append( (transitfeed.TimeToSecondsSinceMidnight(trip[i]), table[1][i]) )
       trip_stops.sort()  # Sort by time
       for (time, stopname) in trip_stops:
-        t.AddStopTime(stop=stops[stopname.lower()], time_arr=time, time_dep=time)
+        t.AddStopTime(stop=stops[stopname.lower()], arrival_secs=time,
+                      departure_secs=time)
 
 def TransposeTable(table):
   """Transpose a list of lists, using None to extend all input lists to the
@@ -73,7 +89,7 @@ def TransposeTable(table):
   return transposed
 
 def ProcessOptions(schedule, table):
-  service_period = schedule.NewActiveServicePeriod()
+  service_period = schedule.GetDefaultServicePeriod()
   agency_name, agency_url, agency_timezone = (None, None, None)
 
   for row in table[1:]:
@@ -98,7 +114,8 @@ def ProcessOptions(schedule, table):
   if not (agency_name and agency_url and agency_timezone):
     print "You must provide agency information"
 
-  schedule.SetAgency(name=agency_name, url=agency_url, timezone=agency_timezone)
+  schedule.NewDefaultAgency(agency_name=agency_name, agency_url=agency_url,
+                            agency_timezone=agency_timezone)
 
 
 def AddStops(schedule, table):
@@ -113,11 +130,19 @@ def ProcessTable(schedule, table):
   elif table[0][0].lower() == 'stops':
     AddStops(schedule, table)
   else:
-    # AddRouteToSchedule expects the table[0] to be the route name, table[1] to
-    # be stop names and each list in table[2:] to be the times for a trip. This
-    # input contains the stop names in table[x][0], x >= 2 with trips found in
-    # columns, so we need to transpose table[1:]
-    transposed = [table[0]]
+    transposed = [table[0]]  # Keep route_short_name and route_long_name on first row
+
+    # Transpose rest of table. Input contains the stop names in table[x][0], x
+    # >= 1 with trips found in columns, so we need to transpose table[1:].
+    # As a diagram Transpose from
+    # [['stop 1', '10:00', '11:00', '12:00'],
+    #  ['stop 2', '10:10', '11:10', '12:10'],
+    #  ['stop 3', '10:20', '11:20', '12:20']]
+    # to
+    # [['stop 1', 'stop 2', 'stop 3'],
+    #  ['10:00',  '10:10',  '10:20'],
+    #  ['11:00',  '11:11',  '11:20'],
+    #  ['12:00',  '12:12',  '12:20']]
     transposed.extend(TransposeTable(table[1:]))
     AddRouteToSchedule(schedule, transposed)
 
