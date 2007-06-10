@@ -2283,7 +2283,8 @@ class Loader:
     for (row, row_num, cols) in self._ReadCSV('shapes.txt',
                                               Shape._FIELD_NAMES,
                                               Shape._REQUIRED_FIELD_NAMES):
-      self._problems.SetFileContext('shapes.txt', row_num, row)
+      file_context = ('shapes.txt', row_num, row)
+      self._problems.SetFileContext(*file_context)
 
       (shape_id, lat, lon, seq, dist) = row
       if IsEmpty(shape_id):
@@ -2291,36 +2292,28 @@ class Loader:
         continue
       try:
         seq = int(seq)
-        if seq < 1:
-          self._problems.InvalidValue('shape_pt_sequence', seq,
-                                      'Value should be a number (1 or higher)')
       except (TypeError, ValueError):
         self._problems.InvalidValue('shape_pt_sequence', seq,
                                     'Value should be a number (1 or higher)')
         continue
 
-      shapes.setdefault(shape_id, []).append((seq, lat, lon, dist))
-
+      shapes.setdefault(shape_id, []).append((seq, lat, lon, dist, file_context))
       self._problems.SetContext(None)
 
     for shape_id, points in shapes.items():
       shape = Shape(shape_id)
       points.sort()
       last_seq = 0
-      for (seq, lat, lon, dist) in points:
-        if (seq == last_seq):
+      for (seq, lat, lon, dist, file_context) in points:
+        if (seq != last_seq + 1):
+          self._problems.SetFileContext(*file_context)
           self._problems.InvalidValue('shape_pt_sequence', seq,
-                                      'This sequence number is used twice in '
-                                      'shape "%s".' % shape_id)
-        elif (seq != last_seq + 1):
-          self._problems.InvalidValue('shape_pt_sequence', seq,
-                                      'Gap between sequence numbers %d and %d '
-                                      'in shape "%s".' %
-                                      (last_seq, seq, shape_id))
-          last_seq = seq  # avoid spurious warning on the next point
-          continue
+                                      'In shape %s, sequence number %d found when '
+                                      '%d was expected' %
+                                      (shape_id, seq, last_seq + 1))
         last_seq = seq
         shape.AddPoint(lat, lon, dist, self._problems)
+        self._problems.SetContext(None)
 
       self._schedule.AddShapeObject(shape, self._problems)
 
