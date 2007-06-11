@@ -9,10 +9,11 @@ import urllib
 import unittest
 import re
 
-def check_call(cmd, shell=True):
+
+def check_call(cmd, **kwargs):
   """Convenience function that is in the docs for subprocess but not
   installed on my system."""
-  retcode = subprocess.call(cmd, shell=shell)
+  retcode = subprocess.call(cmd, **kwargs)
   if retcode < 0:
     raise Exception("Child '%s' was terminated by signal %d" % (cmd,
       -retcode))
@@ -43,6 +44,12 @@ class TempDirTestCaseBase(unittest.TestCase):
     here = os.path.dirname(__file__)  # Relative to _oldcwd
     return os.path.join(self._oldcwd, here, '..', 'examples', name)
 
+  def CheckCallWithPath(self, cmd):
+    """Run cmd[0] with args cmd[1:], pointing PYTHONPATH to the root of this
+    source tree."""
+    env = {'PYTHONPATH': self.GetExamplePath('..')}
+    check_call(cmd, shell=False, env=env)
+
 
 class WikiExample(TempDirTestCaseBase):
   # Download example from wiki and run it
@@ -59,13 +66,12 @@ class WikiExample(TempDirTestCaseBase):
 
 class shuttle_from_xmlfeed(TempDirTestCaseBase):
   def runTest(self):
-    check_call([self.GetExamplePath('shuttle_from_xmlfeed.py'),
-                '--input',
-                self.GetExamplePath('shuttle_from_xmlfeed.xml'),
-                '--output', 'shuttle-YYYYMMDD.zip',
-                # save the path of the dated output to tempfilepath
-                '--execute', 'echo %(path)s > outputpath'
-                ], shell=False)
+    self.CheckCallWithPath(
+        [self.GetExamplePath('shuttle_from_xmlfeed.py'),
+         '--input', self.GetExamplePath('shuttle_from_xmlfeed.xml'),
+         '--output', 'shuttle-YYYYMMDD.zip',
+         # save the path of the dated output to tempfilepath
+         '--execute', 'echo %(path)s > outputpath'])
   
     dated_path = open('outputpath').read().strip()
     self.assertTrue(re.match(r'shuttle-20\d\d[01]\d[0123]\d.zip$', dated_path))
@@ -75,17 +81,19 @@ class shuttle_from_xmlfeed(TempDirTestCaseBase):
 
 class table(TempDirTestCaseBase):
   def runTest(self):
-    check_call([self.GetExamplePath('table.py'),
-                '--input', self.GetExamplePath('table.txt'),
-                '--output', 'google_transit.zip'], shell=False)
+    self.CheckCallWithPath(
+        [self.GetExamplePath('table.py'),
+         '--input', self.GetExamplePath('table.txt'),
+         '--output', 'google_transit.zip'])
     if not os.path.exists('google_transit.zip'):
       raise Exception('should have created output')
 
 
 class small_builder(TempDirTestCaseBase):
   def runTest(self):
-    check_call([self.GetExamplePath('small_builder.py'),
-                '--output', 'google_transit.zip'], shell=False)
+    self.CheckCallWithPath(
+        [self.GetExamplePath('small_builder.py'),
+         '--output', 'google_transit.zip'])
     if not os.path.exists('google_transit.zip'):
       raise Exception('should have created output')
 
