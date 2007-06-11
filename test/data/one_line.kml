@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<kml xmlns="http://earth.google.com/kml/2.0">
+<Document>
+  <name>A test file with one placemark</name>
+  <decription></decription>
+  <Placemark>
+    <name>Test</name>
+    <description></description>
+    <LineString>
+      <coordinates>
+        -93.238861,44.854240,0.000000
+        -93.238708,44.853081,0.000000
+        -93.237923,44.852638,0.000000
+      </coordinates>
+    </LineString>
+  </Placemark>
+</Document>
+</kml>
