@@ -62,21 +62,23 @@ class ProblemReporter:
   """This is a basic problem reporter that just prints to console."""
 
   def __init__(self):
-    self._context = None
+    self.ClearContext()
 
-  def SetContext(self, context):
-    self._context = context
-
-  def SetFileContext(self, filename, row_num, row):
+  def SetFileContext(self, filename, row_num, row, headers):
     """Save the current context to be output with any errors.
 
     Args:
       filename: string
       row_num: int
       row: list of unicode strings
+      row_headers: list of column headers, its order corresponding to row's
     """
-    self.SetContext('in line %d of %s:\n%s' %
+    self._context = ('in line %d of %s:\n%s' %
                     (row_num, filename, ', '.join(map(unicode, row))))
+
+  def ClearContext(self):
+    """Clear any previous context."""
+    self._context = None
 
   def _Report(self, problem_text):
     print self._EncodeUnicode(self._LineWrap(problem_text, 79))
@@ -343,31 +345,6 @@ def ApproximateDistanceBetweenStops(stop1, stop2):
   x = dlat * dlat + dlng * dlng * math.cos(lat1) * math.cos(lat2)
   return EARTH_RADIUS * (2 * math.atan2(math.sqrt(x),
       math.sqrt(max(0.0, 1.0 - x))))
-
-
-def ReadCSV(str, encoding, cols):
-  """Reads lines from str, yielding a list of values corresponding to the
-  column names in cols."""
-  reader = csv.reader(StringIO.StringIO(str))  # Use default, excel, dialect
-
-  header = reader.next()
-  col_index = [-1] * len(cols)
-  for i in range(len(cols)):
-    lower_header = map(lambda x:x.lower(), header)
-    if cols[i] in lower_header:
-      col_index[i] = lower_header.index(cols[i])
-      if header[col_index[i]] != lower_header[col_index[i]]:
-        log.warning('Column header "%s" should have the capitalization "%s"'
-                    % (header[col_index[i]], lower_header[col_index[i]]))
-
-  for row in reader:
-    result = [None] * len(cols)
-    for i in range(len(cols)):
-      ci = col_index[i]
-      if ci >= 0:
-        result[i] = row[ci].decode(encoding).strip()
-    yield result
-
 
 class Stop(object):
   """Represents a single stop. A stop must have a latitude, longitude and name."""
@@ -2018,7 +1995,7 @@ class Schedule:
       name = (short_name, long_name)
       if name in route_names:
         problems.InvalidValue('route_long_name',
-                              name,
+                              long_name,
                               'The same combination of '
                               'route_short_name and route_long_name '
                               'shouldn\'t be used for more than one '
@@ -2152,7 +2129,7 @@ class Loader:
             except UnicodeDecodeError:
               self._problems.InvalidValue(cols[i], row[ci],
                                           'Unicode error in row %s' % row)
-      yield (result, row_num, header_dict)
+      yield (result, row_num, cols)
 
   def _HasFile(self, file_name):
     """Returns True if there's a file in the current feed with the
@@ -2187,16 +2164,16 @@ class Loader:
     for (row, row_num, cols) in self._ReadCSV('agency.txt',
                                               Agency._FIELD_NAMES,
                                               Agency._REQUIRED_FIELD_NAMES):
-      self._problems.SetFileContext('agency.txt', row_num, row)
+      self._problems.SetFileContext('agency.txt', row_num, row, cols)
       agency = Agency(field_list=row)
       self._schedule.AddAgencyObject(agency, self._problems)
-      self._problems.SetContext(None)
+      self._problems.ClearContext()
 
   def _LoadStops(self):
     for (row, row_num, cols) in self._ReadCSV('stops.txt',
                                               Stop._FIELD_NAMES,
                                               Stop._REQUIRED_FIELD_NAMES):
-      self._problems.SetFileContext('stops.txt', row_num, row)
+      self._problems.SetFileContext('stops.txt', row_num, row, cols)
 
       stop = Stop(field_list=row)
       stop.Validate(self._problems)
@@ -2206,18 +2183,18 @@ class Loader:
       else:
         self._schedule.AddStopObject(stop)
 
-      self._problems.SetContext(None)
+      self._problems.ClearContext()
 
   def _LoadRoutes(self):
     for (row, row_num, cols) in self._ReadCSV('routes.txt',
                                               Route._FIELD_NAMES,
                                               Route._REQUIRED_FIELD_NAMES):
-      self._problems.SetFileContext('routes.txt', row_num, row)
+      self._problems.SetFileContext('routes.txt', row_num, row, cols)
 
       route = Route(field_list=row)
       self._schedule.AddRouteObject(route, self._problems)
 
-      self._problems.SetContext(None)
+      self._problems.ClearContext()
 
   def _LoadCalendar(self):
     file_name = 'calendar.txt'
@@ -2232,7 +2209,7 @@ class Loader:
               self._ReadCSV(file_name,
                             ServicePeriod._FIELD_NAMES,
                             ServicePeriod._FIELD_NAMES_REQUIRED):
-        self._problems.SetFileContext(file_name, row_num, row)
+        self._problems.SetFileContext(file_name, row_num, row, cols)
 
         period = ServicePeriod(field_list=row)
         self._schedule.AddServicePeriodObject(period, self._problems)
@@ -2241,7 +2218,7 @@ class Loader:
           if True in period.day_of_week:
             has_useful_contents = True
 
-        self._problems.SetContext(None)
+        self._problems.ClearContext()
 
       if self._extra_validation:
         if not has_useful_contents:
@@ -2254,7 +2231,7 @@ class Loader:
       fields = ServicePeriod._FIELD_NAMES_CALENDAR_DATES
       for (row, row_num, cols) in self._ReadCSV(file_name_dates,
                                                 fields, fields):
-        self._problems.SetFileContext(file_name_dates, row_num, row)
+        self._problems.SetFileContext(file_name_dates, row_num, row, cols)
 
         service_id = row[0]
         period = None
@@ -2273,7 +2250,7 @@ class Loader:
 
         period.Validate(self._problems)
 
-        self._problems.SetContext(None)
+        self._problems.ClearContext()
 
   def _LoadShapes(self):
     if not self._HasFile('shapes.txt'):
@@ -2283,7 +2260,7 @@ class Loader:
     for (row, row_num, cols) in self._ReadCSV('shapes.txt',
                                               Shape._FIELD_NAMES,
                                               Shape._REQUIRED_FIELD_NAMES):
-      file_context = ('shapes.txt', row_num, row)
+      file_context = ('shapes.txt', row_num, row, cols)
       self._problems.SetFileContext(*file_context)
 
       (shape_id, lat, lon, seq, dist) = row
@@ -2298,7 +2275,7 @@ class Loader:
         continue
 
       shapes.setdefault(shape_id, []).append((seq, lat, lon, dist, file_context))
-      self._problems.SetContext(None)
+      self._problems.ClearContext()
 
     for shape_id, points in shapes.items():
       shape = Shape(shape_id)
@@ -2313,7 +2290,7 @@ class Loader:
                                       (shape_id, seq, last_seq + 1))
         last_seq = seq
         shape.AddPoint(lat, lon, dist, self._problems)
-        self._problems.SetContext(None)
+        self._problems.ClearContext()
 
       self._schedule.AddShapeObject(shape, self._problems)
 
@@ -2321,12 +2298,12 @@ class Loader:
     for (row, row_num, cols) in self._ReadCSV('trips.txt',
                                               Trip._FIELD_NAMES,
                                               Trip._REQUIRED_FIELD_NAMES):
-      self._problems.SetFileContext('trips.txt', row_num, row)
+      self._problems.SetFileContext('trips.txt', row_num, row, cols)
 
       trip = Trip(field_list=row)
       self._schedule.AddTripObject(trip, self._problems)
 
-      self._problems.SetContext(None)
+      self._problems.ClearContext()
 
   def _LoadFares(self):
     if not self._HasFile('fare_attributes.txt'):
@@ -2334,12 +2311,12 @@ class Loader:
     for (row, row_num, cols) in self._ReadCSV('fare_attributes.txt',
                                               Fare._FIELD_NAMES,
                                               Fare._REQUIRED_FIELD_NAMES):
-      self._problems.SetFileContext('fare_attributes.txt', row_num, row)
+      self._problems.SetFileContext('fare_attributes.txt', row_num, row, cols)
 
       fare = Fare(field_list=row)
       self._schedule.AddFareObject(fare, self._problems)
 
-      self._problems.SetContext(None)
+      self._problems.ClearContext()
 
   def _LoadFareRules(self):
     if not self._HasFile('fare_rules.txt'):
@@ -2347,12 +2324,12 @@ class Loader:
     for (row, row_num, cols) in self._ReadCSV('fare_rules.txt',
                                               FareRule._FIELD_NAMES,
                                               FareRule._REQUIRED_FIELD_NAMES):
-      self._problems.SetFileContext('fare_rules.txt', row_num, row)
+      self._problems.SetFileContext('fare_rules.txt', row_num, row, cols)
 
       rule = FareRule(field_list=row)
       self._schedule.AddFareRuleObject(rule, self._problems)
 
-      self._problems.SetContext(None)
+      self._problems.ClearContext()
 
   def _LoadHeadways(self):
     file_name = 'frequencies.txt'
@@ -2363,7 +2340,7 @@ class Loader:
     fields = Trip._FIELD_NAMES_HEADWAY
     modified_trips = {}
     for (row, row_num, cols) in self._ReadCSV(file_name, fields, fields):
-      self._problems.SetFileContext(file_name, row_num, row)
+      self._problems.SetFileContext(file_name, row_num, row, cols)
       (trip_id, start_time, end_time, headway_secs) = row
       try:
         trip = self._schedule.GetTrip(trip_id)
@@ -2372,7 +2349,7 @@ class Loader:
         modified_trips[trip_id] = trip
       except KeyError:
         self._problems.InvalidValue('trip_id', trip_id)
-      self._problems.SetContext(None)
+      self._problems.ClearContext()
 
     for trip in modified_trips.values():
       trip.Validate(self._problems)
@@ -2382,7 +2359,7 @@ class Loader:
     for (row, row_num, cols) in self._ReadCSV('stop_times.txt',
                                               StopTime._FIELD_NAMES,
                                               StopTime._REQUIRED_FIELD_NAMES):
-      self._problems.SetFileContext('stop_times.txt', row_num, row)
+      self._problems.SetFileContext('stop_times.txt', row_num, row, cols)
 
       (trip_id, arrival_time, departure_time, stop_id, stop_sequence,
          stop_headsign, pickup_type, drop_off_type, shape_dist_traveled) = row
@@ -2409,7 +2386,7 @@ class Loader:
                                    departure_time, stop_headsign,
                                    pickup_type, drop_off_type,
                                    shape_dist_traveled)))
-      self._problems.SetContext(None)
+      self._problems.ClearContext()
 
     for trip_id, sequence in stoptimes.iteritems():
       sequence.sort()

@@ -179,7 +179,8 @@ class ProblemReporterTestCase(RedirectStdOutTestCaseBase):
   def testContextWithBadUnicode(self):
     pr = transitfeed.ProblemReporter()
     pr.SetFileContext('filename.foo', 23,
-                      [u'Andr\202', u'Person \xec\x9c\xa0 foo', None])
+                      [u'Andr\202', u'Person \xec\x9c\xa0 foo', None],
+                      [u'1\202', u'2\202', u'3\202'])
     pr._Report('test string')
     pr._Report('\xff\xfe\x80\x88')
     pr._Report(u'\xff\xfe\x80\x88')
