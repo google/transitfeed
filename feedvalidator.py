@@ -127,7 +127,7 @@ table {border-spacing: 5px 0px; margin-top: 3px}
 span.pass {background-color: lightgreen}
 span.fail {background-color: yellow}
 .pass, .fail {font-size: 16pt; padding: 3px}
-ol,.unused {padding-left: 20pt}
+ol,.unused {padding-left: 40pt}
 .footer {font-size: 10pt}
 </style>
 </head>
