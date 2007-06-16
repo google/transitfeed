@@ -8,12 +8,16 @@ import tempfile
 import urllib
 import unittest
 import re
+import sys
 
 
 def check_call(cmd, **kwargs):
   """Convenience function that is in the docs for subprocess but not
   installed on my system."""
-  retcode = subprocess.call(cmd, **kwargs)
+  try:
+    retcode = subprocess.call(cmd, **kwargs)
+  except Exception, e:
+    raise Exception("When running %s: %s" % (cmd, e))
   if retcode < 0:
     raise Exception("Child '%s' was terminated by signal %d" % (cmd,
       -retcode))
@@ -48,6 +52,7 @@ class TempDirTestCaseBase(unittest.TestCase):
     """Run cmd[0] with args cmd[1:], pointing PYTHONPATH to the root of this
     source tree."""
     env = {'PYTHONPATH': self.GetExamplePath('..')}
+    cmd = [sys.executable] + cmd
     check_call(cmd, shell=False, env=env)
 
 
@@ -68,7 +73,7 @@ class shuttle_from_xmlfeed(TempDirTestCaseBase):
   def runTest(self):
     self.CheckCallWithPath(
         [self.GetExamplePath('shuttle_from_xmlfeed.py'),
-         '--input', self.GetExamplePath('shuttle_from_xmlfeed.xml'),
+         '--input', 'file:' + self.GetExamplePath('shuttle_from_xmlfeed.xml'),
          '--output', 'shuttle-YYYYMMDD.zip',
          # save the path of the dated output to tempfilepath
          '--execute', 'echo %(path)s > outputpath'])
