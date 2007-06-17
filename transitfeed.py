@@ -2202,44 +2202,44 @@ class Loader:
     if not self._HasFile(file_name) and not self._HasFile(file_name_dates):
       self._problems.MissingFile(file_name)
       return
+      
+    # map period IDs to (period object, (file_name, row_num, row, cols))
+    periods = {}
 
+    # process calendar.txt
     if self._HasFile(file_name):
       has_useful_contents = False
       for (row, row_num, cols) in \
               self._ReadCSV(file_name,
                             ServicePeriod._FIELD_NAMES,
                             ServicePeriod._FIELD_NAMES_REQUIRED):
-        self._problems.SetFileContext(file_name, row_num, row, cols)
+        context = (file_name, row_num, row, cols)
 
         period = ServicePeriod(field_list=row)
-        self._schedule.AddServicePeriodObject(period, self._problems)
 
-        if self._extra_validation:
-          if True in period.day_of_week:
-            has_useful_contents = True
+        if period.service_id in periods:
+          problem_reporter.DuplicateID('service_id', period.service_id)
+          continue
+        
+        periods[period.service_id] = (period, context)
 
-        self._problems.ClearContext()
-
-      if self._extra_validation:
-        if not has_useful_contents:
-          self._problems.OtherProblem('Since calendar.txt isn\'t defining any '
-                                      'service dates, it should be omitted '
-                                      'from this feed.')
-
+    # process calendar_dates.txt
     if self._HasFile(file_name_dates):
       # ['service_id', 'date', 'exception_type']
       fields = ServicePeriod._FIELD_NAMES_CALENDAR_DATES
       for (row, row_num, cols) in self._ReadCSV(file_name_dates,
                                                 fields, fields):
-        self._problems.SetFileContext(file_name_dates, row_num, row, cols)
+        context = (file_name_dates, row_num, row, cols)
 
         service_id = row[0]
+
         period = None
-        if service_id in self._schedule.service_periods:
-          period = self._schedule.service_periods[service_id]
+        if service_id in periods:
+          period = periods[service_id][0]
         else:
           period = ServicePeriod(service_id)
-          self._schedule.service_periods[service_id] = period
+          periods[period.service_id] = (period, context)
+
         exception_type = row[2]
         if exception_type == u'1':
           period.SetDateHasService(row[1], True)
@@ -2248,9 +2248,12 @@ class Loader:
         else:
           self._problems.InvalidValue('exception_type', exception_type)
 
-        period.Validate(self._problems)
-
-        self._problems.ClearContext()
+    # Now insert the periods into the schedule object, so that they're
+    # validated with both calendar and calendar_dates info present
+    for period, context in periods.values():
+      self._problems.SetFileContext(*context)
+      self._schedule.AddServicePeriodObject(period, self._problems)
+      self._problems.ClearContext()
 
   def _LoadShapes(self):
     if not self._HasFile('shapes.txt'):
