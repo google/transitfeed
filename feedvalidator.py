@@ -16,8 +16,16 @@
 
 # Validates a Google Transit Feed Specification feed.
 #
-# Usage:
-# feed_validator.py [--noprompt] <feed zip file or directory>
+# 
+# usage: feedvalidator.py [options] feed_filename
+# 
+# options:
+#   --version             show program's version number and exit
+#   -h, --help            show this help message and exit
+#   -n, --noprompt        do not prompt for feed location or load output in
+#                         browser
+#   -o FILE, --output=FILE
+#                         write html output to FILE
 
 import codecs
 import optparse
@@ -39,42 +47,44 @@ class HTMLCountingProblemReporter(transitfeed.ProblemReporter):
   def __init__(self):
     transitfeed.ProblemReporter.__init__(self)
     self._output = []
-    self._context = None
     self.count = 0
     self.unused_stops = []  # [(stop_id, stop_name)...]
-
-  def SetFileContext(self, filename, row_num, row, row_headers):
-    """Save the current context to be output with any errors.
-
-    Args:
-      filename: string
-      row_num: int
-      row: list of unicode strings
-      row_headers: list of column headers, its order corresponding to row's
-    """
-    self._context = (row_num, filename, map(unicode, row), row_headers)
 
   def UnusedStop(self, stop_id, stop_name):
     self.count += 1
     self.unused_stops.append((stop_id, stop_name))
     
-  def _Report(self, problem_text):
+  def _Report(self, e):
     self.count += 1
-    problem_text = problem_text.replace('\n', '<br>')
+    d = e.GetDict()
+    for k in ('file_name', 'feedname', 'column_name'):
+      if k in d.keys():
+        d[k] = '<code>%s</code>' % d[k]
+    problem_text = e.FormatProblem(d).replace('\n', '<br>')
     self._output.append('<li>')
     self._output.append('<div class="problem">%s</div>' %
-                        self._EncodeUnicode(problem_text))
-    if self._context:
-      self._output.append('in line %d of <code>%s</code><br>' %
-                           self._context[:2])
-      self._output.append('<table><tr>')
-      for cell in self._context[3]:
-        self._output.append('<th>%s</th>' % cell)
-      self._output.append('</tr><tr>')
-      for cell in self._context[2]:
-        self._output.append('<td>%s</td>' %
-                            self._EncodeUnicode(cell))
-      self._output.append('</tr></table>')
+                        transitfeed.EncodeUnicode(problem_text))
+    try:
+      self._output.append('in line %d of <code>%s</code><br>\n' %
+                           (e.row_num, e.file_name))
+      row = e.row
+      headers = e.headers
+      column_name = e.column_name
+      table_header = ''  # HTML
+      table_data = ''  # HTML
+      for header, value in zip(headers, row):
+        attributes = ''
+        if header == column_name:
+          attributes = ' class="problem"'
+        table_header += '<th%s>%s</th>' % (attributes, header)
+        table_data += '<td%s>%s</td>' % (attributes, value)
+      self._output.append('<table><tr>%s</tr>\n' % table_header)
+      # Make sure self._output contains strings with UTF-8 or binary data, not
+      # unicode
+      self._output.append('<tr>%s</tr><table>\n' %
+                          transitfeed.EncodeUnicode(table_data))
+    except AttributeError, e:
+      pass  # Hope this was getting an attribute from e ;-)
     self._output.append('</li><br>\n')
     
   def _UnusedStopSection(self):
@@ -105,7 +115,7 @@ class HTMLCountingProblemReporter(transitfeed.ProblemReporter):
     
   def GetOutput(self, feed_location):
     if problems.count:
-      summary = ('<span class="fail">%s found</span' %
+      summary = ('<span class="fail">%s found</span>' %
                  ProblemCountText(problems.count))
     else:
       summary = '<span class="pass">feed validated successfully</span>'
@@ -123,6 +133,7 @@ body {font-family: Georgia, serif}
 .path {color: gray}
 div.problem {max-width: 500px}
 td,th {background-color: khaki; padding: 2px; font-family:monospace}
+td.problem,th.problem {background-color: dc143c; color: white; padding: 2px; font-family:monospace}
 table {border-spacing: 5px 0px; margin-top: 3px}
 span.pass {background-color: lightgreen}
 span.fail {background-color: yellow}
@@ -149,18 +160,23 @@ FeedValidator</a> version %s on %s.
     return output_contents
 
 if __name__ == '__main__':
-  parser = optparse.OptionParser()
+  parser = optparse.OptionParser(usage='usage: %prog [options] feed_filename',
+                                 version='%prog '+transitfeed.__version__)
   parser.add_option('-n', '--noprompt', action='store_false',
-                    dest='manual_entry')
-  parser.set_defaults(manual_entry=True)
+                    dest='manual_entry',
+                    help='do not prompt for feed location or load output in browser')
+  parser.add_option('-o', '--output', dest='output', metavar='FILE',
+                    help='write html output to FILE')
+  parser.set_defaults(manual_entry=True, output='validation-results.html')
   (options, args) = parser.parse_args()
   manual_entry = options.manual_entry
   if not len(args) == 1:
     if manual_entry:
       feed = raw_input('Enter Feed Location: ')
     else:
-      print 'Usage: feedvalidator [--noprompt] <feed_name>'
-      sys.exit(1)
+      print >>sys.stderr, parser.format_help()
+      print >>sys.stderr, '\n\nYou must provide the path of a single feed\n\n'
+      sys.exit(2)
   else:
     feed = args[0]
 
@@ -177,10 +193,11 @@ if __name__ == '__main__':
   else:
     print 'feed validated successfully'
     
-  output_filename = 'validation-results.html'
+  output_filename = options.output
   output_file = open(output_filename, 'w')
   output_file.write(problems.GetOutput(os.path.abspath(feed)))
   output_file.close()
-  webbrowser.open('file://%s' % os.path.abspath(output_filename))
+  if manual_entry:
+    webbrowser.open('file://%s' % os.path.abspath(output_filename))
     
   sys.exit(exit_code)

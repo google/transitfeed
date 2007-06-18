@@ -58,42 +58,92 @@ OUTPUT_ENCODING = 'utf-8'
 __version__ = '1.0.9'
 
 
-class ProblemReporter:
-  """This is a basic problem reporter that just prints to console."""
+def EncodeUnicode(text):
+  """
+  Optionally encode text and return it. The result should be safe to print.
+  """
+  if type(text) == type(u''):
+    return text.encode(OUTPUT_ENCODING)
+  else:
+    return text
 
+class ProblemReporterBase:
+  """Base class for problem reporters. Tracks the current context and creates
+  an exception object for each problem. Subclasses must implement
+  _Report(self, e)"""
   def __init__(self):
     self.ClearContext()
-
-  def SetFileContext(self, filename, row_num, row, headers):
-    """Save the current context to be output with any errors.
-
-    Args:
-      filename: string
-      row_num: int
-      row: list of unicode strings
-      row_headers: list of column headers, its order corresponding to row's
-    """
-    self._context = ('in line %d of %s:\n%s' %
-                    (row_num, filename, ', '.join(map(unicode, row))))
 
   def ClearContext(self):
     """Clear any previous context."""
     self._context = None
 
-  def _Report(self, problem_text):
-    print self._EncodeUnicode(self._LineWrap(problem_text, 79))
-    if self._context:
-      print self._EncodeUnicode(self._LineWrap(self._context, 79))
+  def SetFileContext(self, file_name, row_num, row, headers):
+    """Save the current context to be output with any errors.
 
-  @staticmethod
-  def _EncodeUnicode(text):
+    Args:
+      file_name: string
+      row_num: int
+      row: list of strings
+      headers: list of column headers, its order corresponding to row's
     """
-    Optionally encode text and return it. The result should be safe to print.
-    """
-    if type(text) == type(u''):
-      return text.encode(OUTPUT_ENCODING)
-    else:
-      return text
+    self._context = (file_name, row_num, row, headers)
+
+  def FeedNotFound(self, feed_name, context=None):
+    e = FeedNotFound(feed_name=feed_name, context=context,
+                     context2=self._context)
+    self._Report(e)
+
+  def UnknownFormat(self, feed_name, context=None):
+    e = UnknownFormat(feed_name=feed_name, context=context,
+                      context2=self._context)
+    self._Report(e)
+
+  def MissingFile(self, file_name, context=None):
+    e = MissingFile(file_name=file_name, context=context,
+                    context2=self._context)
+    self._Report(e)
+
+  def EmptyFile(self, file_name, context=None):
+    e = EmptyFile(file_name=file_name, context=context,
+                  context2=self._context)
+    self._Report(e)
+
+  def MissingColumn(self, file_name, column_name, context=None):
+    e = MissingColumn(file_name=file_name, column_name=column_name,
+                      context=context, context2=self._context)
+    self._Report(e)
+
+  def MissingValue(self, column_name, context=None):
+    e = MissingValue(column_name=column_name, context=context,
+                     context2=self._context)
+    self._Report(e)
+
+  def InvalidValue(self, column_name, value, reason=None, context=None):
+    e = InvalidValue(column_name=column_name, value=value, reason=reason,
+                     context=context, context2=self._context)
+    self._Report(e)
+
+  def DuplicateID(self, column_name, value, context=None):
+    e = DuplicateID(column_name=column_name, value=value,
+                    context=context, context2=self._context)
+    self._Report(e)
+	
+  def UnusedStop(self, stop_id, stop_name, context=None):
+    e = UnusedStop(stop_id=stop_id, stop_name=stop_name,
+                   context=context, context2=self._context)
+    self._Report(e)
+
+  def OtherProblem(self, description, context=None):
+    e = OtherProblem(description=description,
+                    context=context, context2=self._context)
+    self._Report(e)
+
+class ProblemReporter(ProblemReporterBase):
+  """This is a basic problem reporter that just prints to console."""
+  def _Report(self, e):
+    print EncodeUnicode(self._LineWrap(e.FormatProblem(), 78))
+    print e.FormatContext()
 
   @staticmethod
   def _LineWrap(text, width):
@@ -113,169 +163,107 @@ class ProblemReporter:
                   text.split(' ')
                  )
 
-  def FeedNotFound(self, feed_name):
-    self._Report('Couldn\'t find a feed named "%s"' % feed_name)
 
-  def UnknownFormat(self, feed_name):
-    self._Report('The feed named "%s" had an unknown format:\n'
-                 'feeds should be either .zip files or directories.' %
-                 feed_name)
-
-  def MissingFile(self, file_name):
-    self._Report('Missing required file "%s"' % file_name)
-
-  def EmptyFile(self, file_name):
-    self._Report('File "%s" was empty' % file_name)
-
-  def MissingColumn(self, file_name, column_name):
-    self._Report('Missing column "%s" in file "%s"' % (column_name, file_name))
-
-  def MissingValue(self, field_name):
-    self._Report('Missing value for field "%s"' % field_name)
-
-  def InvalidValue(self, field_name, value, reason=None):
-    text = 'Invalid value "%s" found for field "%s"' % (value, field_name)
-    if reason:
-      text += '\n' + reason
-    self._Report(text)
-
-  def DuplicateID(self, column_name, value):
-    self._Report('Duplicated ID "%s" found in "%s" column' %
-                 (value, column_name))
-				 
-  def UnusedStop(self, stop_id, stop_name):
-    self._Report('The stop "%s" (with ID "%s") isn\'t '
-                 'used for any trips.' % (stop_name, stop_id))
-
-  def OtherProblem(self, description):
-    self._Report(description)
-
-
-class FeedException(Exception):
-  def __init__(self, feed_name):
+class ExceptionWithContext(Exception):
+  def __init__(self, context=None, context2=None, **kwargs):
+    """Initialize an exception object, saving all keyword arguments in self.
+    context and context2, if present, must be a tuple of (file_name, row_num,
+    row, headers). context2 comes from ProblemReporter.SetFileContext. context
+    was passed in with the keyword arguments. context2 is ignored if context
+    is present."""
     Exception.__init__(self)
-    self.feed_name = feed_name
+
+    if context:
+      self.__dict__.update(self.ContextTupleToDict(context))
+    elif context2:
+      self.__dict__.update(self.ContextTupleToDict(context2))
+    self.__dict__.update(kwargs)
+
+  CONTEXT_PARTS = ['file_name', 'row_num', 'row', 'headers']
+  @staticmethod
+  def ContextTupleToDict(context):
+    """Convert a tuple representing a context into a dict of (key, value) pairs"""
+    d = {}
+    if not context:
+      return d
+    for k, v in zip(ExceptionWithContext.CONTEXT_PARTS, context):
+      if v != '' and v != None:  # Don't ignore int(0), a valid row_num
+        d[k] = v
+    return d
 
   def __str__(self):
-    return self.feed_name
+    return self.FormatProblem()
+
+  def GetDict(self):
+    """Return a copy of self as a dict, suitable for passing to FormatProblem"""
+    d = {}
+    d.update(self.__dict__)
+    return d
+
+  def FormatProblem(self, d=None):
+    """Return a text string describing the problem. d may be the return value
+    of GetDict with formatting added to the values."""
+    if not d:
+      d = self.__dict__
+    return self.__class__.ERROR_TEXT % d
+
+  def FormatContext(self):
+    """Return a text string describing the context"""
+    text = ''
+    if hasattr(self, 'feed_name'):
+      text += "In feed '%s': " % self.feed_name
+    if hasattr(self, 'file_name'):
+      text += self.file_name
+    if hasattr(self, 'row_num'):
+      text += ":%i" % self.row_num
+    if hasattr(self, 'column_name'):
+      text += " column %s" % self.column_name
 
 
-class FeedNotFound(FeedException):
-  pass
+class MissingFile(ExceptionWithContext):
+  ERROR_TEXT = "File %(file_name)s is not found"
 
+class EmptyFile(ExceptionWithContext):
+  ERROR_TEXT = "File %(file_name)s is empty"
 
-class UnknownFormat(FeedException):
-  pass
+class FeedNotFound(ExceptionWithContext):
+  ERROR_TEXT = 'Couldn\'t find a feed named %(feed_name)s'
 
+class UnknownFormat(ExceptionWithContext):
+  ERROR_TEXT = 'The feed named %(feed_name)s had an unknown format:\n' \
+               'feeds should be either .zip files or directories.'
 
-class FileException(Exception):
-  def __init__(self, file_name):
-    Exception.__init__(self)
-    self.file_name = file_name
+class MissingColumn(ExceptionWithContext):
+  ERROR_TEXT = 'Missing column %(column_name)s in file %(file_name)s'
 
-  def __str__(self):
-    return self.file_name
+class MissingValue(ExceptionWithContext):
+  ERROR_TEXT = 'Missing value for column %(column_name)s'
 
-
-class MissingFile(FileException):
-  pass
-
-
-class EmptyFile(FileException):
-  pass
-
-
-class MissingColumn(Exception):
-  def __init__(self, file_name, column_name):
-    Exception.__init__(self)
-    self.file_name = file_name
-    self.column_name = column_name
-
-  def __str__(self):
-    return '"%s" in file "%s"' % (self.file_name, self.column_name)
-
-
-class MissingValue(Exception):
-  def __init__(self, field_name):
-    Exception.__init__(self)
-    self.field_name = field_name
-
-  def __str__(self):
-    return self.field_name
-
-
-class InvalidValue(Exception):
-  def __init__(self, field_name, value, reason):
-    Exception.__init__(self)
-    self.field_name = field_name
-    self.value = value
-    self.reason = reason
-
-  def __str__(self):
-    text = '"%s" in field "%s"' % (self.value, self.field_name)
-    if (self.reason):
-      text += '\n' + self.reason
+class InvalidValue(ExceptionWithContext):
+  def FormatProblem(self, d=None):
+    """Return a text string describing the problem. d may be the return value
+    of GetDict with formatting added to the values."""
+    if not d:
+      d = self.__dict__
+    text = 'Invalid value %(value)s in field %(column_name)s' % d
+    if d['reason']:
+      text += '\n' + d['reason']
     return text
 
-
-class DuplicateID(Exception):
-  def __init__(self, column_name, value):
-    Exception.__init__(self)
-    self.column_name = column_name
-    self.value = value
-
-  def __str__(self):
-    return '"%s" in column "%s"' % (self.value, self.column_name)
+class DuplicateID(ExceptionWithContext):
+  ERROR_TEXT = 'Duplicate ID %(value)s in column %(column_name)s'
 	
-	
-class UnusedStop(Exception):
-  def __init__(self, stop_id, stop_name):
-    Exception.__init__(self)
-    self.stop_id = stop_id
-    self.stop_name = stop_name
+class UnusedStop(ExceptionWithContext):
+  ERROR_TEXT = "%(stop_name)s (ID %(stop_id)s) isn't used in any trips"
 
-  def __str__(self):
-    return '%s (ID %s)' % (self.stop_name, self.stop_id)
-
-class OtherProblem(Exception):
-  def __init__(self, description):
-    Exception.__init__(self)
-    self.description = description
-
-  def __str__(self):
-    return self.description
+class OtherProblem(ExceptionWithContext):
+  ERROR_TEXT = '%(description)s'
 
 
-class ExceptionProblemReporter(ProblemReporter):
-  def FeedNotFound(self, feed_name):
-    raise FeedNotFound(feed_name)
+class ExceptionProblemReporter(ProblemReporterBase):
+  def _Report(self, e):
+    raise e
 
-  def UnknownFormat(self, feed_name):
-    raise UnknownFormat(feed_name)
-
-  def MissingFile(self, file_name):
-    raise MissingFile(file_name)
-
-  def EmptyFile(self, file_name):
-    raise EmptyFile(file_name)
-
-  def MissingColumn(self, file_name, column_name):
-    raise MissingColumn(file_name, column_name)
-
-  def MissingValue(self, field_name):
-    raise MissingValue(field_name)
-
-  def InvalidValue(self, column_name, value, reason=None):
-    raise InvalidValue(column_name, value, reason)
-
-  def DuplicateID(self, column_name, value):
-    raise DuplicateID(column_name, value)
-	
-  def UnusedStop(self, stop_id, stop_name):
-    raise UnusedStop(stop_id, stop_name)
-
-  def OtherProblem(self, description):
-    raise OtherProblem(description)
 
 default_problem_reporter = ExceptionProblemReporter()
 
@@ -1456,11 +1444,11 @@ class ServicePeriod(object):
     if self.original_day_values:
       index = 0
       for value in self.original_day_values:
-        field_name = self._DAYS_OF_WEEK[index]
+        column_name = self._DAYS_OF_WEEK[index]
         if IsEmpty(value):
-          problems.MissingValue(field_name)
+          problems.MissingValue(column_name)
         elif (value != u'0') and (value != '1'):
-          problems.InvalidValue(field_name, value)
+          problems.InvalidValue(column_name, value)
         index += 1
     if (True not in self.day_of_week and
         1 not in self.date_exceptions.values()):
@@ -2115,7 +2103,7 @@ class Loader:
                                     '%d of file "%s".  Every row in the file '
                                     'should have the same number of cells as '
                                     'the header (first line) does.' %
-                                    (row_num, file_name))
+                                    (row_num, file_name), (file_name, row_num))
         
       result = [None] * len(cols)
       for i in range(len(cols)):
@@ -2128,7 +2116,8 @@ class Loader:
               result[i] = row[ci].decode('utf-8').strip()
             except UnicodeDecodeError:
               self._problems.InvalidValue(cols[i], row[ci],
-                                          'Unicode error in row %s' % row)
+                                          'Unicode error',
+                                          (file_name, row_num, row, header))
       yield (result, row_num, cols)
 
   def _HasFile(self, file_name):
@@ -2362,22 +2351,18 @@ class Loader:
     for (row, row_num, cols) in self._ReadCSV('stop_times.txt',
                                               StopTime._FIELD_NAMES,
                                               StopTime._REQUIRED_FIELD_NAMES):
-      self._problems.SetFileContext('stop_times.txt', row_num, row, cols)
+      file_context = ('stop_times.txt', row_num, row, cols)
+      self._problems.SetFileContext(*file_context)
 
       (trip_id, arrival_time, departure_time, stop_id, stop_sequence,
          stop_headsign, pickup_type, drop_off_type, shape_dist_traveled) = row
 
-      # Check that the stop sequence is a one-based number.
       try:
         sequence = int(stop_sequence)
-        if (sequence < 1):
-          self._problems.InvalidValue('stop_sequence', stop_sequence,
-                                      'stop_sequence should count up from 1.')
       except (TypeError, ValueError):
         self._problems.InvalidValue('stop_sequence', stop_sequence,
                                     'This should be a number.')
         continue
-      # TODO: check for duplicate sequence numbers
 
       if stop_id not in self._schedule.stops:
         self._problems.InvalidValue('stop_id', stop_id,
@@ -2388,7 +2373,7 @@ class Loader:
           (sequence, StopTime(self._problems, stop, arrival_time,
                                    departure_time, stop_headsign,
                                    pickup_type, drop_off_type,
-                                   shape_dist_traveled)))
+                                   shape_dist_traveled), file_context))
       self._problems.ClearContext()
 
     for trip_id, sequence in stoptimes.iteritems():
@@ -2396,7 +2381,8 @@ class Loader:
       try:
         trip = self._schedule.GetTrip(trip_id)
       except KeyError:
-        self._problems.InvalidValue('trip_id', trip_id)
+        self._problems.InvalidValue('trip_id', trip_id, 'Trip not found',
+                                    sequence[0][2])
         continue
       if sequence[0][1] is None and sequence[0][2] is None:
         self._problems.OtherProblem(
@@ -2406,16 +2392,17 @@ class Loader:
         self._problems.OtherProblem(
           'No time for end of trip_id "%s" at stop_sequence "%d"' %
           (trip_id, sequence[-1][0]))
+      # Check that the stop sequence is a one-based number.
       expected_sequence = 1
-      for stop_sequence, stoptime in sequence:
+      for stop_sequence, stoptime, file_context in sequence:
         if expected_sequence != stop_sequence:
-          self._problems.OtherProblem(
-            'Bad stop_sequence. Expected %i, found %i in trip_id "%s"' %
-            (expected_sequence, stop_sequence, trip_id))
+          self._problems.InvalidValue('stop_sequence', stop_sequence,
+            'Expected %i' % expected_sequence, file_context)
         trip.AddStopTimeObject(stoptime, problems=self._problems)
         expected_sequence = stop_sequence + 1
 
   def Load(self):
+    self._problems.ClearContext()
     if not self._DetermineFormat():
       return self._schedule
 

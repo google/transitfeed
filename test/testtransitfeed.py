@@ -71,14 +71,14 @@ class NoExceptionTestCase(RedirectStdOutTestCaseBase):
 class LoadTestCase(unittest.TestCase):
   problems = transitfeed.ExceptionProblemReporter()
 
-  def ExpectInvalidValue(self, feed_name, field_name):
+  def ExpectInvalidValue(self, feed_name, column_name):
     loader = transitfeed.Loader(
       DataPath(feed_name), problems=self.problems, extra_validation=True)
     try:
       loader.Load()
       self.fail('InvalidValue exception expected')
     except transitfeed.InvalidValue, e:
-      self.assertEqual(field_name, e.field_name)
+      self.assertEqual(column_name, e.column_name)
 
   def ExpectMissingFile(self, feed_name, file_name):
     loader = transitfeed.Loader(
@@ -176,25 +176,37 @@ class LoadUTF8BOMTestCase(unittest.TestCase):
 
 class ProblemReporterTestCase(RedirectStdOutTestCaseBase):
   # Unittest for problem reporter
-  def testContextWithBadUnicode(self):
+  def testContextWithBadUnicodeProblem(self):
     pr = transitfeed.ProblemReporter()
+    # Context has valid unicode values
     pr.SetFileContext('filename.foo', 23,
-                      [u'Andr\202', u'Person \xec\x9c\xa0 foo', None],
+                      [u'Andr\202', u'Person \uc720 foo', None],
                       [u'1\202', u'2\202', u'3\202'])
-    pr._Report('test string')
-    pr._Report('\xff\xfe\x80\x88')
-    pr._Report(u'\xff\xfe\x80\x88')
+    pr.OtherProblem('test string')
+    pr.OtherProblem(u'\xff\xfe\x80\x88')
+    # Invalid ascii and utf-8. encode('utf-8') and decode('utf-8') will fail
+    # for this value
+    pr.OtherProblem('\xff\xfe\x80\x88')
 
   def testNoContextWithBadUnicode(self):
     pr = transitfeed.ProblemReporter()
-    pr._Report('test string')
-    pr._Report('\xff\xfe\x80\x88')
-    pr._Report(u'\xff\xfe\x80\x88')
+    pr.OtherProblem('test string')
+    pr.OtherProblem('\xff\xfe\x80\x88')
+    # Invalid ascii and utf-8. encode('utf-8') and decode('utf-8') will fail
+    # for this value
+    pr.OtherProblem(u'\xff\xfe\x80\x88')
+
+  def testBadUnicodeContext(self):
+    pr = transitfeed.ProblemReporter()
+    pr.SetFileContext('filename.foo', 23,
+                      [u'Andr\202', 'Person \xff\xfe\x80\x88 foo', None],
+                      [u'1\202', u'2\202', u'3\202'])
+    pr.OtherProblem("help, my context isn't utf-8!")
 
   def testLongWord(self):
     # Make sure LineWrap doesn't puke
     pr = transitfeed.ProblemReporter()
-    pr._Report('nthountheontuhoenuthoentuhntoehuontehuntoehuntoehuntohuntoheuntheounthoeunthoeunthoeuntheontuheontuhoue')
+    pr.OtherProblem('nthountheontuhoenuthoentuhntoehuontehuntoehuntoehuntohuntoheuntheounthoeunthoeunthoeuntheontuheontuhoue')
 
 
 
@@ -277,8 +289,6 @@ class MissingColumnTestCase(unittest.TestCase):
 class ZeroBasedStopSequenceTestCase(LoadTestCase):
   def runTest(self):
     self.ExpectInvalidValue('zero_based_stop_sequence', 'stop_sequence')
-    
-    
 
 
 class DuplicateStopTestCase(unittest.TestCase):
@@ -296,24 +306,24 @@ INVALID_VALUE = Exception()
 class ValidationTestCase(unittest.TestCase):
   problems = transitfeed.ExceptionProblemReporter()
 
-  def ExpectMissingValue(self, object, field_name):
+  def ExpectMissingValue(self, object, column_name):
     try:
       object.Validate(self.problems)
       self.fail('MissingValue exception expected')
     except transitfeed.MissingValue, e:
-      self.assertEqual(field_name, e.field_name)
+      self.assertEqual(column_name, e.column_name)
 
-  def ExpectInvalidValue(self, object, field_name, value=INVALID_VALUE):
+  def ExpectInvalidValue(self, object, column_name, value=INVALID_VALUE):
     if value==INVALID_VALUE:
-      value = object.__getattribute__(field_name)
-    self.ExpectInvalidValueException(field_name, value, object.Validate, self.problems)
+      value = object.__getattribute__(column_name)
+    self.ExpectInvalidValueException(column_name, value, object.Validate, self.problems)
 
-  def ExpectInvalidValueException(self, field_name, value, f, *args, **kwargs):
+  def ExpectInvalidValueException(self, column_name, value, f, *args, **kwargs):
     try:
       f(*args, **kwargs)
       self.fail('InvalidValue exception expected')
     except transitfeed.InvalidValue, e:
-      self.assertEqual(field_name, e.field_name)
+      self.assertEqual(column_name, e.column_name)
       self.assertEqual(value, e.value)
 
   def ExpectOtherProblem(self, object):
@@ -496,12 +506,12 @@ class RouteValidationTestCase(ValidationTestCase):
 
 
 class ShapeValidationTestCase(ValidationTestCase):
-  def ExpectFailedAdd(self, shape, lat, lon, dist, field_name, value):
+  def ExpectFailedAdd(self, shape, lat, lon, dist, column_name, value):
     try:
       shape.AddPoint(lat, lon, dist, self.problems)
       self.fail('Expected validation exception!')
     except transitfeed.InvalidValue, e:
-      self.assertEqual(field_name, e.field_name)
+      self.assertEqual(column_name, e.column_name)
       self.assertEqual(value, e.value)
 
   def runTest(self):
@@ -740,7 +750,7 @@ class TripServiceIDValidationTestCase(ValidationTestCase):
       schedule.AddTripObject(trip1)
       self.fail("Expected an InvalidValue for the service_id")
     except transitfeed.InvalidValue, e:
-      self.assertEqual("service_id", e.field_name)
+      self.assertEqual("service_id", e.column_name)
       self.assertEqual("WEEKDAY", e.value)
     
 
@@ -1166,7 +1176,7 @@ class AgencyIDValidationTestCase(unittest.TestCase):
       schedule.AddRouteObject(route)
       self.fail("Expected validation error")
     except transitfeed.InvalidValue, e:
-      self.assertEqual('agency_id', e.field_name)
+      self.assertEqual('agency_id', e.column_name)
       self.assertEqual(None, e.value)
 
     # one agency defined, assume that the route belongs to it
@@ -1185,7 +1195,7 @@ class AgencyIDValidationTestCase(unittest.TestCase):
       schedule.AddRouteObject(route)
       self.fail("Expected validation error")
     except transitfeed.InvalidValue, e:
-      self.assertEqual('agency_id', e.field_name)
+      self.assertEqual('agency_id', e.column_name)
       self.assertEqual(None, e.value)
 
     # agency with no agency_id defined, matches route with no agency id
@@ -1196,23 +1206,23 @@ class AgencyIDValidationTestCase(unittest.TestCase):
 
 class AddHeadwayPeriodValidationTestCase(ValidationTestCase):
   def ExpectInvalidValue(self, start_time, end_time, headway,
-                         field_name, value):
+                         column_name, value):
     try:
       trip = transitfeed.Trip()
       trip.AddHeadwayPeriod(start_time, end_time, headway)
-      self.fail("Expected InvalidValue error on %s" % field_name)
+      self.fail("Expected InvalidValue error on %s" % column_name)
     except transitfeed.InvalidValue, e:
-      self.assertEqual(field_name, e.field_name)
+      self.assertEqual(column_name, e.column_name)
       self.assertEqual(value, e.value)
       self.assertEqual(0, len(trip.GetHeadwayPeriodTuples()))
 
-  def ExpectMissingValue(self, start_time, end_time, headway, field_name):
+  def ExpectMissingValue(self, start_time, end_time, headway, column_name):
     try:
       trip = transitfeed.Trip()
       trip.AddHeadwayPeriod(start_time, end_time, headway)
-      self.fail("Expected MissingValue error on %s" % field_name)
+      self.fail("Expected MissingValue error on %s" % column_name)
     except transitfeed.MissingValue, e:
-      self.assertEqual(field_name, e.field_name)
+      self.assertEqual(column_name, e.column_name)
       self.assertEqual(0, len(trip.GetHeadwayPeriodTuples()))
 
   def runTest(self):
