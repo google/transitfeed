@@ -246,11 +246,15 @@ class ScheduleRequestHandler(BaseHTTPServer.BaseHTTPRequestHandler):
   def handle_json_GET_tripshape(self, params):
     schedule = self.server.schedule
     trip = schedule.GetTrip(params.get('trip'))
-    # TODO: support for shape.txt and part of a trip
-    time_stops = trip.GetTimeStops()
     points = []
-    for arr,dep,stop in time_stops:
-      points.append((stop.stop_lat, stop.stop_lon))
+    if trip.shape_id:
+      shape = schedule.GetShape(trip.shape_id)
+      for (lat, lon, dist) in shape.points:
+        points.append((lat, lon))
+    else:
+      time_stops = trip.GetTimeStops()
+      for arr,dep,stop in time_stops:
+        points.append((stop.stop_lat, stop.stop_lon))
     return points
 
   def handle_json_GET_neareststops(self, params):
