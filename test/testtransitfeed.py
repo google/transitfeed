@@ -302,6 +302,17 @@ class DuplicateStopTestCase(unittest.TestCase):
       pass
 
 
+class DuplicateScheduleIDTestCase(unittest.TestCase):
+  def runTest(self):
+    schedule = transitfeed.Schedule(
+        problem_reporter=transitfeed.ExceptionProblemReporter())
+    try:
+      schedule.Load(DataPath('duplicate_schedule_id'), extra_validation=True)
+      self.fail('DuplicateID exception expected')
+    except transitfeed.DuplicateID:
+      pass
+
+
 INVALID_VALUE = Exception()
 class ValidationTestCase(unittest.TestCase):
   problems = transitfeed.ExceptionProblemReporter()
