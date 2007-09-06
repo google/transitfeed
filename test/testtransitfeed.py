@@ -327,19 +327,23 @@ class ValidationTestCase(unittest.TestCase):
   def ExpectInvalidValue(self, object, column_name, value=INVALID_VALUE):
     if value==INVALID_VALUE:
       value = object.__getattribute__(column_name)
-    self.ExpectInvalidValueException(column_name, value, object.Validate, self.problems)
+    self.ExpectInvalidValueInClosure(column_name, value,
+        lambda: object.Validate(self.problems))
 
-  def ExpectInvalidValueException(self, column_name, value, f, *args, **kwargs):
+  def ExpectInvalidValueInClosure(self, column_name, value, c):
     try:
-      f(*args, **kwargs)
+      c()
       self.fail('InvalidValue exception expected')
     except transitfeed.InvalidValue, e:
       self.assertEqual(column_name, e.column_name)
       self.assertEqual(value, e.value)
 
   def ExpectOtherProblem(self, object):
+    self.ExpectOtherProblemInClosure(lambda: object.Validate(self.problems))
+
+  def ExpectOtherProblemInClosure(self, c):
     try:
-      object.Validate(self.problems)
+      c()
       self.fail('OtherProblem exception expected')
     except transitfeed.OtherProblem:
       pass
@@ -425,21 +429,30 @@ class StopValidationTestCase(ValidationTestCase):
 class StopTimeValidationTestCase(ValidationTestCase):
   def runTest(self):
     stop = transitfeed.Stop()
-    self.ExpectInvalidValueException('arrival_time', '1a:00:00',
-        transitfeed.StopTime, self.problems, stop, arrival_time="1a:00:00")
-    self.ExpectInvalidValueException('departure_time', '1a:00:00',
-        transitfeed.StopTime, self.problems, stop, arrival_time="10:00:00",
-        departure_time='1a:00:00')
-    self.ExpectInvalidValueException('pickup_type', '7.8',
-        transitfeed.StopTime, self.problems, stop, arrival_time="10:00:00",
-        departure_time='10:05:00', pickup_type='7.8', drop_off_type='0')
-    self.ExpectInvalidValueException('drop_off_type', 'a',
-        transitfeed.StopTime, self.problems, stop, arrival_time="10:00:00",
-        departure_time='10:05:00', pickup_type='3', drop_off_type='a')
-    self.ExpectInvalidValueException('shape_dist_traveled', '$',
-        transitfeed.StopTime, self.problems, stop, arrival_time="10:00:00",
-        departure_time='10:05:00', pickup_type='3', drop_off_type='0',
-        shape_dist_traveled='$')
+    self.ExpectInvalidValueInClosure('arrival_time', '1a:00:00',
+        lambda: transitfeed.StopTime(self.problems, stop,
+                                     arrival_time="1a:00:00"))
+    self.ExpectInvalidValueInClosure('departure_time', '1a:00:00',
+        lambda: transitfeed.StopTime(self.problems, stop, arrival_time="10:00:00",
+                                     departure_time='1a:00:00'))
+    self.ExpectInvalidValueInClosure('pickup_type', '7.8',
+        lambda: transitfeed.StopTime(self.problems, stop, arrival_time="10:00:00",
+                                     departure_time='10:05:00', pickup_type='7.8',
+                                     drop_off_type='0'))
+    self.ExpectInvalidValueInClosure('drop_off_type', 'a',
+        lambda: transitfeed.StopTime(self.problems, stop, arrival_time="10:00:00",
+                                     departure_time='10:05:00', pickup_type='3',
+                                     drop_off_type='a'))
+    self.ExpectInvalidValueInClosure('shape_dist_traveled', '$',
+        lambda: transitfeed.StopTime(self.problems, stop, arrival_time="10:00:00",
+                                     departure_time='10:05:00', pickup_type='3',
+                                     drop_off_type='0',
+                                     shape_dist_traveled='$'))
+    self.ExpectOtherProblemInClosure(lambda: transitfeed.StopTime(self.problems,
+        stop, pickup_type='1', drop_off_type='1'))
+    # The following should work
+    transitfeed.StopTime(self.problems, stop, arrival_time="10:00:00",
+        departure_time="10:05:00", pickup_type='1', drop_off_type='1')
 
 
 class RouteValidationTestCase(ValidationTestCase):
