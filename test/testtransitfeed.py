@@ -692,6 +692,11 @@ class ServicePeriodValidationTestCase(ValidationTestCase):
     self.ExpectInvalidValue(period, 'date', '2007')
     period.ResetDateToNormalService('2007')
 
+    period2 = transitfeed.ServicePeriod(
+        field_list=['serviceid1', '20060101', '20071231', '1', '0', 'h', '1',
+                    '1', '1', '1'])
+    self.ExpectInvalidValue(period2, 'wednesday', 'h')
+
 
 class TripValidationTestCase(ValidationTestCase):
   def runTest(self):
