@@ -113,7 +113,7 @@ class HTMLCountingProblemReporter(transitfeed.ProblemReporter):
       unused.append('</div>')
     return ''.join(unused)
 
-  def WriteOutput(self, feed_location, f):
+  def WriteOutput(self, feed_location, f, schedule):
     """Write the html output to f."""
     if problems.count:
       summary = ('<span class="fail">%s found</span>' %
@@ -124,13 +124,28 @@ class HTMLCountingProblemReporter(transitfeed.ProblemReporter):
     basename = os.path.basename(feed_location)
     feed_path = (feed_location[:feed_location.rfind(basename)], basename)
 
+    agencies = ', '.join(['<a href="%s">%s</a>' % (a.agency_url, a.agency_name)
+                          for a in schedule.GetAgencyList()])
+    if not agencies:
+      agencies = '?'
+
+    dates = "No valid service dates found"
+    (start, end) = schedule.GetDateRange()
+    if start and end:
+      src_format = "%Y%m%d"
+      dst_format = "%B %d, %Y"
+      formatted_start = time.strftime(dst_format,
+                                      time.strptime(start, src_format))
+      formatted_end = time.strftime(dst_format, time.strptime(end, src_format))
+      dates = "%s to %s" % (formatted_start, formatted_end)
+
     output_prefix = """
 <html>
 <head>
 <meta http-equiv="Content-Type" content="text/html; charset=UTF-8"/>
-<title>FeedValidator: %s</title>
+<title>FeedValidator: %(feed_file)s</title>
 <style>
-body {font-family: Georgia, serif}
+body {font-family: Georgia, serif; background-color: white}
 .path {color: gray}
 div.problem {max-width: 500px}
 td,th {background-color: khaki; padding: 2px; font-family:monospace}
@@ -140,15 +155,34 @@ span.pass {background-color: lightgreen}
 span.fail {background-color: yellow}
 .pass, .fail {font-size: 16pt; padding: 3px}
 ol,.unused {padding-left: 40pt}
+.header {background-color: white; font-family: Georgia, serif; padding: 0px}
+th.header {text-align: right; font-weight: normal; color: gray}
 .footer {font-size: 10pt}
 </style>
 </head>
 <body>
-Validation results for feed:<br>
-<code><span class="path">%s</span><b>%s</b></code><br><br>
-%s
-<ol>""" % (feed_path[1], feed_path[0], feed_path[1],
-           summary)
+GTFS validation results for feed:<br>
+<code><span class="path">%(feed_dir)s</span><b>%(feed_file)s</b></code>
+<br><br>
+<table>
+<tr><th class="header">Agencies:</th><td class="header">%(agencies)s</td></tr>
+<tr><th class="header">Routes:</th><td class="header">%(routes)s</td></tr>
+<tr><th class="header">Stops:</th><td class="header">%(stops)s</td></tr>
+<tr><th class="header">Trips:</th><td class="header">%(trips)s</td></tr>
+<tr><th class="header">Shapes:</th><td class="header">%(shapes)s</td></tr>
+<tr><th class="header">Effective:</th><td class="header">%(dates)s</td></tr>
+</table>
+<br>
+%(summary)s
+<ol>""" % { "feed_file": feed_path[1],
+            "feed_dir": feed_path[0],
+            "agencies": agencies,
+            "routes": len(schedule.GetRouteList()),
+            "stops": len(schedule.GetStopList()),
+            "trips": len(schedule.GetTripList()),
+            "shapes": len(schedule.GetShapeList()),
+            "dates": dates,
+            "summary": summary }
 
     output_suffix = """</ol>
 %s
@@ -160,9 +194,9 @@ FeedValidator</a> version %s on %s.
 </html>""" % (self._UnusedStopSection(),
               transitfeed.__version__, time.asctime())
 
-    f.write(output_prefix)
+    f.write(transitfeed.EncodeUnicode(output_prefix))
     f.writelines(self._output)
-    f.write(output_suffix)
+    f.write(transitfeed.EncodeUnicode(output_suffix))
 
 if __name__ == '__main__':
   parser = optparse.OptionParser(usage='usage: %prog [options] feed_filename',
@@ -189,7 +223,7 @@ if __name__ == '__main__':
   print 'validating %s' % feed
   problems = HTMLCountingProblemReporter()
   loader = transitfeed.Loader(feed, problems=problems, extra_validation=True)
-  loader.Load()
+  schedule = loader.Load()
 
   exit_code = 0
   if problems.count:
@@ -200,7 +234,7 @@ if __name__ == '__main__':
 
   output_filename = options.output
   output_file = open(output_filename, 'w')
-  problems.WriteOutput(os.path.abspath(feed), output_file)
+  problems.WriteOutput(os.path.abspath(feed), output_file, schedule)
   output_file.close()
   if manual_entry:
     webbrowser.open('file://%s' % os.path.abspath(output_filename))

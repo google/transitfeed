@@ -50,6 +50,7 @@ import math
 import os
 import random
 import re
+import time
 import zipfile
 
 OUTPUT_ENCODING = 'utf-8'
@@ -1333,8 +1334,34 @@ class ServicePeriod(object):
     self.date_exceptions = {}  # Map from 'YYYYMMDD' to 1 (add) or 2 (remove)
 
   def _IsValidDate(self, date):
-    # TODO: Add more knowledge of possible dates here
-    return not (re.match('^\d{8}$', date) == None)
+    if re.match('^\d{8}$', date) == None:
+      return False
+
+    try:
+      time.strptime(date, "%Y%m%d")
+      return True
+    except ValueError:
+      return False
+
+  def GetDateRange(self):
+    """Returns the range over which this ServicePeriod is valid in
+    (start date, end date) form, using YYYYMMDD format.  This range includes
+    exception dates that add service outside of (start_date, end_date),
+    but doesn't shrink the range if exception dates take away service at
+    the edges of the range."""
+    # TODO: Add more characterization of service density within the range
+
+    start = self.start_date
+    end = self.end_date
+
+    for date in self.date_exceptions:
+      if self.date_exceptions[date] == 2:
+        continue
+      if not start or (date < start):
+        start = date
+      if not end or (date > end):
+        end = date
+    return (start, end)
 
   def GetCalendarFieldValuesTuple(self):
     """Return the tuple of calendar.txt values or None if this ServicePeriod
@@ -1630,6 +1657,19 @@ class Schedule:
 
   def GetServicePeriodList(self):
     return self.service_periods.values()
+
+  def GetDateRange(self):
+    """Returns a tuple of (earliest, latest) dates on which the service
+    periods in the schedule define service, in YYYYMMDD form."""
+
+    ranges = [period.GetDateRange() for period in self.GetServicePeriodList()]
+    starts = filter(lambda x: x, [item[0] for item in ranges])
+    ends = filter(lambda x: x, [item[1] for item in ranges])
+
+    if not starts or not ends:
+      return (None, None)
+
+    return (min(starts), max(ends))
 
   def AddStop(self, lat, lng, name):
     """Add a stop to this schedule.

@@ -672,6 +672,11 @@ class ServicePeriodValidationTestCase(ValidationTestCase):
     self.ExpectInvalidValue(period, 'start_date')
     period.start_date = '20070101'
 
+    # impossible start_date
+    period.start_date = '20070229'
+    self.ExpectInvalidValue(period, 'start_date')
+    period.start_date = '20070101'
+
     # invalid end_date
     period.end_date = '2007/12/31'
     self.ExpectInvalidValue(period, 'end_date')
@@ -696,6 +701,49 @@ class ServicePeriodValidationTestCase(ValidationTestCase):
         field_list=['serviceid1', '20060101', '20071231', '1', '0', 'h', '1',
                     '1', '1', '1'])
     self.ExpectInvalidValue(period2, 'wednesday', 'h')
+
+
+class ServicePeriodDateRangeTestCase(ValidationTestCase):
+  def runTest(self):
+    period = transitfeed.ServicePeriod()
+    period.service_id = 'WEEKDAY'
+    period.start_date = '20070101'
+    period.end_date = '20071231'
+    period.day_of_week[0] = True
+    period.SetDateHasService('20071231', False)  # irrelevant for range
+    period.Validate(self.problems)
+    self.assertEqual(('20070101', '20071231'), period.GetDateRange())
+
+    period2 = transitfeed.ServicePeriod()
+    period2.service_id = 'HOLIDAY'
+    period2.SetDateHasService('20071225', True)
+    period2.SetDateHasService('20080101', True)
+    period2.SetDateHasService('20080102', False)
+    period2.Validate(self.problems)
+    self.assertEqual(('20071225', '20080101'), period2.GetDateRange())
+
+    period2.start_date = '20071201'
+    period2.end_date = '20071225'
+    period2.Validate(self.problems)
+    self.assertEqual(('20071201', '20080101'), period2.GetDateRange())
+
+    period3 = transitfeed.ServicePeriod()
+    self.assertEqual((None, None), period3.GetDateRange())
+
+    period4 = transitfeed.ServicePeriod()
+    period4.service_id = 'halloween'
+    period4.SetDateHasService('20051031', True)
+    self.assertEqual(('20051031', '20051031'), period4.GetDateRange())
+    period4.Validate(self.problems)
+
+    schedule = transitfeed.Schedule(problem_reporter=self.problems)
+    self.assertEqual((None, None), schedule.GetDateRange())
+    schedule.AddServicePeriodObject(period)
+    self.assertEqual(('20070101', '20071231'), schedule.GetDateRange())
+    schedule.AddServicePeriodObject(period2)
+    self.assertEqual(('20070101', '20080101'), schedule.GetDateRange())
+    schedule.AddServicePeriodObject(period4)
+    self.assertEqual(('20051031', '20080101'), schedule.GetDateRange())
 
 
 class TripValidationTestCase(ValidationTestCase):
