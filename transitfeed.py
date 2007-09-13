@@ -599,16 +599,22 @@ class StopTime(object):
   drop_off_type: int
   shape_dist_traveled: float
   stop_id: str; readonly
+  stop_time: The only time given for this stop.  If present, it is used
+             for both arrival and departure time.
   """
   _REQUIRED_FIELD_NAMES = ['trip_id', 'arrival_time', 'departure_time',
                            'stop_id', 'stop_sequence']
   _FIELD_NAMES = _REQUIRED_FIELD_NAMES + ['stop_headsign', 'pickup_type',
                     'drop_off_type', 'shape_dist_traveled']
 
-  def __init__(self, problems, stop, arrival_time=None, departure_time=None,
+  def __init__(self, problems, stop,
+               arrival_time=None, departure_time=None,
                stop_headsign=None, pickup_type=None, drop_off_type=None,
                shape_dist_traveled=None, arrival_secs=None,
-               departure_secs=None):
+               departure_secs=None, stop_time=None):
+    if stop_time != None:
+      arrival_time = departure_time = stop_time
+
     if arrival_secs != None:
       self.arrival_secs = arrival_secs
     elif arrival_time in (None, ""):
@@ -664,6 +670,23 @@ class StopTime(object):
                             'can\'t get on or off here.  Since it doesn\'t '
                             'define a timepoint either, this entry serves no '
                             'purpose and should be excluded from the trip.')
+
+    if ((self.arrival_secs != None) and (self.departure_secs != None) and
+        (self.departure_secs < self.arrival_secs)):
+      problems.InvalidValue('departure_time', departure_time,
+                            'The departure time at this stop (%s) is before '
+                            'the arrival time (%s).  This is often caused by '
+                            'problems in the feed exporter\'s time conversion')
+
+    if (((self.arrival_secs != None) and (self.departure_secs == None)) or
+        ((self.arrival_secs == None) and (self.departure_secs != None))):
+      missing_field = 'arrival_time'
+      if self.departure_secs == None:
+        missing_field = 'departure_time'
+      problems.MissingValue(missing_field,
+                            'arrival_time and departure_time should either '
+                            'both be provided or both be left blank.  '
+                            'It\'s OK to set them both to the same value.')
 
     if shape_dist_traveled in (None, ""):
       self.shape_dist_traveled = None

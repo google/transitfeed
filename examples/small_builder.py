@@ -28,12 +28,12 @@ route = schedule.AddRoute(short_name="22", long_name="Civic Center Express",
                           route_type="Bus")
 
 trip = route.AddTrip(schedule, headsign="To Downtown")
-trip.AddStopTime(stop1, departure_time='09:00:00')
-trip.AddStopTime(stop2, arrival_time='09:15:00')
+trip.AddStopTime(stop1, stop_time='09:00:00')
+trip.AddStopTime(stop2, stop_time='09:15:00')
 
 trip = route.AddTrip(schedule, headsign="To Suburbia")
-trip.AddStopTime(stop1, arrival_time='17:30:00')
-trip.AddStopTime(stop2, arrival_time='17:45:00')
+trip.AddStopTime(stop1, stop_time='17:30:00')
+trip.AddStopTime(stop2, stop_time='17:45:00')
 
 schedule.Validate()
 schedule.WriteGoogleTransitFeed(options.output)
