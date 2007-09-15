@@ -38,7 +38,7 @@ function LabeledMarker(latlng, opt_opts){
   this.latlng_ = latlng;
   this.opts_ = opt_opts;
 
-  this.labelText_ = opt_opts.labelText || "";
+  this.initText_ = opt_opts.labelText || "";
   this.labelClass_ = opt_opts.labelClass || "markerLabel";
   this.labelOffset_ = opt_opts.labelOffset || new GSize(0, 0);
   
@@ -67,14 +67,23 @@ LabeledMarker.prototype = new GMarker(new GLatLng(0, 0));
 LabeledMarker.prototype.initialize = function(map) {
   // Do the GMarker constructor first.
   GMarker.prototype.initialize.apply(this, arguments);
-  
+
   this.map_ = map;
+  this.setText(this.initText_);
+}
+
+/**
+ * Create a new div for this label.
+ */
+LabeledMarker.prototype.makeDiv_ = function(map) {
+  if (this.div_) {
+    return;
+  }
   this.div_ = document.createElement("div");
   this.div_.className = this.labelClass_;
-  this.div_.innerHTML = this.labelText_;
   this.div_.style.position = "absolute";
   this.div_.style.cursor = "pointer";
-  map.getPane(G_MAP_MARKER_PANE).appendChild(this.div_);
+  this.map_.getPane(G_MAP_MARKER_PANE).appendChild(this.div_);
 
   if (this.clickable_) {
     /**
@@ -87,16 +96,50 @@ LabeledMarker.prototype.initialize = function(map) {
      * @param {GEventListener} event to be triggered.
      */
     function newEventPassthru(obj, event) {
-      return function() { 
+      return function() {
         GEvent.trigger(obj, event);
       };
     }
-  
+
     // Pass through events fired on the text div to the marker.
     var eventPassthrus = ['click', 'dblclick', 'mousedown', 'mouseup', 'mouseover', 'mouseout'];
     for(var i = 0; i < eventPassthrus.length; i++) {
       var name = eventPassthrus[i];
       GEvent.addDomListener(this.div_, name, newEventPassthru(this, name));
+    }
+  }
+}
+
+/**
+ * Return the html in the div of this label, or "" if none is set
+ */
+LabeledMarker.prototype.getText = function(text) {
+  if (this.div_) {
+    return this.div_.innerHTML;
+  } else {
+    return "";
+  }
+}
+
+/**
+ * Set the html in the div of this label to text. If text is "" or null remove
+ * the div.
+ */
+LabeledMarker.prototype.setText = function(text) {
+  if (this.div_) {
+    if (text) {
+      this.div_.innerHTML = text;
+    } else {
+      // remove div
+      GEvent.clearInstanceListeners(this.div_);
+      this.div_.parentNode.removeChild(this.div_);
+      this.div_ = null;
+    }
+  } else {
+    if (text) {
+      this.makeDiv_();
+      this.div_.innerHTML = text;
+      this.redraw();
     }
   }
 }
@@ -109,16 +152,18 @@ LabeledMarker.prototype.initialize = function(map) {
  */
 LabeledMarker.prototype.redraw = function(force) {
   GMarker.prototype.redraw.apply(this, arguments);
-  
-  // Calculate the DIV coordinates of two opposite corners of our bounds to
-  // get the size and position of our rectangle
-  var p = this.map_.fromLatLngToDivPixel(this.latlng_);
-  var z = GOverlay.getZIndex(this.latlng_.lat());
-  
-  // Now position our div based on the div coordinates of our bounds
-  this.div_.style.left = (p.x + this.labelOffset_.width) + "px";
-  this.div_.style.top = (p.y + this.labelOffset_.height) + "px";
-  this.div_.style.zIndex = z; // in front of the marker
+
+  if (this.div_) {
+    // Calculate the DIV coordinates of two opposite corners of our bounds to
+    // get the size and position of our rectangle
+    var p = this.map_.fromLatLngToDivPixel(this.latlng_);
+    var z = GOverlay.getZIndex(this.latlng_.lat());
+
+    // Now position our div based on the div coordinates of our bounds
+    this.div_.style.left = (p.x + this.labelOffset_.width) + "px";
+    this.div_.style.top = (p.y + this.labelOffset_.height) + "px";
+    this.div_.style.zIndex = z; // in front of the marker
+  }
 }
 
 /**
@@ -126,9 +171,7 @@ LabeledMarker.prototype.redraw = function(force) {
  * default remove() handler in GMarker.
  */
  LabeledMarker.prototype.remove = function() {
-  GEvent.clearInstanceListeners(this.div_);
-  this.div_.parentNode.removeChild(this.div_);
-  this.div_ = null;
+  this.setText(null);
   GMarker.prototype.remove.apply(this, arguments);
 }
 

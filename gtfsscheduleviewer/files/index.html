@@ -187,8 +187,11 @@
         // stop was selected
 	var marker = stopMarkersSelected[stopId];
 	if (text) {
-	  // Reach inside the LabelMarker to extend div text
-	  marker.div_.innerHTML += "<br>" + text;
+          oldText = marker.getText();
+          if (oldText) {
+            oldText = oldText + "<br>";
+          }
+          marker.setText(oldText + text);
 	}
         return marker;
       }
@@ -211,7 +214,10 @@
       }
       var ll = new GLatLng(stopLat,stopLon);
       var marker;
-      if (text) {
+      if (selected || text) {
+        if (!text) {
+          text = "";  // Make sure every selected icon has a text box, even if empty
+        }
         var markerOpts = new Object();
 	markerOpts.icon = icon;
 	markerOpts.labelText = text;
