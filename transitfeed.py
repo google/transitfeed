@@ -607,6 +607,9 @@ class StopTime(object):
   _FIELD_NAMES = _REQUIRED_FIELD_NAMES + ['stop_headsign', 'pickup_type',
                     'drop_off_type', 'shape_dist_traveled']
 
+  __slots__ = ('arrival_secs', 'departure_secs', 'stop_headsign', 'stop',
+               'stop_headsign', 'pickup_type', 'drop_off_type',
+               'shape_dist_traveled')
   def __init__(self, problems, stop,
                arrival_time=None, departure_time=None,
                stop_headsign=None, pickup_type=None, drop_off_type=None,
