@@ -33,12 +33,13 @@ import signal
 import simplejson
 import time
 import transitfeed
+import urllib
 
 
 # By default Windows kills Python with Ctrl+Break. Instead make Ctrl+Break
 # raise a KeyboardInterrupt.
 if hasattr(signal, 'SIGBREAK'):
-  signal.signal(signal.SIGBREAK, signal.default_int_handler) 
+  signal.signal(signal.SIGBREAK, signal.default_int_handler)
 
 
 mimetypes.add_type('text/plain', '.vbs')
@@ -63,6 +64,7 @@ class ScheduleRequestHandler(BaseHTTPServer.BaseHTTPRequestHandler):
     scheme, host, path, x, params, fragment = urlparse.urlparse(self.path)
     parsed_params = {}
     for k in params.split('&'):
+      k = urllib.unquote(k)
       if '=' in k:
         k, v = k.split('=', 1)
         parsed_params[k] = v
@@ -410,7 +412,7 @@ if __name__ == '__main__':
                       file_dir=FindDefaultFileDir(),
                       manual_entry=True)
   (options, args) = parser.parse_args()
-  
+
   if not os.path.isfile(os.path.join(options.file_dir, 'index.html')):
     print "Can't find index.html with --file_dir=%s" % options.file_dir
     exit(1)
