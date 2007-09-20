@@ -100,6 +100,11 @@ class ProblemReporterBase:
                       context2=self._context)
     self._Report(e)
 
+  def FileFormat(self, problem, context=None):
+    e = FileFormat(problem=problem, context=context,
+                   context2=self._context)
+    self._Report(e)
+
   def MissingFile(self, file_name, context=None):
     e = MissingFile(file_name=file_name, context=context,
                     context2=self._context)
@@ -239,6 +244,10 @@ class FeedNotFound(ExceptionWithContext):
 class UnknownFormat(ExceptionWithContext):
   ERROR_TEXT = 'The feed named %(feed_name)s had an unknown format:\n' \
                'feeds should be either .zip files or directories.'
+
+class FileFormat(ExceptionWithContext):
+  ERROR_TEXT = 'Files must be encoded in utf-8 and may not contain ' \
+               'any null bytes (0x00). %(file_name)s %(problem)s.'
 
 class MissingColumn(ExceptionWithContext):
   ERROR_TEXT = 'Missing column %(column_name)s in file %(file_name)s'
@@ -2145,6 +2154,24 @@ class Loader:
     if not contents:  # Missing file
       return
 
+    # Check for errors that will prevent csv.reader from working
+    if len(contents) >= 2 and contents[0:2] in (codecs.BOM_UTF16_BE,
+        codecs.BOM_UTF16_LE):
+      self._problems.FileFormat("appears to be encoded in utf-16", (file_name, ))
+      # Convert and continue, so we can find more errors
+      contents = codecs.getdecoder('utf-16')(contents)[0].encode('utf-8')
+
+    null_index = contents.find('\0')
+    if null_index != -1:
+      # It is easier to get some surrounding text than calculate the exact
+      # row_num
+      m = re.search(r'.{,20}\0.{,20}', contents, re.DOTALL)
+      self._problems.FileFormat(
+          "contains a null in text \"%s\" at byte %d" %
+          (codecs.getencoder('string_escape')(m.group()), null_index + 1),
+          (file_name, ))
+      return
+
     # strip out any UTF-8 Byte Order Marker (otherwise it'll be
     # treated as part of the first column name, causing a mis-parse)
     contents = contents.lstrip(codecs.BOM_UTF8)
@@ -2169,7 +2196,7 @@ class Loader:
       row_num += 1
       if len(row) == 0:  # skip extra empty lines in file
         continue
-        
+
       if len(row) > len(header):
         self._problems.OtherProblem('Found too many cells (commas) in line '
                                     '%d of file "%s".  Every row in the file '
