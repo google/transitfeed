@@ -115,8 +115,8 @@ class ProblemReporterBase:
                       context=context, context2=self._context)
     self._Report(e)
 
-  def MissingValue(self, column_name, context=None):
-    e = MissingValue(column_name=column_name, context=context,
+  def MissingValue(self, column_name, reason=None, context=None):
+    e = MissingValue(column_name=column_name, reason=reason, context=context,
                      context2=self._context)
     self._Report(e)
 
@@ -208,7 +208,11 @@ class ExceptionWithContext(Exception):
     of GetDict with formatting added to the values."""
     if not d:
       d = self.__dict__
-    return self.__class__.ERROR_TEXT % d
+    output_error_text = self.__class__.ERROR_TEXT % d
+    if 'reason' in d:
+      return '%s\n%s' % (output_error_text, d['reason'])
+    else:
+      return output_error_text
 
   def FormatContext(self):
     """Return a text string describing the context"""
@@ -243,19 +247,11 @@ class MissingValue(ExceptionWithContext):
   ERROR_TEXT = 'Missing value for column %(column_name)s'
 
 class InvalidValue(ExceptionWithContext):
-  def FormatProblem(self, d=None):
-    """Return a text string describing the problem. d may be the return value
-    of GetDict with formatting added to the values."""
-    if not d:
-      d = self.__dict__
-    text = 'Invalid value %(value)s in field %(column_name)s' % d
-    if d['reason']:
-      text += '\n' + d['reason']
-    return text
+  ERROR_TEXT = 'Invalid value %(value)s in field %(column_name)s'
 
 class DuplicateID(ExceptionWithContext):
   ERROR_TEXT = 'Duplicate ID %(value)s in column %(column_name)s'
-	
+
 class UnusedStop(ExceptionWithContext):
   ERROR_TEXT = "%(stop_name)s (ID %(stop_id)s) isn't used in any trips"
 

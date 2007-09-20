@@ -327,6 +327,9 @@ class ValidationTestCase(unittest.TestCase):
       self.fail('MissingValue exception expected')
     except transitfeed.MissingValue, e:
       self.assertEqual(column_name, e.column_name)
+      # these should not throw any exceptions
+      e.FormatProblem()
+      e.FormatContext()
 
   def ExpectInvalidValue(self, object, column_name, value=INVALID_VALUE):
     if value==INVALID_VALUE:
@@ -341,6 +344,9 @@ class ValidationTestCase(unittest.TestCase):
     except transitfeed.InvalidValue, e:
       self.assertEqual(column_name, e.column_name)
       self.assertEqual(value, e.value)
+      # these should not throw any exceptions
+      e.FormatProblem()
+      e.FormatContext()
 
   def ExpectOtherProblem(self, object):
     self.ExpectOtherProblemInClosure(lambda: object.Validate(self.problems))
@@ -349,7 +355,10 @@ class ValidationTestCase(unittest.TestCase):
     try:
       c()
       self.fail('OtherProblem exception expected')
-    except transitfeed.OtherProblem:
+    except transitfeed.OtherProblem, e:
+      # these should not throw any exceptions
+      e.FormatProblem()
+      e.FormatContext()
       pass
 
 
