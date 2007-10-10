@@ -21,6 +21,7 @@ import os.path
 import re
 import sys
 import tempfile
+import time
 import transitfeed
 import unittest
 import StringIO
@@ -35,11 +36,22 @@ def GetDataPathContents():
   return dircache.listdir(os.path.join(here, 'data'))
 
 
+class ExceptionProblemReporterNoExpiration(
+    transitfeed.ExceptionProblemReporter):
+  """This version, used for most tests, ignores feed expiration problems,
+     so that we don't need to keep updating the dates in our tests."""
+  def ExpirationDate(self, expiration, context=None):
+    pass  # We don't want to give errors about our test data
+
+
 class TestFailureProblemReporter(transitfeed.ProblemReporter):
   """Causes a test failure immediately on any problem."""
   def __init__(self, test_case):
     transitfeed.ProblemReporter.__init__(self)
     self.test_case = test_case
+
+  def ExpirationDate(self, expiration, context=None):
+    pass  # We don't want to give errors about our test data files
 
   def _Report(self, problem_text):
     self.test_case.fail(problem_text)
@@ -70,7 +82,7 @@ class NoExceptionTestCase(RedirectStdOutTestCaseBase):
 
 
 class LoadTestCase(unittest.TestCase):
-  problems = transitfeed.ExceptionProblemReporter()
+  problems = ExceptionProblemReporterNoExpiration()
 
   def ExpectInvalidValue(self, feed_name, column_name):
     loader = transitfeed.Loader(
@@ -101,14 +113,14 @@ class LoadFromZipTestCase(unittest.TestCase):
 
     # now try using Schedule.Load
     schedule = transitfeed.Schedule(
-        problem_reporter=transitfeed.ExceptionProblemReporter())
+        problem_reporter=ExceptionProblemReporterNoExpiration())
     schedule.Load(DataPath('good_feed.zip'), extra_validation=True)
 
 
 class LoadAndRewriteFromZipTestCase(unittest.TestCase):
   def runTest(self):
     schedule = transitfeed.Schedule(
-        problem_reporter=transitfeed.ExceptionProblemReporter())
+        problem_reporter=ExceptionProblemReporterNoExpiration())
     schedule.Load(DataPath('good_feed.zip'), extra_validation=True)
 
     # Finally see if write crashes
@@ -129,7 +141,7 @@ class LoadUnknownFeedTestCase(unittest.TestCase):
     feed_name = DataPath('unknown_feed')
     loader = transitfeed.Loader(
       feed_name,
-      problems = transitfeed.ExceptionProblemReporter(),
+      problems = ExceptionProblemReporterNoExpiration(),
       extra_validation = True)
     try:
       loader.Load()
@@ -142,7 +154,7 @@ class LoadUnknownFormatTestCase(unittest.TestCase):
     feed_name = DataPath('unknown_format.zip')
     loader = transitfeed.Loader(
       feed_name,
-      problems = transitfeed.ExceptionProblemReporter(),
+      problems = ExceptionProblemReporterNoExpiration(),
       extra_validation = True)
     try:
       loader.Load()
@@ -157,7 +169,7 @@ class LoadExtraCellValidationTestCase(unittest.TestCase):
     feed_name = DataPath('extra_row_cells')
     loader = transitfeed.Loader(
       feed_name,
-      problems = transitfeed.ExceptionProblemReporter(),
+      problems = ExceptionProblemReporterNoExpiration(),
       extra_validation = True)
     try:
       loader.Load()
@@ -239,8 +251,8 @@ class ProblemReporterTestCase(RedirectStdOutTestCaseBase):
   def testLongWord(self):
     # Make sure LineWrap doesn't puke
     pr = transitfeed.ProblemReporter()
-    pr.OtherProblem('nthountheontuhoenuthoentuhntoehuontehuntoehuntoehuntohuntoheuntheounthoeunthoeunthoeuntheontuheontuhoue')
-
+    pr.OtherProblem('nthountheontuhoenuthoentuhntoehuontehuntoehuntoehunto'
+                    'huntoheuntheounthoeunthoeunthoeuntheontuheontuhoue')
 
 
 class BadProblemReporterTestCase(RedirectStdOutTestCaseBase):
@@ -254,7 +266,8 @@ class BadProblemReporterTestCase(RedirectStdOutTestCaseBase):
       problems = transitfeed.ProblemReporter(),
       extra_validation = True)
     loader.Load()
-    self.this_stdout.getvalue().index('Invalid value')  # raises exception if not found
+    # raises exception if not found
+    self.this_stdout.getvalue().index('Invalid value')
 
 
 class BadUtf8TestCase(LoadTestCase):
@@ -296,7 +309,7 @@ class EmptyFileTestCase(unittest.TestCase):
   def runTest(self):
     loader = transitfeed.Loader(
       DataPath('empty_file'),
-      problems = transitfeed.ExceptionProblemReporter(),
+      problems = ExceptionProblemReporterNoExpiration(),
       extra_validation = True)
     try:
       loader.Load()
@@ -309,7 +322,7 @@ class MissingColumnTestCase(unittest.TestCase):
   def runTest(self):
     loader = transitfeed.Loader(
       DataPath('missing_column'),
-      problems = transitfeed.ExceptionProblemReporter(),
+      problems = ExceptionProblemReporterNoExpiration(),
       extra_validation = True)
     try:
       loader.Load()
@@ -327,7 +340,7 @@ class ZeroBasedStopSequenceTestCase(LoadTestCase):
 class DuplicateStopTestCase(unittest.TestCase):
   def runTest(self):
     schedule = transitfeed.Schedule(
-        problem_reporter=transitfeed.ExceptionProblemReporter())
+        problem_reporter=ExceptionProblemReporterNoExpiration())
     try:
       schedule.Load(DataPath('duplicate_stop'), extra_validation=True)
       self.fail('OtherProblem exception expected')
@@ -335,10 +348,22 @@ class DuplicateStopTestCase(unittest.TestCase):
       pass
 
 
+class MissingEndpointTimesTestCase(unittest.TestCase):
+  def runTest(self):
+    schedule = transitfeed.Schedule(
+        problem_reporter=ExceptionProblemReporterNoExpiration())
+    try:
+      schedule.Load(DataPath('missing_endpoint_times'), extra_validation=True)
+      self.fail('InvalidValue exception expected')
+    except transitfeed.InvalidValue, e:
+      self.assertEqual('departure_time', e.column_name)
+      self.assertEqual('', e.value)
+
+
 class DuplicateScheduleIDTestCase(unittest.TestCase):
   def runTest(self):
     schedule = transitfeed.Schedule(
-        problem_reporter=transitfeed.ExceptionProblemReporter())
+        problem_reporter=ExceptionProblemReporterNoExpiration())
     try:
       schedule.Load(DataPath('duplicate_schedule_id'), extra_validation=True)
       self.fail('DuplicateID exception expected')
@@ -348,7 +373,7 @@ class DuplicateScheduleIDTestCase(unittest.TestCase):
 
 INVALID_VALUE = Exception()
 class ValidationTestCase(unittest.TestCase):
-  problems = transitfeed.ExceptionProblemReporter()
+  problems = ExceptionProblemReporterNoExpiration()
 
   def ExpectMissingValue(self, object, column_name):
     self.ExpectMissingValueInClosure(column_name,
@@ -940,10 +965,10 @@ class TripHasStopTimeValidationTestCase(ValidationTestCase):
     # Last stop must always have a time
     trip.AddStopTime(stop, arrival_secs=None, departure_secs=None)
     try:
-      trip.GetEndTime()
+      trip.GetEndTime(problems=self.problems)
       self.fail('exception expected')
-    except transitfeed.Error, e:
-      pass
+    except transitfeed.InvalidValue, e:
+      self.assertEqual('arrival_time', e.column_name)
 
 
 class TripAddStopTimeObjectTestCase(ValidationTestCase):
@@ -976,7 +1001,7 @@ class TripAddStopTimeObjectTestCase(ValidationTestCase):
 class TripStopTimeAccessorsTestCase(unittest.TestCase):
   def runTest(self):
     schedule = transitfeed.Schedule(
-        problem_reporter=transitfeed.ExceptionProblemReporter())
+        problem_reporter=ExceptionProblemReporterNoExpiration())
     schedule.NewDefaultAgency(agency_name="Test Agency",
                               agency_url="http://example.com",
                               agency_timezone="America/Los_Angeles")
@@ -1020,7 +1045,7 @@ class BasicParsingTestCase(unittest.TestCase):
   def runTest(self):
     loader = transitfeed.Loader(
       DataPath('good_feed.zip'),
-      problems = transitfeed.ExceptionProblemReporter(),
+      problems = ExceptionProblemReporterNoExpiration(),
       extra_validation = True)
     schedule = loader.Load()
     self.assertEqual(1, len(schedule._agencies))
@@ -1058,7 +1083,7 @@ class UnusedStopAgencyTestCase(unittest.TestCase):
   def runTest(self):
     loader = transitfeed.Loader(
       DataPath('unused_stop'),
-      problems = transitfeed.ExceptionProblemReporter(),
+      problems = ExceptionProblemReporterNoExpiration(),
       extra_validation = True)
     try:
       loader.Load()
@@ -1092,10 +1117,48 @@ class AddStopTimeParametersTestCase(unittest.TestCase):
     trip.Validate(TestFailureProblemReporter(self))
 
 
-class DuplicateTripIDValidationTestCase(unittest.TestCase):
+class ExpirationDateTestCase(unittest.TestCase):
   def runTest(self):
     schedule = transitfeed.Schedule(
         problem_reporter=transitfeed.ExceptionProblemReporter())
+
+    now = time.mktime(time.localtime())
+    seconds_per_day = 60 * 60 * 24
+    two_weeks_ago = time.localtime(now - 14 * seconds_per_day)
+    two_weeks_from_now = time.localtime(now + 14 * seconds_per_day)
+    two_months_from_now = time.localtime(now + 60 * seconds_per_day)
+    date_format = "%Y%m%d"
+
+    service_period = schedule.GetDefaultServicePeriod()
+    service_period.SetWeekdayService(True)
+    service_period.SetStartDate("20070101")
+    service_period.SetEndDate(time.strftime(date_format, two_months_from_now))
+
+    schedule.Validate()  # should have no problems
+
+    service_period.SetEndDate(time.strftime(date_format, two_weeks_from_now))
+
+    try:
+      schedule.Validate()
+      self.fail('ExpirationDate exception expected')
+    except transitfeed.ExpirationDate, e:
+      # raises exception if not found
+      e.FormatProblem().index('will soon expire')
+
+    service_period.SetEndDate(time.strftime(date_format, two_weeks_ago))
+
+    try:
+      schedule.Validate()
+      self.fail('ExpirationDate exception expected')
+    except transitfeed.ExpirationDate, e:
+      # raises exception if not found
+      e.FormatProblem().index('expired')
+
+
+class DuplicateTripIDValidationTestCase(unittest.TestCase):
+  def runTest(self):
+    schedule = transitfeed.Schedule(
+        problem_reporter=ExceptionProblemReporterNoExpiration())
     schedule.AddAgency("Sample Agency", "http://example.com",
                        "America/Los_Angeles")
     route = transitfeed.Route()
@@ -1309,7 +1372,7 @@ class TransitFeedSampleCodeTestCase(unittest.TestCase):
 class AgencyIDValidationTestCase(unittest.TestCase):
   def runTest(self):
     schedule = transitfeed.Schedule(
-        problem_reporter=transitfeed.ExceptionProblemReporter())
+        problem_reporter=ExceptionProblemReporterNoExpiration())
     route = transitfeed.Route()
     route.route_id = "SAMPLE_ID"
     route.route_type = 3
@@ -1438,7 +1501,7 @@ class ScheduleBuilderTestCase(unittest.TestCase):
     self.assertTrue(service_period.service_id)
     service_period.SetWeekdayService(has_service=True)
     service_period.SetStartDate("20070320")
-    service_period.SetEndDate("20071232")
+    service_period.SetEndDate("20071231")
 
     stop1 = schedule.AddStop(lng=-140.12, lat=48.921,
                              name="one forty at forty eight")
