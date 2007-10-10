@@ -244,7 +244,7 @@
      * window.
      */
     function fetchStopInfoWindow(marker) {
-      var url = "/json/stoptrips?stop=" + marker.stopId + "&time=" + parseTimeInput();
+      var url = "/json/stoptrips?stop=" + encodeURIComponent(marker.stopId) + "&time=" + parseTimeInput();
       GDownloadUrl(url, function(data, responseCode) {
           callbackDisplayStopInfoWindow(marker, data, responseCode); } );
       if (log)
@@ -259,10 +259,13 @@
       var html = "<b>" + marker.stopName + "</b> (" + marker.stopId + ")<br>";
       html = html + "<table>";
       for (var i=0; i < timeTrips.length; ++i) {
-        var trip = timeTrips[i][1];
-        if (trip[3] == null)
-          trip[3] = "";  // avoid printing "null"
-        html = html + "<tr onClick='map.closeInfoWindow();selectTrip(\"" + trip[2] + "\")'><td align='right'>" + formatTime(timeTrips[i][0]) + "<td>" + trip[3] + "</tr>";
+        var time = timeTrips[i][0];
+        var tripid = timeTrips[i][1][0];
+        var tripname = timeTrips[i][1][1];
+        var timepoint = timeTrips[i][2];
+        html = html + "<tr onClick='map.closeInfoWindow();selectTrip(\"" +
+          tripid + "\")'><td align='right'>" + (timepoint ? "" : "~") +
+          formatTime(time) + "<td>" + tripname + "</tr>";
       }
       html = html + "</table>";
       marker.openInfoWindowHtml(html);
@@ -379,7 +382,7 @@
     }
 
     function fetchPatterns(routeId) {
-      url = "/json/routepatterns?route=" + routeId + "&time=" + parseTimeInput();
+      url = "/json/routepatterns?route=" + encodeURIComponent(routeId) + "&time=" + parseTimeInput();
       if (log)
         GLog.writeUrl(url);
       GDownloadUrl(url, callbackDisplayPatterns);
@@ -452,7 +455,7 @@
         span.className = 'tripChoiceSelected';
       }
       clearMap();
-      url = "/json/tripstoptimes?trip=" + tripId;
+      url = "/json/tripstoptimes?trip=" + encodeURIComponent(tripId);
       if (log)
         GLog.writeUrl(url);
       GDownloadUrl(url, callbackDisplayTripStopTimes);
@@ -469,7 +472,7 @@
     }
 
     function fetchTripPolyLine(tripId) {
-      url = "/json/tripshape?trip=" + tripId;
+      url = "/json/tripshape?trip=" + encodeURIComponent(tripId);
       if (log)
         GLog.writeUrl(url);
       GDownloadUrl(url, callbackDisplayTripPolyLine);
@@ -523,7 +526,7 @@
     }
 
     function fetchTripRows(tripId) {
-      url = "/json/triprows?trip=" + tripId;
+      url = "/json/triprows?trip=" + encodeURIComponent(tripId);
       if (log)
         GLog.writeUrl(url);
       GDownloadUrl(url, make2ArgClosure(callbackDisplayTripRows, tripId));

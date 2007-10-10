@@ -1185,7 +1185,7 @@ class DuplicateStopValidationTestCase(ValidationTestCase):
     schedule.AddStopObject(stop4)
     trip.AddStopTime(stop4, arrival_time="12:15:00", departure_time="12:15:00")
     self.ExpectOtherProblem(schedule)
-    
+
 
 class TempFileTestCaseBase(unittest.TestCase):
   """
@@ -1304,7 +1304,7 @@ class TransitFeedSampleCodeTestCase(unittest.TestCase):
 
     schedule.Validate()  # not necessary, but helpful for finding problems
     schedule.WriteGoogleTransitFeed("new_feed.zip")
-    
+
 
 class AgencyIDValidationTestCase(unittest.TestCase):
   def runTest(self):
@@ -1742,7 +1742,6 @@ class WriteSampleFeedTestCase(TempFileTestCaseBase):
     self.assertEqual(1, len(read_schedule.GetShapeList()))
     self.assertEqual(shape, read_schedule.GetShape(shape.shape_id))
 
-# TODO: test GetStopTimeTrips
 # TODO: test GetPattern
 
 class DefaultAgencyTestCase(unittest.TestCase):
@@ -1887,6 +1886,56 @@ class DefaultServicePeriodTestCase(unittest.TestCase):
     schedule.AddServicePeriodObject(service2)
     service_d = schedule.GetDefaultServicePeriod()
     self.assertEqual(service_d, None)
+
+
+class GetTripTimeTestCase(unittest.TestCase):
+  """Test for GetStopTimeTrips and GetTimeInterpolatedStops"""
+  def setUp(self):
+    problems = TestFailureProblemReporter(self)
+    schedule = transitfeed.Schedule(problem_reporter=problems)
+    self.schedule = schedule
+    schedule.AddAgency("Agency", "http://iflyagency.com",
+                       "America/Los_Angeles")
+    service_period = schedule.GetDefaultServicePeriod()
+    service_period.SetDateHasService('20070101')
+    stop1 = schedule.AddStop(lng=140.01, lat=0, name="140.01,0")
+    stop2 = schedule.AddStop(lng=140.02, lat=0, name="140.02,0")
+    stop3 = schedule.AddStop(lng=140.03, lat=0, name="140.03,0")
+    stop4 = schedule.AddStop(lng=140.04, lat=0, name="140.04,0")
+    route1 = schedule.AddRoute("1", "One", "Bus")
+
+    trip1 = route1.AddTrip(schedule, "trip 1", trip_id='trip1')
+    trip1.AddStopTime(stop1, departure_secs=100, arrival_secs=100)
+    trip1.AddStopTime(stop2)
+    trip1.AddStopTime(stop3)
+    trip1.AddStopTime(stop4, departure_secs=400, arrival_secs=400)
+
+    trip2 = route1.AddTrip(schedule, "trip 2", trip_id='trip2')
+    trip2.AddStopTime(stop2, departure_secs=500, arrival_secs=500)
+    trip2.AddStopTime(stop3, departure_secs=600, arrival_secs=600)
+    trip2.AddStopTime(stop4, departure_secs=700, arrival_secs=700)
+
+  def testGetTimeInterpolatedStops(self):
+    rv = self.schedule.GetTrip('trip1').GetTimeInterpolatedStops()
+    self.assertEqual(4, len(rv))
+    (secs, stoptimes, istimepoints) = tuple(zip(*rv))
+
+    self.assertEqual((100, 200, 300, 400), secs)
+    self.assertEqual(("140.01,0", "140.02,0", "140.03,0", "140.04,0"),
+                     tuple([st.stop.stop_name for st in stoptimes]))
+    self.assertEqual((True, False, False, True), istimepoints)
+
+  def testGetStopTimeTrips(self):
+    stop1 = self.schedule.GetNearestStops(lon=140.03, lat=0)[0]
+    self.assertEqual("140.03,0", stop1.stop_name)  # Got stop3?
+    rv = stop1.GetStopTimeTrips()
+    self.assertEqual(2, len(rv))
+    (secs, trip_index, istimepoints) = tuple(zip(*rv))
+    self.assertEqual((300, 600), secs)
+    self.assertEqual(("trip1", "trip2"), tuple([ti[0].trip_id for ti in trip_index]))
+    self.assertEqual((2, 1), tuple([ti[1] for ti in trip_index]))
+    self.assertEqual((False, True), istimepoints)
+
 
 class ApproximateDistanceBetweenStopsTestCase(unittest.TestCase):
   def testEquator(self):

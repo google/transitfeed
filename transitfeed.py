@@ -372,11 +372,14 @@ class Stop(object):
     return [getattr(self, fn) for fn in Stop._FIELD_NAMES]
 
   def GetStopTimeTrips(self):
-    """Returns an list of (time, trip), where time is some time.
-    TODO: handle stops between timed stops."""
+    """Returns an list of (time, (trip, index), is_timepoint), where time might
+    be interpolated, trip is a Trip object, index is this stop on the trip and
+    is_timepoint a bool"""
     time_trips = []
     for trip, index in self.trip_index:
-      time_trips.append((trip._stoptimes[index].GetTimeSecs(), trip))
+      timeinterpolated = trip.GetTimeInterpolatedStops()
+      time_trips.append((timeinterpolated[index][0], (trip, index),
+                         timeinterpolated[index][2]))
     return time_trips
 
   def _AddTripStop(self, trip, index):
@@ -811,6 +814,40 @@ class Trip(object):
     Caution: arrival_secs and departure_secs may be 0, a false value meaning a
     stop at midnight or None, a false value meaning the stop is untimed."""
     return [(st.arrival_secs, st.departure_secs, st.stop) for st in self._stoptimes]
+
+  def GetTimeInterpolatedStops(self):
+    """Return a list of (secs, stoptime, is_timepoint) tuples.
+
+    secs will always be an int. If the StopTime object does not have explict
+    times this method guesses using distance. stoptime is a StopTime object and
+    is_timepoint is a bool.
+    """
+    rv = []
+
+    assert self._stoptimes[0].GetTimeSecs() != None
+    assert self._stoptimes[-1].GetTimeSecs() != None
+
+    cur_timepoint = None
+    next_timepoint = None
+
+    for i, st in enumerate(self._stoptimes):
+      if st.GetTimeSecs() != None:
+        cur_timepoint = st
+        if i + 1 < len(self._stoptimes):
+          k = i + 1
+          while self._stoptimes[k].GetTimeSecs() == None:
+            k += 1
+          next_timepoint = self._stoptimes[k]
+        rv.append( (st.GetTimeSecs(), st, True) )
+      else:
+        distance1 = ApproximateDistanceBetweenStops(cur_timepoint.stop, st.stop)
+        distance2 = ApproximateDistanceBetweenStops(st.stop, next_timepoint.stop)
+        distance_percent = distance1 / (distance1 + distance2)
+        total_time = next_timepoint.GetTimeSecs() - cur_timepoint.GetTimeSecs()
+        time_estimate = distance_percent * total_time + cur_timepoint.GetTimeSecs()
+        rv.append( (int(round(time_estimate)), st, False) )
+
+    return rv
 
   def GetStopTimes(self):
     """Return a sorted list of StopTime objects for this trip."""

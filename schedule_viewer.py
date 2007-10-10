@@ -67,7 +67,7 @@ class ScheduleRequestHandler(BaseHTTPServer.BaseHTTPRequestHandler):
       k = urllib.unquote(k)
       if '=' in k:
         k, v = k.split('=', 1)
-        parsed_params[k] = v
+        parsed_params[k] = unicode(v, 'utf8')
       else:
         parsed_params[k] = ''
 
@@ -283,7 +283,7 @@ class ScheduleRequestHandler(BaseHTTPServer.BaseHTTPRequestHandler):
 
   def handle_json_GET_stopsearch(self, params):
     schedule = self.server.schedule
-    query = params.get('q', None)
+    query = params.get('q', None).lower()
     matches = []
     for s in schedule.GetStopList():
       if s.stop_id.lower().find(query) != -1 or s.stop_name.lower().find(query) != -1:
@@ -303,7 +303,30 @@ class ScheduleRequestHandler(BaseHTTPServer.BaseHTTPRequestHandler):
     time_trips = time_trips[bisect.bisect_left(time_trips, (time, 0)):]
     time_trips = time_trips[:5]
     # TODO: combine times for a route to show next 2 departure times
-    return [(time, trip.GetFieldValuesTuple()) for time, trip in time_trips]
+    result = []
+    for time, (trip, index), tp in time_trips:
+      headsign = None
+      # Find the most recent headsign from the StopTime objects
+      for stoptime in trip.GetStopTimes()[index::-1]:
+        if stoptime.stop_headsign:
+          headsign = stoptime.stop_headsign
+          break
+      # If stop_headsign isn't found, look for a trip_headsign
+      if not headsign:
+        headsign = trip.trip_headsign
+      route = schedule.GetRoute(trip.route_id)
+      trip_name = ''
+      if route.route_short_name:
+        trip_name += route.route_short_name
+      if route.route_long_name:
+        if len(trip_name):
+          trip_name += " - "
+        trip_name += route.route_long_name
+      if headsign:
+        trip_name += " (Direction: %s)" % headsign
+
+      result.append((time, (trip.trip_id, trip_name), tp))
+    return result
 
   def handle_GET_ttablegraph(self,params):
     """Draw a Marey graph in SVG for a pattern (collection of trips in a route
