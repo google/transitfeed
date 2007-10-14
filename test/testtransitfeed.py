@@ -334,7 +334,7 @@ class MissingColumnTestCase(unittest.TestCase):
 
 class ZeroBasedStopSequenceTestCase(LoadTestCase):
   def runTest(self):
-    self.ExpectInvalidValue('zero_based_stop_sequence', 'stop_sequence')
+    self.ExpectInvalidValue('negative_stop_sequence', 'stop_sequence')
 
 
 class DuplicateStopTestCase(unittest.TestCase):
