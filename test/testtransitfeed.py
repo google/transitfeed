@@ -40,6 +40,10 @@ class ExceptionProblemReporterNoExpiration(
     transitfeed.ExceptionProblemReporter):
   """This version, used for most tests, ignores feed expiration problems,
      so that we don't need to keep updating the dates in our tests."""
+
+  def __init__(self):
+    transitfeed.ExceptionProblemReporter.__init__(self, raise_warnings=True)
+
   def ExpirationDate(self, expiration, context=None):
     pass  # We don't want to give errors about our test data
 
@@ -893,7 +897,7 @@ class TripValidationTestCase(ValidationTestCase):
     self.ExpectOtherProblem(trip)
     trip.ClearHeadwayPeriods()
 
-    
+
 class TripServiceIDValidationTestCase(ValidationTestCase):
   def runTest(self):
     schedule = transitfeed.Schedule(self.problems)
@@ -904,7 +908,7 @@ class TripServiceIDValidationTestCase(ValidationTestCase):
     service_period.SetEndDate("20071231")
     service_period.SetWeekdayService(True)
     schedule.AddServicePeriodObject(service_period)
-    
+
     schedule.AddRouteObject(
         transitfeed.Route("54C", "Polish Hill", 3, "054C"))
 
@@ -918,7 +922,7 @@ class TripServiceIDValidationTestCase(ValidationTestCase):
     except transitfeed.InvalidValue, e:
       self.assertEqual("service_id", e.column_name)
       self.assertEqual("WEEKDAY", e.value)
-    
+
 
 class TripHasStopTimeValidationTestCase(ValidationTestCase):
   def runTest(self):
@@ -1120,7 +1124,8 @@ class AddStopTimeParametersTestCase(unittest.TestCase):
 class ExpirationDateTestCase(unittest.TestCase):
   def runTest(self):
     schedule = transitfeed.Schedule(
-        problem_reporter=transitfeed.ExceptionProblemReporter())
+        problem_reporter=transitfeed.ExceptionProblemReporter(
+            raise_warnings=True))
 
     now = time.mktime(time.localtime())
     seconds_per_day = 60 * 60 * 24
@@ -1269,7 +1274,7 @@ class MinimalWriteTestCase(TempFileTestCaseBase):
   """
   This test case simply constructs an incomplete feed with very few
   fields set and ensures that there are no exceptions when writing it out.
-  
+
   This is very similar to TransitFeedSampleCodeTestCase below, but that one
   will no doubt change as the sample code is altered.
   """
@@ -1314,8 +1319,8 @@ class MinimalWriteTestCase(TempFileTestCaseBase):
 
     schedule.Validate()
     schedule.WriteGoogleTransitFeed(self.tempfilepath)
-    
-    
+
+
 class TransitFeedSampleCodeTestCase(unittest.TestCase):
   """
   This test should simply contain the sample code printed on the page:

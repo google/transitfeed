@@ -37,36 +37,62 @@ import webbrowser
 
 DEFAULT_UNUSED_LIMIT = 5  # number of unused stops to print
 
-def ProblemCountText(problem_count):
-  if (problem_count == 1):
-    return 'one issue'
-  else:
-    return '%d issues' % problem_count
+def ProblemCountText(error_count, warning_count):
+  error_text = ''
+  warning_text= ''
+  
+  if error_count > 1:
+    error_text = '%d errors' % error_count
+  elif error_count == 1:
+    error_text = 'one error'
+    
+  if warning_count > 1:
+    warning_text = '%d warnings' % warning_count
+  elif warning_count == 1:
+    warning_text = 'one warning'
+    
+  results = []
+  if error_text:
+    results.append(error_text)
+  if warning_text:
+    results.append(warning_text)
+    
+  return ' and '.join(results)
 
 class HTMLCountingProblemReporter(transitfeed.ProblemReporter):
   def __init__(self):
     transitfeed.ProblemReporter.__init__(self)
-    self._output = []
-    self.count = 0
+    self._error_output = []
+    self._warning_output = []
+    self.error_count = 0
+    self.warning_count = 0
     self.unused_stops = []  # [(stop_id, stop_name)...]
 
+  def HasIssues(self):
+    return self.error_count or self.warning_count
+
   def UnusedStop(self, stop_id, stop_name):
-    self.count += 1
+    self.warning_count += 1
     self.unused_stops.append((stop_id, stop_name))
 
   def _Report(self, e):
-    self.count += 1
+    if e.IsWarning():
+      self.warning_count += 1
+      output = self._warning_output
+    else:
+      self.error_count += 1
+      output = self._error_output
     d = e.GetDict()
     for k in ('file_name', 'feedname', 'column_name'):
       if k in d.keys():
         d[k] = '<code>%s</code>' % d[k]
     problem_text = e.FormatProblem(d).replace('\n', '<br>')
-    self._output.append('<li>')
-    self._output.append('<div class="problem">%s</div>' %
-                        transitfeed.EncodeUnicode(problem_text))
+    output.append('<li>')
+    output.append('<div class="problem">%s</div>' %
+                  transitfeed.EncodeUnicode(problem_text))
     try:
-      self._output.append('in line %d of <code>%s</code><br>\n' %
-                           (e.row_num, e.file_name))
+      output.append('in line %d of <code>%s</code><br>\n' %
+                    (e.row_num, e.file_name))
       row = e.row
       headers = e.headers
       column_name = e.column_name
@@ -78,26 +104,26 @@ class HTMLCountingProblemReporter(transitfeed.ProblemReporter):
           attributes = ' class="problem"'
         table_header += '<th%s>%s</th>' % (attributes, header)
         table_data += '<td%s>%s</td>' % (attributes, value)
-      self._output.append('<table><tr>%s</tr>\n' % table_header)
-      # Make sure self._output contains strings with UTF-8 or binary data, not
-      # unicode
-      self._output.append('<tr>%s</tr><table>\n' %
-                          transitfeed.EncodeUnicode(table_data))
+      output.append('<table><tr>%s</tr>\n' % table_header)
+      # Make sure output contains strings with UTF-8 or binary data, not unicode
+      output.append('<tr>%s</tr><table>\n' %
+                    transitfeed.EncodeUnicode(table_data))
     except AttributeError, e:
       pass  # Hope this was getting an attribute from e ;-)
-    self._output.append('</li><br>\n')
+    output.append('</li><br>\n')
 
   def _UnusedStopSection(self):
     unused = []
     unused_count = len(self.unused_stops)
     if unused_count:
       if unused_count == 1:
-        unused.append('%d.<br>' % self.count)
+        unused.append('%d.<br>' % self.warning_count)
         unused.append('<div class="unused">')
         unused.append('one stop was found that wasn\'t')
       else:
         unused.append('%d&ndash;%d.<br>' %
-                      (self.count - unused_count + 1, self.count))
+                      (self.warning_count - unused_count + 1,
+                       self.warning_count))
         unused.append('<div class="unused">')
         unused.append('%d stops were found that weren\'t' % unused_count)
       unused.append(' used in any trips')
@@ -115,9 +141,9 @@ class HTMLCountingProblemReporter(transitfeed.ProblemReporter):
 
   def WriteOutput(self, feed_location, f, schedule):
     """Write the html output to f."""
-    if problems.count:
+    if problems.HasIssues():
       summary = ('<span class="fail">%s found</span>' %
-                 ProblemCountText(problems.count))
+                 ProblemCountText(problems.error_count, problems.warning_count))
     else:
       summary = '<span class="pass">feed validated successfully</span>'
 
@@ -151,6 +177,7 @@ div.problem {max-width: 500px}
 td,th {background-color: khaki; padding: 2px; font-family:monospace}
 td.problem,th.problem {background-color: dc143c; color: white; padding: 2px; font-family:monospace}
 table {border-spacing: 5px 0px; margin-top: 3px}
+h3.issueHeader {padding-left: 1em}
 span.pass {background-color: lightgreen}
 span.fail {background-color: yellow}
 .pass, .fail {font-size: 16pt; padding: 3px}
@@ -174,7 +201,8 @@ GTFS validation results for feed:<br>
 </table>
 <br>
 %(summary)s
-<ol>""" % { "feed_file": feed_path[1],
+<br><br>
+""" % { "feed_file": feed_path[1],
             "feed_dir": feed_path[0],
             "agencies": agencies,
             "routes": len(schedule.GetRouteList()),
@@ -184,7 +212,7 @@ GTFS validation results for feed:<br>
             "dates": dates,
             "summary": summary }
 
-    output_suffix = """</ol>
+    output_suffix = """
 %s
 <div class="footer">
 Generated by <a href="http://code.google.com/p/googletransitdatafeed/wiki/FeedValidator">
@@ -192,10 +220,18 @@ FeedValidator</a> version %s on %s.
 </div>
 </body>
 </html>""" % (self._UnusedStopSection(),
-              transitfeed.__version__, time.asctime())
+              transitfeed.__version__,
+              time.strftime('%B %d, %Y at %I:%M %p %Z'))
 
     f.write(transitfeed.EncodeUnicode(output_prefix))
-    f.writelines(self._output)
+    if self._error_output:
+      f.write('<h3 class="issueHeader">Errors:</h3><ol>')
+      f.writelines(self._error_output)
+      f.write('</ol>')
+    if self._warning_output:
+      f.write('<h3 class="issueHeader">Warnings:</h3><ol>')
+      f.writelines(self._warning_output)
+      f.write('</ol>')
     f.write(transitfeed.EncodeUnicode(output_suffix))
 
 if __name__ == '__main__':
@@ -226,8 +262,9 @@ if __name__ == '__main__':
   schedule = loader.Load()
 
   exit_code = 0
-  if problems.count:
-    print 'ERROR: %s found' % ProblemCountText(problems.count)
+  if problems.HasIssues():
+    print 'ERROR: %s found' % ProblemCountText(problems.error_count,
+                                               problems.warning_count)
     exit_code = 1
   else:
     print 'feed validated successfully'

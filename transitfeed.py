@@ -68,10 +68,18 @@ def EncodeUnicode(text):
   else:
     return text
 
+
+# These are used to distinguish between errors (not allowed by the spec)
+# and warnings (not recommended) when reporting issues.
+TYPE_ERROR = 0
+TYPE_WARNING = 1
+
+
 class ProblemReporterBase:
   """Base class for problem reporters. Tracks the current context and creates
   an exception object for each problem. Subclasses must implement
   _Report(self, e)"""
+
   def __init__(self):
     self.ClearContext()
 
@@ -125,9 +133,10 @@ class ProblemReporterBase:
                      context2=self._context)
     self._Report(e)
 
-  def InvalidValue(self, column_name, value, reason=None, context=None):
+  def InvalidValue(self, column_name, value, reason=None, context=None,
+                   type=TYPE_ERROR):
     e = InvalidValue(column_name=column_name, value=value, reason=reason,
-                     context=context, context2=self._context)
+                     context=context, context2=self._context, type=type)
     self._Report(e)
 
   def DuplicateID(self, column_name, value, context=None):
@@ -137,17 +146,17 @@ class ProblemReporterBase:
 
   def UnusedStop(self, stop_id, stop_name, context=None):
     e = UnusedStop(stop_id=stop_id, stop_name=stop_name,
-                   context=context, context2=self._context)
+                   context=context, context2=self._context, type=TYPE_WARNING)
     self._Report(e)
 
   def ExpirationDate(self, expiration, context=None):
     e = ExpirationDate(expiration=expiration, context=context,
-                       context2=self._context)
+                       context2=self._context, type=TYPE_WARNING)
     self._Report(e)
 
-  def OtherProblem(self, description, context=None):
+  def OtherProblem(self, description, context=None, type=TYPE_ERROR):
     e = OtherProblem(description=description,
-                    context=context, context2=self._context)
+                    context=context, context2=self._context, type=type)
     self._Report(e)
 
 class ProblemReporter(ProblemReporterBase):
@@ -192,6 +201,20 @@ class ExceptionWithContext(Exception):
       self.__dict__.update(self.ContextTupleToDict(context2))
     self.__dict__.update(kwargs)
 
+    if ('type' in kwargs) and (kwargs['type'] == TYPE_WARNING):
+      self._type = TYPE_WARNING
+    else:
+      self._type = TYPE_ERROR
+
+  def GetType(self):
+    return self._type
+
+  def IsError(self):
+    return self._type == TYPE_ERROR
+
+  def IsWarning(self):
+    return self._type == TYPE_WARNING
+
   CONTEXT_PARTS = ['file_name', 'row_num', 'row', 'headers']
   @staticmethod
   def ContextTupleToDict(context):
@@ -219,7 +242,7 @@ class ExceptionWithContext(Exception):
     if not d:
       d = self.__dict__
     output_error_text = self.__class__.ERROR_TEXT % d
-    if 'reason' in d:
+    if ('reason' in d) and d['reason']:
       return '%s\n%s' % (output_error_text, d['reason'])
     else:
       return output_error_text
@@ -285,9 +308,16 @@ class OtherProblem(ExceptionWithContext):
   ERROR_TEXT = '%(description)s'
 
 
-class ExceptionProblemReporter(ProblemReporterBase):
+class ExceptionProblemReporter(ProblemReporter):
+  def __init__(self, raise_warnings=False):
+    ProblemReporterBase.__init__(self)
+    self.raise_warnings = raise_warnings
+
   def _Report(self, e):
-    raise e
+    if self.raise_warnings or e.IsError():
+      raise e
+    else:
+      ProblemReporter._Report(self, e)
 
 
 default_problem_reporter = ExceptionProblemReporter()
@@ -434,14 +464,15 @@ class Stop(object):
       problems.InvalidValue('stop_lon', self.stop_lon)
     if (abs(self.stop_lat) < 1.0) and (abs(self.stop_lon) < 1.0):
       problems.InvalidValue('stop_lat', self.stop_lat,
-                            'Stop location too close to 0, 0')
-    if hasattr(self, 'stop_url') and self.stop_url and not IsValidURL(self.stop_url):
+                            'Stop location too close to 0, 0',
+                            type=TYPE_WARNING)
+    if (hasattr(self, 'stop_url') and self.stop_url and
+        not IsValidURL(self.stop_url)):
       problems.InvalidValue('stop_url', self.stop_url)
     if hasattr(self, 'stop_desc') and (not IsEmpty(self.stop_desc) and
         self.stop_name.strip().lower() == self.stop_desc.strip().lower()):
       problems.InvalidValue('stop_desc', self.stop_desc,
                             'stop_desc should not be the same as stop_name')
-
 
 
 class Route(object):
@@ -551,7 +582,7 @@ class Route(object):
                             self.route_short_name,
                             'Both route_short_name and '
                             'route_long name are blank.')
-                            
+
     if self.route_short_name and len(self.route_short_name) > 6:
       problems.InvalidValue('route_short_name',
                             self.route_short_name,
@@ -560,8 +591,8 @@ class Route(object):
                             'You should only use this field to hold a short '
                             'code that riders use to identify a route.  '
                             'If this route doesn\'t have such a code, it\'s '
-                            'OK to leave this field empty.')
-                            
+                            'OK to leave this field empty.', type=TYPE_WARNING)
+
     if (self.route_short_name and
         (self.route_long_name.strip().lower().startswith(
             self.route_short_name.strip().lower() + ' ') or
@@ -572,7 +603,7 @@ class Route(object):
                             'route_long_name shouldn\'t contain '
                             'the route_short_name value, as both '
                             'fields are often displayed '
-                            'side-by-side.')
+                            'side-by-side.', type=TYPE_WARNING)
     if (self.route_short_name and
         (self.route_long_name.strip().lower() ==
          self.route_short_name.strip().lower())):
@@ -582,7 +613,8 @@ class Route(object):
                             'the route_short_name value, as both '
                             'fields are often displayed '
                             'side-by-side.  It\'s OK to omit either the '
-                            'short or long name (but not both).')
+                            'short or long name (but not both).',
+                            type=TYPE_WARNING)
     if (self.route_desc and
         ((self.route_desc == self.route_short_name) or
          (self.route_desc == self.route_long_name))):
@@ -697,7 +729,8 @@ class StopTime(object):
                             'drop_off_type of 1, indicating that riders '
                             'can\'t get on or off here.  Since it doesn\'t '
                             'define a timepoint either, this entry serves no '
-                            'purpose and should be excluded from the trip.')
+                            'purpose and should be excluded from the trip.',
+                            type=TYPE_WARNING)
 
     if ((self.arrival_secs != None) and (self.departure_secs != None) and
         (self.departure_secs < self.arrival_secs)):
@@ -1272,7 +1305,8 @@ class Shape(object):
     if (abs(lat) < 1.0) and (abs(lon) < 1.0):
       problems.InvalidValue('shape_pt_lat', lat,
                             'Point location too close to 0, 0, which means '
-                            'that it\'s probably an incorrect location.')
+                            'that it\'s probably an incorrect location.',
+                            type=TYPE_WARNING)
       return
 
     if distance == '':  # canonicalizing empty string to None for comparison
@@ -1322,7 +1356,7 @@ class Shape(object):
 
     if not self.points:
       problems.OtherProblem('The shape with shape_id "%s" contains no points.' %
-                            self.shape_id)
+                            self.shape_id, type=TYPE_WARNING)
 
 class Agency(object):
   """Represents an agency in a schedule"""
@@ -1580,7 +1614,8 @@ class ServicePeriod(object):
         1 not in self.date_exceptions.values()):
       problems.OtherProblem('Service period with service_id "%s" '
                             'doesn\'t have service on any days '
-                            'of the week.' % self.service_id)
+                            'of the week.' % self.service_id,
+                            type=TYPE_WARNING)
     for date in self.date_exceptions:
       if not self._IsValidDate(date):
         problems.InvalidValue('date', date)
@@ -2083,7 +2118,8 @@ class Schedule:
 
     (start_date, end_date) = self.GetDateRange()
     if not end_date:
-      problems.OtherProblem('This feed has no effective service dates!')
+      problems.OtherProblem('This feed has no effective service dates!',
+                            type=TYPE_WARNING)
     else:
       try:
         expiration = time.mktime(time.strptime(end_date, "%Y%m%d"))
@@ -2118,7 +2154,8 @@ class Schedule:
                                 'they probably represent the same location.' %
                                 (stop.stop_name, stop.stop_id,
                                  sorted_stops[index].stop_name,
-                                 sorted_stops[index].stop_id))
+                                 sorted_stops[index].stop_id),
+                                type=TYPE_WARNING)
         index += 1
 
     # Check for multiple routes using same short + long name
@@ -2141,7 +2178,8 @@ class Schedule:
                               'shouldn\'t be used for more than one '
                               'route, as it is for the for the two routes '
                               'with IDs "%s" and "%s".' %
-                              (route.route_id, route_names[name].route_id))
+                              (route.route_id, route_names[name].route_id),
+                              type=TYPE_WARNING)
       else:
         route_names[name] = route
 
@@ -2161,12 +2199,13 @@ class Schedule:
     for trip in self.trips.values():
       if not trip.GetTimeStops():
         problems.OtherProblem('The trip with the trip_id "%s" doesn\'t have '
-                              'any stop times defined.' % trip.trip_id)
+                              'any stop times defined.' % trip.trip_id,
+                              type=TYPE_WARNING)
       elif len(trip.GetTimeStops()) == 1:
         problems.OtherProblem('The trip with the trip_id "%s" only has one '
                               'stop on it; it should have at least one more '
                               'stop so that the riders can leave!' %
-                              trip.trip_id)
+                              trip.trip_id, type=TYPE_WARNING)
       else:
         # These methods report InvalidValue if there's no first or last time
         trip.GetStartTime(problems=problems)
@@ -2181,7 +2220,8 @@ class Schedule:
     if unused_shape_ids:
       problems.OtherProblem('The shapes with the following shape_ids aren\'t '
                             'used by any trips: %s' %
-                            ', '.join(unused_shape_ids))
+                            ', '.join(unused_shape_ids),
+                            type=TYPE_WARNING)
 
 
 class Loader:
@@ -2277,8 +2317,9 @@ class Loader:
                                     '%d of file "%s".  Every row in the file '
                                     'should have the same number of cells as '
                                     'the header (first line) does.' %
-                                    (row_num, file_name), (file_name, row_num))
-        
+                                    (row_num, file_name), (file_name, row_num),
+                                    type=TYPE_WARNING)
+
       result = [None] * len(cols)
       for i in range(len(cols)):
         ci = col_index[i]
