@@ -374,6 +374,19 @@ class DuplicateScheduleIDTestCase(unittest.TestCase):
     except transitfeed.DuplicateID:
       pass
 
+class ColorLuminanceTestCase(unittest.TestCase):
+  def runTest(self):
+    self.assertEqual(transitfeed.ColorLuminance('000000'), 0,
+        "ColorLuminance('000000') should be zero")
+    self.assertEqual(transitfeed.ColorLuminance('FFFFFF'), 255*7,
+        "ColorLuminance('FFFFFF') should be 255*7 = 1785")
+    RGBmsg = "ColorLuminance('RRGGBB') should be 2*<Red>+4*<Green>+<Blue>"
+    self.assertEqual(transitfeed.ColorLuminance('800000'), 2*128, RGBmsg)
+    self.assertEqual(transitfeed.ColorLuminance('008000'), 4*128, RGBmsg)
+    self.assertEqual(transitfeed.ColorLuminance('000080'), 1*128, RGBmsg)
+    self.assertEqual(transitfeed.ColorLuminance('1171B3'), 17*2 + 113*4 + 179*1,
+        RGBmsg)
+    pass
 
 INVALID_VALUE = Exception()
 class ValidationTestCase(unittest.TestCase):
@@ -548,6 +561,7 @@ class StopTimeValidationTestCase(ValidationTestCase):
         departure_time="10:05:00", pickup_type='1', drop_off_type='1')
     transitfeed.StopTime(self.problems, stop)
 
+
 class RouteValidationTestCase(ValidationTestCase):
   def runTest(self):
     # success case
@@ -620,6 +634,29 @@ class RouteValidationTestCase(ValidationTestCase):
     route.route_id = None
     self.ExpectMissingValue(route, 'route_id')
     route.route_id = '054C'
+
+    # bad color contrast
+    route.route_text_color = None # black
+    route.route_color = '0000FF'  # Bad
+    self.ExpectInvalidValue(route, 'route_color')
+    route.route_color = '00BF00'  # OK
+    route.Validate(self.problems)
+    route.route_color = '005F00'  # Bad
+    self.ExpectInvalidValue(route, 'route_color')
+    route.route_color = 'FF00FF'  # OK
+    route.Validate(self.problems)
+    route.route_text_color = 'FFFFFF' # OK too
+    route.Validate(self.problems)
+    route.route_text_color = '00FF00' # think of color-blind people!
+    self.ExpectInvalidValue(route, 'route_color')
+    route.route_text_color = '007F00'
+    route.route_color = 'FF0000'
+    self.ExpectInvalidValue(route, 'route_color')
+    route.route_color = '00FFFF'      # OK
+    route.Validate(self.problems)
+    route.route_text_color = None # black
+    route.route_color = None      # white
+    route.Validate(self.problems)
 
 
 class ShapeValidationTestCase(ValidationTestCase):
