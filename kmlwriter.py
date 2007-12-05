@@ -1,4 +1,4 @@
-#!/usr/bin/python2.4
+#!/usr/bin/python2.5
 
 # Copyright (C) 2007 Google Inc.
 #
@@ -25,7 +25,10 @@ name as the feed file (with ".kml" appended) and will be placed in the same
 directory as the input feed.
 """
 
-import elementtree.ElementTree as ET
+try:
+  import xml.etree.ElementTree as ET  # python 2.5
+except ImportError, e:
+  import elementtree.ElementTree as ET  # older pythons
 import os.path
 import sys
 import transitfeed

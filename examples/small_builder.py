@@ -1,4 +1,4 @@
-#!/usr/bin/python2.4
+#!/usr/bin/python2.5
 
 # A really simple example of using transitfeed to build a Google Transit
 # Feed Specification file.
