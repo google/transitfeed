@@ -2356,6 +2356,14 @@ class Loader:
                                     (row_num, file_name), (file_name, row_num),
                                     type=TYPE_WARNING)
 
+      if len(row) < len(header):
+        self._problems.OtherProblem('Found missing cells (commas) in line '
+								    '%d of file "%s".  Every row in the file '
+								    'should have the same number of cells as '
+								    'the header (first line) does.' %
+								    (row_num, file_name), (file_name, row_num),
+								    type=TYPE_WARNING)
+
       result = [None] * len(cols)
       for i in range(len(cols)):
         ci = col_index[i]

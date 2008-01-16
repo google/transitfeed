@@ -1,2 +1,2 @@
 agency_id,agency_name,agency_url,agency_timezone
-DTA,Autorité de passage de démonstration,http://google.com,America/Los_Angeles
+DTA,Demo Transit Authority,http://google.com,America/Los_Angeles
