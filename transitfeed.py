@@ -1215,7 +1215,11 @@ class Fare(object):
     if self.GetFieldValuesTuple() != other.GetFieldValuesTuple():
       return False
 
-    return self.GetFareRuleList() == other.GetFareRuleList()
+    self_rules = [r.GetFieldValuesTuple() for r in self.GetFareRuleList()]
+    self_rules.sort()
+    other_rules = [r.GetFieldValuesTuple() for r in other.GetFareRuleList()]
+    other_rules.sort()
+    return self_rules == other_rules
 
   def __ne__(self, other):
     return not self.__eq__(other)
@@ -1274,7 +1278,7 @@ class FareRule(object):
      self.contains_id) = \
      (fare_id, route_id, origin_id, destination_id, contains_id)
     if field_list:
-      (self.fare_id, self.route_id, self.origin_id, self.destionation_id,
+      (self.fare_id, self.route_id, self.origin_id, self.destination_id,
        self.contains_id) = field_list
 
     # canonicalize non-content values as None

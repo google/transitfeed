@@ -1672,21 +1672,22 @@ class WriteSampleFeedTestCase(TempFileTestCaseBase):
     stops = []
     stop_data = [
         ("FUR_CREEK_RES", "Furnace Creek Resort (Demo)",
-         36.425288, -117.133162),
+         36.425288, -117.133162, "zone-a"),
         ("BEATTY_AIRPORT", "Nye County Airport (Demo)",
-         36.868446, -116.784682),
-        ("BULLFROG", "Bullfrog (Demo)", 36.88108, -116.81797),
+         36.868446, -116.784682, "zone-a"),
+        ("BULLFROG", "Bullfrog (Demo)", 36.88108, -116.81797, "zone-b"),
         ("STAGECOACH", "Stagecoach Hotel & Casino (Demo)",
-         36.915682, -116.751677),
-        ("NADAV", "North Ave / D Ave N (Demo)", 36.914893, -116.76821),
-        ("NANAA", "North Ave / N A Ave (Demo)", 36.914944, -116.761472),
-        ("DADAN", "Doing AVe / D Ave N (Demo)", 36.909489, -116.768242),
-        ("EMSI", "E Main St / S Irving St (Demo)", 36.905697, -116.76218),
-        ("AMV", "Amargosa Valley (Demo)", 36.641496, -116.40094),
+         36.915682, -116.751677, "zone-c"),
+        ("NADAV", "North Ave / D Ave N (Demo)", 36.914893, -116.76821, ""),
+        ("NANAA", "North Ave / N A Ave (Demo)", 36.914944, -116.761472, ""),
+        ("DADAN", "Doing AVe / D Ave N (Demo)", 36.909489, -116.768242, ""),
+        ("EMSI", "E Main St / S Irving St (Demo)", 36.905697, -116.76218, ""),
+        ("AMV", "Amargosa Valley (Demo)", 36.641496, -116.40094, ""),
       ]
     for stop_entry in stop_data:
       stop = transitfeed.Stop()
-      (stop.stop_id, stop.stop_name, stop.stop_lat, stop.stop_lon) = stop_entry
+      (stop.stop_id, stop.stop_name, stop.stop_lat, stop.stop_lon,
+          stop.zone_id) = stop_entry
       schedule.AddStopObject(stop)
       stops.append(stop)
 
@@ -1795,14 +1796,16 @@ class WriteSampleFeedTestCase(TempFileTestCaseBase):
       schedule.AddFareObject(fare)
 
     fare_rule_data = [
-        ("p", "AB"),
-        ("p", "STBA"),
-        ("p", "BFC"),
-        ("a", "AAMV"),
+        ("p", "AB", "zone-a", "zone-b", None),
+        ("p", "STBA", "zone-a", None, "zone-c"),
+        ("p", "BFC", None, "zone-b", "zone-a"),
+        ("a", "AAMV", None, None, None),
       ]
 
-    for fare_rule_entry in fare_rule_data:
-      rule = transitfeed.FareRule(fare_rule_entry[0], fare_rule_entry[1])
+    for fare_id, route_id, orig_id, dest_id, contains_id in fare_rule_data:
+      rule = transitfeed.FareRule(
+          fare_id=fare_id, route_id=route_id, origin_id=orig_id,
+          destination_id=dest_id, contains_id=contains_id)
       schedule.AddFareRuleObject(rule, problems)
 
     schedule.Validate(problems)
@@ -1856,6 +1859,20 @@ class WriteSampleFeedTestCase(TempFileTestCaseBase):
     self.assertEqual(len(fares), len(read_schedule.GetFareList()))
     for fare in fares:
       self.assertEqual(fare, read_schedule.GetFare(fare.fare_id))
+
+    read_fare_rules_data = []
+    for fare in read_schedule.GetFareList():
+      for rule in fare.GetFareRuleList():
+        self.assertEqual(fare.fare_id, rule.fare_id)
+        read_fare_rules_data.append((fare.fare_id, rule.route_id,
+                                     rule.origin_id, rule.destination_id,
+                                     rule.contains_id))
+    fare_rule_data.sort()
+    read_fare_rules_data.sort()
+    self.assertEqual(len(read_fare_rules_data), len(fare_rule_data))
+    for rf, f in zip(read_fare_rules_data, fare_rule_data):
+      self.assertEqual(rf, f)
+
 
     self.assertEqual(1, len(read_schedule.GetShapeList()))
     self.assertEqual(shape, read_schedule.GetShape(shape.shape_id))
