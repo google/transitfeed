@@ -549,7 +549,7 @@ class DataSetMerger(object):
     Returns:
       The number of merged entities.
     """
-    # TODO(tstranex): The same entity from A could merge with multiple from B.
+    # TODO: The same entity from A could merge with multiple from B.
     # This should either generate an error or should be prevented from
     # happening.
     for a in self._GetIter(self.feed_merger.a_schedule):
@@ -962,9 +962,12 @@ class RouteMerger(DataSetMerger):
     migrated_route = transitfeed.Route(field_list=entity.GetFieldValuesTuple())
     if newid:
       migrated_route.route_id = self.feed_merger.GenerateId(entity.route_id)
-    original_agency = schedule.GetAgency(entity.agency_id)
+    if entity.agency_id:
+      original_agency = schedule.GetAgency(entity.agency_id)
+    else:
+      original_agency = schedule.GetDefaultAgency()
 
-    # TODO(tstranex): either use schedule to find the correct map or switch to
+    # TODO: either use schedule to find the correct map or switch to
     # a single map
     migrated_agency = (self.feed_merger.a_merge_map.get(original_agency) or
                        self.feed_merger.b_merge_map.get(original_agency))
@@ -1109,7 +1112,7 @@ class ServicePeriodMerger(DataSetMerger):
     Returns:
       True if the calendars are disjoint or False if not.
     """
-    # TODO(tstranex): Do an exact check here.
+    # TODO: Do an exact check here.
 
     a_service_periods = self.feed_merger.a_schedule.GetServicePeriodList()
     b_service_periods = self.feed_merger.b_schedule.GetServicePeriodList()

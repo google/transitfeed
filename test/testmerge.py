@@ -796,6 +796,35 @@ class TestRouteMerger(unittest.TestCase):
     # check that the id is preserved
     self.assertEquals(self.fm.a_merge_map[self.r1].route_id, self.r1.route_id)
 
+  def testMergeNoAgency(self):
+    self.r1.agency_id = None
+    self.r2.agency_id = None
+    self.fm.a_schedule.AddRouteObject(self.r1)
+    self.fm.b_schedule.AddRouteObject(self.r2)
+    self.fm.MergeSchedules()
+
+    merged_schedule = self.fm.GetMergedSchedule()
+    self.assertEquals(len(merged_schedule.GetRouteList()), 1)
+    r = merged_schedule.GetRouteList()[0]
+    CheckAttribs(self.r2, r, self.fields, self.assertEquals)
+    # Merged route has copy of default agency_id
+    self.assertEquals(r.agency_id, self.a1.agency_id)
+    self.assertEquals(self.rm.GetMergeStats(), (1, 0, 0))
+
+    # check that the id is preserved
+    self.assertEquals(self.fm.a_merge_map[self.r1].route_id, self.r1.route_id)
+
+  def testMigrateNoAgency(self):
+    self.r1.agency_id = None
+    self.fm.a_schedule.AddRouteObject(self.r1)
+    self.fm.MergeSchedules()
+    merged_schedule = self.fm.GetMergedSchedule()
+    self.assertEquals(len(merged_schedule.GetRouteList()), 1)
+    r = merged_schedule.GetRouteList()[0]
+    CheckAttribs(self.r1, r, self.fields, self.assertEquals)
+    # Migrated route has copy of default agency_id
+    self.assertEquals(r.agency_id, self.a1.agency_id)
+
   def testNoMerge_DifferentId(self):
     self.r2.route_id = 'r2'
     self.fm.a_schedule.AddRouteObject(self.r1)
