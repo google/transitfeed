@@ -641,14 +641,14 @@ class Route(object):
       problems.InvalidValue('route_url', self.route_url)
     if self.route_color and not IsValidColor(self.route_color):
       problems.InvalidValue('route_color', self.route_color,
-                            'route_color should be a valid color description'
-                            'which consists of 6 hexadecimal characters'
+                            'route_color should be a valid color description '
+                            'which consists of 6 hexadecimal characters '
                             'representing the RGB values. Example: 44AA06')
     if (self.route_text_color and not IsValidColor(self.route_text_color)):
       problems.InvalidValue('route_text_color', self.route_text_color,
-                            'route_text_color should be a valid color'
-                            'description, which consists of 6 hexadecimal'
-                            'characters representing the RGB values.'
+                            'route_text_color should be a valid color '
+                            'description, which consists of 6 hexadecimal '
+                            'characters representing the RGB values. '
                             'Example: 44AA06')
 
     txt_lum = 0      # black (default)
@@ -659,15 +659,18 @@ class Route(object):
       bg_lum  = ColorLuminance(self.route_color)
     if(abs(txt_lum - bg_lum) < 510):
       problems.InvalidValue('route_color', self.route_color,
-                            'route_color should have a significant color'
-                            'contrast with route_text_color. You might change'
-                            'either of those to get a better contrast.'
-                            'Note that if you omitted one of these fields,'
-                            'route_text_color is 000000 (black) by default,'
-                            'and route_color is FFFFFF (white). In this case,'
-                            'adding the missing field and setting it to the'
-                            'opposite value in the faulty lines should solve'
-                            'the problem.')
+                            'The route_text_color and route_color should '
+                            'be set to contrasting colors, as they are used '
+                            'as the text and background color (respectively) '
+                            'for displaying route names.  When left blank, '
+                            'route_text_color defaults to 000000 (black) and '
+                            'route_color defaults to FFFFFF (white).  A common '
+                            'source of issues here is setting route_color to '
+                            'a dark color, while leaving route_text_color set '
+                            'to black.  In this case, route_text_color should '
+                            'be set to a lighter color like FFFFFF to ensure '
+                            'a legible contrast between the two.',
+                            type=TYPE_WARNING)
 
 
 def SortListOfTripByTime(trips):
