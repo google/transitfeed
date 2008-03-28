@@ -43,6 +43,20 @@ def DataPath(path):
   return os.path.join(here, 'data', path)
 
 
+def _ElementToString(root):
+  """Returns the node as an XML string.
+
+  Args:
+    root: The ElementTree.Element instance.
+
+  Returns:
+    The XML string.
+  """
+  output = StringIO.StringIO()
+  ET.ElementTree(root).write(output, 'utf-8')
+  return output.getvalue()
+
+
 class TestKMLStopsRoundtrip(unittest.TestCase):
   """Checks to see whether all stops are preserved when going to and from KML.
   """
@@ -76,71 +90,68 @@ class TestKMLGeneratorMethods(unittest.TestCase):
     self.kmlwriter = kmlwriter.KMLWriter()
     self.parent = ET.Element('parent')
 
-  def _ElementToString(self, root):
-    """Returns the node as an XML string.
-
-    Args:
-      root: The ElementTree.Element instance.
-
-    Returns:
-      The XML string.
-    """
-    output = StringIO.StringIO()
-    ET.ElementTree(root).write(output, 'utf-8')
-    return output.getvalue()
-
   def testCreateFolderVisible(self):
     element = self.kmlwriter._CreateFolder(self.parent, 'folder_name')
-    self.assertEqual(self._ElementToString(element),
+    self.assertEqual(_ElementToString(element),
                      '<Folder><name>folder_name</name></Folder>')
 
   def testCreateFolderNotVisible(self):
     element = self.kmlwriter._CreateFolder(self.parent, 'folder_name',
                                            visible=False)
-    self.assertEqual(self._ElementToString(element),
+    self.assertEqual(_ElementToString(element),
                      '<Folder><name>folder_name</name>'
                      '<visibility>0</visibility></Folder>')
 
   def testCreateFolderWithDescription(self):
     element = self.kmlwriter._CreateFolder(self.parent, 'folder_name',
                                            description='folder_desc')
-    self.assertEqual(self._ElementToString(element),
+    self.assertEqual(_ElementToString(element),
                      '<Folder><name>folder_name</name>'
                      '<description>folder_desc</description></Folder>')
 
   def testCreatePlacemark(self):
     element = self.kmlwriter._CreatePlacemark(self.parent, 'abcdef')
-    self.assertEqual(self._ElementToString(element),
+    self.assertEqual(_ElementToString(element),
                      '<Placemark><name>abcdef</name></Placemark>')
 
   def testCreatePlacemarkWithStyle(self):
     element = self.kmlwriter._CreatePlacemark(self.parent, 'abcdef',
                                               style_id='ghijkl')
-    self.assertEqual(self._ElementToString(element),
+    self.assertEqual(_ElementToString(element),
                      '<Placemark><name>abcdef</name>'
                      '<styleUrl>#ghijkl</styleUrl></Placemark>')
 
   def testCreatePlacemarkNotVisible(self):
     element = self.kmlwriter._CreatePlacemark(self.parent, 'abcdef',
                                               visible=False)
-    self.assertEqual(self._ElementToString(element),
+    self.assertEqual(_ElementToString(element),
                      '<Placemark><name>abcdef</name>'
                      '<visibility>0</visibility></Placemark>')
 
   def testCreatePlacemarkWithDescription(self):
     element = self.kmlwriter._CreatePlacemark(self.parent, 'abcdef',
                                               description='ghijkl')
-    self.assertEqual(self._ElementToString(element),
+    self.assertEqual(_ElementToString(element),
                      '<Placemark><name>abcdef</name>'
                      '<description>ghijkl</description></Placemark>')
 
   def testCreateLineString(self):
-    coord_list = [(1.0, 2.0), (3.0, 4.0), (5.0, 6.0)]
+    coord_list = [(2.0, 1.0), (4.0, 3.0), (6.0, 5.0)]
     element = self.kmlwriter._CreateLineString(self.parent, coord_list)
-    self.assertEqual(self._ElementToString(element),
+    self.assertEqual(_ElementToString(element),
                      '<LineString><tessellate>1</tessellate>'
                      '<coordinates>%f,%f %f,%f %f,%f</coordinates>'
                      '</LineString>' % (2.0, 1.0, 4.0, 3.0, 6.0, 5.0))
+
+  def testCreateLineStringWithAltitude(self):
+    coord_list = [(2.0, 1.0, 10), (4.0, 3.0, 20), (6.0, 5.0, 30.0)]
+    element = self.kmlwriter._CreateLineString(self.parent, coord_list)
+    self.assertEqual(_ElementToString(element),
+                     '<LineString><tessellate>1</tessellate>'
+                     '<altitudeMode>absolute</altitudeMode>'
+                     '<coordinates>%f,%f,%f %f,%f,%f %f,%f,%f</coordinates>'
+                     '</LineString>' %
+                     (2.0, 1.0, 10.0, 4.0, 3.0, 20.0, 6.0, 5.0, 30.0))
 
   def testCreateLineStringForShape(self):
     shape = transitfeed.Shape('shape')
@@ -148,7 +159,7 @@ class TestKMLGeneratorMethods(unittest.TestCase):
     shape.AddPoint(2.0, 4.0)
     shape.AddPoint(3.0, 9.0)
     element = self.kmlwriter._CreateLineStringForShape(self.parent, shape)
-    self.assertEqual(self._ElementToString(element),
+    self.assertEqual(_ElementToString(element),
                      '<LineString><tessellate>1</tessellate>'
                      '<coordinates>%f,%f %f,%f %f,%f</coordinates>'
                      '</LineString>' % (1.0, 1.0, 4.0, 2.0, 9.0, 3.0))
@@ -158,7 +169,7 @@ class TestRouteKML(unittest.TestCase):
   """Tests the routes folder KML generation methods of KMLWriter."""
 
   def setUp(self):
-    self.feed = transitfeed.Loader(DataPath('flatten_feed.zip')).Load()
+    self.feed = transitfeed.Loader(DataPath('flatten_feed')).Load()
     self.kmlwriter = kmlwriter.KMLWriter()
     self.parent = ET.Element('parent')
 
@@ -210,6 +221,35 @@ class TestRouteKML(unittest.TestCase):
         self.parent, self.feed.GetRoute('route_4'))
     self.assertEquals(len(folder.findall('Placemark')), 2)
 
+  def _GetTripPlacemark(self, route_folder, trip_name):
+    for trip_placemark in route_folder.findall('Placemark'):
+      if trip_placemark.find('name').text == trip_name:
+        return trip_placemark
+
+  def testCreateRouteTripsFolderAltitude0(self):
+    self.kmlwriter.altitude_per_sec = 0.0
+    folder = self.kmlwriter._CreateRouteTripsFolder(
+        self.parent, self.feed.GetRoute('route_4'))
+    trip_placemark = self._GetTripPlacemark(folder, 'route_4_1')
+    self.assertEqual(_ElementToString(trip_placemark.find('LineString')),
+                     '<LineString><tessellate>1</tessellate>'
+                     '<coordinates>-117.133162,36.425288 '
+                     '-116.784582,36.868446 '
+                     '-116.817970,36.881080</coordinates></LineString>')
+
+  def testCreateRouteTripsFolderAltitude1(self):
+    self.kmlwriter.altitude_per_sec = 0.5
+    folder = self.kmlwriter._CreateRouteTripsFolder(
+        self.parent, self.feed.GetRoute('route_4'))
+    trip_placemark = self._GetTripPlacemark(folder, 'route_4_1')
+    self.assertEqual(_ElementToString(trip_placemark.find('LineString')),
+                     '<LineString><tessellate>1</tessellate>'
+                     '<altitudeMode>absolute</altitudeMode>'
+                     '<coordinates>-117.133162,36.425288,3600.000000 '
+                     '-116.784582,36.868446,5400.000000 '
+                     '-116.817970,36.881080,7200.000000</coordinates>'
+                     '</LineString>')
+
   def testCreateRouteTripsFolderNoTrips(self):
     folder = self.kmlwriter._CreateRouteTripsFolder(
         self.parent, self.feed.GetRoute('route_7'))
@@ -249,7 +289,7 @@ class TestShapesKML(unittest.TestCase):
   """Tests the shapes folder KML generation methods of KMLWriter."""
 
   def setUp(self):
-    self.flatten_feed = transitfeed.Loader(DataPath('flatten_feed.zip')).Load()
+    self.flatten_feed = transitfeed.Loader(DataPath('flatten_feed')).Load()
     self.good_feed = transitfeed.Loader(DataPath('good_feed.zip')).Load()
     self.kmlwriter = kmlwriter.KMLWriter()
     self.parent = ET.Element('parent')
@@ -270,7 +310,7 @@ class TestStopsKML(unittest.TestCase):
   """Tests the stops folder KML generation methods of KMLWriter."""
 
   def setUp(self):
-    self.feed = transitfeed.Loader(DataPath('flatten_feed.zip')).Load()
+    self.feed = transitfeed.Loader(DataPath('flatten_feed')).Load()
     self.kmlwriter = kmlwriter.KMLWriter()
     self.parent = ET.Element('parent')
 
@@ -289,7 +329,7 @@ class TestTripsKML(unittest.TestCase):
   """Tests the trips folder KML generation methods of KMLWriter."""
 
   def setUp(self):
-    self.feed = transitfeed.Loader(DataPath('flatten_feed.zip')).Load()
+    self.feed = transitfeed.Loader(DataPath('flatten_feed')).Load()
     self.kmlwriter = kmlwriter.KMLWriter()
     self.parent = ET.Element('parent')
 

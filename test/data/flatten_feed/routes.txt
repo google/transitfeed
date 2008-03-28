@@ -1,0 +1,9 @@
+route_id,agency_id,route_short_name,route_long_name,route_desc,route_type,route_url,route_color,route_text_color
+route_1,DTA,1,route with a single trip,,0,http://routes.com/route_1,FF0000,
+route_2,DTA,2,route with two trips and one component,test route desc 2,1,,00FF00,
+route_3,DTA,3,route with two trips and two components,test route desc 3,2,http://routes.com/route_3,,
+route_4,DTA,4,route with two equal trips,test route desc 4,3,http://routes.com/route_4,FFFF00,
+route_5,DTA,5,route with two trip but no graph,test route desc 5,4,http://routes.com/route_5,FF00FF,
+route_6,DTA,6,route with one trip and no stops,test route desc 6,5,http://routes.com/route_6,00FFFF,
+route_7,DTA,7,route with no trips,test route desc 7,6,http://routes.com/route_7,,
+route_8,DTA,8,route with a cyclic pattern,test route desc 8,7,http://routes.com/route_8,,

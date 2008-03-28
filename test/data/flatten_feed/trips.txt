@@ -1,0 +1,11 @@
+route_id,service_id,trip_id,shape_id
+route_1,FULLW,route_1_1,shape_1
+route_2,FULLW,route_2_1,shape_2
+route_2,FULLW,route_2_2,shape_3
+route_3,FULLW,route_3_1,shape_1
+route_3,FULLW,route_3_2,shape_1
+route_4,FULLW,route_4_1,
+route_4,FULLW,route_4_2,
+route_5,FULLW,route_5_1,
+route_5,FULLW,route_5_2,
+route_8,FULLW,route_8_1,

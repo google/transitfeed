@@ -1,0 +1,10 @@
+stop_id,stop_name,stop_desc,stop_lat,stop_lon,zone_id,stop_url
+stop1,Furnace Creek Resort (Demo),,36.425288,-117.133162,,http://stops.com/stop1
+stop2,Nye County Airport (Demo),the stop at Nye County Airport,36.868446,-116.784582,,
+stop3,Bullfrog (Demo),the stop at Bullfrog,36.88108,-116.81797,,http://stops.com/stop3
+stop4,Stagecoach Hotel & Casino (Demo),the stop at Stagecoach Hotel & Casino,36.915682,-116.751677,,http://stops.com/stop4
+stop5,North Ave / D Ave N (Demo),the stop at North Ave / D Ave N,36.914893,-116.76821,,http://stops.com/stop5
+stop6,North Ave / N A Ave (Demo),the stop at North Ave / N A Ave,36.914944,-116.761472,,http://stops.com/stop6
+stop7,Doing Ave / D Ave N (Demo),the stop at Doing Ave / D Ave N,36.909489,-116.768242,,http://stops.com/stop7
+stop8,E Main St / S Irving St (Demo),the stop at E Main St / S Irving St,36.905697,-116.76218,,http://stops.com/stop8
+stop9,Amargosa Valley (Demo),the stop at Amargosa Valley,36.641496,-116.40094,,http://stops.com/stop9

@@ -82,6 +82,7 @@ class KMLWriter(object):
 
   Attributes:
     show_trips: True if the individual trips should be included in the routes.
+    show_trips: True if the individual trips should be placed on ground.
     split_routes: True if the routes should be split by type.
   """
 
@@ -89,6 +90,7 @@ class KMLWriter(object):
     """Initialise."""
     self.show_trips = False
     self.split_routes = False
+    self.altitude_per_sec = 0.0
 
   def _SetIndentation(self, elem, level=0):
     """Indented the ElementTree DOM.
@@ -198,22 +200,31 @@ class KMLWriter(object):
   def _CreateLineString(self, parent, coordinate_list):
     """Create a KML LineString element.
 
-    The points of the string are given in coordinate_list. Each element of
-    coordinate_list should be a tuple (latitude, longitude).
+    The points of the string are given in coordinate_list. Every element of
+    coordinate_list should be one of a tuple (longitude, latitude) or a tuple
+    (longitude, latitude, altitude).
 
     Args:
       parent: The parent ElementTree.Element instance.
       coordinate_list: The list of coordinates.
 
     Returns:
-      The LineString ElementTree.Element instance.
+      The LineString ElementTree.Element instance or None if coordinate_list is
+      empty.
     """
+    if not coordinate_list:
+      return None
     linestring = ET.SubElement(parent, 'LineString')
     tessellate = ET.SubElement(linestring, 'tessellate')
     tessellate.text = '1'
+    if len(coordinate_list[0]) == 3:
+      altitude_mode = ET.SubElement(linestring, 'altitudeMode')
+      altitude_mode.text = 'absolute'
     coordinates = ET.SubElement(linestring, 'coordinates')
-    coordinate_str_list = ['%f,%f' % (lon, lat)
-                           for (lat, lon) in coordinate_list]
+    if len(coordinate_list[0]) == 3:
+      coordinate_str_list = ['%f,%f,%f' % t for t in coordinate_list]
+    else:
+      coordinate_str_list = ['%f,%f' % t for t in coordinate_list]
     coordinates.text = ' '.join(coordinate_str_list)
     return linestring
 
@@ -225,9 +236,10 @@ class KMLWriter(object):
       shape: The transitfeed.Shape instance.
 
     Returns:
-      The LineString ElementTree.Element instance.
+      The LineString ElementTree.Element instance or None if coordinate_list is
+      empty.
     """
-    coordinate_list = [(latitude, longitude) for
+    coordinate_list = [(longitude, latitude) for
                        (latitude, longitude, distance) in shape.points]
     return self._CreateLineString(parent, coordinate_list)
 
@@ -297,7 +309,7 @@ class KMLWriter(object):
           len(trips), ', '.join(trip_ids))
       placemark = self._CreatePlacemark(folder, name, style_id, visible,
                                         description)
-      coordinates = [(stop.stop_lat, stop.stop_lon)
+      coordinates = [(stop.stop_lon, stop.stop_lat)
                      for stop in trips[0].GetPattern()]
       self._CreateLineString(placemark, coordinates)
     return folder
@@ -366,8 +378,15 @@ class KMLWriter(object):
         description = 'Headsign: %s' % trip.trip_headsign
       else:
         description = None
-      coordinate_list = [(stop.stop_lat, stop.stop_lon)
-                         for stop in trip.GetPattern()]
+
+      coordinate_list = []
+      for secs, stoptime, tp in trip.GetTimeInterpolatedStops():
+        if self.altitude_per_sec > 0:
+          coordinate_list.append((stoptime.stop.stop_lon, stoptime.stop.stop_lat,
+                                  (secs - 3600 * 4) * self.altitude_per_sec))
+        else:
+          coordinate_list.append((stoptime.stop.stop_lon,
+                                  stoptime.stop.stop_lat))
       placemark = self._CreatePlacemark(trips_folder,
                                         trip.trip_id,
                                         style_id=style_id,
@@ -533,6 +552,11 @@ def main():
   parser.add_option('-t', '--showtrips', action='store_true',
                     dest='show_trips',
                     help='include the individual trips for each route')
+  parser.add_option('-a', '--altitude_per_sec', action='store', type='float',
+                    default=1.0,
+                    dest='altitude_per_sec',
+                    help='if greater than 0 trips are drawn with time axis '
+                    'set to this many meters high for each second of time')
   parser.add_option('-s', '--splitroutes', action='store_true',
                     dest='split_routes',
                     help='split the routes by type')
@@ -559,6 +583,7 @@ def main():
   print "Writing %s" % output_path
   writer = KMLWriter()
   writer.show_trips = options.show_trips
+  writer.altitude_per_sec = options.altitude_per_sec
   writer.split_routes = options.split_routes
   writer.Write(feed, output_path)
 

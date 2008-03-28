@@ -1,0 +1,13 @@
+shape_id,shape_pt_sequence,shape_pt_lat,shape_pt_lon
+shape_1,1,1,1
+shape_1,2,2,4
+shape_1,3,3,9
+shape_1,4,4,16
+shape_2,1,11,11
+shape_2,2,12,14
+shape_2,3,13,19
+shape_2,4,14,26
+shape_3,1,21,21
+shape_3,2,22,24
+shape_3,3,23,29
+shape_3,4,24,36
