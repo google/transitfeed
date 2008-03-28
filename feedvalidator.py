@@ -106,11 +106,11 @@ class HTMLCountingProblemReporter(transitfeed.ProblemReporter):
         table_data += '<td%s>%s</td>' % (attributes, value)
       output.append('<table><tr>%s</tr>\n' % table_header)
       # Make sure output contains strings with UTF-8 or binary data, not unicode
-      output.append('<tr>%s</tr><table>\n' %
+      output.append('<tr>%s</tr></table>\n' %
                     transitfeed.EncodeUnicode(table_data))
     except AttributeError, e:
       pass  # Hope this was getting an attribute from e ;-)
-    output.append('</li><br>\n')
+    output.append('<br></li>\n')
 
   def _UnusedStopSection(self):
     unused = []
@@ -168,7 +168,7 @@ class HTMLCountingProblemReporter(transitfeed.ProblemReporter):
     output_prefix = """
 <html>
 <head>
-<meta http-equiv="Content-Type" content="text/html; charset=UTF-8"/>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
 <title>FeedValidator: %(feed_file)s</title>
 <style>
 body {font-family: Georgia, serif; background-color: white}

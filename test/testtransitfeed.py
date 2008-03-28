@@ -60,6 +60,21 @@ class TestFailureProblemReporter(transitfeed.ProblemReporter):
   def _Report(self, problem_text):
     self.test_case.fail(problem_text)
 
+class UnrecognizedColumnRecorder(transitfeed.ProblemReporter):
+  """Keeps track of unrecognized column errors."""
+  def __init__(self, test_case):
+    transitfeed.ProblemReporter.__init__(self)
+    self.test_case = test_case
+    self.column_errors = []
+    
+  def UnrecognizedColumn(self, file_name, column_name, context=None):
+    self.column_errors.append((file_name, column_name))
+    
+  def ExpirationDate(self, expiration, context=None):
+    pass  # We don't want to give errors about our test data
+
+  def _Report(self, problem_text):
+    self.test_case.fail(problem_text)
 
 class RedirectStdOutTestCaseBase(unittest.TestCase):
   """Save stdout to the StringIO buffer self.this_stdout"""
@@ -166,6 +181,32 @@ class LoadUnknownFormatTestCase(unittest.TestCase):
     except transitfeed.UnknownFormat, e:
       self.assertEqual(feed_name, e.feed_name)
 
+class LoadUnrecognizedColumnsTestCase(unittest.TestCase):
+  def runTest(self):
+    problems = UnrecognizedColumnRecorder(self)
+    loader = transitfeed.Loader(DataPath('unrecognized_columns'),
+                                problems=problems)
+    loader.Load()
+    found_errors = set(problems.column_errors)
+    expected_errors = set([
+      ('agency.txt', 'agency_lange'),
+      ('stops.txt', 'stop_uri'),
+      ('routes.txt', 'Route_Text_Color'),
+      ('calendar.txt', 'leap_day'),
+      ('calendar_dates.txt', 'leap_day'),
+      ('trips.txt', 'sharpe_id'),
+      ('stop_times.txt', 'shapedisttraveled'),
+      ('stop_times.txt', 'drop_off_time'),
+      ('fare_attributes.txt', 'transfer_time'),
+      ('fare_rules.txt', 'source_id'),
+      ('frequencies.txt', 'superfluous')
+    ])
+    
+    # Now make sure we got the unrecognized column errors that we expected.
+    not_expected = found_errors.difference(expected_errors)
+    self.failIf(not_expected, 'unexpected errors: %s' % str(not_expected))
+    not_found = expected_errors.difference(found_errors)
+    self.failIf(not_found, 'expected but not found: %s' % str(not_found))
 
 class LoadExtraCellValidationTestCase(unittest.TestCase):
   """Check that the validation detects too many cells in a row."""

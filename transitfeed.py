@@ -127,6 +127,12 @@ class ProblemReporterBase:
     e = MissingColumn(file_name=file_name, column_name=column_name,
                       context=context, context2=self._context)
     self._Report(e)
+    
+  def UnrecognizedColumn(self, file_name, column_name, context=None):
+    e = UnrecognizedColumn(file_name=file_name, column_name=column_name,
+                           context=context, context2=self._context,
+                           type=TYPE_WARNING)
+    self._Report(e)
 
   def MissingValue(self, column_name, reason=None, context=None):
     e = MissingValue(column_name=column_name, reason=reason, context=context,
@@ -279,6 +285,14 @@ class FileFormat(ExceptionWithContext):
 
 class MissingColumn(ExceptionWithContext):
   ERROR_TEXT = 'Missing column %(column_name)s in file %(file_name)s'
+
+class UnrecognizedColumn(ExceptionWithContext):
+  ERROR_TEXT = 'Unrecognized column %(column_name)s in file %(file_name)s. ' \
+               'This might be a misspelled column name (capitalization ' \
+               'matters!). Or it could be extra information (such as a ' \
+               'proposed feed extension) that the validator doesn\'t know ' \
+               'about yet. Extra information is fine; this warning is here ' \
+               'to catch misspelled optional column names.'
 
 class MissingValue(ExceptionWithContext):
   ERROR_TEXT = 'Missing value for column %(column_name)s'
@@ -2338,9 +2352,14 @@ class Loader:
 
     header = reader.next()
     header = map(lambda x: x.strip(), header)  # trim any whitespace
-    header_dict = {}
-    for column_name in header:
-      header_dict[column_name] = len(header_dict)
+    
+    # check for unrecognized columns, which are often misspellings
+    unknown_cols = set(header).difference(set(cols))
+    for col in unknown_cols:
+      # this is provided in order to create a nice colored list of
+      # columns in the validator output
+      context = (file_name, 1, [''] * len(header), header)
+      self._problems.UnrecognizedColumn(file_name, col, context)
 
     col_index = [-1] * len(cols)
     for i in range(len(cols)):
