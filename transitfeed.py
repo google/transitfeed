@@ -1415,14 +1415,36 @@ class Shape(object):
       problems.OtherProblem('The shape with shape_id "%s" contains no points.' %
                             self.shape_id, type=TYPE_WARNING)
 
+class ISO639(object):
+  # Set of all the 2-letter ISO 639-1 language codes.
+  codes_2letter = set([
+    'aa', 'ab', 'ae', 'af', 'ak', 'am', 'an', 'ar', 'as', 'av', 'ay', 'az',
+    'ba', 'be', 'bg', 'bh', 'bi', 'bm', 'bn', 'bo', 'br', 'bs', 'ca', 'ce',
+    'ch', 'co', 'cr', 'cs', 'cu', 'cv', 'cy', 'da', 'de', 'dv', 'dz', 'ee',
+    'el', 'en', 'eo', 'es', 'et', 'eu', 'fa', 'ff', 'fi', 'fj', 'fo', 'fr',
+    'fy', 'ga', 'gd', 'gl', 'gn', 'gu', 'gv', 'ha', 'he', 'hi', 'ho', 'hr',
+    'ht', 'hu', 'hy', 'hz', 'ia', 'id', 'ie', 'ig', 'ii', 'ik', 'io', 'is',
+    'it', 'iu', 'ja', 'jv', 'ka', 'kg', 'ki', 'kj', 'kk', 'kl', 'km', 'kn',
+    'ko', 'kr', 'ks', 'ku', 'kv', 'kw', 'ky', 'la', 'lb', 'lg', 'li', 'ln',
+    'lo', 'lt', 'lu', 'lv', 'mg', 'mh', 'mi', 'mk', 'ml', 'mn', 'mo', 'mr',
+    'ms', 'mt', 'my', 'na', 'nb', 'nd', 'ne', 'ng', 'nl', 'nn', 'no', 'nr',
+    'nv', 'ny', 'oc', 'oj', 'om', 'or', 'os', 'pa', 'pi', 'pl', 'ps', 'pt',
+    'qu', 'rm', 'rn', 'ro', 'ru', 'rw', 'sa', 'sc', 'sd', 'se', 'sg', 'si',
+    'sk', 'sl', 'sm', 'sn', 'so', 'sq', 'sr', 'ss', 'st', 'su', 'sv', 'sw',
+    'ta', 'te', 'tg', 'th', 'ti', 'tk', 'tl', 'tn', 'to', 'tr', 'ts', 'tt',
+    'tw', 'ty', 'ug', 'uk', 'ur', 'uz', 've', 'vi', 'vo', 'wa', 'wo', 'xh',
+    'yi', 'yo', 'za', 'zh', 'zu',
+  ])
+
 class Agency(object):
   """Represents an agency in a schedule"""
   _REQUIRED_FIELD_NAMES = ['agency_name', 'agency_url', 'agency_timezone']
-  _FIELD_NAMES = _REQUIRED_FIELD_NAMES + ['agency_id']
+  _FIELD_NAMES = _REQUIRED_FIELD_NAMES + ['agency_id', 'agency_lang']
 
   def __init__(self, name=None, url=None, timezone=None, id=None,
                field_list=None, agency_url=None, agency_name=None,
-               agency_timezone=None, agency_id=None):
+               agency_timezone=None, agency_id=None,
+               lang=None, agency_lang=None):
     if field_list:
       for fn, fv in zip(Agency._FIELD_NAMES, field_list):
         self.__dict__[fn] = fv
@@ -1431,6 +1453,7 @@ class Agency(object):
       self.agency_url = url or agency_url
       self.agency_timezone = timezone or agency_timezone
       self.agency_id = id or agency_id
+      self.agency_lang = lang or agency_lang
 
   def GetFieldValuesTuple(self):
     return [getattr(self, fn) for fn in Agency._FIELD_NAMES]
@@ -1465,6 +1488,11 @@ class Agency(object):
       return False
     elif not IsValidURL(self.agency_url):
       problems.InvalidValue('agency_url', self.agency_url)
+      return False
+      
+    if (not IsEmpty(self.agency_lang) and
+        self.agency_lang.lower() not in ISO639.codes_2letter):
+      problems.InvalidValue('agency_lang', self.agency_lang)
       return False
 
     try:

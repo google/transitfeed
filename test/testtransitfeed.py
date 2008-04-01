@@ -495,7 +495,8 @@ class AgencyValidationTestCase(ValidationTestCase):
   def runTest(self):
     # success case
     agency = transitfeed.Agency(name='Test Agency', url='http://example.com',
-                                timezone='America/Los_Angeles', id='TA')
+                                timezone='America/Los_Angeles', id='TA',
+                                lang='xh')
     agency.Validate(self.problems)
 
     # bad agency
@@ -517,6 +518,24 @@ class AgencyValidationTestCase(ValidationTestCase):
     agency = transitfeed.Agency(name='Test Agency', url='http://example.com',
                                 timezone='America/Alviso', id='TA')
     self.ExpectInvalidValue(agency, 'agency_timezone')
+    
+    # bad language code
+    agency = transitfeed.Agency(name='Test Agency', url='http://example.com',
+                                timezone='America/Los_Angeles', id='TA',
+                                lang='English')
+    self.ExpectInvalidValue(agency, 'agency_lang')
+
+    # bad 2-letter lanugage code
+    agency = transitfeed.Agency(name='Test Agency', url='http://example.com',
+                                timezone='America/Los_Angeles', id='TA',
+                                lang='xx')
+    self.ExpectInvalidValue(agency, 'agency_lang')
+
+    # capitalized language code is OK
+    agency = transitfeed.Agency(name='Test Agency', url='http://example.com',
+                                timezone='America/Los_Angeles', id='TA',
+                                lang='EN')
+    agency.Validate(self.problems)
 
 
 class StopValidationTestCase(ValidationTestCase):
@@ -1659,6 +1678,7 @@ class WriteSampleFeedTestCase(TempFileTestCaseBase):
     agency.agency_name = "Demo Transit Authority"
     agency.agency_url = "http://google.com"
     agency.agency_timezone = "America/Los_Angeles"
+    agency.agency_lang = 'en'
     schedule.AddAgencyObject(agency)
 
     routes = []
