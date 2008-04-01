@@ -418,16 +418,18 @@ def ApproximateDistanceBetweenStops(stop1, stop2):
 class Stop(object):
   """Represents a single stop. A stop must have a latitude, longitude and name."""
   _REQUIRED_FIELD_NAMES = ['stop_id', 'stop_name', 'stop_lat', 'stop_lon']
-  _FIELD_NAMES = _REQUIRED_FIELD_NAMES + ['stop_desc', 'zone_id', 'stop_url']
+  _FIELD_NAMES = _REQUIRED_FIELD_NAMES + \
+                 ['stop_desc', 'zone_id', 'stop_url', 'stop_code']
 
   def __init__(self, lat=None, lng=None, name=None, stop_id=None,
-               field_list=None):
+               field_list=None, stop_code=None):
     self.stop_desc = ''
     self.zone_id = ''
     self.stop_url = ''
+    self.stop_code = ''
     if field_list:
-      (stop_id, name, lat, lng, self.stop_desc, self.zone_id, self.stop_url) =\
-      field_list
+      (stop_id, name, lat, lng, self.stop_desc, self.zone_id, self.stop_url,
+       stop_code) = field_list
     try:
       self.stop_lat = float(lat)
     except (ValueError, TypeError):
@@ -440,6 +442,7 @@ class Stop(object):
     self.trip_index = []  # list of (trip, index) for each Trip object.
                           # index is offset into Trip _stoptimes
     self.stop_id = stop_id
+    self.stop_code = stop_code
 
   def GetFieldValuesTuple(self):
     return [getattr(self, fn) for fn in Stop._FIELD_NAMES]

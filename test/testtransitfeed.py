@@ -1733,22 +1733,23 @@ class WriteSampleFeedTestCase(TempFileTestCaseBase):
     stops = []
     stop_data = [
         ("FUR_CREEK_RES", "Furnace Creek Resort (Demo)",
-         36.425288, -117.133162, "zone-a"),
+         36.425288, -117.133162, "zone-a", "1234"),
         ("BEATTY_AIRPORT", "Nye County Airport (Demo)",
-         36.868446, -116.784682, "zone-a"),
-        ("BULLFROG", "Bullfrog (Demo)", 36.88108, -116.81797, "zone-b"),
+         36.868446, -116.784682, "zone-a", "1235"),
+        ("BULLFROG", "Bullfrog (Demo)", 36.88108, -116.81797, "zone-b", "1236"),
         ("STAGECOACH", "Stagecoach Hotel & Casino (Demo)",
-         36.915682, -116.751677, "zone-c"),
-        ("NADAV", "North Ave / D Ave N (Demo)", 36.914893, -116.76821, ""),
-        ("NANAA", "North Ave / N A Ave (Demo)", 36.914944, -116.761472, ""),
-        ("DADAN", "Doing AVe / D Ave N (Demo)", 36.909489, -116.768242, ""),
-        ("EMSI", "E Main St / S Irving St (Demo)", 36.905697, -116.76218, ""),
-        ("AMV", "Amargosa Valley (Demo)", 36.641496, -116.40094, ""),
+         36.915682, -116.751677, "zone-c", "1237"),
+        ("NADAV", "North Ave / D Ave N (Demo)", 36.914893, -116.76821, "", ""),
+        ("NANAA", "North Ave / N A Ave (Demo)", 36.914944, -116.761472, "", ""),
+        ("DADAN", "Doing AVe / D Ave N (Demo)", 36.909489, -116.768242, "", ""),
+        ("EMSI", "E Main St / S Irving St (Demo)",
+         36.905697, -116.76218, "", ""),
+        ("AMV", "Amargosa Valley (Demo)", 36.641496, -116.40094, "", ""),
       ]
     for stop_entry in stop_data:
       stop = transitfeed.Stop()
       (stop.stop_id, stop.stop_name, stop.stop_lat, stop.stop_lon,
-          stop.zone_id) = stop_entry
+          stop.zone_id, stop.stop_code) = stop_entry
       schedule.AddStopObject(stop)
       stops.append(stop)
 
