@@ -143,7 +143,7 @@ class HTMLCountingProblemReporter(transitfeed.ProblemReporter):
       unused.append('</div>')
     return ''.join(unused)
 
-  def WriteOutput(self, feed_location, f, schedule):
+  def WriteOutput(self, feed_location, f, schedule, problems):
     """Write the html output to f."""
     if problems.HasIssues():
       summary = ('<span class="fail">%s found</span>' %
@@ -239,7 +239,7 @@ FeedValidator</a> version %s on %s.
       f.write('</ol>')
     f.write(transitfeed.EncodeUnicode(output_suffix))
 
-if __name__ == '__main__':
+def main():
   parser = optparse.OptionParser(usage='usage: %prog [options] feed_filename',
                                  version='%prog '+transitfeed.__version__)
   parser.add_option('-n', '--noprompt', action='store_false',
@@ -276,9 +276,12 @@ if __name__ == '__main__':
 
   output_filename = options.output
   output_file = open(output_filename, 'w')
-  problems.WriteOutput(os.path.abspath(feed), output_file, schedule)
+  problems.WriteOutput(os.path.abspath(feed), output_file, schedule, problems)
   output_file.close()
   if manual_entry:
     webbrowser.open('file://%s' % os.path.abspath(output_filename))
 
   sys.exit(exit_code)
+
+if __name__ == '__main__':
+  main()
