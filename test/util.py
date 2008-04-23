@@ -38,10 +38,13 @@ def check_call(cmd, expected_retcode=0, **kwargs):
   except Exception, e:
     raise Exception("When running %s: %s" % (cmd, e))
   if retcode < 0:
-    raise Exception("Child '%s' was terminated by signal %d" %
-                    (cmd, -retcode))
+    raise Exception(
+        "Child '%s' was terminated by signal %d. Output:\n%s\n%s\n" %
+        (cmd, -retcode, out, err))
   elif retcode != expected_retcode:
-    raise Exception("Child '%s' returned %d" % (cmd, retcode))
+    raise Exception(
+        "Child '%s' returned %d. Output:\n%s\n%s\n" %
+        (cmd, retcode, out, err))
   return (out, err)
 
 class TempDirTestCaseBase(unittest.TestCase):
