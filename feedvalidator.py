@@ -216,6 +216,14 @@ GTFS validation results for feed:<br>
             "dates": dates,
             "summary": summary }
 
+# In output_suffix string
+# time.strftime() returns a regular local time string (not a Unicode one) with
+# default system encoding. And decode() will then convert this time string back
+# into a Unicode string. We use decode() here because we don't want the operating
+# system to do any system encoding (which may cause some problem if the string
+# contains some non-English characters) for the string. Therefore we decode it
+# back to its original Unicode code print.
+
     output_suffix = """
 %s
 <div class="footer">
@@ -225,7 +233,7 @@ FeedValidator</a> version %s on %s.
 </body>
 </html>""" % (self._UnusedStopSection(),
               transitfeed.__version__,
-              time.strftime('%B %d, %Y at %I:%M %p %Z'))
+              time.strftime('%B %d, %Y at %I:%M %p %Z').decode(sys.getfilesystemencoding()))
 
     f.write(transitfeed.EncodeUnicode(output_prefix))
     if self._error_output:
