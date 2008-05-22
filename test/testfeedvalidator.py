@@ -44,5 +44,17 @@ class missing_stops(util.TempDirTestCaseBase):
     self.assertTrue(re.search(r'Invalid value FUR_CREEK_RES', htmlout))
     self.assertFalse(re.search(r'feed validated successfully', htmlout))
 
+class crash_handler(util.TempDirTestCaseBase):
+  def runTest(self):
+    (out, err) = self.CheckCallWithPath(
+        [self.GetPath('feedvalidator.py'), '-n',
+         'IWantMyvalidation-crash.txt'],
+        expected_retcode=127)
+    self.assertTrue(re.search(r'Yikes', out))
+    self.assertFalse(re.search(r'feed validated successfully', out))
+    crashout = open('validation-crash.txt').read()
+    self.assertTrue(re.search(r'For testing the feed validator crash handler',
+                              crashout))
+
 if __name__ == '__main__':
   unittest.main()

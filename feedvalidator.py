@@ -274,6 +274,10 @@ def main():
   loader = transitfeed.Loader(feed, problems=problems, extra_validation=True)
   schedule = loader.Load()
 
+  if feed == 'IWantMyvalidation-crash.txt':
+    # See test/testfeedvalidator.py
+    raise Exception('For testing the feed validator crash handler.')
+
   exit_code = 0
   if problems.HasIssues():
     print 'ERROR: %s found' % ProblemCountText(problems.error_count,
@@ -292,4 +296,54 @@ def main():
   sys.exit(exit_code)
 
 if __name__ == '__main__':
-  main()
+  try:
+    main()
+  except (SystemExit, KeyboardInterrupt):
+    raise
+  except:
+    import inspect
+    import sys
+    import traceback
+
+    apology = """Yikes, the validator threw an unexpected exception!
+
+Hopefully a complete report has been saved to validation-crash.txt,
+though if you are seeing this message we've already disappointed you once
+today. Please include the report in a new issue at
+http://code.google.com/p/googletransitdatafeed/issues/entry
+or an email to tom.brown.code@gmail.com. Sorry!
+
+"""
+    dashes = '%s\n' % ('-' * 60)
+    dump = []
+    dump.append(apology)
+    dump.append(dashes)
+
+    for (frame_obj, filename, line_num, fun_name, context_lines,
+         context_index) in inspect.trace(3)[1:]:
+      dump.append('File "%s", line %d, in %s\n' % (filename, line_num,
+                                                   fun_name))
+      for (i, line) in enumerate(context_lines):
+        if i == context_index:
+          dump.append(' --> %s' % line)
+        else:
+          dump.append('     %s' % line)
+      for local_name, local_val in frame_obj.f_locals.items():
+        truncated_val = str(local_val)[0:500]
+        if len(truncated_val) == 500:
+          truncated_val = '%s...' % truncated_val[0:499]
+        dump.append('    %s = %s\n' % (local_name, truncated_val))
+      dump.append('\n')
+
+    formatted_exception = traceback.format_exception_only(*(sys.exc_info()[:2]))
+    dump.append(''.join(formatted_exception))
+
+    open('validation-crash.txt', 'w').write(''.join(dump))
+
+    print ''.join(dump)
+    print
+    print dashes
+    print apology
+    if '-n' not in sys.argv and '--noprompt' not in sys.argv:
+      raw_input('Press enter to continue')
+    sys.exit(127)
