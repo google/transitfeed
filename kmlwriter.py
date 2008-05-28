@@ -261,7 +261,27 @@ class KMLWriter(object):
     stops = list(schedule.GetStopList())
     stops.sort(key=lambda x: x.stop_name)
     for stop in stops:
-      desc_items = []
+      #add all routes going through stop to stop.description.
+      time_trips =  stop.trip_index #GetStopTimeTrips() 
+      stop_routes_items = [] 
+      for (trip, index) in time_trips:
+        route =  schedule.GetRoute(trip['route_id']) 
+        stop_routes_items.append((route.route_short_name,route.route_color,
+                                  route.route_text_color))
+      stop_routes_items.sort()
+      desc_item = ('stop_id = %s <br><br><b>Routes visiting this stop</b><br>'
+                    '<table cellspacing="6" cellpadding="4"><tr>' % 
+                     (stop.stop_id))
+      for i in range(0, len(stop_routes_items), 8):
+        for route_short_name, route_color, route_text_color in stop_routes_items[i:i+8]:
+          desc_item = ('%s <td align="center" bgcolor="#%s"><font size="+1" '
+                      'color="#%s"><b>%s</b></font></td>' % 
+                      (desc_item,route_color,route_text_color,
+                       route_short_name))
+        if i + 8 < len(stop_routes_items):
+          desc_item = '%s </tr><tr>'%(desc_item)
+      desc_item = '%s </tr></table>'%(desc_item)
+      desc_items=[desc_item]
       if stop.stop_desc:
         desc_items.append(stop.stop_desc)
       if stop.stop_url:
@@ -382,7 +402,8 @@ class KMLWriter(object):
       coordinate_list = []
       for secs, stoptime, tp in trip.GetTimeInterpolatedStops():
         if self.altitude_per_sec > 0:
-          coordinate_list.append((stoptime.stop.stop_lon, stoptime.stop.stop_lat,
+          coordinate_list.append((stoptime.stop.stop_lon, 
+                                  stoptime.stop.stop_lat,
                                   (secs - 3600 * 4) * self.altitude_per_sec))
         else:
           coordinate_list.append((stoptime.stop.stop_lon,
@@ -472,9 +493,21 @@ class KMLWriter(object):
     routes_folder = self._CreateFolder(doc, folder_name, visible=False)
 
     for route in routes:
+      route_short_type_names = {0: 'Tram',
+                          1: 'Subway',
+                          2: 'Rail',
+                          3: 'Bus',
+                          4: 'Ferry',
+                          5: 'Cable car',
+                          6: 'Gondola',
+                          7: 'Funicular'}
+      current_route_type_name = route_short_type_names.get(route.route_type,
+                                                         str(route.route_type))
+
       style_id = self._CreateStyleForRoute(doc, route)
-      route_folder = self._CreateFolder(routes_folder,
-                                        GetRouteName(route),
+      route_folder = self._CreateFolder(routes_folder,'%s %s'%
+                                        (current_route_type_name,
+                                         GetRouteName(route)),
                                         description=GetRouteDescription(route))
       self._CreateRouteShapesFolder(schedule, route_folder, route,
                                     style_id, False)
