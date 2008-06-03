@@ -2095,22 +2095,25 @@ class GetTripTimeTestCase(unittest.TestCase):
                        "America/Los_Angeles")
     service_period = schedule.GetDefaultServicePeriod()
     service_period.SetDateHasService('20070101')
-    stop1 = schedule.AddStop(lng=140.01, lat=0, name="140.01,0")
-    stop2 = schedule.AddStop(lng=140.02, lat=0, name="140.02,0")
-    stop3 = schedule.AddStop(lng=140.03, lat=0, name="140.03,0")
-    stop4 = schedule.AddStop(lng=140.04, lat=0, name="140.04,0")
-    route1 = schedule.AddRoute("1", "One", "Bus")
+    self.stop1 = schedule.AddStop(lng=140.01, lat=0, name="140.01,0")
+    self.stop2 = schedule.AddStop(lng=140.02, lat=0, name="140.02,0")
+    self.stop3 = schedule.AddStop(lng=140.03, lat=0, name="140.03,0")
+    self.stop4 = schedule.AddStop(lng=140.04, lat=0, name="140.04,0")
+    self.stop5 = schedule.AddStop(lng=140.05, lat=0, name="140.05,0")
+    self.route1 = schedule.AddRoute("1", "One", "Bus")
 
-    trip1 = route1.AddTrip(schedule, "trip 1", trip_id='trip1')
-    trip1.AddStopTime(stop1, departure_secs=100, arrival_secs=100)
-    trip1.AddStopTime(stop2)
-    trip1.AddStopTime(stop3)
-    trip1.AddStopTime(stop4, departure_secs=400, arrival_secs=400)
+    self.trip1 = self.route1.AddTrip(schedule, "trip 1", trip_id='trip1')
+    self.trip1.AddStopTime(self.stop1, departure_secs=100, arrival_secs=100)
+    self.trip1.AddStopTime(self.stop2)
+    self.trip1.AddStopTime(self.stop3)
+    self.trip1.AddStopTime(self.stop4, departure_secs=400, arrival_secs=400)
 
-    trip2 = route1.AddTrip(schedule, "trip 2", trip_id='trip2')
-    trip2.AddStopTime(stop2, departure_secs=500, arrival_secs=500)
-    trip2.AddStopTime(stop3, departure_secs=600, arrival_secs=600)
-    trip2.AddStopTime(stop4, departure_secs=700, arrival_secs=700)
+    self.trip2 = self.route1.AddTrip(schedule, "trip 2", trip_id='trip2')
+    self.trip2.AddStopTime(self.stop2, departure_secs=500, arrival_secs=500)
+    self.trip2.AddStopTime(self.stop3, departure_secs=600, arrival_secs=600)
+    self.trip2.AddStopTime(self.stop4, departure_secs=700, arrival_secs=700)
+
+    self.trip3 = self.route1.AddTrip(schedule, "trip 3", trip_id='trip3')
 
   def testGetTimeInterpolatedStops(self):
     rv = self.schedule.GetTrip('trip1').GetTimeInterpolatedStops()
@@ -2132,6 +2135,18 @@ class GetTripTimeTestCase(unittest.TestCase):
     self.assertEqual(("trip1", "trip2"), tuple([ti[0].trip_id for ti in trip_index]))
     self.assertEqual((2, 1), tuple([ti[1] for ti in trip_index]))
     self.assertEqual((False, True), istimepoints)
+
+  def testGetTrips(self):
+    self.assertEqual(set([t.trip_id for t in self.stop1.GetTrips()]),
+                     set([self.trip1.trip_id]))
+    self.assertEqual(set([t.trip_id for t in self.stop2.GetTrips()]),
+                     set([self.trip1.trip_id, self.trip2.trip_id]))
+    self.assertEqual(set([t.trip_id for t in self.stop3.GetTrips()]),
+                     set([self.trip1.trip_id, self.trip2.trip_id]))
+    self.assertEqual(set([t.trip_id for t in self.stop4.GetTrips()]),
+                     set([self.trip1.trip_id, self.trip2.trip_id]))
+    self.assertEqual(set([t.trip_id for t in self.stop5.GetTrips()]),
+                     set())
 
 
 class ApproximateDistanceBetweenStopsTestCase(unittest.TestCase):

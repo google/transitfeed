@@ -447,6 +447,10 @@ class Stop(object):
   def GetFieldValuesTuple(self):
     return [getattr(self, fn) for fn in Stop._FIELD_NAMES]
 
+  def GetTrips(self):
+    """Return iterable containing trips that visit this stop."""
+    return [trip for trip, _ in self.trip_index]
+
   def GetStopTimeTrips(self):
     """Returns an list of (time, (trip, index), is_timepoint), where time might
     be interpolated, trip is a Trip object, index is this stop on the trip and
