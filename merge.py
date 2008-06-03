@@ -369,7 +369,8 @@ class DataSetMerger(object):
     """
     if a != b:
       raise MergeError("values must be identical ('%s' vs '%s')" %
-                       (str(a), str(b)))
+                       (transitfeed.EncodeUnicode(a),
+                        transitfeed.EncodeUnicode(b)))
     return b
 
   def _MergeIdenticalCaseInsensitive(self, a, b):
@@ -390,7 +391,8 @@ class DataSetMerger(object):
     """
     if a.lower() != b.lower():
       raise MergeError("values must be the same (case insensitive) "
-                       "('%s' vs '%s')" % (str(a), str(b)))
+                       "('%s' vs '%s')" % (transitfeed.EncodeUnicode(a),
+                                           transitfeed.EncodeUnicode(b)))
     return b
 
   def _MergeOptional(self, a, b):
@@ -414,7 +416,8 @@ class DataSetMerger(object):
     if a and b:
       if a != b:
         raise MergeError("values must be identical if both specified "
-                         "('%s' vs '%s')" % (str(a), str(b)))
+                         "('%s' vs '%s')" % (transitfeed.EncodeUnicode(a),
+                                             transitfeed.EncodeUnicode(b)))
     return a or b
 
   def _MergeSameAgency(self, a_agency_id, b_agency_id):
@@ -472,7 +475,7 @@ class DataSetMerger(object):
         merged_attr = merger(a_attr, b_attr)
       except MergeError, merge_error:
         raise MergeError("Attribute '%s' could not be merged: %s." % (
-            attr, str(merge_error)))
+            attr, merge_error))
       setattr(migrated, attr, merged_attr)
     return migrated
 
@@ -513,7 +516,7 @@ class DataSetMerger(object):
       except MergeError, merge_error:
         a_not_merged.append(a)
         b_not_merged.append(b)
-        self._ReportSameIdButNotMerged(self._GetId(a), str(merge_error))
+        self._ReportSameIdButNotMerged(self._GetId(a), merge_error)
 
     for b in self._GetIter(self.feed_merger.b_schedule):
       try:

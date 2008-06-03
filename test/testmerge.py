@@ -65,6 +65,7 @@ class TestingProblemReporter(merge.MergeProblemReporterBase):
     self._expect_classes = []
 
   def _Report(self, problem):
+    problem.FormatProblem()  # Shouldn't crash
     self.problems.append(problem)
     for problem_class in self._expect_classes:
       if isinstance(problem, problem_class):
@@ -584,7 +585,8 @@ class TestStopMerger(unittest.TestCase):
     self.sm = merge.StopMerger(self.fm)
     self.fm.AddMerger(self.sm)
 
-    self.s1 = transitfeed.Stop(30.0, 30.0, 's1', 's1')
+    self.s1 = transitfeed.Stop(30.0, 30.0,
+                               u'Andr\202' , 's1')
     self.s1.stop_desc = 'stop 1'
     self.s1.stop_url = 'http://stop/1'
     self.s1.zone_id = 'zone1'
@@ -623,6 +625,19 @@ class TestStopMerger(unittest.TestCase):
   def testNoMerge_DifferentId(self):
     self.fm.a_schedule.AddStopObject(self.s1)
     self.fm.b_schedule.AddStopObject(self.s2)
+    self.fm.MergeSchedules()
+
+    merged_schedule = self.fm.GetMergedSchedule()
+    self.assertEquals(len(merged_schedule.GetStopList()), 2)
+    self.assert_(self.fm.a_merge_map[self.s1] in merged_schedule.GetStopList())
+    self.assert_(self.fm.b_merge_map[self.s2] in merged_schedule.GetStopList())
+    self.assertEquals(self.sm.GetMergeStats(), (0, 1, 1))
+
+  def testNoMerge_DifferentName(self):
+    self.s2.stop_id = self.s1.stop_id
+    self.fm.a_schedule.AddStopObject(self.s1)
+    self.fm.b_schedule.AddStopObject(self.s2)
+    self.fm.problem_reporter.ExpectProblemClass(merge.SameIdButNotMerged)
     self.fm.MergeSchedules()
 
     merged_schedule = self.fm.GetMergedSchedule()
