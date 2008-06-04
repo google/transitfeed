@@ -438,7 +438,12 @@ class Stop(object):
       self.stop_lon = float(lng)
     except (ValueError, TypeError):
       self.stop_lon = 0
-    self.stop_name = name
+    if name:
+      self.stop_name = name
+    else:
+      self.stop_name = ''
+    if self.stop_desc is None:
+      self.stop_desc = ''
     self.trip_index = []  # list of (trip, index) for each Trip object.
                           # index is offset into Trip _stoptimes
     self.stop_id = stop_id
@@ -502,7 +507,8 @@ class Stop(object):
     if (hasattr(self, 'stop_url') and self.stop_url and
         not IsValidURL(self.stop_url)):
       problems.InvalidValue('stop_url', self.stop_url)
-    if hasattr(self, 'stop_desc') and (not IsEmpty(self.stop_desc) and
+    if (hasattr(self, 'stop_desc') and hasattr(self, 'stop_name') and
+        not IsEmpty(self.stop_desc) and
         self.stop_name.strip().lower() == self.stop_desc.strip().lower()):
       problems.InvalidValue('stop_desc', self.stop_desc,
                             'stop_desc should not be the same as stop_name')
@@ -660,24 +666,26 @@ class Route(object):
       problems.InvalidValue('route_type', self.route_type)
     if self.route_url and not IsValidURL(self.route_url):
       problems.InvalidValue('route_url', self.route_url)
-    if self.route_color and not IsValidColor(self.route_color):
-      problems.InvalidValue('route_color', self.route_color,
-                            'route_color should be a valid color description '
-                            'which consists of 6 hexadecimal characters '
-                            'representing the RGB values. Example: 44AA06')
-    if (self.route_text_color and not IsValidColor(self.route_text_color)):
-      problems.InvalidValue('route_text_color', self.route_text_color,
-                            'route_text_color should be a valid color '
-                            'description, which consists of 6 hexadecimal '
-                            'characters representing the RGB values. '
-                            'Example: 44AA06')
 
     txt_lum = 0      # black (default)
     bg_lum = 255 * 7 # white (default)
-    if (self.route_text_color):
-      txt_lum = ColorLuminance(self.route_text_color)
-    if (self.route_color):
-      bg_lum  = ColorLuminance(self.route_color)
+    if self.route_color:
+      if IsValidColor(self.route_color):
+        bg_lum  = ColorLuminance(self.route_color)
+      else:
+        problems.InvalidValue('route_color', self.route_color,
+                              'route_color should be a valid color description '
+                              'which consists of 6 hexadecimal characters '
+                              'representing the RGB values. Example: 44AA06')
+    if self.route_text_color:
+      if IsValidColor(self.route_text_color):
+        txt_lum = ColorLuminance(self.route_text_color)
+      else:
+        problems.InvalidValue('route_text_color', self.route_text_color,
+                              'route_text_color should be a valid color '
+                              'description, which consists of 6 hexadecimal '
+                              'characters representing the RGB values. '
+                              'Example: 44AA06')
     if(abs(txt_lum - bg_lum) < 510):
       problems.InvalidValue('route_color', self.route_color,
                             'The route_text_color and route_color should '
@@ -744,6 +752,7 @@ class StopTime(object):
         self.arrival_secs = TimeToSecondsSinceMidnight(arrival_time)
       except Error:
         problems.InvalidValue('arrival_time', arrival_time)
+        self.arrival_secs = None
 
     if departure_secs != None:
       self.departure_secs = departure_secs
@@ -754,6 +763,7 @@ class StopTime(object):
         self.departure_secs = TimeToSecondsSinceMidnight(departure_time)
       except Error:
         problems.InvalidValue('departure_time', departure_time)
+        self.departure_secs = None
 
     if not isinstance(stop, Stop):
       # Not quite correct, but better than letting the problem propagate

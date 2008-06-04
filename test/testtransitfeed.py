@@ -60,16 +60,42 @@ class TestFailureProblemReporter(transitfeed.ProblemReporter):
   def _Report(self, problem_text):
     self.test_case.fail(problem_text)
 
+
+class RecordingProblemReporter(transitfeed.ProblemReporterBase):
+  """Causes a test failure immediately on any problem."""
+  def __init__(self, test_case):
+    transitfeed.ProblemReporterBase.__init__(self)
+    self.ClearExceptions()
+    self._test_case = test_case
+
+  def _Report(self, e):
+    self.exceptions.append(e)
+    self.exceptions_type.append(e.__class__.__name__)
+
+  def GetExceptionByType(self, type_name):
+    """Return the first exception of type_name."""
+    try:
+      i = self.exceptions_type.index(type_name)
+    except ValueError:
+      self._test_case.fail('Could not find a %s, instead found: %s' %
+                           (type_name, self.problems.exceptions_type))
+    return self.exceptions[i]
+
+  def ClearExceptions(self):
+    self.exceptions = []
+    self.exceptions_type = []  # list of names
+
+
 class UnrecognizedColumnRecorder(transitfeed.ProblemReporter):
   """Keeps track of unrecognized column errors."""
   def __init__(self, test_case):
     transitfeed.ProblemReporter.__init__(self)
     self.test_case = test_case
     self.column_errors = []
-    
+
   def UnrecognizedColumn(self, file_name, column_name, context=None):
     self.column_errors.append((file_name, column_name))
-    
+
   def ExpirationDate(self, expiration, context=None):
     pass  # We don't want to give errors about our test data
 
@@ -444,51 +470,48 @@ class ColorLuminanceTestCase(unittest.TestCase):
 
 INVALID_VALUE = Exception()
 class ValidationTestCase(unittest.TestCase):
-  problems = ExceptionProblemReporterNoExpiration()
+  def setUp(self):
+    self.problems = RecordingProblemReporter(self)
 
   def ExpectMissingValue(self, object, column_name):
     self.ExpectMissingValueInClosure(column_name,
                                      lambda: object.Validate(self.problems))
 
   def ExpectMissingValueInClosure(self, column_name, c):
-    try:
-      c()
-      self.fail('MissingValue exception expected')
-    except transitfeed.MissingValue, e:
-      self.assertEqual(column_name, e.column_name)
-      # these should not throw any exceptions
-      e.FormatProblem()
-      e.FormatContext()
+    self.problems.ClearExceptions()
+    c()
+    e = self.problems.GetExceptionByType('MissingValue')
+    self.assertEqual(column_name, e.column_name)
+    # these should not throw any exceptions
+    e.FormatProblem()
+    e.FormatContext()
 
   def ExpectInvalidValue(self, object, column_name, value=INVALID_VALUE):
-    if value==INVALID_VALUE:
-      value = object.__getattribute__(column_name)
     self.ExpectInvalidValueInClosure(column_name, value,
         lambda: object.Validate(self.problems))
 
-  def ExpectInvalidValueInClosure(self, column_name, value, c):
-    try:
-      c()
-      self.fail('InvalidValue exception expected')
-    except transitfeed.InvalidValue, e:
-      self.assertEqual(column_name, e.column_name)
+  def ExpectInvalidValueInClosure(self, column_name, value=INVALID_VALUE,
+                                  c=None):
+    self.problems.ClearExceptions()
+    c()
+    e = self.problems.GetExceptionByType('InvalidValue')
+    self.assertEqual(column_name, e.column_name)
+    if value != INVALID_VALUE:
       self.assertEqual(value, e.value)
-      # these should not throw any exceptions
-      e.FormatProblem()
-      e.FormatContext()
+    # these should not throw any exceptions
+    e.FormatProblem()
+    e.FormatContext()
 
   def ExpectOtherProblem(self, object):
     self.ExpectOtherProblemInClosure(lambda: object.Validate(self.problems))
 
   def ExpectOtherProblemInClosure(self, c):
-    try:
-      c()
-      self.fail('OtherProblem exception expected')
-    except transitfeed.OtherProblem, e:
-      # these should not throw any exceptions
-      e.FormatProblem()
-      e.FormatContext()
-      pass
+    self.problems.ClearExceptions()
+    c()
+    e = self.problems.GetExceptionByType('OtherProblem')
+    # these should not throw any exceptions
+    e.FormatProblem()
+    e.FormatContext()
 
 
 class AgencyValidationTestCase(ValidationTestCase):
@@ -577,7 +600,7 @@ class StopValidationTestCase(ValidationTestCase):
     self.ExpectMissingValue(stop, 'stop_id')
     stop.stop_id = '45'
 
-    stop.stop_name = None
+    stop.stop_name = ''
     self.ExpectMissingValue(stop, 'stop_name')
     stop.stop_name = 'Couch AT End Table'
 
@@ -734,12 +757,9 @@ class RouteValidationTestCase(ValidationTestCase):
 
 class ShapeValidationTestCase(ValidationTestCase):
   def ExpectFailedAdd(self, shape, lat, lon, dist, column_name, value):
-    try:
-      shape.AddPoint(lat, lon, dist, self.problems)
-      self.fail('Expected validation exception!')
-    except transitfeed.InvalidValue, e:
-      self.assertEqual(column_name, e.column_name)
-      self.assertEqual(value, e.value)
+    self.ExpectInvalidValueInClosure(
+        column_name, value,
+        lambda: shape.AddPoint(lat, lon, dist, self.problems))
 
   def runTest(self):
     shape = transitfeed.Shape('TEST')
@@ -1026,12 +1046,9 @@ class TripServiceIDValidationTestCase(ValidationTestCase):
     trip1.route_id = "054C"
     trip1.service_id = "WEEKDAY"
     trip1.trip_id = "054C_WEEK"
-    try:
-      schedule.AddTripObject(trip1)
-      self.fail("Expected an InvalidValue for the service_id")
-    except transitfeed.InvalidValue, e:
-      self.assertEqual("service_id", e.column_name)
-      self.assertEqual("WEEKDAY", e.value)
+    self.ExpectInvalidValueInClosure(column_name="service_id",
+                                     value="WEEKDAY",
+                                     c=lambda: schedule.AddTripObject(trip1))
 
 
 class TripHasStopTimeValidationTestCase(ValidationTestCase):
@@ -1078,11 +1095,8 @@ class TripHasStopTimeValidationTestCase(ValidationTestCase):
 
     # Last stop must always have a time
     trip.AddStopTime(stop, arrival_secs=None, departure_secs=None)
-    try:
-      trip.GetEndTime(problems=self.problems)
-      self.fail('exception expected')
-    except transitfeed.InvalidValue, e:
-      self.assertEqual('arrival_time', e.column_name)
+    self.ExpectInvalidValueInClosure(
+        'arrival_time', c=lambda: trip.GetEndTime(problems=self.problems))
 
 
 class TripAddStopTimeObjectTestCase(ValidationTestCase):
@@ -1098,17 +1112,17 @@ class TripAddStopTimeObjectTestCase(ValidationTestCase):
     trip.AddStopTimeObject(transitfeed.StopTime(self.problems, stop1, arrival_secs=10, departure_secs=10), problems=self.problems)
     trip.AddStopTimeObject(transitfeed.StopTime(self.problems, stop2, arrival_secs=20, departure_secs=20), problems=self.problems)
     # TODO: Factor out checks or use mock problems object
-    try:
-      trip.AddStopTimeObject(transitfeed.StopTime(self.problems, stop1, arrival_secs=15, departure_secs=15), problems=self.problems)
-      self.fail('OtherProblem exception expected')
-    except transitfeed.OtherProblem:
-      pass
+    self.ExpectOtherProblemInClosure(lambda:
+      trip.AddStopTimeObject(transitfeed.StopTime(self.problems, stop1,
+                                                  arrival_secs=15,
+                                                  departure_secs=15),
+                             problems=self.problems))
     trip.AddStopTimeObject(transitfeed.StopTime(self.problems, stop1), problems=self.problems)
-    try:
-      trip.AddStopTimeObject(transitfeed.StopTime(self.problems, stop1, arrival_secs=15, departure_secs=15), problems=self.problems)
-      self.fail('OtherProblem exception expected')
-    except transitfeed.OtherProblem:
-      pass
+    self.ExpectOtherProblemInClosure(lambda:
+        trip.AddStopTimeObject(transitfeed.StopTime(self.problems, stop1,
+                                                    arrival_secs=15,
+                                                    departure_secs=15),
+                               self.problems))
     trip.AddStopTimeObject(transitfeed.StopTime(self.problems, stop1, arrival_secs=30, departure_secs=30), problems=self.problems)
 
 
