@@ -39,7 +39,7 @@ except ImportError, e:
 # py2exe doesn't automatically include pytz dependency because it is optional
 options = {'py2exe': {'packages': ['pytz']}}
 scripts = ['feedvalidator.py', 'schedule_viewer.py',
-           'kmlparser.py', 'kmlwriter.py']
+           'kmlparser.py', 'kmlwriter.py', 'merge.py']
 kwargs = {}
 
 if has_py2exe:
@@ -49,7 +49,7 @@ if has_py2exe:
   kwargs['data_files'] = \
       [('schedule_viewer_files',
           glob.glob(os.path.join('gtfsscheduleviewer', 'files', '*')))]
-  
+
 setup(
     version=VERSION,
     name='transitfeed',
@@ -67,9 +67,9 @@ setup(
     license='Apache License, Version 2.0',
     packages=['gtfsscheduleviewer'],
     py_modules=['transitfeed'],
-    # Also need to list package_data contents in MANIFEST.in for it to be      
-    # included in sdist. See "[Distutils] package_data not used by sdist       
-    # command" Feb 2, 2007                                                     
+    # Also need to list package_data contents in MANIFEST.in for it to be
+    # included in sdist. See "[Distutils] package_data not used by sdist
+    # command" Feb 2, 2007
     package_data={'gtfsscheduleviewer': ['files/*']},
     scripts=scripts,
     zip_safe=False,
