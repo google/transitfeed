@@ -79,27 +79,22 @@ class TempDirTestCaseBase(unittest.TestCase):
     return os.path.join(self._oldcwd, here, '..', *path)
 
   def CheckCallWithPath(self, cmd, expected_retcode=0):
-    """Run cmd[0] with args cmd[1:], pointing PYTHONPATH to the root
-    of this source tree. Raises an Exception if the return code is not
-    expected_retcode. Returns a tuple of strings, (stdout, stderr)."""
+    """Run python script cmd[0] with args cmd[1:], making sure 'import
+    transitfeed' will use the module in this source tree. Raises an Exception
+    if the return code is not expected_retcode. Returns a tuple of strings,
+    (stdout, stderr)."""
     tf_path = transitfeed.__file__
     # Path of the directory containing transitfeed. When this is added to
     # sys.path importing transitfeed should work independent of if
     # transitfeed.__file__ is <parent>/transitfeed.py or
     # <parent>/transitfeed/__init__.py
     transitfeed_parent = tf_path[:tf_path.rfind("transitfeed")]
+    transitfeed_parent = transitfeed_parent.replace("\\", "/").rstrip("/")
+    script_path = cmd[0].replace("\\", "/")
+    script_args = cmd[1:]
 
-    # Make sure the correct transitfeed.py is imported. On Windows we've had a
-    # problem where tests get one installed on the system instead of in the
-    # local directory.
-    tf_path = re.sub(r"\.pyc$", ".py", tf_path)
-    tf_realpath = os.path.normpath(os.path.realpath(tf_path))
-    cwd_realpath = os.path.normpath(os.path.realpath(self.GetPath()))
-    if not tf_realpath.startswith(cwd_realpath):
-      raise Exception("Expected %s to be child of %s" %
-                      (tf_realpath, cwd_realpath))
-
-    env = {'PYTHONPATH': transitfeed_parent}
-    cmd = [sys.executable] + cmd
-    return check_call(cmd, expected_retcode=expected_retcode, shell=False,
-                      env=env)
+    cmd = [sys.executable,
+           "-c",
+           "import sys; sys.path.insert(0,'%s');exec(open('%s'))" %
+           (transitfeed_parent, script_path)] + script_args
+    return check_call(cmd, expected_retcode=expected_retcode, shell=False)
