@@ -3,9 +3,10 @@
 # Test the examples to make sure they are not broken
 
 import os
-import urllib
-import unittest
 import re
+import transitfeed
+import unittest
+import urllib
 import util
 
 class WikiExample(util.TempDirTestCaseBase):
@@ -73,6 +74,30 @@ class google_random_queries(util.TempDirTestCaseBase):
         expected_retcode=2)
     if os.path.exists('queries.html'):
       raise Exception('should not have created output')
+
+
+class filter_unused_stops(util.TempDirTestCaseBase):
+  def testNormalRun(self):
+    unused_stop_path = self.GetPath('test', 'data', 'unused_stop')
+    # Make sure load fails for input
+    problem_reporter = transitfeed.ExceptionProblemReporter(raise_warnings=True)
+    try:
+      transitfeed.Loader(
+          unused_stop_path,
+          problems=problem_reporter, extra_validation=True).Load()
+      self.fail('UnusedStop exception expected')
+    except transitfeed.UnusedStop, e:
+      pass
+    (stdout, stderr) = self.CheckCallWithPath(
+        [self.GetExamplePath('filter_unused_stops.py'),
+         '--list_removed',
+         unused_stop_path, 'output.zip'])
+    # Extra stop was listed on stdout
+    self.assertNotEqual(stdout.find('Bogus Stop'), -1)
+    # Make sure unused stop was removed and another stop wasn't
+    schedule = transitfeed.Loader(
+        'output.zip', problems=problem_reporter, extra_validation=True).Load()
+    schedule.GetStop('STAGECOACH')
 
 
 if __name__ == '__main__':
