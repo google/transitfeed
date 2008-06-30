@@ -340,7 +340,7 @@ class LoadUnrecognizedColumnsTestCase(unittest.TestCase):
       ('fare_rules.txt', 'source_id'),
       ('frequencies.txt', 'superfluous')
     ])
-    
+
     # Now make sure we got the unrecognized column errors that we expected.
     not_expected = found_errors.difference(expected_errors)
     self.failIf(not_expected, 'unexpected errors: %s' % str(not_expected))
@@ -773,6 +773,42 @@ class StopTimeValidationTestCase(ValidationTestCase):
     transitfeed.StopTime(self.problems, stop, arrival_time="10:00:00",
         departure_time="10:05:00", pickup_type='1', drop_off_type='1')
     transitfeed.StopTime(self.problems, stop)
+    self.problems.AssertNoMoreExceptions()
+
+
+class RouteConstructorTestCase(unittest.TestCase):
+  def setUp(self):
+    self.problems = RecordingProblemReporter(self)
+
+  def testDefault(self):
+    route = transitfeed.Route()
+    route.Validate(self.problems)
+
+    e = self.problems.PopException('MissingValue')
+    self.assertEqual('route_id', e.column_name)
+    e = self.problems.PopException('InvalidValue')
+    self.assertEqual('route_short_name', e.column_name)
+    e = self.problems.PopException('InvalidValue')
+    self.assertEqual('route_type', e.column_name)
+    self.problems.AssertNoMoreExceptions()
+
+  def testMinimal(self):
+    route = transitfeed.Route(route_id='id1', short_name='22', route_type='Bus')
+    route.Validate(self.problems)
+    self.problems.AssertNoMoreExceptions()
+
+    route = transitfeed.Route(route_id='id1', short_name='22', route_type=1)
+    route.Validate(self.problems)
+    self.problems.AssertNoMoreExceptions()
+
+    route = transitfeed.Route(route_id='id1', short_name='22', route_type='1')
+    route.Validate(self.problems)
+    self.problems.AssertNoMoreExceptions()
+
+    route = transitfeed.Route(route_id='id1', short_name='22', route_type='1foo')
+    route.Validate(self.problems)
+    e = self.problems.PopException('InvalidValue')
+    self.assertEqual('route_type', e.column_name)
     self.problems.AssertNoMoreExceptions()
 
 

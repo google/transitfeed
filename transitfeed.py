@@ -642,28 +642,26 @@ class Route(object):
                             'If this route doesn\'t have such a code, it\'s '
                             'OK to leave this field empty.', type=TYPE_WARNING)
 
-    if (self.route_short_name and
-        (self.route_long_name.strip().lower().startswith(
-            self.route_short_name.strip().lower() + ' ') or
-         self.route_long_name.strip().lower().startswith(
-            self.route_short_name.strip().lower() + '-'))):
-      problems.InvalidValue('route_long_name',
-                            self.route_long_name,
-                            'route_long_name shouldn\'t contain '
-                            'the route_short_name value, as both '
-                            'fields are often displayed '
-                            'side-by-side.', type=TYPE_WARNING)
-    if (self.route_short_name and
-        (self.route_long_name.strip().lower() ==
-         self.route_short_name.strip().lower())):
-      problems.InvalidValue('route_long_name',
-                            self.route_long_name,
-                            'route_long_name shouldn\'t be the same '
-                            'the route_short_name value, as both '
-                            'fields are often displayed '
-                            'side-by-side.  It\'s OK to omit either the '
-                            'short or long name (but not both).',
-                            type=TYPE_WARNING)
+    if self.route_short_name and self.route_long_name:
+      short_name = self.route_short_name.strip().lower()
+      long_name = self.route_long_name.strip().lower()
+      if (long_name.startswith(short_name + ' ') or
+          long_name.startswith(short_name + '-')):
+        problems.InvalidValue('route_long_name',
+                              self.route_long_name,
+                              'route_long_name shouldn\'t contain '
+                              'the route_short_name value, as both '
+                              'fields are often displayed '
+                              'side-by-side.', type=TYPE_WARNING)
+      if long_name == short_name:
+        problems.InvalidValue('route_long_name',
+                              self.route_long_name,
+                              'route_long_name shouldn\'t be the same '
+                              'the route_short_name value, as both '
+                              'fields are often displayed '
+                              'side-by-side.  It\'s OK to omit either the '
+                              'short or long name (but not both).',
+                              type=TYPE_WARNING)
     if (self.route_desc and
         ((self.route_desc == self.route_short_name) or
          (self.route_desc == self.route_long_name))):
