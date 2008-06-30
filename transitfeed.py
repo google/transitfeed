@@ -127,7 +127,7 @@ class ProblemReporterBase:
     e = MissingColumn(file_name=file_name, column_name=column_name,
                       context=context, context2=self._context)
     self._Report(e)
-    
+
   def UnrecognizedColumn(self, file_name, column_name, context=None):
     e = UnrecognizedColumn(file_name=file_name, column_name=column_name,
                            context=context, context2=self._context,
@@ -157,6 +157,12 @@ class ProblemReporterBase:
 
   def ExpirationDate(self, expiration, context=None):
     e = ExpirationDate(expiration=expiration, context=context,
+                       context2=self._context, type=TYPE_WARNING)
+    self._Report(e)
+
+  def InvalidLineEnd(self, bad_line_end, context=None):
+    """bad_line_end is a human readable string."""
+    e = InvalidLineEnd(bad_line_end=bad_line_end, context=context,
                        context2=self._context, type=TYPE_WARNING)
     self._Report(e)
 
@@ -317,6 +323,10 @@ class ExpirationDate(ExceptionWithContext):
       return "This feed expired on %s" % formatted_date
     else:
       return "This feed will soon expire, on %s" % formatted_date
+
+class InvalidLineEnd(ExceptionWithContext):
+  ERROR_TEXT = "Each line must end with CR LF or LF except for the last line " \
+               "of the file. This line ends with \"%(bad_line_end)s\"."
 
 class OtherProblem(ExceptionWithContext):
   ERROR_TEXT = '%(description)s'
@@ -778,8 +788,9 @@ class StopTime(object):
         pickup_type = int(pickup_type)
       except ValueError:
         problems.InvalidValue('pickup_type', pickup_type)
-      if pickup_type < 0 or pickup_type > 3:
-        problems.InvalidValue('pickup_type', pickup_type)
+      else:
+        if pickup_type < 0 or pickup_type > 3:
+          problems.InvalidValue('pickup_type', pickup_type)
       self.pickup_type = pickup_type
 
     if drop_off_type in (None, ""):
@@ -789,8 +800,9 @@ class StopTime(object):
         drop_off_type = int(drop_off_type)
       except ValueError:
         problems.InvalidValue('drop_off_type', drop_off_type)
-      if drop_off_type < 0 or drop_off_type > 3:
-        problems.InvalidValue('drop_off_type', drop_off_type)
+      else:
+        if drop_off_type < 0 or drop_off_type > 3:
+          problems.InvalidValue('drop_off_type', drop_off_type)
       self.drop_off_type = drop_off_type
 
     if (self.pickup_type == 1 and self.drop_off_type == 1 and
@@ -809,12 +821,21 @@ class StopTime(object):
                             'the arrival time (%s).  This is often caused by '
                             'problems in the feed exporter\'s time conversion')
 
-    if (((self.arrival_secs != None) and (self.departure_secs == None)) or
-        ((self.arrival_secs == None) and (self.departure_secs != None))):
-      missing_field = 'arrival_time'
-      if self.departure_secs == None:
-        missing_field = 'departure_time'
-      problems.MissingValue(missing_field,
+    # If the caller passed a valid arrival time but didn't attempt to pass a
+    # departure time complain
+    if (self.arrival_secs != None and
+        self.departure_secs == None and departure_time == None):
+      # self.departure_secs might be None because departure_time was invalid,
+      # so we need to check both
+      problems.MissingValue('departure_time',
+                            'arrival_time and departure_time should either '
+                            'both be provided or both be left blank.  '
+                            'It\'s OK to set them both to the same value.')
+    # If the caller passed a valid departure time but didn't attempt to pass a
+    # arrival time complain
+    if (self.departure_secs != None and
+        self.arrival_secs == None and arrival_time == None):
+      problems.MissingValue('arrival_time',
                             'arrival_time and departure_time should either '
                             'both be provided or both be left blank.  '
                             'It\'s OK to set them both to the same value.')
@@ -1264,14 +1285,14 @@ class Fare(object):
 
     if self.price == None:
       problems.MissingValue("price")
-    if not isinstance(self.price, float) and not isinstance(self.price, int):
+    elif not isinstance(self.price, float) and not isinstance(self.price, int):
       problems.InvalidValue("price", self.price)
     elif self.price < 0:
       problems.InvalidValue("price", self.price)
 
     if IsEmpty(self.currency_type):
       problems.MissingValue("currency_type")
-    if self.currency_type not in ISO4217.codes:
+    elif self.currency_type not in ISO4217.codes:
       problems.InvalidValue("currency_type", self.currency_type)
 
     if self.payment_method == "" or self.payment_method == None:
@@ -1689,20 +1710,27 @@ class ServicePeriod(object):
   def Validate(self, problems=default_problem_reporter):
     if IsEmpty(self.service_id):
       problems.MissingValue('service_id')
-    if IsEmpty(self.start_date) and not IsEmpty(self.end_date):
-      problems.MissingValue('start_date')
-    if IsEmpty(self.end_date) and not IsEmpty(self.start_date):
-      problems.MissingValue('end_date')
-    if not IsEmpty(self.start_date) and not self._IsValidDate(self.start_date):
-      problems.InvalidValue('start_date', self.start_date)
-    if not IsEmpty(self.end_date) and not self._IsValidDate(self.end_date):
-      problems.InvalidValue('end_date', self.end_date)
-    if (not IsEmpty(self.start_date) and not IsEmpty(self.end_date) and
-        self.end_date < self.start_date):
-      problems.InvalidValue('end_date', self.end_date,
+    start_date = None
+    if not IsEmpty(self.start_date):
+      if IsEmpty(self.end_date):
+        problems.MissingValue('end_date')
+      if self._IsValidDate(self.start_date):
+        start_date = self.start_date
+      else:
+        problems.InvalidValue('start_date', self.start_date)
+    end_date = None
+    if not IsEmpty(self.end_date):
+      if IsEmpty(self.start_date):
+        problems.MissingValue('start_date')
+      if self._IsValidDate(self.end_date):
+        end_date = self.end_date
+      else:
+        problems.InvalidValue('end_date', self.end_date)
+    if start_date and end_date and end_date < start_date:
+      problems.InvalidValue('end_date', end_date,
                             'end_date of %s is earlier than '
                             'start_date of "%s"' %
-                            (self.end_date, self.start_date))
+                            (end_date, start_date))
     if self.original_day_values:
       index = 0
       for value in self.original_day_values:
@@ -2326,6 +2354,105 @@ class Schedule:
                             type=TYPE_WARNING)
 
 
+# Map from literal string that should never be found in the csv data to a human
+# readable description
+INVALID_LINE_SEPARATOR_UTF8 = {
+    "\x0c": "ASCII Form Feed 0x0C",
+    # May be part of end of line, but not found elsewhere
+    "\x0d": "ASCII Carriage Return 0x0D, \\r",
+    "\xe2\x80\xa8": "Unicode LINE SEPARATOR U+2028",
+    "\xe2\x80\xa9": "Unicode PARAGRAPH SEPARATOR U+2029",
+    "\xc2\x85": "Unicode NEXT LINE SEPARATOR U+0085",
+}
+
+class EndOfLineChecker:
+  """Wrapper for a file-like object that checks for consistent line ends.
+
+  The check for consistent end of lines (all CR LF or all LF) only happens if
+  next() is called until it raises StopIteration.
+  """
+  def __init__(self, f, name, problems):
+    """Create new object.
+
+    Args:
+      f: file-like object to wrap
+      name: name to use for f. StringIO objects don't have a name attribute.
+      problems: a ProblemReporterBase object
+    """
+    self._f = f
+    self._name = name
+    self._crlf = 0
+    self._crlf_examples = []
+    self._lf = 0
+    self._lf_examples = []
+    self._line_number = 0  # first line will be number 1
+    self._problems = problems
+
+  def __iter__(self):
+    return self
+
+  def next(self):
+    """Return next line without end of line marker or raise StopIteration."""
+    try:
+      next_line = self._f.next()
+    except StopIteration:
+      self._FinalCheck()
+      raise
+
+    self._line_number += 1
+    m_eol = re.search(r"[\x0a\x0d]*$", next_line)
+    if m_eol.group() == "\x0d\x0a":
+      self._crlf += 1
+      if self._crlf <= 5:
+        self._crlf_examples.append(self._line_number)
+    elif m_eol.group() == "\x0a":
+      self._lf += 1
+      if self._lf <= 5:
+        self._lf_examples.append(self._line_number)
+    elif m_eol.group() == "":
+      # Should only happen at the end of the file
+      try:
+        self._f.next()
+        raise RuntimeError("Unexpected row without new line sequence")
+      except StopIteration:
+        # Will be raised again when EndOfLineChecker.next() is next called
+        pass
+    else:
+      self._problems.InvalidLineEnd(
+        codecs.getencoder('string_escape')(m_eol.group())[0],
+        (self._name, self._line_number))
+    next_line_contents = next_line[0:m_eol.start()]
+    for seq, name in INVALID_LINE_SEPARATOR_UTF8.items():
+      if next_line_contents.find(seq) != -1:
+        self._problems.OtherProblem(
+          "Line contains %s" % name,
+          context=(self._name, self._line_number))
+    return next_line_contents
+
+  def _FinalCheck(self):
+    if self._crlf > 0 and self._lf > 0:
+      crlf_plural = self._crlf > 1 and "s" or ""
+      crlf_lines = ", ".join(["%s" % e for e in self._crlf_examples])
+      if self._crlf > len(self._crlf_examples):
+        crlf_lines += ", ..."
+      lf_plural = self._lf > 1 and "s" or ""
+      lf_lines = ", ".join(["%s" % e for e in self._lf_examples])
+      if self._lf > len(self._lf_examples):
+        lf_lines += ", ..."
+
+      self._problems.OtherProblem(
+          "Found %d CR LF \"\\r\\n\" line end%s (line%s %s) and "
+          "%d LF \"\\n\" line end%s (line%s %s). A file must use a "
+          "consistent line end." % (self._crlf, crlf_plural, crlf_plural,
+                                   crlf_lines, self._lf, lf_plural,
+                                   lf_plural, lf_lines),
+          (self._name,))
+      # Prevent _FinalCheck() from reporting the problem twice, in the unlikely
+      # case that it is run twice
+      self._crlf = 0
+      self._lf = 0
+
+
 class Loader:
   def __init__(self,
                feed_path,
@@ -2393,11 +2520,13 @@ class Loader:
     # treated as part of the first column name, causing a mis-parse)
     contents = contents.lstrip(codecs.BOM_UTF8)
 
-    reader = csv.reader(StringIO.StringIO(contents))  # Use excel dialect
+    eol_checker = EndOfLineChecker(StringIO.StringIO(contents),
+                                   file_name, self._problems)
+    reader = csv.reader(eol_checker)  # Use excel dialect
 
     header = reader.next()
     header = map(lambda x: x.strip(), header)  # trim any whitespace
-    
+
     # check for unrecognized columns, which are often misspellings
     unknown_cols = set(header).difference(set(cols))
     for col in unknown_cols:
@@ -2429,11 +2558,11 @@ class Loader:
 
       if len(row) < len(header):
         self._problems.OtherProblem('Found missing cells (commas) in line '
-								    '%d of file "%s".  Every row in the file '
-								    'should have the same number of cells as '
-								    'the header (first line) does.' %
-								    (row_num, file_name), (file_name, row_num),
-								    type=TYPE_WARNING)
+                                    '%d of file "%s".  Every row in the file '
+                                    'should have the same number of cells as '
+                                    'the header (first line) does.' %
+                                    (row_num, file_name), (file_name, row_num),
+                                    type=TYPE_WARNING)
 
       result = [None] * len(cols)
       for i in range(len(cols)):

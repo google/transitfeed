@@ -24,7 +24,7 @@ import tempfile
 import time
 import transitfeed
 import unittest
-import StringIO
+from StringIO import StringIO
 
 
 def DataPath(path):
@@ -62,28 +62,31 @@ class TestFailureProblemReporter(transitfeed.ProblemReporter):
 
 
 class RecordingProblemReporter(transitfeed.ProblemReporterBase):
-  """Causes a test failure immediately on any problem."""
-  def __init__(self, test_case):
+  """Save all problems for later inspection.
+
+  Args:
+    test_case: a unittest.TestCase object on which to report problems
+    ignore_types: sequence of string type names that will be ignored by the
+    ProblemReporter"""
+  def __init__(self, test_case, ignore_types=None):
     transitfeed.ProblemReporterBase.__init__(self)
-    self.ClearExceptions()
+    self.exceptions = []
     self._test_case = test_case
+    self._ignore_types = ignore_types or set()
 
   def _Report(self, e):
+    if e.__class__.__name__ in self._ignore_types:
+      return
     self.exceptions.append(e)
-    self.exceptions_type.append(e.__class__.__name__)
 
-  def GetExceptionByType(self, type_name):
-    """Return the first exception of type_name."""
-    try:
-      i = self.exceptions_type.index(type_name)
-    except ValueError:
-      self._test_case.fail('Could not find a %s, instead found: %s' %
-                           (type_name, self.problems.exceptions_type))
-    return self.exceptions[i]
+  def PopException(self, type_name):
+    """Return the first exception, which must be a type_name."""
+    e = self.exceptions.pop(0)
+    self._test_case.assertEqual(e.__class__.__name__, type_name)
+    return e
 
-  def ClearExceptions(self):
-    self.exceptions = []
-    self.exceptions_type = []  # list of names
+  def AssertNoMoreExceptions(self):
+    self._test_case.assertFalse(self.exceptions, self.exceptions)
 
 
 class UnrecognizedColumnRecorder(transitfeed.ProblemReporter):
@@ -106,7 +109,7 @@ class RedirectStdOutTestCaseBase(unittest.TestCase):
   """Save stdout to the StringIO buffer self.this_stdout"""
   def setUp(self):
     self.saved_stdout = sys.stdout
-    self.this_stdout = StringIO.StringIO()
+    self.this_stdout = StringIO()
     sys.stdout = self.this_stdout
 
   def tearDown(self):
@@ -124,6 +127,116 @@ class NoExceptionTestCase(RedirectStdOutTestCaseBase):
                                   extra_validation=True)
       schedule = loader.Load()
       schedule.Validate()
+
+
+class EndOfLineCheckerTestCase(unittest.TestCase):
+  def setUp(self):
+    self.problems = RecordingProblemReporter(self)
+
+  def RunEndOfLineChecker(self, end_of_line_checker):
+    # Iterating using for calls end_of_line_checker.next() until a
+    # StopIteration is raised. EndOfLineChecker does the final check for a mix
+    # of CR LF and LF ends just before raising StopIteration.
+    for line in end_of_line_checker:
+      pass
+
+  def testInvalidLineEnd(self):
+    f = transitfeed.EndOfLineChecker(StringIO("line1\r\r\nline2"),
+                                     "<StringIO>",
+                                     self.problems)
+    self.RunEndOfLineChecker(f)
+    e = self.problems.PopException("InvalidLineEnd")
+    self.assertEqual(e.file_name, "<StringIO>")
+    self.assertEqual(e.row_num, 1)
+    self.assertEqual(e.bad_line_end, r"\r\r\n")
+    self.problems.AssertNoMoreExceptions()
+
+  def testInvalidLineEndToo(self):
+    f = transitfeed.EndOfLineChecker(
+        StringIO("line1\nline2\r\nline3\r\r\r\n"),
+        "<StringIO>", self.problems)
+    self.RunEndOfLineChecker(f)
+    e = self.problems.PopException("InvalidLineEnd")
+    self.assertEqual(e.file_name, "<StringIO>")
+    self.assertEqual(e.row_num, 3)
+    self.assertEqual(e.bad_line_end, r"\r\r\r\n")
+    e = self.problems.PopException("OtherProblem")
+    self.assertEqual(e.file_name, "<StringIO>")
+    self.assertTrue(e.description.find("consistent line end") != -1)
+    self.problems.AssertNoMoreExceptions()
+
+  def testEmbeddedCr(self):
+    f = transitfeed.EndOfLineChecker(
+        StringIO("line1\rline1b"),
+        "<StringIO>", self.problems)
+    self.RunEndOfLineChecker(f)
+    e = self.problems.PopException("OtherProblem")
+    self.assertEqual(e.file_name, "<StringIO>")
+    self.assertEqual(e.row_num, 1)
+    self.assertEqual(e.FormatProblem(),
+                     "Line contains ASCII Carriage Return 0x0D, \\r")
+    self.problems.AssertNoMoreExceptions()
+
+  def testEmbeddedUtf8NextLine(self):
+    f = transitfeed.EndOfLineChecker(
+        StringIO("line1b\xc2\x85"),
+        "<StringIO>", self.problems)
+    self.RunEndOfLineChecker(f)
+    e = self.problems.PopException("OtherProblem")
+    self.assertEqual(e.file_name, "<StringIO>")
+    self.assertEqual(e.row_num, 1)
+    self.assertEqual(e.FormatProblem(),
+                     "Line contains Unicode NEXT LINE SEPARATOR U+0085")
+    self.problems.AssertNoMoreExceptions()
+
+  def testEndOfLineMix(self):
+    f = transitfeed.EndOfLineChecker(
+        StringIO("line1\nline2\r\nline3\nline4"),
+        "<StringIO>", self.problems)
+    self.RunEndOfLineChecker(f)
+    e = self.problems.PopException("OtherProblem")
+    self.assertEqual(e.file_name, "<StringIO>")
+    self.assertEqual(e.FormatProblem(),
+                     "Found 1 CR LF \"\\r\\n\" line end (line 2) and "
+                     "2 LF \"\\n\" line ends (lines 1, 3). A file must use a "
+                     "consistent line end.")
+    self.problems.AssertNoMoreExceptions()
+
+  def testEndOfLineManyMix(self):
+    f = transitfeed.EndOfLineChecker(
+        StringIO("1\n2\n3\n4\n5\n6\n7\r\n8\r\n9\r\n10\r\n11\r\n"),
+        "<StringIO>", self.problems)
+    self.RunEndOfLineChecker(f)
+    e = self.problems.PopException("OtherProblem")
+    self.assertEqual(e.file_name, "<StringIO>")
+    self.assertEqual(e.FormatProblem(),
+                     "Found 5 CR LF \"\\r\\n\" line ends (lines 7, 8, 9, 10, "
+                     "11) and 6 LF \"\\n\" line ends (lines 1, 2, 3, 4, 5, "
+                     "...). A file must use a consistent line end.")
+    self.problems.AssertNoMoreExceptions()
+
+  def testLoad(self):
+    loader = transitfeed.Loader(
+      DataPath("bad_eol.zip"), problems=self.problems, extra_validation=True)
+    loader.Load()
+
+    e = self.problems.PopException("InvalidLineEnd")
+    self.assertEqual(e.file_name, "routes.txt")
+    self.assertEqual(e.row_num, 5)
+    self.assertTrue(e.FormatProblem().find(r"\r\r\n") != -1)
+
+    e = self.problems.PopException("OtherProblem")
+    self.assertEqual(e.file_name, "calendar.txt")
+    self.assertTrue(re.search(
+      r"Found 1 CR LF.* \(line 2\) and 2 LF .*\(lines 1, 3\)",
+      e.FormatProblem()))
+
+    e = self.problems.PopException("OtherProblem")
+    self.assertEqual(e.file_name, "trips.txt")
+    self.assertTrue(re.search(
+      r"contains ASCII Form Feed",
+      e.FormatProblem()))
+    self.problems.AssertNoMoreExceptions()
 
 
 class LoadTestCase(unittest.TestCase):
@@ -471,20 +584,21 @@ class ColorLuminanceTestCase(unittest.TestCase):
 INVALID_VALUE = Exception()
 class ValidationTestCase(unittest.TestCase):
   def setUp(self):
-    self.problems = RecordingProblemReporter(self)
+    self.problems = RecordingProblemReporter(self, ("ExpirationDate",))
 
   def ExpectMissingValue(self, object, column_name):
     self.ExpectMissingValueInClosure(column_name,
                                      lambda: object.Validate(self.problems))
 
   def ExpectMissingValueInClosure(self, column_name, c):
-    self.problems.ClearExceptions()
+    self.problems.AssertNoMoreExceptions()
     c()
-    e = self.problems.GetExceptionByType('MissingValue')
+    e = self.problems.PopException('MissingValue')
     self.assertEqual(column_name, e.column_name)
     # these should not throw any exceptions
     e.FormatProblem()
     e.FormatContext()
+    self.problems.AssertNoMoreExceptions()
 
   def ExpectInvalidValue(self, object, column_name, value=INVALID_VALUE):
     self.ExpectInvalidValueInClosure(column_name, value,
@@ -492,26 +606,28 @@ class ValidationTestCase(unittest.TestCase):
 
   def ExpectInvalidValueInClosure(self, column_name, value=INVALID_VALUE,
                                   c=None):
-    self.problems.ClearExceptions()
+    self.problems.AssertNoMoreExceptions()
     c()
-    e = self.problems.GetExceptionByType('InvalidValue')
+    e = self.problems.PopException('InvalidValue')
     self.assertEqual(column_name, e.column_name)
     if value != INVALID_VALUE:
       self.assertEqual(value, e.value)
     # these should not throw any exceptions
     e.FormatProblem()
     e.FormatContext()
+    self.problems.AssertNoMoreExceptions()
 
   def ExpectOtherProblem(self, object):
     self.ExpectOtherProblemInClosure(lambda: object.Validate(self.problems))
 
   def ExpectOtherProblemInClosure(self, c):
-    self.problems.ClearExceptions()
+    self.problems.AssertNoMoreExceptions()
     c()
-    e = self.problems.GetExceptionByType('OtherProblem')
+    e = self.problems.PopException('OtherProblem')
     # these should not throw any exceptions
     e.FormatProblem()
     e.FormatContext()
+    self.problems.AssertNoMoreExceptions()
 
 
 class AgencyValidationTestCase(ValidationTestCase):
@@ -608,6 +724,7 @@ class StopValidationTestCase(ValidationTestCase):
     stop.stop_desc = 'Couch AT End Table'
     self.ExpectInvalidValue(stop, 'stop_desc')
     stop.stop_desc = 'Edge of the Couch'
+    self.problems.AssertNoMoreExceptions()
 
 
 class StopTimeValidationTestCase(ValidationTestCase):
@@ -656,6 +773,7 @@ class StopTimeValidationTestCase(ValidationTestCase):
     transitfeed.StopTime(self.problems, stop, arrival_time="10:00:00",
         departure_time="10:05:00", pickup_type='1', drop_off_type='1')
     transitfeed.StopTime(self.problems, stop)
+    self.problems.AssertNoMoreExceptions()
 
 
 class RouteValidationTestCase(ValidationTestCase):
@@ -672,35 +790,36 @@ class RouteValidationTestCase(ValidationTestCase):
     route.route_short_name = ''
     route.route_long_name = '    '
     self.ExpectInvalidValue(route, 'route_short_name')
-    route.route_short_name = '54C'
-    route.route_long_name = 'South Side - North Side'
 
     # short name too long
     route.route_short_name = 'South Side'
+    route.route_long_name = ''
     self.ExpectInvalidValue(route, 'route_short_name')
     route.route_short_name = 'M7bis'  # 5 is OK
     route.Validate(self.problems)
-    route.route_short_name = '54C'
 
     # long name contains short name
+    route.route_short_name = '54C'
     route.route_long_name = '54C South Side - North Side'
     self.ExpectInvalidValue(route, 'route_long_name')
     route.route_long_name = '54C-South Side - North Side'
     self.ExpectInvalidValue(route, 'route_long_name')
-    route.route_long_name = 'South Side - North Side'
 
     # long name is same as short name
+    route.route_short_name = '54C'
     route.route_long_name = '54C'
     self.ExpectInvalidValue(route, 'route_long_name')
-    route.route_long_name = 'South Side - North Side'
 
     # route description is same as short name
     route.route_desc = '54C'
+    route.route_short_name = '54C'
+    route.route_long_name = ''
     self.ExpectInvalidValue(route, 'route_desc')
     route.route_desc = None
 
     # route description is same as long name
     route.route_desc = 'South Side - North Side'
+    route.route_long_name = 'South Side - North Side'
     self.ExpectInvalidValue(route, 'route_desc')
     route.route_desc = None
 
@@ -753,6 +872,7 @@ class RouteValidationTestCase(ValidationTestCase):
     route.route_text_color = None # black
     route.route_color = None      # white
     route.Validate(self.problems)
+    self.problems.AssertNoMoreExceptions()
 
 
 class ShapeValidationTestCase(ValidationTestCase):
@@ -789,6 +909,7 @@ class ShapeValidationTestCase(ValidationTestCase):
     self.ExpectFailedAdd(shape, 36.905019, -116.763206, 4,
                          'shape_dist_traveled', 4)
     shape.AddPoint(36.905019, -116.763206, 5, self.problems)
+    self.problems.AssertNoMoreExceptions()
 
 class FareValidationTestCase(ValidationTestCase):
   def runTest(self):
@@ -868,6 +989,7 @@ class FareValidationTestCase(ValidationTestCase):
     fare.transfer_duration = "3600"
     self.ExpectInvalidValue(fare, "transfer_duration")
     fare.transfer_duration = 7200
+    self.problems.AssertNoMoreExceptions()
 
 
 class ServicePeriodValidationTestCase(ValidationTestCase):
@@ -967,6 +1089,7 @@ class ServicePeriodDateRangeTestCase(ValidationTestCase):
     self.assertEqual(('20070101', '20080101'), schedule.GetDateRange())
     schedule.AddServicePeriodObject(period4)
     self.assertEqual(('20051031', '20080101'), schedule.GetDateRange())
+    self.problems.AssertNoMoreExceptions()
 
 
 class TripValidationTestCase(ValidationTestCase):
@@ -1026,6 +1149,7 @@ class TripValidationTestCase(ValidationTestCase):
     trip.AddHeadwayPeriod("06:00:00", "18:00:00", 1200)
     self.ExpectOtherProblem(trip)
     trip.ClearHeadwayPeriods()
+    self.problems.AssertNoMoreExceptions()
 
 
 class TripServiceIDValidationTestCase(ValidationTestCase):
@@ -1124,6 +1248,7 @@ class TripAddStopTimeObjectTestCase(ValidationTestCase):
                                                     departure_secs=15),
                                self.problems))
     trip.AddStopTimeObject(transitfeed.StopTime(self.problems, stop1, arrival_secs=30, departure_secs=30), problems=self.problems)
+    self.problems.AssertNoMoreExceptions()
 
 
 class TripStopTimeAccessorsTestCase(unittest.TestCase):
@@ -1368,6 +1493,7 @@ class DuplicateStopValidationTestCase(ValidationTestCase):
     schedule.AddStopObject(stop3)
     trip.AddStopTime(stop3, arrival_time="12:10:00", departure_time="12:10:00")
     schedule.Validate()
+    self.problems.AssertNoMoreExceptions()
 
     stop4 = transitfeed.Stop()
     stop4.stop_id = "STOP4"
