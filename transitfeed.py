@@ -56,7 +56,7 @@ import zipfile
 OUTPUT_ENCODING = 'utf-8'
 
 
-__version__ = '1.1.4'
+__version__ = '1.1.5'
 
 
 def EncodeUnicode(text):
