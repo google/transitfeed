@@ -30,7 +30,6 @@
 import codecs
 import optparse
 import os.path
-import os
 import time
 import transitfeed
 import sys
@@ -256,8 +255,6 @@ def main():
                     help='do not prompt for feed location or load output in browser')
   parser.add_option('-o', '--output', dest='output', metavar='FILE',
                     help='write html output to FILE')
-  parser.add_option('-p', '--performance', action='store_true', dest='performance',
-                    help='output memory and time performance')
   parser.set_defaults(manual_entry=True, output='validation-results.html')
   (options, args) = parser.parse_args()
   manual_entry = options.manual_entry
@@ -295,37 +292,6 @@ def main():
   output_file.close()
   if manual_entry:
     webbrowser.open('file://%s' % os.path.abspath(output_filename))
-
-  if options.performance:
-    import resource
-    print "Time: %d" % (resource.getrusage(resource.RUSAGE_SELF).ru_utime+
-                        resource.getrusage(resource.RUSAGE_SELF).ru_stime)
-
-    def _VmB(VmKey):
-      '''Private.
-      '''
-      _proc_status = '/proc/%d/status' % os.getpid()
-      _scale = {'kB': 1024.0, 'mB': 1024.0*1024.0,
-                'KB': 1024.0, 'MB': 1024.0*1024.0}
-
-       # get pseudo file  /proc/<pid>/status
-      try:
-          t = open(_proc_status)
-          v = t.read()
-          t.close()
-      except:
-          raise Exception("no proc file %s" % _proc_status)
-          return 0  # non-Linux?
-       # get VmKey line e.g. 'VmRSS:  9999  kB\n ...'
-      i = v.index(VmKey)
-      v = v[i:].split(None, 3)  # whitespace
-      if len(v) < 3:
-          raise Exception("%s" % v)
-          return 0  # invalid format?
-       # convert Vm value to bytes
-      return int(float(v[1]) * _scale[v[2]])
-    print "VmSize: %d" % _VmB('VmSize:')
-    print "VmRSS: %d" % _VmB('VmRSS:')
 
   sys.exit(exit_code)
 
