@@ -29,6 +29,7 @@
 
 import codecs
 import optparse
+import os
 import os.path
 import time
 import transitfeed
@@ -252,9 +253,14 @@ def main():
                                  version='%prog '+transitfeed.__version__)
   parser.add_option('-n', '--noprompt', action='store_false',
                     dest='manual_entry',
-                    help='do not prompt for feed location or load output in browser')
+                    help='do not prompt for feed location or load output in '
+                    'browser')
   parser.add_option('-o', '--output', dest='output', metavar='FILE',
                     help='write html output to FILE')
+  parser.add_option('-p', '--performance', action='store_true',
+                    dest='performance',
+                    help='output memory and time performance (Availability: '
+                    'Unix')
   parser.set_defaults(manual_entry=True, output='validation-results.html')
   (options, args) = parser.parse_args()
   manual_entry = options.manual_entry
@@ -292,6 +298,43 @@ def main():
   output_file.close()
   if manual_entry:
     webbrowser.open('file://%s' % os.path.abspath(output_filename))
+
+  if options.performance:
+    # Only available on Unix, http://docs.python.org/lib/module-resource.html
+    import resource
+    print "Time: %d seconds" % (
+        resource.getrusage(resource.RUSAGE_SELF).ru_utime +
+        resource.getrusage(resource.RUSAGE_SELF).ru_stime)
+
+    # http://aspn.activestate.com/ASPN/Cookbook/Python/Recipe/286222
+    # http://aspn.activestate.com/ASPN/Cookbook/ "The recipes are freely
+    # available for review and use."
+    def _VmB(VmKey):
+      """Return size from proc status in bytes."""
+      _proc_status = '/proc/%d/status' % os.getpid()
+      _scale = {'kB': 1024.0, 'mB': 1024.0*1024.0,
+                'KB': 1024.0, 'MB': 1024.0*1024.0}
+
+       # get pseudo file  /proc/<pid>/status
+      try:
+          t = open(_proc_status)
+          v = t.read()
+          t.close()
+      except:
+          raise Exception("no proc file %s" % _proc_status)
+          return 0  # non-Linux?
+       # get VmKey line e.g. 'VmRSS:  9999  kB\n ...'
+      i = v.index(VmKey)
+      v = v[i:].split(None, 3)  # whitespace
+      if len(v) < 3:
+          raise Exception("%s" % v)
+          return 0  # invalid format?
+       # convert Vm value to bytes
+      return int(float(v[1]) * _scale[v[2]])
+
+    # I ran this on over a hundred GTFS files, comparing VmSize to VmRSS
+    # (resident set size). The difference was always under 2% or 3MB.
+    print "Virtual Memory Size: %d bytes" % _VmB('VmSize:')
 
   sys.exit(exit_code)
 
