@@ -386,7 +386,7 @@ def FindDefaultFileDir():
     return os.path.join(base, 'schedule_viewer_files')
   else:
     # For all other distributions 'files' is in the gtfsscheduleviewer
-    # directory. 
+    # directory.
     base = os.path.dirname(gtfsscheduleviewer.__file__)  # Strip __init__.py
     return os.path.join(base, 'files')
 
@@ -418,7 +418,8 @@ def StartServerThread(server):
 
 
 if __name__ == '__main__':
-  parser = OptionParser()
+  parser = OptionParser(usage='usage: %prog [options] feed_filename',
+                        version='%prog '+transitfeed.__version__)
   parser.add_option('--feed_filename', '--feed', dest='feed_filename',
                     help='file name of feed to load')
   parser.add_option('--key', dest='key',
@@ -440,16 +441,15 @@ if __name__ == '__main__':
     print "Can't find index.html with --file_dir=%s" % options.file_dir
     exit(1)
 
+  if not options.feed_filename and len(args) == 1:
+    options.feed_filename = args[0]
+
   if not options.feed_filename and options.manual_entry:
     options.feed_filename = raw_input('Enter Feed Location: ').strip('"')
 
   default_key_file = GetDefaultKeyFilePath()
   if not options.key and os.path.isfile(default_key_file):
     options.key = open(default_key_file).read().strip()
-
-  if not options.key and options.manual_entry:
-    options.key = raw_input('Enter Google Maps API key or file '
-                            'containing it: ').strip('"')
 
   if options.key and os.path.isfile(options.key):
     options.key = open(options.key).read().strip()
@@ -466,8 +466,8 @@ if __name__ == '__main__':
   server.file_dir = options.file_dir
 
   StartServerThread(server)  # Spawns a thread for server and returns
-  print "To view, point your browser at http://%s:%d/" \
-    % (server.server_name, server.server_port)
+  print ("To view, point your browser at http://localhost:%d/" %
+         (server.server_port))
 
   try:
     while 1:
