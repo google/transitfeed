@@ -31,6 +31,7 @@ import os.path
 import re
 import signal
 import simplejson
+import socket
 import time
 import transitfeed
 import urllib
@@ -55,11 +56,36 @@ class ResultEncoder(simplejson.JSONEncoder):
       return list(iterable)
     return simplejson.JSONEncoder.default(self, obj)
 
+# Code taken from
+# http://aspn.activestate.com/ASPN/Cookbook/Python/Recipe/425210/index_txt
+# An alternate approach is shown at
+# http://mail.python.org/pipermail/python-list/2003-July/212751.html
+# but it requires multiple threads. A sqlite object can only be used from one
+# thread.
+class StoppableHTTPServer(BaseHTTPServer.HTTPServer):
+  def server_bind(self):
+    BaseHTTPServer.HTTPServer.server_bind(self)
+    self.socket.settimeout(1)
+    self._run = True
+
+  def get_request(self):
+    while self._run:
+      try:
+        sock, addr = self.socket.accept()
+        sock.settimeout(None)
+        return (sock, addr)
+      except socket.timeout:
+        pass
+
+  def stop(self):
+    self._run = False
+
+  def serve(self):
+    while self._run:
+      self.handle_request()
+
 
 class ScheduleRequestHandler(BaseHTTPServer.BaseHTTPRequestHandler):
-  def __init__(self, request, client_address, socket_server):
-    BaseHTTPServer.BaseHTTPRequestHandler.__init__(self, request, client_address, socket_server)
-
   def do_GET(self):
     scheme, host, path, x, params, fragment = urlparse.urlparse(self.path)
     parsed_params = {}
@@ -209,6 +235,7 @@ class ScheduleRequestHandler(BaseHTTPServer.BaseHTTPRequestHandler):
 
   def handle_json_GET_routes(self, params):
     """Return a list of all routes."""
+    schedule = self.server.schedule
     result = []
     for r in schedule.GetRouteList():
       result.append( (r.route_id, r.route_short_name, r.route_long_name) )
@@ -216,12 +243,14 @@ class ScheduleRequestHandler(BaseHTTPServer.BaseHTTPRequestHandler):
     return result
 
   def handle_json_GET_routerow(self, params):
+    schedule = self.server.schedule
     route = schedule.GetRoute(params.get('route', None))
     return [transitfeed.Route._FIELD_NAMES, route.GetFieldValuesTuple()]
 
   def handle_json_GET_triprows(self, params):
     """Return a list of rows from the feed file that are related to this
     trip."""
+    schedule = self.server.schedule
     trip = schedule.GetTrip(params.get('trip', None))
     route = schedule.GetRoute(trip.route_id)
     trip_row = {}
@@ -401,23 +430,7 @@ def GetDefaultKeyFilePath():
     return 'key.txt'
 
 
-def StartServerThread(server):
-  """Start server in its own thread because KeyboardInterrupt doesn't
-  interrupt a socket call in Windows."""
-  # Code taken from
-  # http://mail.python.org/pipermail/python-list/2003-July/212751.html
-  # An alternate approach is shown at
-  # http://groups.google.com/group/webpy/msg/9f41fd8430c188dc
-  import threading
-  th = threading.Thread(target=lambda: server.serve_forever())
-  th.setDaemon(1)
-  th.start()
-  # I don't care about shutting down the server thread cleanly. If you kill
-  # python while it is serving a request the browser may get an incomplete
-  # reply.
-
-
-if __name__ == '__main__':
+def main():
   parser = OptionParser(usage='usage: %prog [options] feed_filename',
                         version='%prog '+transitfeed.__version__)
   parser.add_option('--feed_filename', '--feed', dest='feed_filename',
@@ -459,18 +472,15 @@ if __name__ == '__main__':
   print '(this may take a few minutes for larger cities)'
   schedule.Load(options.feed_filename)
 
-  server = BaseHTTPServer.HTTPServer(server_address=('', options.port),
-                                     RequestHandlerClass=ScheduleRequestHandler)
+  server = StoppableHTTPServer(server_address=('', options.port),
+                               RequestHandlerClass=ScheduleRequestHandler)
   server.key = options.key
   server.schedule = schedule
   server.file_dir = options.file_dir
 
-  StartServerThread(server)  # Spawns a thread for server and returns
   print ("To view, point your browser at http://localhost:%d/" %
          (server.server_port))
+  server.serve_forever()
 
-  try:
-    while 1:
-      time.sleep(0.5)
-  except KeyboardInterrupt:
-    pass
+if __name__ == '__main__':
+  main()
