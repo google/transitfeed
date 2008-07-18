@@ -1609,7 +1609,15 @@ class FeedMerger(object):
 
 def main():
   """Run the merge driver program."""
-  parser = optparse.OptionParser()
+  usage = \
+"""usage: %prog [options] <feed_input_a> <feed_input_b> <feed_output.zip>
+
+Merges <feed_input_a> and <feed_input_b> into a new GTFS file <feed_output.zip>.
+<feed_input_a> and <feed_input_b> must be the path of a GTFS directory or zip.
+"""
+
+  parser = optparse.OptionParser(usage=usage,
+                                 version='%prog '+transitfeed.__version__)
   parser.add_option('--cutoff_date',
                     dest='cutoff_date',
                     default=None,
