@@ -544,6 +544,15 @@ class DuplicateStopTestCase(unittest.TestCase):
     except transitfeed.OtherProblem:
       pass
 
+class DuplicateStopSequenceTestCase(unittest.TestCase):
+  def runTest(self):
+    problems = RecordingProblemReporter(self, ("ExpirationDate",))
+    schedule = transitfeed.Schedule(problem_reporter=problems)
+    schedule.Load(DataPath('duplicate_stop_sequence'), extra_validation=True)
+    e = problems.PopException('InvalidValue')
+    self.assertEqual('stop_sequence', e.column_name)
+    problems.AssertNoMoreExceptions()
+
 
 class MissingEndpointTimesTestCase(unittest.TestCase):
   def runTest(self):
@@ -592,7 +601,7 @@ class ValidationTestCase(unittest.TestCase):
 
   def ExpectMissingValueInClosure(self, column_name, c):
     self.problems.AssertNoMoreExceptions()
-    c()
+    rv = c()
     e = self.problems.PopException('MissingValue')
     self.assertEqual(column_name, e.column_name)
     # these should not throw any exceptions
@@ -607,7 +616,7 @@ class ValidationTestCase(unittest.TestCase):
   def ExpectInvalidValueInClosure(self, column_name, value=INVALID_VALUE,
                                   c=None):
     self.problems.AssertNoMoreExceptions()
-    c()
+    rv = c()
     e = self.problems.PopException('InvalidValue')
     self.assertEqual(column_name, e.column_name)
     if value != INVALID_VALUE:
@@ -622,7 +631,7 @@ class ValidationTestCase(unittest.TestCase):
 
   def ExpectOtherProblemInClosure(self, c):
     self.problems.AssertNoMoreExceptions()
-    c()
+    rv = c()
     e = self.problems.PopException('OtherProblem')
     # these should not throw any exceptions
     e.FormatProblem()

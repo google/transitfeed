@@ -1,0 +1,6 @@
+trip_id,arrival_time,departure_time,stop_id,stop_sequence,stop_headsign,pickup_type,drop_off_type,shape_dist_traveled
+CITY1,6:00:00,6:00:00,STAGECOACH,0,,,,
+CITY1,6:05:00,6:07:00,NANAA,10,going to nadav,2,3,
+CITY1,6:12:00,6:14:00,NADAV,10,,,,
+CITY1,6:19:00,6:21:00,DADAN,15,,,,
+CITY1,6:26:00,6:28:00,EMSI,20,,,,
