@@ -225,6 +225,7 @@ class ScheduleRequestHandler(BaseHTTPServer.BaseHTTPRequestHandler):
 
   def handle_json_wrapper_GET(self, handler, parsed_params):
     """Call handler and output the return value in JSON."""
+    schedule = self.server.schedule
     result = handler(parsed_params)
     content = ResultEncoder().encode(result)
     self.send_response(200)
@@ -325,7 +326,7 @@ class ScheduleRequestHandler(BaseHTTPServer.BaseHTTPRequestHandler):
     schedule = self.server.schedule
     stop = schedule.GetStop(params.get('stop', None))
     time = int(params.get('time', 0))
-    time_trips = stop.GetStopTimeTrips()
+    time_trips = stop.GetStopTimeTrips(schedule)
     time_trips.sort()  # OPT: use bisect.insort to make this O(N*ln(N)) -> O(N)
     # Keep the first 5 after param 'time'.
     # Need make a tuple to find correct bisect point

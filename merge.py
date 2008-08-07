@@ -1284,7 +1284,8 @@ class TripMerger(DataSetMerger):
 
   def _Migrate(self, original_trip, schedule, newid):
     migrated_trip = transitfeed.Trip(
-        field_list=original_trip.GetFieldValuesTuple())
+        field_list=original_trip.GetFieldValuesTuple(),
+        schedule=self.feed_merger.merged_schedule)
     if newid:
       migrated_trip.trip_id = self.feed_merger.GenerateId(
           original_trip.trip_id)

@@ -261,7 +261,10 @@ def main():
                     dest='performance',
                     help='output memory and time performance (Availability: '
                     'Unix')
-  parser.set_defaults(manual_entry=True, output='validation-results.html')
+  parser.add_option('-m', '--memory_db', dest='memory_db',  action='store_true',
+                    help='Force use of in-memory sqlite db')
+  parser.set_defaults(manual_entry=True, output='validation-results.html',
+                      memory_db=False)
   (options, args) = parser.parse_args()
   manual_entry = options.manual_entry
   if not len(args) == 1:
@@ -277,7 +280,8 @@ def main():
   feed = feed.strip('"')
   print 'validating %s' % feed
   problems = HTMLCountingProblemReporter()
-  loader = transitfeed.Loader(feed, problems=problems, extra_validation=True)
+  loader = transitfeed.Loader(feed, problems=problems, extra_validation=True,
+                              memory_db=options.memory_db)
   schedule = loader.Load()
 
   if feed == 'IWantMyvalidation-crash.txt':
@@ -336,11 +340,27 @@ def main():
     # (resident set size). The difference was always under 2% or 3MB.
     print "Virtual Memory Size: %d bytes" % _VmB('VmSize:')
 
-  sys.exit(exit_code)
+  return exit_code
+
+
+def ProfileMain():
+  import cProfile
+  import pstats
+  cProfile.run('exit_code = main()', 'validate-stats')
+  p = pstats.Stats('validate-stats')
+  p.strip_dirs()
+  p.sort_stats('cumulative').print_stats(30)
+  p.sort_stats('cumulative').print_callers(30)
+  return exit_code
+
 
 if __name__ == '__main__':
   try:
-    main()
+    if '-p' in sys.argv or '--performance' in sys.argv:
+      exit_code = ProfileMain()
+    else:
+      exit_code = main()
+    sys.exit(exit_code)
   except (SystemExit, KeyboardInterrupt):
     raise
   except:

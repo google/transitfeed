@@ -896,15 +896,15 @@ class TestTripMerger(unittest.TestCase):
     self.shape.AddPoint(30.0, 30.0)
 
     self.t1 = transitfeed.Trip(service_period=self.s1,
-                               route=self.r1, trip_id='t1')
+                               route=self.r1, trip_id='t1', schedule=a_schedule)
     self.t2 = transitfeed.Trip(service_period=self.s1,
-                               route=self.r1, trip_id='t2')
+                               route=self.r1, trip_id='t2', schedule=a_schedule)
     self.t1.block_id = 'b1'
     self.t2.block_id = 'b1'
     self.t1.shape_id = 'shape1'
 
     self.stop = transitfeed.Stop(30.0, 30.0, stop_id='stop1')
-    self.t1.AddStopTime(self.stop)
+    self.t1.AddStopTime(self.stop, arrival_secs=0, departure_secs=0)
 
     a_schedule.AddAgencyObject(self.a1)
     a_schedule.AddStopObject(self.stop)

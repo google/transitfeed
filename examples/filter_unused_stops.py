@@ -43,7 +43,7 @@ def main():
   print "Removing unused stops..."
   removed = 0
   for stop_id, stop in schedule.stops.items():
-    if not stop.GetTrips():
+    if not stop.GetTrips(schedule):
       removed += 1
       del schedule.stops[stop_id]
       if options.list_removed:

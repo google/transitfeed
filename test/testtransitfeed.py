@@ -1139,7 +1139,8 @@ class ServicePeriodDateRangeTestCase(ValidationTestCase):
 
 class TripValidationTestCase(ValidationTestCase):
   def runTest(self):
-    trip = transitfeed.Trip()
+    schedule = transitfeed.Schedule()  # Needed to find StopTimes
+    trip = transitfeed.Trip(schedule=schedule)
     trip.route_id = '054C'
     trip.service_id = 'WEEK'
     trip.trip_id = '054C-00'
@@ -1278,21 +1279,31 @@ class TripAddStopTimeObjectTestCase(ValidationTestCase):
     stop2 = schedule.AddStop(lng=140.001, lat=48.201, name="Stop 2")
     route = schedule.AddRoute("B", "Beta", "Bus")
     trip = route.AddTrip(schedule, "bus trip")
-    trip.AddStopTimeObject(transitfeed.StopTime(self.problems, stop1, arrival_secs=10, departure_secs=10), problems=self.problems)
-    trip.AddStopTimeObject(transitfeed.StopTime(self.problems, stop2, arrival_secs=20, departure_secs=20), problems=self.problems)
+    trip.AddStopTimeObject(transitfeed.StopTime(self.problems, stop1,
+                                                arrival_secs=10,
+                                                departure_secs=10),
+                           schedule=schedule, problems=self.problems)
+    trip.AddStopTimeObject(transitfeed.StopTime(self.problems, stop2,
+                                                arrival_secs=20,
+                                                departure_secs=20),
+                           schedule=schedule, problems=self.problems)
     # TODO: Factor out checks or use mock problems object
     self.ExpectOtherProblemInClosure(lambda:
       trip.AddStopTimeObject(transitfeed.StopTime(self.problems, stop1,
                                                   arrival_secs=15,
                                                   departure_secs=15),
-                             problems=self.problems))
-    trip.AddStopTimeObject(transitfeed.StopTime(self.problems, stop1), problems=self.problems)
+                             schedule=schedule, problems=self.problems))
+    trip.AddStopTimeObject(transitfeed.StopTime(self.problems, stop1),
+                           schedule=schedule, problems=self.problems)
     self.ExpectOtherProblemInClosure(lambda:
         trip.AddStopTimeObject(transitfeed.StopTime(self.problems, stop1,
                                                     arrival_secs=15,
                                                     departure_secs=15),
-                               self.problems))
-    trip.AddStopTimeObject(transitfeed.StopTime(self.problems, stop1, arrival_secs=30, departure_secs=30), problems=self.problems)
+                               schedule=schedule, problems=self.problems))
+    trip.AddStopTimeObject(transitfeed.StopTime(self.problems, stop1,
+                                                arrival_secs=30,
+                                                departure_secs=30),
+                           schedule=schedule, problems=self.problems)
     self.problems.AssertNoMoreExceptions()
 
 
@@ -1340,12 +1351,8 @@ class TripStopTimeAccessorsTestCase(unittest.TestCase):
 
 class BasicParsingTestCase(unittest.TestCase):
   """Checks that we're getting the number of child objects that we expect."""
-  def runTest(self):
-    loader = transitfeed.Loader(
-      DataPath('good_feed.zip'),
-      problems = ExceptionProblemReporterNoExpiration(),
-      extra_validation = True)
-    schedule = loader.Load()
+  def assertLoadedCorrectly(self, schedule):
+    """Check that the good_feed looks correct"""
     self.assertEqual(1, len(schedule._agencies))
     self.assertEqual(5, len(schedule.routes))
     self.assertEqual(2, len(schedule.service_periods))
@@ -1355,6 +1362,24 @@ class BasicParsingTestCase(unittest.TestCase):
     self.assertEqual('to airport', schedule.GetTrip('STBA').GetStopTimes()[0].stop_headsign)
     self.assertEqual(2, schedule.GetTrip('CITY1').GetStopTimes()[1].pickup_type)
     self.assertEqual(3, schedule.GetTrip('CITY1').GetStopTimes()[1].drop_off_type)
+
+  def test_MemoryDb(self):
+    loader = transitfeed.Loader(
+      DataPath('good_feed.zip'),
+      problems=ExceptionProblemReporterNoExpiration(),
+      extra_validation=True,
+      memory_db=True)
+    schedule = loader.Load()
+    self.assertLoadedCorrectly(schedule)
+
+  def test_TemporaryFile(self):
+    loader = transitfeed.Loader(
+      DataPath('good_feed.zip'),
+      problems=ExceptionProblemReporterNoExpiration(),
+      extra_validation=True,
+      memory_db=False)
+    schedule = loader.Load()
+    self.assertLoadedCorrectly(schedule)
 
 
 class RepeatedRouteNameTestCase(LoadTestCase):
@@ -1403,16 +1428,21 @@ class OnlyCalendarDatesTestCase(unittest.TestCase):
 
 class AddStopTimeParametersTestCase(unittest.TestCase):
   def runTest(self):
-    stop = transitfeed.Stop()
-    trip = transitfeed.Trip()
+    problem_reporter = TestFailureProblemReporter(self)
+    schedule = transitfeed.Schedule(problem_reporter=problem_reporter)
+    stop = schedule.AddStop(40, -128, "My stop")
+    # Stop must be added to schedule so that the call
+    # AddStopTime -> AddStopTimeObject -> GetStopTimes -> GetStop can work
+    trip = transitfeed.Trip(schedule=schedule)
     trip.route_id = "SAMPLE_ID"
     trip.service_id = "WEEK"
     trip.trip_id = "SAMPLE_TRIP"
 
-    trip.AddStopTime(stop)
+    # First stop must have time
     trip.AddStopTime(stop, arrival_secs=300, departure_secs=360)
+    trip.AddStopTime(stop)
     trip.AddStopTime(stop, arrival_time="00:07:00", departure_time="00:07:30")
-    trip.Validate(TestFailureProblemReporter(self))
+    trip.Validate(problem_reporter)
 
 
 class ExpirationDateTestCase(unittest.TestCase):
@@ -1780,7 +1810,7 @@ class MinimalUtf8Builder(TempFileTestCaseBase):
     stop2 = schedule.AddStop(lng=140.001, lat=48.201, name=u"remote \u020b station")
     route = schedule.AddRoute(u"\u03b2", "Beta", "Bus")
     trip = route.AddTrip(schedule, u"to remote \u020b station")
-    trip.AddStopTime(stop1, stop_time='10:00:00')
+    trip.AddStopTime(stop1, schedule=schedule, stop_time='10:00:00')
     trip.AddStopTime(stop2, stop_time='10:10:00')
 
     schedule.Validate(problems)
@@ -2288,15 +2318,15 @@ class GetTripTimeTestCase(unittest.TestCase):
     self.route1 = schedule.AddRoute("1", "One", "Bus")
 
     self.trip1 = self.route1.AddTrip(schedule, "trip 1", trip_id='trip1')
-    self.trip1.AddStopTime(self.stop1, departure_secs=100, arrival_secs=100)
-    self.trip1.AddStopTime(self.stop2)
-    self.trip1.AddStopTime(self.stop3)
-    self.trip1.AddStopTime(self.stop4, departure_secs=400, arrival_secs=400)
+    self.trip1.AddStopTime(self.stop1, schedule=schedule, departure_secs=100, arrival_secs=100)
+    self.trip1.AddStopTime(self.stop2, schedule=schedule)
+    self.trip1.AddStopTime(self.stop3, schedule=schedule)
+    self.trip1.AddStopTime(self.stop4, schedule=schedule, departure_secs=400, arrival_secs=400)
 
     self.trip2 = self.route1.AddTrip(schedule, "trip 2", trip_id='trip2')
-    self.trip2.AddStopTime(self.stop2, departure_secs=500, arrival_secs=500)
-    self.trip2.AddStopTime(self.stop3, departure_secs=600, arrival_secs=600)
-    self.trip2.AddStopTime(self.stop4, departure_secs=700, arrival_secs=700)
+    self.trip2.AddStopTime(self.stop2, schedule=schedule, departure_secs=500, arrival_secs=500)
+    self.trip2.AddStopTime(self.stop3, schedule=schedule, departure_secs=600, arrival_secs=600)
+    self.trip2.AddStopTime(self.stop4, schedule=schedule, departure_secs=700, arrival_secs=700)
 
     self.trip3 = self.route1.AddTrip(schedule, "trip 3", trip_id='trip3')
 
@@ -2313,7 +2343,7 @@ class GetTripTimeTestCase(unittest.TestCase):
   def testGetStopTimeTrips(self):
     stop1 = self.schedule.GetNearestStops(lon=140.03, lat=0)[0]
     self.assertEqual("140.03,0", stop1.stop_name)  # Got stop3?
-    rv = stop1.GetStopTimeTrips()
+    rv = stop1.GetStopTimeTrips(self.schedule)
     self.assertEqual(2, len(rv))
     (secs, trip_index, istimepoints) = tuple(zip(*rv))
     self.assertEqual((300, 600), secs)
@@ -2322,15 +2352,15 @@ class GetTripTimeTestCase(unittest.TestCase):
     self.assertEqual((False, True), istimepoints)
 
   def testGetTrips(self):
-    self.assertEqual(set([t.trip_id for t in self.stop1.GetTrips()]),
+    self.assertEqual(set([t.trip_id for t in self.stop1.GetTrips(self.schedule)]),
                      set([self.trip1.trip_id]))
-    self.assertEqual(set([t.trip_id for t in self.stop2.GetTrips()]),
+    self.assertEqual(set([t.trip_id for t in self.stop2.GetTrips(self.schedule)]),
                      set([self.trip1.trip_id, self.trip2.trip_id]))
-    self.assertEqual(set([t.trip_id for t in self.stop3.GetTrips()]),
+    self.assertEqual(set([t.trip_id for t in self.stop3.GetTrips(self.schedule)]),
                      set([self.trip1.trip_id, self.trip2.trip_id]))
-    self.assertEqual(set([t.trip_id for t in self.stop4.GetTrips()]),
+    self.assertEqual(set([t.trip_id for t in self.stop4.GetTrips(self.schedule)]),
                      set([self.trip1.trip_id, self.trip2.trip_id]))
-    self.assertEqual(set([t.trip_id for t in self.stop5.GetTrips()]),
+    self.assertEqual(set([t.trip_id for t in self.stop5.GetTrips(self.schedule)]),
                      set())
 
 
