@@ -136,21 +136,30 @@ def WriteOutput(title, locations, limit, f):
 <body>
 Random queries for %(title)s<p>
 This list of random queries should speed up important manual testing. Here are
-some things to sanity check when looking at the results of a query.
+some things to check when looking at the results of a query.
+<ul>
+  <li> Check the agency attribution under the trip results:
   <ul>
-  <li> The total time of the trip
-  <li> The time for each leg. Bad data frequently results in a leg going a long
-  way in a few minutes.
-  <li> Are the icons and mode names (Tram, Bus, etc) correct for each leg?
-  <li> Are the route names and headsigns correctly formatted and not redundant?
-  For a good example see <a
-  href="http://code.google.com/transit/spec/transit_feed_specification.html#transitScreenshots">the
-  bottom of the Google Transit Feed Specification</a>.
-  <li> The shape line on the map looks correct. No jumps to far away
-  locations and no unnecassary loops
-  <li> Is the route active on the day the trip planner returns?
-  <li> Is the agency attribution at the bottom correct?
+    <li> has correct name and spelling of the agency
+    <li> opens a page with general information about the service
   </ul>
+  <li> For each alternate trip check that each of these is reasonable:
+  <ul>
+    <li> the total time of the trip
+    <li> the time for each leg. Bad data frequently results in a leg going a long
+    way in a few minutes.
+    <li> the icons and mode names (Tram, Bus, etc) are correct for each leg
+    <li> the route names and headsigns are correctly formatted and not
+    redundant.
+    For a good example see <a
+    href="http://code.google.com/transit/spec/transit_feed_specification.html#transitScreenshots">the
+    screenshots in the Google Transit Feed Specification</a>.
+    <li> the shape line on the map looks correct. Make sure the polyline does
+    not zig-zag, loop, skip stops or jump far away unless the trip does the
+    same thing.
+    <li> the route is active on the day the trip planner returns
+  </ul>
+</ul>
 If you find a problem be sure to save the URL. This file is generated randomly.
 <ol>
 """ % locals()
