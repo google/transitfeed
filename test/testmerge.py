@@ -36,6 +36,10 @@ def CheckAttribs(a, b, attrs, assertEquals):
     attrs: The list of attribute names (strings).
     assertEquals: The assertEquals method from unittest.TestCase.
   """
+  # For Stop objects (and maybe others in the future) Validate converts some
+  # attributes from string to native type
+  a.Validate()
+  b.Validate()
   for k in attrs:
     assertEquals(getattr(a, k), getattr(b, k))
 
@@ -245,12 +249,6 @@ class TestSchemedMerge(unittest.TestCase):
 
     self.assertRaises(merge.MergeError, self.ds._SchemedMerge,
                       scheme, a, b)
-
-  def testSchemedMerge_BadAttribute(self):
-    scheme = {'q': self.ds._MergeIdentical}
-    a = self.TestEntity(1, 2, 3)
-    b = self.TestEntity(4, 5, 6)
-    self.assertRaises(AttributeError, self.ds._SchemedMerge, scheme, a, b)
 
   def testSchemedMerge_NoNewId(self):
     class TestDataSetMerger(merge.DataSetMerger):
@@ -719,7 +717,7 @@ class TestStopMerger(unittest.TestCase):
     # other stops too
     self.s2.stop_id = self.s1.stop_id
     self.s2.stop_name = self.s1.stop_name
-    s3 = transitfeed.Stop(field_list=self.s1.GetFieldValuesTuple())
+    s3 = transitfeed.Stop(field_dict=self.s1)
     s3.stop_id = 'different'
 
     self.fm.a_schedule.AddStopObject(self.s1)

@@ -391,7 +391,7 @@ def ColorLuminance(color):
 
 
 def IsEmpty(value):
-  return not value or (isinstance(value, basestring) and not value.strip())
+  return value is None or (isinstance(value, basestring) and not value.strip())
 
 
 def FindUniqueId(dic):
@@ -436,39 +436,50 @@ def ApproximateDistanceBetweenStops(stop1, stop2):
       math.sqrt(max(0.0, 1.0 - x))))
 
 class Stop(object):
-  """Represents a single stop. A stop must have a latitude, longitude and name."""
+  """Represents a single stop. A stop must have a latitude, longitude and name.
+
+  Callers may assign arbitrary values to instance attributes.
+  Stop.ParseAttributes validates attributes according to GTFS and converts some
+  into native types. ParseAttributes may delete invalid attributes.
+  Accessing an attribute that is a column in GTFS will return None if this
+  object does not have a value or it is ''.
+  A Stop object acts like a dict with string values.
+
+  Attributes:
+    stop_lat: a float representing the latitude of the stop
+    stop_lon: a float representing the longitude of the stop
+    All other attributes are strings.
+  """
   _REQUIRED_FIELD_NAMES = ['stop_id', 'stop_name', 'stop_lat', 'stop_lon']
   _FIELD_NAMES = _REQUIRED_FIELD_NAMES + \
                  ['stop_desc', 'zone_id', 'stop_url', 'stop_code']
 
   def __init__(self, lat=None, lng=None, name=None, stop_id=None,
-               field_list=None, stop_code=None):
-    self.stop_desc = ''
-    self.zone_id = ''
-    self.stop_url = ''
-    self.stop_code = ''
-    if field_list:
-      (stop_id, name, lat, lng, self.stop_desc, self.zone_id, self.stop_url,
-       stop_code) = field_list
-    try:
-      self.stop_lat = float(lat)
-    except (ValueError, TypeError):
-      self.stop_lat = 0
-    try:
-      self.stop_lon = float(lng)
-    except (ValueError, TypeError):
-      self.stop_lon = 0
-    if name:
-      self.stop_name = name
-    else:
-      self.stop_name = ''
-    if self.stop_desc is None:
-      self.stop_desc = ''
-    self.stop_id = stop_id
-    self.stop_code = stop_code
+               field_dict=None, stop_code=None):
+    """Initialize a new Stop object.
 
-  def GetFieldValuesTuple(self):
-    return [getattr(self, fn) for fn in Stop._FIELD_NAMES]
+    Args:
+      field_dict: A dictionary mapping attribute name to unicode string
+      lat: a float, ignored when field_dict is present
+      lng: a float, ignored when field_dict is present
+      name: a string, ignored when field_dict is present
+      stop_id: a string, ignored when field_dict is present
+      stop_code: a string, ignored when field_dict is present
+    """
+    self._schedule = None
+    if field_dict:
+      self.__dict__.update(field_dict)
+    else:
+      if lat is not None:
+        self.stop_lat = lat
+      if lng is not None:
+        self.stop_lon = lng
+      if name is not None:
+        self.stop_name = name
+      if stop_id is not None:
+        self.stop_id = stop_id
+      if stop_code is not None:
+        self.stop_code = stop_code
 
   def GetTrips(self, schedule=None):
     """Return iterable containing trips that visit this stop."""
@@ -496,44 +507,127 @@ class Stop(object):
                     (trip.trip_id, self.stop_id))
     return time_trips
 
+  def ParseAttributes(self, problems):
+    """Parse all attributes, calling problems as needed."""
+    # Need to use items() instead of iteritems() because _CheckAndSetAttr may
+    # modify self.__dict__
+    for name, value in vars(self).items():
+      if name[0] == "_":
+        continue
+      self._CheckAndSetAttr(name, value, problems)
+
+  def _CheckAndSetAttr(self, name, value, problems):
+    """If value is valid for attribute name store it.
+
+    If value is not valid call problems. Return a new value of the correct type
+    or None if value couldn't be converted.
+    """
+    if name == 'stop_lat':
+      try:
+        # TODO: http://code.google.com/p/googletransitdatafeed/issues/detail?id=75
+        # validate stop_latitude and lng are in format -?[1-9]\d+\.\d+
+        self.stop_lat = float(value)
+      except (ValueError, TypeError):
+        problems.InvalidValue('stop_lat', value)
+        del self.stop_lat
+      else:
+        if self.stop_lat > 90 or self.stop_lat < -90:
+          problems.InvalidValue('stop_lat', value)
+    elif name == 'stop_lon':
+      try:
+        self.stop_lon = float(value)
+      except (ValueError, TypeError):
+        problems.InvalidValue('stop_lon', value)
+        del self.stop_lon
+      else:
+        if self.stop_lon > 180 or self.stop_lon < -180:
+          problems.InvalidValue('stop_lon', value)
+    elif name == 'stop_url':
+      if value and not IsValidURL(value):
+        problems.InvalidValue('stop_url', value)
+        del self.stop_url
+
   def __getitem__(self, name):
-    return getattr(self, name)
+    """Return a unicode or str representation of name or "" if not set."""
+    if name in self.__dict__ and self.__dict__[name] is not None:
+      return "%s" % self.__dict__[name]
+    else:
+      return ""
+
+  def __getattr__(self, name):
+    """Return None or the default value if name is a known attribute.
+
+    This method is only called when name is not found in __dict__.
+    """
+    if name in Stop._FIELD_NAMES:
+      return None
+    else:
+      raise AttributeError(name)
+
+  def __setattr__(self, name, value):
+    """Set an attribute, adding to schedule stop table as needed."""
+    object.__setattr__(self, name, value)
+    if name[0] != '_' and self._schedule:
+      self._schedule.AddTableColumn('stops', name)
+
+  def iteritems(self):
+    """Return a iterable for (name, value) pairs of public attributes."""
+    for name, value in self.__dict__.iteritems():
+      if name[0] == "_":
+        continue
+      yield name, value
 
   def __eq__(self, other):
+    """Return True if two Stops are identical."""
     if not other:
       return False
 
-    if id(self) == id(other):
+    if self is other:
       return True
 
-    return self.GetFieldValuesTuple() == other.GetFieldValuesTuple()
+    for name in self._ColumnNames().union(other._ColumnNames()):
+      if self[name] != other[name]:
+        return False
+    return True
+
+  def _ColumnNames(self):
+    return self.keys()
+
+  def keys(self):
+    """Return iterable of columns used by this object."""
+    columns = set()
+    for name in vars(self):
+      if name[0] == "_":
+        continue
+      columns.add(name)
+    return columns
 
   def __ne__(self, other):
     return not self.__eq__(other)
 
   def __repr__(self):
-    dictionary = {}
-    for field in Stop._FIELD_NAMES:
-      dictionary[field] = getattr(self, field)
-    return unicode(dictionary)
+    return unicode(self.__dict__)
 
   def Validate(self, problems=default_problem_reporter):
-    if IsEmpty(self.stop_id):
-      problems.MissingValue('stop_id')
-    if IsEmpty(self.stop_name):
-      problems.MissingValue('stop_name')
-    if abs(self.stop_lat) > 90.0:
-      problems.InvalidValue('stop_lat', self.stop_lat)
-    if abs(self.stop_lon) > 180.0:
-      problems.InvalidValue('stop_lon', self.stop_lon)
-    if (abs(self.stop_lat) < 1.0) and (abs(self.stop_lon) < 1.0):
+    # First check that all required fields are present because ParseAttributes
+    # may remove invalid attributes.
+    for required in Stop._REQUIRED_FIELD_NAMES:
+      if IsEmpty(getattr(self, required, None)):
+        # TODO: For now I'm keeping the API stable but it would be cleaner to
+        # treat whitespace stop_id as invalid, instead of missing
+        problems.MissingValue(required)
+
+    # Check individual values and convert to native types
+    self.ParseAttributes(problems)
+
+    # Check that this object is consistent with itself
+    if (self.stop_lat is not None and self.stop_lon is not None and
+        abs(self.stop_lat) < 1.0) and (abs(self.stop_lon) < 1.0):
       problems.InvalidValue('stop_lat', self.stop_lat,
                             'Stop location too close to 0, 0',
                             type=TYPE_WARNING)
-    if (hasattr(self, 'stop_url') and self.stop_url and
-        not IsValidURL(self.stop_url)):
-      problems.InvalidValue('stop_url', self.stop_url)
-    if (hasattr(self, 'stop_desc') and hasattr(self, 'stop_name') and
+    if (self.stop_desc is not None and self.stop_name is not None and
+        self.stop_desc and self.stop_name and
         not IsEmpty(self.stop_desc) and
         self.stop_name.strip().lower() == self.stop_desc.strip().lower()):
       problems.InvalidValue('stop_desc', self.stop_desc,
@@ -1909,6 +2003,9 @@ class Schedule:
 
   def __init__(self, problem_reporter=default_problem_reporter,
                memory_db=True):
+    # Map from table name to list of columns present in this schedule
+    self._table_columns = {}
+
     self._agencies = {}
     self.stops = {}
     self.routes = {}
@@ -1921,6 +2018,15 @@ class Schedule:
     self._default_agency = None
     self.problem_reporter = problem_reporter
     self.ConnectDb(memory_db)
+
+  def AddTableColumn(self, table, column):
+    """Add column to table if it is not already there."""
+    if column not in self._table_columns[table]:
+      self._table_columns[table].append(column)
+
+  def GetTableColumns(self, table):
+    """Return list of columns in a table."""
+    return self._table_columns[table]
 
   def __del__(self):
     if hasattr(self, '_temp_db_filename'):
@@ -2095,6 +2201,13 @@ class Schedule:
     return stop
 
   def AddStopObject(self, stop):
+    assert stop._schedule is None
+    assert stop.stop_id
+    table_columns = self._table_columns.setdefault('stops', [])
+    stop._schedule = weakref.proxy(self)
+    for attr in stop._ColumnNames():
+      if attr not in table_columns:
+        table_columns.append(attr)
     self.stops[stop.stop_id] = stop
     if hasattr(stop, 'zone_id') and stop.zone_id:
       self.fare_zones[stop.zone_id] = True
@@ -2324,8 +2437,10 @@ class Schedule:
 
     stop_string = StringIO.StringIO()
     writer = CsvUnicodeWriter(stop_string)
-    writer.writerow(Stop._FIELD_NAMES)
-    writer.writerows(s.GetFieldValuesTuple() for s in self.stops.values())
+    columns = self.GetTableColumns('stops')
+    writer.writerow(columns)
+    for s in self.stops.values():
+      writer.writerow([EncodeUnicode(s[c]) for c in columns])
     archive.writestr('stops.txt', stop_string.getvalue())
 
     route_string = StringIO.StringIO()
@@ -2650,11 +2765,8 @@ class Loader:
 
     return True
 
-  # TODO: Add testing for this specific function
-  def _ReadCSV(self, file_name, cols, required):
-    """Reads lines from file_name, yielding a list of unicode values
-    corresponding to the column names in cols."""
-
+  def _GetUtf8Contents(self, file_name):
+    """Check for errors in file_name and return a string for csv reader."""
     contents = self._FileContents(file_name)
     if not contents:  # Missing file
       return
@@ -2680,6 +2792,81 @@ class Loader:
     # strip out any UTF-8 Byte Order Marker (otherwise it'll be
     # treated as part of the first column name, causing a mis-parse)
     contents = contents.lstrip(codecs.BOM_UTF8)
+    return contents
+
+  # TODO: Add testing for this specific function
+  def _ReadCsvDict(self, file_name, all_cols, required):
+    """Reads lines from file_name, yielding a dict of unicode values."""
+    assert file_name.endswith(".txt")
+    table_name = file_name[0:-4]
+    contents = self._GetUtf8Contents(file_name)
+    if not contents:
+      return
+
+    eol_checker = EndOfLineChecker(StringIO.StringIO(contents),
+                                   file_name, self._problems)
+    reader = csv.reader(eol_checker)  # Use excel dialect
+
+    header = reader.next()
+
+    self._schedule._table_columns[table_name] = header
+
+    # check for unrecognized columns, which are often misspellings
+    unknown_cols = set(header) - set(all_cols)
+    for col in unknown_cols:
+      # this is provided in order to create a nice colored list of
+      # columns in the validator output
+      context = (file_name, 1, [''] * len(header), header)
+      self._problems.UnrecognizedColumn(file_name, col, context)
+
+    missing_cols = set(required) - set(header)
+    for col in missing_cols:
+      # this is provided in order to create a nice colored list of
+      # columns in the validator output
+      context = (file_name, 1, [''] * len(header), header)
+      self._problems.MissingColumn(file_name, col, context)
+
+    for row in reader:
+      if len(row) == 0:  # skip extra empty lines in file
+        continue
+
+      if len(row) > len(header):
+        self._problems.OtherProblem('Found too many cells (commas) in line '
+                                    '%d of file "%s".  Every row in the file '
+                                    'should have the same number of cells as '
+                                    'the header (first line) does.' %
+                                    (reader.line_num, file_name),
+                                    (file_name, reader.line_num),
+                                    type=TYPE_WARNING)
+
+      if len(row) < len(header):
+        self._problems.OtherProblem('Found missing cells (commas) in line '
+                                    '%d of file "%s".  Every row in the file '
+                                    'should have the same number of cells as '
+                                    'the header (first line) does.' %
+                                    (reader.line_num, file_name),
+                                    (file_name, reader.line_num),
+                                    type=TYPE_WARNING)
+
+      for i in xrange(len(row)):
+        try:
+          row[i] = row[i].decode('utf-8')
+        except UnicodeDecodeError:
+          self._problems.InvalidValue(header[i], row[i],
+                                      'Unicode error',
+                                      (file_name, reader.line_num,
+                                       row, header))
+
+      d = dict(zip(header, row))
+      yield (d, reader.line_num, header, row)
+
+  # TODO: Add testing for this specific function
+  def _ReadCSV(self, file_name, cols, required):
+    """Reads lines from file_name, yielding a list of unicode values
+    corresponding to the column names in cols."""
+    contents = self._GetUtf8Contents(file_name)
+    if not contents:
+      return
 
     eol_checker = EndOfLineChecker(StringIO.StringIO(contents),
                                    file_name, self._problems)
@@ -2779,12 +2966,13 @@ class Loader:
       self._problems.ClearContext()
 
   def _LoadStops(self):
-    for (row, row_num, cols) in self._ReadCSV('stops.txt',
-                                              Stop._FIELD_NAMES,
-                                              Stop._REQUIRED_FIELD_NAMES):
-      self._problems.SetFileContext('stops.txt', row_num, row, cols)
+    for (d, row_num, header, row) in self._ReadCsvDict(
+                                         'stops.txt',
+                                         Stop._FIELD_NAMES,
+                                         Stop._REQUIRED_FIELD_NAMES):
+      self._problems.SetFileContext('stops.txt', row_num, row, header)
 
-      stop = Stop(field_list=row)
+      stop = Stop(field_dict=d)
       stop.Validate(self._problems)
 
       if stop.stop_id in self._schedule.stops:

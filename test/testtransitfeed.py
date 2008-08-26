@@ -22,6 +22,7 @@ import re
 import sys
 import tempfile
 import time
+import traceback
 import transitfeed
 import unittest
 from StringIO import StringIO
@@ -77,16 +78,22 @@ class RecordingProblemReporter(transitfeed.ProblemReporterBase):
   def _Report(self, e):
     if e.__class__.__name__ in self._ignore_types:
       return
-    self.exceptions.append(e)
+    # Keep the 7 nearest stack frames. This should be enough to identify
+    # the code path that created the exception while trimming off most of the
+    # large test framework's stack.
+    traceback_list = traceback.format_list(traceback.extract_stack()[-7:-1])
+    self.exceptions.append((e, ''.join(traceback_list)))
 
   def PopException(self, type_name):
     """Return the first exception, which must be a type_name."""
     e = self.exceptions.pop(0)
-    self._test_case.assertEqual(e.__class__.__name__, type_name)
-    return e
+    self._test_case.assertEqual(e[0].__class__.__name__, type_name)
+    return e[0]
 
   def AssertNoMoreExceptions(self):
-    self._test_case.assertFalse(self.exceptions, self.exceptions)
+    self._test_case.assertFalse(
+        self.exceptions,
+        "\n".join("%s at\n%s" % x for x in self.exceptions))
 
 
 class UnrecognizedColumnRecorder(transitfeed.ProblemReporter):
@@ -699,8 +706,16 @@ class StopValidationTestCase(ValidationTestCase):
     stop.stop_url = 'http://example.com'
     stop.Validate(self.problems)
 
-    # latitute too large
+    # latitude too large
     stop.stop_lat = 100.0
+    self.ExpectInvalidValue(stop, 'stop_lat')
+    stop.stop_lat = 50.0
+
+    # latitude as a string works when it is valid
+    stop.stop_lat = '50.0'
+    stop.Validate(self.problems)
+    self.problems.AssertNoMoreExceptions()
+    stop.stop_lat = '10f'
     self.ExpectInvalidValue(stop, 'stop_lat')
     stop.stop_lat = 50.0
 
@@ -734,6 +749,66 @@ class StopValidationTestCase(ValidationTestCase):
     self.ExpectInvalidValue(stop, 'stop_desc')
     stop.stop_desc = 'Edge of the Couch'
     self.problems.AssertNoMoreExceptions()
+
+
+class StopAttributes(ValidationTestCase):
+  def testWithoutSchedule(self):
+    stop = transitfeed.Stop()
+    stop.Validate(self.problems)
+    for name in "stop_id stop_name stop_lat stop_lon".split():
+      e = self.problems.PopException('MissingValue')
+      self.assertEquals(name, e.column_name)
+    self.problems.AssertNoMoreExceptions()
+    
+    stop = transitfeed.Stop()
+    # Test behaviour for unset and unknown attribute
+    self.assertEquals(stop['new_column'], '')
+    try:
+      t = stop.new_column
+      self.fail('Expecting AttributeError')
+    except AttributeError, e:
+      pass  # Expected
+    stop.stop_id = 'a'
+    stop.stop_name = 'my stop'
+    stop.new_column = 'val'
+    stop.stop_lat = 5.909
+    stop.stop_lon = '40.02'
+    self.assertEquals(stop.new_column, 'val')
+    self.assertEquals(stop['new_column'], 'val')
+    self.assertTrue(isinstance(stop['stop_lat'], basestring))
+    self.assertAlmostEqual(float(stop['stop_lat']), 5.909)
+    self.assertTrue(isinstance(stop['stop_lon'], basestring))
+    self.assertAlmostEqual(float(stop['stop_lon']), 40.02)
+    stop.Validate(self.problems)
+    self.problems.AssertNoMoreExceptions()
+    # After validation stop.stop_lon has been converted to a float
+    self.assertAlmostEqual(stop.stop_lat, 5.909)
+    self.assertAlmostEqual(stop.stop_lon, 40.02)
+    self.assertEquals(stop.new_column, 'val')
+    self.assertEquals(stop['new_column'], 'val')
+
+  def testWithSchedule(self):
+    schedule = transitfeed.Schedule()
+
+    stop = transitfeed.Stop(field_dict={})
+    try:
+      schedule.AddStopObject(stop)
+      self.fail("Expecting AssertionError for stop_id")
+    except AssertionError:
+      pass  # Expected
+    self.assertFalse(stop._schedule)
+
+    # Okay to add a stop with only stop_id
+    stop = transitfeed.Stop(field_dict={"stop_id": "b"})
+    schedule.AddStopObject(stop)
+    stop.Validate(self.problems)
+    for name in "stop_name stop_lat stop_lon".split():
+      e = self.problems.PopException("MissingValue")
+      self.assertEquals(name, e.column_name)
+    self.problems.AssertNoMoreExceptions()
+
+    stop.new_column = "val"
+    self.assertTrue("new_column" in schedule.GetTableColumns("stops"))
 
 
 class StopTimeValidationTestCase(ValidationTestCase):
@@ -1886,7 +1961,7 @@ class WriteSampleFeedTestCase(TempFileTestCaseBase):
     self.assertTrue(False, "a=%s b=%s" % (a, b))
 
   def runTest(self):
-    problems = TestFailureProblemReporter(self)
+    problems = RecordingProblemReporter(self, ignore_types=("ExpirationDate",))
     schedule = transitfeed.Schedule(problem_reporter=problems)
     agency = transitfeed.Agency()
     agency.agency_id = "DTA"
@@ -1967,6 +2042,7 @@ class WriteSampleFeedTestCase(TempFileTestCaseBase):
           stop.zone_id, stop.stop_code) = stop_entry
       schedule.AddStopObject(stop)
       stops.append(stop)
+    schedule.GetStop("BULLFROG").stop_sound = "croak!"
 
     trip_data = [
         ("AB", "FULLW", "AB1", "to Bullfrog", "0", "1", None),
@@ -2091,6 +2167,9 @@ class WriteSampleFeedTestCase(TempFileTestCaseBase):
     read_schedule = \
         transitfeed.Loader(self.tempfilepath, problems=problems,
                            extra_validation=True).Load()
+    e = problems.PopException("UnrecognizedColumn")
+    self.assertEqual(e.column_name, "stop_sound")
+    problems.AssertNoMoreExceptions()
 
     self.assertEqual(1, len(read_schedule.GetAgencyList()))
     self.assertEqual(agency, read_schedule.GetAgency(agency.agency_id))
@@ -2108,6 +2187,7 @@ class WriteSampleFeedTestCase(TempFileTestCaseBase):
     self.assertEqual(len(stops), len(read_schedule.GetStopList()))
     for stop in stops:
       self.assertEqual(stop, read_schedule.GetStop(stop.stop_id))
+    self.assertEqual("croak!", read_schedule.GetStop("BULLFROG").stop_sound)
 
     self.assertEqual(len(trips), len(read_schedule.GetTripList()))
     for trip in trips:

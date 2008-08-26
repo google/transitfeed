@@ -469,14 +469,15 @@ class DataSetMerger(object):
     """
     migrated = self._Migrate(b, self.feed_merger.b_schedule, False)
     for attr, merger in scheme.items():
-      a_attr = getattr(a, attr)
-      b_attr = getattr(b, attr)
+      a_attr = getattr(a, attr, None)
+      b_attr = getattr(b, attr, None)
       try:
         merged_attr = merger(a_attr, b_attr)
       except MergeError, merge_error:
         raise MergeError("Attribute '%s' could not be merged: %s." % (
             attr, merge_error))
-      setattr(migrated, attr, merged_attr)
+      if migrated is not None:
+        setattr(migrated, attr, merged_attr)
     return migrated
 
   def _MergeSameId(self):
@@ -883,7 +884,7 @@ class StopMerger(DataSetMerger):
     return self._SchemedMerge(scheme, a, b)
 
   def _Migrate(self, entity, schedule, newid):
-    migrated_stop = transitfeed.Stop(field_list=entity.GetFieldValuesTuple())
+    migrated_stop = transitfeed.Stop(field_dict=entity)
     if newid:
       migrated_stop.stop_id = self.feed_merger.GenerateId(entity.stop_id)
     return migrated_stop
