@@ -871,6 +871,7 @@ class StopTime(object):
       self.arrival_secs = arrival_secs
     elif arrival_time in (None, ""):
       self.arrival_secs = None  # Untimed
+      arrival_time = None
     else:
       try:
         self.arrival_secs = TimeToSecondsSinceMidnight(arrival_time)
@@ -882,6 +883,7 @@ class StopTime(object):
       self.departure_secs = departure_secs
     elif departure_time in (None, ""):
       self.departure_secs = None
+      departure_time = None
     else:
       try:
         self.departure_secs = TimeToSecondsSinceMidnight(departure_time)

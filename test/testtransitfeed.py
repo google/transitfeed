@@ -561,6 +561,16 @@ class DuplicateStopSequenceTestCase(unittest.TestCase):
     problems.AssertNoMoreExceptions()
 
 
+class DuplicateStopSequenceTestCase(unittest.TestCase):
+  def runTest(self):
+    problems = RecordingProblemReporter(self, ("ExpirationDate",))
+    schedule = transitfeed.Schedule(problem_reporter=problems)
+    schedule.Load(DataPath('missing_departure_time'), extra_validation=True)
+    e = problems.PopException('MissingValue')
+    self.assertEqual('depature_time', e.column_name)
+    problems.AssertNoMoreExceptions()
+
+
 class MissingEndpointTimesTestCase(unittest.TestCase):
   def runTest(self):
     schedule = transitfeed.Schedule(
@@ -850,9 +860,17 @@ class StopTimeValidationTestCase(ValidationTestCase):
     self.ExpectMissingValueInClosure('arrival_time',
         lambda: transitfeed.StopTime(self.problems, stop,
                                      departure_time="10:00:00"))
+    self.ExpectMissingValueInClosure('arrival_time',
+        lambda: transitfeed.StopTime(self.problems, stop,
+                                     departure_time="10:00:00",
+                                     arrival_time=""))
     self.ExpectMissingValueInClosure('departure_time',
         lambda: transitfeed.StopTime(self.problems, stop,
                                      arrival_time="10:00:00"))
+    self.ExpectMissingValueInClosure('departure_time',
+        lambda: transitfeed.StopTime(self.problems, stop,
+                                     arrival_time="10:00:00",
+                                     departure_time=""))
     # The following should work
     transitfeed.StopTime(self.problems, stop, arrival_time="10:00:00",
         departure_time="10:05:00", pickup_type='1', drop_off_type='1')
