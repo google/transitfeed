@@ -45,6 +45,7 @@ import bisect
 import cStringIO as StringIO
 import codecs
 import csv
+import datetime
 import logging
 import math
 import os
@@ -1887,6 +1888,30 @@ class ServicePeriod(object):
     """Set the service_id for this schedule. Generally the default will
     suffice so you won't need to call this method."""
     self.service_id = service_id
+
+  def IsActiveOn(self, date):
+    """Test if this service period is active on a date.
+
+    Args:
+      date: a datetime.date object or string of form "YYYYMMDD"
+
+    Returns:
+      True iff this service is active on date.
+    """
+    if isinstance(date, basestring):
+      date_obj = datetime.date(int(date[0:4]), int(date[4:6]), int(date[6:8]))
+    else:
+      date_obj = date
+      date = date.strftime("%Y%m%d")
+    if date in self.date_exceptions:
+      if self.date_exceptions[date] == 1:
+        return True
+      else:
+        return False
+    if (self.start_date and self.end_date and self.start_date <= date and
+        date <= self.end_date):
+      return self.day_of_week[date_obj.weekday()]
+    return False
 
   def __getattr__(self, name):
     try:

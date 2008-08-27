@@ -16,6 +16,7 @@
 
 # Unit tests for the transitfeed module.
 
+import datetime
 import dircache
 import os.path
 import re
@@ -1192,8 +1193,8 @@ class ServicePeriodDateRangeTestCase(ValidationTestCase):
     period.service_id = 'WEEKDAY'
     period.start_date = '20070101'
     period.end_date = '20071231'
-    period.day_of_week[0] = True
-    period.SetDateHasService('20071231', False)  # irrelevant for range
+    period.SetWeekdayService(True)
+    period.SetDateHasService('20071231', False)
     period.Validate(self.problems)
     self.assertEqual(('20070101', '20071231'), period.GetDateRange())
 
@@ -1228,6 +1229,56 @@ class ServicePeriodDateRangeTestCase(ValidationTestCase):
     schedule.AddServicePeriodObject(period4)
     self.assertEqual(('20051031', '20080101'), schedule.GetDateRange())
     self.problems.AssertNoMoreExceptions()
+
+
+class ServicePeriodTestCase(unittest.TestCase):
+  def testIsActiveOn(self):
+    period = transitfeed.ServicePeriod()
+    period.service_id = 'WEEKDAY'
+    period.start_date = '20071226'
+    period.end_date = '20071231'
+    period.SetWeekdayService(True)
+    period.SetDateHasService('20071230', True)
+    period.SetDateHasService('20071231', False)
+    period.SetDateHasService('20080102', True)
+    #      December  2007
+    #  Su Mo Tu We Th Fr Sa
+    #  23 24 25 26 27 28 29
+    #  30 31
+
+    # Smoke test with both parameter types
+    self.assertFalse(period.IsActiveOn('20071225'))
+    self.assertFalse(period.IsActiveOn(datetime.date(2007, 12, 25)))
+    self.assertTrue(period.IsActiveOn('20071226'))
+    self.assertTrue(period.IsActiveOn(datetime.date(2007, 12, 26)))
+
+    # calendar_date exceptions within range
+    self.assertTrue(period.IsActiveOn('20071230'))
+    self.assertFalse(period.IsActiveOn('20071231'))
+
+    # date just outside range, both weekday and an exception
+    self.assertFalse(period.IsActiveOn('20080101'))
+    self.assertTrue(period.IsActiveOn('20080102'))
+
+    # Test of period without start_date, end_date
+    period_dates = transitfeed.ServicePeriod()
+    period_dates.SetDateHasService('20071230', True)
+    period_dates.SetDateHasService('20071231', False)
+
+    self.assertFalse(period_dates.IsActiveOn('20071229'))
+    self.assertFalse(period_dates.IsActiveOn(datetime.date(2007, 12, 29)))
+    self.assertTrue(period_dates.IsActiveOn('20071230'))
+    self.assertTrue(period_dates.IsActiveOn(datetime.date(2007, 12, 30)))
+    self.assertFalse(period_dates.IsActiveOn('20071231'))
+    self.assertFalse(period_dates.IsActiveOn(datetime.date(2007, 12, 31)))
+
+    # Test of an invalid feed with just one of start_date, end_date
+    period_no_end = transitfeed.ServicePeriod()
+    period_no_end.start_date = '20071226'
+    self.assertFalse(period_no_end.IsActiveOn('20071231'))
+    period_no_start = transitfeed.ServicePeriod()
+    period_no_start.end_date = '20071230'
+    self.assertFalse(period_no_start.IsActiveOn('20071229'))
 
 
 class TripValidationTestCase(ValidationTestCase):
