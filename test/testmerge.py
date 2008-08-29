@@ -596,6 +596,8 @@ class TestStopMerger(unittest.TestCase):
   def testMerge(self):
     self.s2.stop_id = self.s1.stop_id
     self.s2.stop_name = self.s1.stop_name
+    self.s1.location_type = 1
+    self.s2.location_type = 1
 
     self.fm.a_schedule.AddStopObject(self.s1)
     self.fm.b_schedule.AddStopObject(self.s2)
@@ -610,7 +612,8 @@ class TestStopMerger(unittest.TestCase):
     self.assertEquals(self.sm.GetMergeStats(), (1, 0, 0))
 
     # check that the remaining attributes are taken from the new stop
-    fields = ['stop_name', 'stop_lat', 'stop_lon', 'stop_desc', 'stop_url']
+    fields = ['stop_name', 'stop_lat', 'stop_lon', 'stop_desc', 'stop_url',
+              'location_type']
     CheckAttribs(self.fm.a_merge_map[self.s1], self.s2, fields,
                  self.assertEquals)
 
@@ -729,6 +732,76 @@ class TestStopMerger(unittest.TestCase):
                       self.fm.a_merge_map[s3].zone_id)
     self.assertEquals(self.fm.a_merge_map[s3].zone_id,
                       self.fm.b_merge_map[self.s2].zone_id)
+
+  def testMergeStationType(self):
+    self.s2.stop_id = self.s1.stop_id
+    self.s2.stop_name = self.s1.stop_name
+    self.s1.location_type = 1
+    self.s2.location_type = 1
+    self.fm.a_schedule.AddStopObject(self.s1)
+    self.fm.b_schedule.AddStopObject(self.s2)
+    self.fm.MergeSchedules()
+    merged_stops = self.fm.GetMergedSchedule().GetStopList()
+    self.assertEquals(len(merged_stops), 1)
+    self.assertEquals(merged_stops[0].location_type, 1)
+
+  def testMergeDifferentTypes(self):
+    self.s2.stop_id = self.s1.stop_id
+    self.s2.stop_name = self.s1.stop_name
+    self.s2.location_type = 1
+    self.fm.a_schedule.AddStopObject(self.s1)
+    self.fm.b_schedule.AddStopObject(self.s2)
+    try:
+      self.fm.MergeSchedules()
+      self.fail("Expecting MergeError")
+    except merge.SameIdButNotMerged, merge_error:
+      self.assertTrue(("%s" % merge_error).find("location_type") != -1)
+
+  def AssertS1ParentIsS2(self):
+    """Assert that the merged s1 has parent s2."""
+    new_s1 = self.fm.GetMergedObject(self.s1)
+    new_s2 = self.fm.GetMergedObject(self.s2)
+    self.assertEquals(new_s1.parent_station, new_s2.stop_id)
+    self.assertEquals(new_s2.parent_station, None)
+    self.assertEquals(new_s1.location_type, 0)
+    self.assertEquals(new_s2.location_type, 1)
+
+  def testMergeMaintainParentRelationship(self):
+    self.s2.location_type = 1
+    self.s1.parent_station = self.s2.stop_id
+    self.fm.a_schedule.AddStopObject(self.s1)
+    self.fm.a_schedule.AddStopObject(self.s2)
+    self.fm.MergeSchedules()
+    self.AssertS1ParentIsS2()
+
+  def testParentRelationshipAfterMerge(self):
+    s3 = transitfeed.Stop(field_dict=self.s1)
+    s3.parent_station = self.s2.stop_id
+    self.s2.location_type = 1
+    self.fm.a_schedule.AddStopObject(self.s1)
+    self.fm.b_schedule.AddStopObject(self.s2)
+    self.fm.b_schedule.AddStopObject(s3)
+    self.fm.MergeSchedules()
+    self.AssertS1ParentIsS2()
+
+  def testParentRelationshipWithNewParentid(self):
+    self.s2.location_type = 1
+    self.s1.parent_station = self.s2.stop_id
+    # s3 will have a stop_id conflict with self.s2 so parent_id of the
+    # migrated self.s1 will need to be updated
+    s3 = transitfeed.Stop(field_dict=self.s2)
+    s3.stop_lat = 45
+    self.fm.a_schedule.AddStopObject(s3)
+    self.fm.b_schedule.AddStopObject(self.s1)
+    self.fm.b_schedule.AddStopObject(self.s2)
+    self.fm.problem_reporter.ExpectProblemClass(merge.SameIdButNotMerged)
+    self.fm.MergeSchedules()
+    self.assertNotEquals(self.fm.GetMergedObject(s3).stop_id,
+                         self.fm.GetMergedObject(self.s2).stop_id)
+    # Check that s3 got a new id
+    self.assertNotEquals(self.s2.stop_id,
+                         self.fm.GetMergedObject(self.s2).stop_id)
+    self.AssertS1ParentIsS2()
 
   def _AddStopsApart(self):
     """Adds two stops to the schedules and returns the distance between them.

@@ -880,7 +880,8 @@ class StopMerger(DataSetMerger):
                        (distance, self.largest_stop_distance))
     scheme = {'stop_id': self._MergeIdentical,
               'stop_name': self._MergeIdenticalCaseInsensitive,
-              'zone_id': self._MergeIdentical}
+              'zone_id': self._MergeIdentical,
+              'location_type': self._MergeIdentical}
     return self._SchemedMerge(scheme, a, b)
 
   def _Migrate(self, entity, schedule, newid):
@@ -906,36 +907,61 @@ class StopMerger(DataSetMerger):
 
   def MergeDataSets(self):
     num_merged = self._MergeSameId()
+    fm = self.feed_merger
 
-    # now we do all the zone_id mapping
+    # now we do all the zone_id and parent_station mapping
 
     # the zone_ids for merged stops can be preserved
     for (a, b, merged_stop) in self._merged:
       assert a.zone_id == b.zone_id
-      self.feed_merger.a_zone_map[a.zone_id] = a.zone_id
-      self.feed_merger.b_zone_map[b.zone_id] = b.zone_id
+      fm.a_zone_map[a.zone_id] = a.zone_id
+      fm.b_zone_map[b.zone_id] = b.zone_id
       merged_stop.zone_id = a.zone_id
-      self.feed_merger.merged_schedule.AddStopObject(merged_stop)
+      if merged_stop.parent_station:
+        # Merged stop has a parent. Update it to be the parent it had in b.
+        parent_in_b = fm.b_schedule.GetStop(b.parent_station)
+        merged_stop.parent_station = fm.b_merge_map[parent_in_b].stop_id
+      fm.merged_schedule.AddStopObject(merged_stop)
 
-    # for the unmerged stops, we use an already mapped zone_id if possible
-    # if not, we generate a new one and add it to the map
-    for not_merged, zone_map in [(self._a_not_merged,
-                                  self.feed_merger.a_zone_map),
-                                 (self._b_not_merged,
-                                  self.feed_merger.b_zone_map)]:
-      for stop, migrated_stop in not_merged:
-        if stop.zone_id in zone_map:
-          migrated_stop.zone_id = zone_map[stop.zone_id]
-        else:
-          migrated_stop.zone_id = self.feed_merger.GenerateId(stop.zone_id)
-          zone_map[stop.zone_id] = migrated_stop.zone_id
-        self.feed_merger.merged_schedule.AddStopObject(migrated_stop)
+    self._UpdateAndMigrateUnmerged(self._a_not_merged, fm.a_zone_map,
+                                   fm.a_merge_map, fm.a_schedule)
+    self._UpdateAndMigrateUnmerged(self._b_not_merged, fm.b_zone_map,
+                                   fm.b_merge_map, fm.b_schedule)
 
     print 'Stops merged: %d of %d, %d' % (
         num_merged,
-        len(self.feed_merger.a_schedule.GetStopList()),
-        len(self.feed_merger.b_schedule.GetStopList()))
+        len(fm.a_schedule.GetStopList()),
+        len(fm.b_schedule.GetStopList()))
     return True
+
+  def _UpdateAndMigrateUnmerged(self, not_merged_stops, zone_map, merge_map,
+                                schedule):
+    """Correct references in migrated unmerged stops and add to merged_schedule.
+
+    For stops migrated from one of the input feeds to the output feed update the
+    parent_station and zone_id references to point to objects in the output
+    feed. Then add the migrated stop to the new schedule.
+
+    Args:
+      not_merged_stops: list of stops from one input feed that have not been
+        merged
+      zone_map: map from zone_id in the input feed to zone_id in the output feed
+      merge_map: map from Stop objects in the input feed to Stop objects in
+        the output feed
+      schedule: the input Schedule object
+    """
+    # for the unmerged stops, we use an already mapped zone_id if possible
+    # if not, we generate a new one and add it to the map
+    for stop, migrated_stop in not_merged_stops:
+      if stop.zone_id in zone_map:
+        migrated_stop.zone_id = zone_map[stop.zone_id]
+      else:
+        migrated_stop.zone_id = self.feed_merger.GenerateId(stop.zone_id)
+        zone_map[stop.zone_id] = migrated_stop.zone_id
+      if stop.parent_station:
+        parent_original = schedule.GetStop(stop.parent_station)
+        migrated_stop.parent_station = merge_map[parent_original].stop_id
+      self.feed_merger.merged_schedule.AddStopObject(migrated_stop)
 
 
 class RouteMerger(DataSetMerger):
@@ -971,11 +997,7 @@ class RouteMerger(DataSetMerger):
     else:
       original_agency = schedule.GetDefaultAgency()
 
-    # TODO: either use schedule to find the correct map or switch to
-    # a single map
-    migrated_agency = (self.feed_merger.a_merge_map.get(original_agency) or
-                       self.feed_merger.b_merge_map.get(original_agency))
-
+    migrated_agency = self.feed_merger.GetMergedObject(original_agency)
     migrated_route.agency_id = migrated_agency.agency_id
     return migrated_route
 
@@ -1607,6 +1629,17 @@ class FeedMerger(object):
       The merged schedule.
     """
     return self.merged_schedule
+
+  def GetMergedObject(self, original):
+    """Returns an object that represents original in the merged schedule."""
+    # TODO: I think this would be better implemented by adding a private
+    # attribute to the objects in the original feeds
+    merged = (self.a_merge_map.get(original) or
+              self.b_merge_map.get(original))
+    if merged:
+      return merged
+    else:
+      raise KeyError()
 
 
 def main():

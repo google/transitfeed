@@ -453,7 +453,8 @@ class Stop(object):
   """
   _REQUIRED_FIELD_NAMES = ['stop_id', 'stop_name', 'stop_lat', 'stop_lon']
   _FIELD_NAMES = _REQUIRED_FIELD_NAMES + \
-                 ['stop_desc', 'zone_id', 'stop_url', 'stop_code']
+                 ['stop_desc', 'zone_id', 'stop_url', 'stop_code',
+                  'location_type', 'parent_station']
 
   def __init__(self, lat=None, lng=None, name=None, stop_id=None,
                field_dict=None, stop_code=None):
@@ -469,7 +470,13 @@ class Stop(object):
     """
     self._schedule = None
     if field_dict:
-      self.__dict__.update(field_dict)
+      if isinstance(field_dict, Stop):
+        # Special case so that we don't need to re-parse the attributes to
+        # native types iteritems returns all attributes that don't start with _
+        for k, v in field_dict.iteritems():
+          self.__dict__[k] = v
+      else:
+        self.__dict__.update(field_dict)
     else:
       if lat is not None:
         self.stop_lat = lat
@@ -560,7 +567,9 @@ class Stop(object):
 
     This method is only called when name is not found in __dict__.
     """
-    if name in Stop._FIELD_NAMES:
+    if name == "location_type":
+      return 0
+    elif name in Stop._FIELD_NAMES:
       return None
     else:
       raise AttributeError(name)
