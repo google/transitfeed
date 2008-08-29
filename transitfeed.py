@@ -67,7 +67,7 @@ import zipfile
 OUTPUT_ENCODING = 'utf-8'
 
 
-__version__ = '1.1.5'
+__version__ = '1.1.6'
 
 
 def EncodeUnicode(text):
@@ -607,7 +607,7 @@ class Stop(object):
     return not self.__eq__(other)
 
   def __repr__(self):
-    return unicode(self.__dict__)
+    return "<Stop %s>" % self.__dict__
 
   def Validate(self, problems=default_problem_reporter):
     # First check that all required fields are present because ParseAttributes
@@ -731,10 +731,7 @@ class Route(object):
     return not self.__eq__(other)
 
   def __repr__(self):
-    dictionary = {}
-    for field in Route._FIELD_NAMES:
-      dictionary[field] = getattr(self, field)
-    return unicode(dictionary)
+    return "<Route %s>" % self.__dict__
 
   def Validate(self, problems=default_problem_reporter):
     if IsEmpty(self.route_id):
@@ -1341,10 +1338,7 @@ class Trip(object):
     return not self.__eq__(other)
 
   def __repr__(self):
-    dictionary = {}
-    for field in Trip._FIELD_NAMES:
-      dictionary[field] = getattr(self, field)
-    return "%s with trips: %s" % (dictionary, self.GetStopTimesTuples())
+    return "<Trip %s>" % self.__dict__
 
   def Validate(self, problems=default_problem_reporter):
     if IsEmpty(self.route_id):
@@ -1659,7 +1653,7 @@ class Shape(object):
     return not self.__eq__(other)
 
   def __repr__(self):
-    return unicode(self.__dict__)
+    return "<Shape %s>" % self.__dict__
 
   def Validate(self, problems=default_problem_reporter):
     if IsEmpty(self.shape_id):
@@ -1728,10 +1722,7 @@ class Agency(object):
     return not self.__eq__(other)
 
   def __repr__(self):
-    dictionary = {}
-    for field in Agency._FIELD_NAMES:
-      dictionary[field] = getattr(self, field)
-    return unicode(dictionary)
+    return "<Agency %s>" % self.__dict__
 
   def Validate(self, problems=default_problem_reporter):
     if IsEmpty(self.agency_name):

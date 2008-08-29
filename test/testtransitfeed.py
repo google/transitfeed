@@ -885,7 +885,9 @@ class RouteConstructorTestCase(unittest.TestCase):
 
   def testDefault(self):
     route = transitfeed.Route()
+    repr(route)
     route.Validate(self.problems)
+    repr(route)
 
     e = self.problems.PopException('MissingValue')
     self.assertEqual('route_id', e.column_name)
@@ -897,18 +899,22 @@ class RouteConstructorTestCase(unittest.TestCase):
 
   def testMinimal(self):
     route = transitfeed.Route(route_id='id1', short_name='22', route_type='Bus')
+    repr(route)
     route.Validate(self.problems)
     self.problems.AssertNoMoreExceptions()
 
     route = transitfeed.Route(route_id='id1', short_name='22', route_type=1)
+    repr(route)
     route.Validate(self.problems)
     self.problems.AssertNoMoreExceptions()
 
     route = transitfeed.Route(route_id='id1', short_name='22', route_type='1')
+    repr(route)
     route.Validate(self.problems)
     self.problems.AssertNoMoreExceptions()
 
     route = transitfeed.Route(route_id='id1', short_name='22', route_type='1foo')
+    repr(route)
     route.Validate(self.problems)
     e = self.problems.PopException('InvalidValue')
     self.assertEqual('route_type', e.column_name)
@@ -1022,6 +1028,7 @@ class ShapeValidationTestCase(ValidationTestCase):
 
   def runTest(self):
     shape = transitfeed.Shape('TEST')
+    repr(shape)  # shouldn't crash
     self.ExpectOtherProblem(shape)  # no points!
 
     self.ExpectFailedAdd(shape, 36.905019, -116.763207, -1,
@@ -1048,6 +1055,7 @@ class ShapeValidationTestCase(ValidationTestCase):
     self.ExpectFailedAdd(shape, 36.905019, -116.763206, 4,
                          'shape_dist_traveled', 4)
     shape.AddPoint(36.905019, -116.763206, 5, self.problems)
+    repr(shape)  # shouldn't crash
     self.problems.AssertNoMoreExceptions()
 
 class FareValidationTestCase(ValidationTestCase):
@@ -1135,10 +1143,12 @@ class ServicePeriodValidationTestCase(ValidationTestCase):
   def runTest(self):
     # success case
     period = transitfeed.ServicePeriod()
+    repr(period)  # shouldn't crash
     period.service_id = 'WEEKDAY'
     period.start_date = '20070101'
     period.end_date = '20071231'
     period.day_of_week[0] = True
+    repr(period)  # shouldn't crash
     period.Validate(self.problems)
 
     # missing start_date
@@ -1185,6 +1195,7 @@ class ServicePeriodValidationTestCase(ValidationTestCase):
         field_list=['serviceid1', '20060101', '20071231', '1', '0', 'h', '1',
                     '1', '1', '1'])
     self.ExpectInvalidValue(period2, 'wednesday', 'h')
+    repr(period)  # shouldn't crash
 
 
 class ServicePeriodDateRangeTestCase(ValidationTestCase):
@@ -1283,8 +1294,17 @@ class ServicePeriodTestCase(unittest.TestCase):
 
 class TripValidationTestCase(ValidationTestCase):
   def runTest(self):
+    trip = transitfeed.Trip()
+    repr(trip)  # shouldn't crash
+    
     schedule = transitfeed.Schedule()  # Needed to find StopTimes
     trip = transitfeed.Trip(schedule=schedule)
+    repr(trip)  # shouldn't crash
+
+    trip = transitfeed.Trip(schedule=schedule)
+    trip.trip_headsign = '\xBA\xDF\x0D'  # Not valid ascii or utf8
+    repr(trip)  # shouldn't crash
+
     trip.route_id = '054C'
     trip.service_id = 'WEEK'
     trip.trip_id = '054C-00'
@@ -1293,6 +1313,7 @@ class TripValidationTestCase(ValidationTestCase):
     trip.block_id = None
     trip.shape_id = None
     trip.Validate(self.problems)
+    repr(trip)  # shouldn't crash
 
     # missing route ID
     trip.route_id = None
@@ -1954,6 +1975,10 @@ class MinimalUtf8Builder(TempFileTestCaseBase):
     stop2 = schedule.AddStop(lng=140.001, lat=48.201, name=u"remote \u020b station")
     route = schedule.AddRoute(u"\u03b2", "Beta", "Bus")
     trip = route.AddTrip(schedule, u"to remote \u020b station")
+    repr(stop1)
+    repr(stop2)
+    repr(route)
+    repr(trip)
     trip.AddStopTime(stop1, schedule=schedule, stop_time='10:00:00')
     trip.AddStopTime(stop2, stop_time='10:10:00')
 
