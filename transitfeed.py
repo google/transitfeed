@@ -2853,7 +2853,9 @@ class Loader:
       context = (file_name, 1, [''] * len(header), header)
       self._problems.MissingColumn(file_name, col, context)
 
+    line_num = 0  # First line read by reader.next() above
     for row in reader:
+      line_num += 1
       if len(row) == 0:  # skip extra empty lines in file
         continue
 
@@ -2862,8 +2864,8 @@ class Loader:
                                     '%d of file "%s".  Every row in the file '
                                     'should have the same number of cells as '
                                     'the header (first line) does.' %
-                                    (reader.line_num, file_name),
-                                    (file_name, reader.line_num),
+                                    (line_num, file_name),
+                                    (file_name, line_num),
                                     type=TYPE_WARNING)
 
       if len(row) < len(header):
@@ -2871,8 +2873,8 @@ class Loader:
                                     '%d of file "%s".  Every row in the file '
                                     'should have the same number of cells as '
                                     'the header (first line) does.' %
-                                    (reader.line_num, file_name),
-                                    (file_name, reader.line_num),
+                                    (line_num, file_name),
+                                    (file_name, line_num),
                                     type=TYPE_WARNING)
 
       for i in xrange(len(row)):
@@ -2881,11 +2883,11 @@ class Loader:
         except UnicodeDecodeError:
           self._problems.InvalidValue(header[i], row[i],
                                       'Unicode error',
-                                      (file_name, reader.line_num,
+                                      (file_name, line_num,
                                        row, header))
 
       d = dict(zip(header, row))
-      yield (d, reader.line_num, header, row)
+      yield (d, line_num, header, row)
 
   # TODO: Add testing for this specific function
   def _ReadCSV(self, file_name, cols, required):
