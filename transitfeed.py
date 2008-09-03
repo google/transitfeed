@@ -420,6 +420,13 @@ def FormatSecondsSinceMidnight(s):
   return "%02d:%02d:%02d" % (s / 3600, (s / 60) % 60, s % 60)
 
 
+def DateStringToDateObject(date_string):
+  """Return a date object for a string "YYYYMMDD"."""
+  # If this becomes a bottleneck date objects could be cached
+  return datetime.date(int(date_string[0:4]), int(date_string[4:6]),
+                       int(date_string[6:8]))
+
+
 EARTH_RADIUS = 6378135          # in meters
 def ApproximateDistanceBetweenStops(stop1, stop2):
   """Compute approximate distance between two stops in meters. Assumes the
@@ -1815,13 +1822,16 @@ class ServicePeriod(object):
       return False
 
   def GetDateRange(self):
-    """Returns the range over which this ServicePeriod is valid in
-    (start date, end date) form, using YYYYMMDD format.  This range includes
-    exception dates that add service outside of (start_date, end_date),
-    but doesn't shrink the range if exception dates take away service at
-    the edges of the range."""
-    # TODO: Add more characterization of service density within the range
+    """Return the range over which this ServicePeriod is valid.
 
+    The range includes exception dates that add service outside of
+    (start_date, end_date), but doesn't shrink the range if exception
+    dates take away service at the edges of the range.
+
+    Returns:
+      A tuple of "YYYYMMDD" strings, (start date, end date) or (None, None) if
+      no dates have been given.
+    """
     start = self.start_date
     end = self.end_date
 
@@ -1832,6 +1842,11 @@ class ServicePeriod(object):
         start = date
       if not end or (date > end):
         end = date
+    if start is None:
+      start = end
+    elif end is None:
+      end = start
+    # If start and end are None we did a little harmless shuffling
     return (start, end)
 
   def GetCalendarFieldValuesTuple(self):
@@ -1902,16 +1917,12 @@ class ServicePeriod(object):
     """Test if this service period is active on a date.
 
     Args:
-      date: a datetime.date object or string of form "YYYYMMDD"
+      date: a string of form "YYYYMMDD"
 
     Returns:
       True iff this service is active on date.
     """
-    if isinstance(date, basestring):
-      date_obj = datetime.date(int(date[0:4]), int(date[4:6]), int(date[6:8]))
-    else:
-      date_obj = date
-      date = date.strftime("%Y%m%d")
+    date_obj = DateStringToDateObject(date)
     if date in self.date_exceptions:
       if self.date_exceptions[date] == 1:
         return True
@@ -1921,6 +1932,22 @@ class ServicePeriod(object):
         date <= self.end_date):
       return self.day_of_week[date_obj.weekday()]
     return False
+
+  def ActiveDates(self):
+    """Return dates this service period is active as a list of "YYYYMMDD"."""
+    (earliest, latest) = self.GetDateRange()
+    if earliest is None:
+      return []
+    dates = []
+    date_it = DateStringToDateObject(earliest)
+    date_end = DateStringToDateObject(latest)
+    delta = datetime.timedelta(days=1)
+    while date_it <= date_end:
+      date_it_string = date_it.strftime("%Y%m%d")
+      if self.IsActiveOn(date_it_string):
+        dates.append(date_it_string)
+      date_it = date_it + delta
+    return dates
 
   def __getattr__(self, name):
     try:

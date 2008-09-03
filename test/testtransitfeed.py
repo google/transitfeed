@@ -1243,7 +1243,8 @@ class ServicePeriodDateRangeTestCase(ValidationTestCase):
 
 
 class ServicePeriodTestCase(unittest.TestCase):
-  def testIsActiveOn(self):
+  def testActive(self):
+    """Test IsActiveOn and ActiveDates"""
     period = transitfeed.ServicePeriod()
     period.service_id = 'WEEKDAY'
     period.start_date = '20071226'
@@ -1259,9 +1260,7 @@ class ServicePeriodTestCase(unittest.TestCase):
 
     # Smoke test with both parameter types
     self.assertFalse(period.IsActiveOn('20071225'))
-    self.assertFalse(period.IsActiveOn(datetime.date(2007, 12, 25)))
     self.assertTrue(period.IsActiveOn('20071226'))
-    self.assertTrue(period.IsActiveOn(datetime.date(2007, 12, 26)))
 
     # calendar_date exceptions within range
     self.assertTrue(period.IsActiveOn('20071230'))
@@ -1271,25 +1270,34 @@ class ServicePeriodTestCase(unittest.TestCase):
     self.assertFalse(period.IsActiveOn('20080101'))
     self.assertTrue(period.IsActiveOn('20080102'))
 
+    self.assertEquals(period.ActiveDates(),
+                      ['20071226', '20071227', '20071228', '20071230',
+                       '20080102'])
+
+
     # Test of period without start_date, end_date
     period_dates = transitfeed.ServicePeriod()
     period_dates.SetDateHasService('20071230', True)
     period_dates.SetDateHasService('20071231', False)
 
     self.assertFalse(period_dates.IsActiveOn('20071229'))
-    self.assertFalse(period_dates.IsActiveOn(datetime.date(2007, 12, 29)))
     self.assertTrue(period_dates.IsActiveOn('20071230'))
-    self.assertTrue(period_dates.IsActiveOn(datetime.date(2007, 12, 30)))
     self.assertFalse(period_dates.IsActiveOn('20071231'))
-    self.assertFalse(period_dates.IsActiveOn(datetime.date(2007, 12, 31)))
+    self.assertEquals(period_dates.ActiveDates(), ['20071230'])
 
-    # Test of an invalid feed with just one of start_date, end_date
+    # Test with an invalid ServicePeriod; one of start_date, end_date is set
     period_no_end = transitfeed.ServicePeriod()
     period_no_end.start_date = '20071226'
     self.assertFalse(period_no_end.IsActiveOn('20071231'))
+    self.assertEquals(period_no_end.ActiveDates(), [])
     period_no_start = transitfeed.ServicePeriod()
     period_no_start.end_date = '20071230'
     self.assertFalse(period_no_start.IsActiveOn('20071229'))
+    self.assertEquals(period_no_start.ActiveDates(), [])
+
+    period_empty = transitfeed.ServicePeriod()
+    self.assertFalse(period_empty.IsActiveOn('20071231'))
+    self.assertEquals(period_empty.ActiveDates(), [])
 
 
 class TripValidationTestCase(ValidationTestCase):
@@ -2587,6 +2595,35 @@ class ApproximateDistanceBetweenStopsTestCase(unittest.TestCase):
     self.assertAlmostEqual(
         transitfeed.ApproximateDistanceBetweenStops(stop1, stop2),
         228, 0)
+
+
+class TimeConversionHelpersTestCase(unittest.TestCase):
+  def testTimeToSecondsSinceMidnight(self):
+    self.assertEqual(transitfeed.TimeToSecondsSinceMidnight("01:02:03"), 3723)
+    self.assertEqual(transitfeed.TimeToSecondsSinceMidnight("00:00:00"), 0)
+    self.assertEqual(transitfeed.TimeToSecondsSinceMidnight("25:24:23"), 91463)
+    try:
+      transitfeed.TimeToSecondsSinceMidnight("10:15:00am")
+    except transitfeed.Error:
+      pass  # expected
+    else:
+      self.fail("Should have thrown Error")
+
+  def testFormatSecondsSinceMidnight(self):
+    self.assertEqual(transitfeed.FormatSecondsSinceMidnight(3723), "01:02:03")
+    self.assertEqual(transitfeed.FormatSecondsSinceMidnight(0), "00:00:00")
+    self.assertEqual(transitfeed.FormatSecondsSinceMidnight(91463), "25:24:23")
+
+  def testDateStringToDateObject(self):
+    self.assertEqual(transitfeed.DateStringToDateObject("20080901"),
+                     datetime.date(2008, 9, 1))
+    try:
+      transitfeed.DateStringToDateObject("20080841")
+    except ValueError:
+      pass  # expected
+    else:
+      self.fail("Should have thrown ValueError")
+
 
 if __name__ == '__main__':
   unittest.main()
