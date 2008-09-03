@@ -1513,6 +1513,37 @@ class TripStopTimeAccessorsTestCase(unittest.TestCase):
                                                     "05:22:00", stop2.stop_id,
                                                     '4', '', '', '', ''))
 
+class TripClearStopTimesTestCase(unittest.TestCase):
+  def runTest(self):
+    schedule = transitfeed.Schedule(
+        problem_reporter=ExceptionProblemReporterNoExpiration())
+    schedule.NewDefaultAgency(agency_name="Test Agency",
+                              agency_timezone="America/Los_Angeles")
+    route = schedule.AddRoute(short_name="54C", long_name="Hill", route_type=3)
+    schedule.GetDefaultServicePeriod().SetDateHasService("20070101")
+    stop1 = schedule.AddStop(36, -117.1, "Demo Stop 1")
+    stop2 = schedule.AddStop(36, -117.2, "Demo Stop 2")
+    stop3 = schedule.AddStop(36, -117.3, "Demo Stop 3")
+
+    trip = route.AddTrip(schedule, "via Polish Hill")
+    trip.ClearStopTimes()
+    self.assertFalse(trip.GetStopTimes())
+    trip.AddStopTime(stop1, stop_time="5:11:00")
+    self.assertTrue(trip.GetStopTimes())
+    trip.ClearStopTimes()
+    self.assertFalse(trip.GetStopTimes())
+    trip.AddStopTime(stop3, stop_time="4:00:00")  # Can insert earlier time
+    trip.AddStopTime(stop2, stop_time="4:15:00")
+    trip.AddStopTime(stop1, stop_time="4:21:00")
+    old_stop_times = trip.GetStopTimes()
+    self.assertTrue(old_stop_times)
+    trip.ClearStopTimes()
+    self.assertFalse(trip.GetStopTimes())
+    for st in old_stop_times:
+      trip.AddStopTimeObject(st)
+    self.assertEqual(trip.GetStartTime(), 4 * 3600)
+    self.assertEqual(trip.GetEndTime(), 4 * 3600 + 21 * 60)
+
 
 class BasicParsingTestCase(unittest.TestCase):
   """Checks that we're getting the number of child objects that we expect."""

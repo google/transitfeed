@@ -1166,6 +1166,15 @@ class Trip(object):
 
     return rv
 
+  def ClearStopTimes(self):
+    """Remove all stop times from this trip.
+
+    StopTime objects previously returned by GetStopTimes are unchanged but are
+    no longer associated with this trip.
+    """
+    cursor = self._schedule._connection.cursor()
+    cursor.execute('DELETE FROM stop_times WHERE trip_id=?', (self.trip_id,))
+
   def GetStopTimes(self):
     """Return a sorted list of StopTime objects for this trip."""
     cursor = self._schedule._connection.cursor()
