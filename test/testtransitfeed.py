@@ -1516,10 +1516,10 @@ class TripStopTimeAccessorsTestCase(unittest.TestCase):
     self.assertEqual(len(trip.GetStopTimesTuples()), 4)
     self.assertEqual(trip.GetStopTimesTuples()[0], (trip.trip_id, "05:11:00",
                                                     "05:12:00", stop1.stop_id,
-                                                    '1', '', '', '', ''))
+                                                    1, '', '', '', ''))
     self.assertEqual(trip.GetStopTimesTuples()[3], (trip.trip_id, "05:22:00",
                                                     "05:22:00", stop2.stop_id,
-                                                    '4', '', '', '', ''))
+                                                    4, '', '', '', ''))
 
 class TripClearStopTimesTestCase(unittest.TestCase):
   def runTest(self):
@@ -2540,6 +2540,7 @@ class GetTripTimeTestCase(unittest.TestCase):
     self.trip2.AddStopTime(self.stop2, schedule=schedule, departure_secs=500, arrival_secs=500)
     self.trip2.AddStopTime(self.stop3, schedule=schedule, departure_secs=600, arrival_secs=600)
     self.trip2.AddStopTime(self.stop4, schedule=schedule, departure_secs=700, arrival_secs=700)
+    self.trip2.AddStopTime(self.stop3, schedule=schedule, departure_secs=800, arrival_secs=800)
 
     self.trip3 = self.route1.AddTrip(schedule, "trip 3", trip_id='trip3')
 
@@ -2554,15 +2555,21 @@ class GetTripTimeTestCase(unittest.TestCase):
     self.assertEqual((True, False, False, True), istimepoints)
 
   def testGetStopTimeTrips(self):
-    stop1 = self.schedule.GetNearestStops(lon=140.03, lat=0)[0]
-    self.assertEqual("140.03,0", stop1.stop_name)  # Got stop3?
-    rv = stop1.GetStopTimeTrips(self.schedule)
-    self.assertEqual(2, len(rv))
+    stopa = self.schedule.GetNearestStops(lon=140.03, lat=0)[0]
+    self.assertEqual("140.03,0", stopa.stop_name)  # Got stop3?
+    rv = stopa.GetStopTimeTrips(self.schedule)
+    self.assertEqual(3, len(rv))
     (secs, trip_index, istimepoints) = tuple(zip(*rv))
-    self.assertEqual((300, 600), secs)
-    self.assertEqual(("trip1", "trip2"), tuple([ti[0].trip_id for ti in trip_index]))
-    self.assertEqual((2, 1), tuple([ti[1] for ti in trip_index]))
-    self.assertEqual((False, True), istimepoints)
+    self.assertEqual((300, 600, 800), secs)
+    self.assertEqual(("trip1", "trip2", "trip2"), tuple([ti[0].trip_id for ti in trip_index]))
+    self.assertEqual((2, 1, 3), tuple([ti[1] for ti in trip_index]))
+    self.assertEqual((False, True, True), istimepoints)
+
+  def testStopTripIndex(self):
+    trip_index = self.stop3.trip_index
+    trip_ids = [t.trip_id for t, i in trip_index]
+    self.assertEqual(["trip1", "trip2", "trip2"], trip_ids)
+    self.assertEqual([2, 1, 3], [i for t, i in trip_index])
 
   def testGetTrips(self):
     self.assertEqual(set([t.trip_id for t in self.stop1.GetTrips(self.schedule)]),

@@ -57,6 +57,7 @@ except ImportError:
 import re
 import tempfile
 import time
+import warnings
 # Objects in a schedule (Route, Trip, etc) should not keep a strong reference
 # to the Schedule object to avoid a reference cycle. Schedule needs to use
 # __del__ to cleanup its temporary file. The garbage collector can't handle
@@ -498,28 +499,58 @@ class Stop(object):
 
   def GetTrips(self, schedule=None):
     """Return iterable containing trips that visit this stop."""
-    if schedule is None:
-      raise Error("No longer supported. schedule object needed to get "
-                  "stop_times table")
-    cursor = schedule._connection.cursor()
-    cursor.execute("SELECT trip_id FROM stop_times WHERE stop_id=?",
-                   (self.stop_id, ))
-    return [schedule.GetTrip(row[0]) for row in cursor]
+    return [trip for trip, ss in self._GetTripSequence(schedule)]
 
-  def GetStopTimeTrips(self, schedule=None):
-    """Returns an list of (time, (trip, index), is_timepoint), where time might
-    be interpolated, trip is a Trip object, index is this stop on the trip and
-    is_timepoint a bool"""
-    time_trips = []
-    for trip in self.GetTrips(schedule):
-      timeinterpolated = trip.GetTimeInterpolatedStops()
-      for index, (secs, stoptime, is_timepoint) in enumerate(timeinterpolated):
-        if stoptime.stop == self:
-          time_trips.append((secs, (trip, index), is_timepoint))
+  def _GetTripSequence(self, schedule=None):
+    """Return a list of (trip, stop_sequence) for all trips visiting this stop.
+    
+    A trip may be in the list multiple times with different index.
+    stop_sequence is an integer.
+
+    Args:
+      schedule: Deprecated, do not use.
+    """
+    if schedule is None:
+      schedule = getattr(self, "_schedule", None)
+    if schedule is None:
+      warnings.warn("No longer supported. _schedule attribute is  used to get "
+                    "stop_times table", DeprecationWarning)
+    cursor = schedule._connection.cursor()
+    cursor.execute("SELECT trip_id,stop_sequence FROM stop_times "
+                   "WHERE stop_id=?",
+                   (self.stop_id, ))
+    return [(schedule.GetTrip(row[0]), row[1]) for row in cursor]
+
+  def _GetTripIndex(self, schedule=None):
+    """Return a list of (trip, index).
+
+    trip: a Trip object
+    index: an offset in trip.GetStopTimes()
+    """
+    trip_index = []
+    for trip, sequence in self._GetTripSequence(schedule):
+      for index, st in enumerate(trip.GetStopTimes()):
+        if st.stop_sequence == sequence:
+          trip_index.append((trip, index))
           break
       else:
-        raise Error("Expected trip %s to contain stop at %s" %
-                    (trip.trip_id, self.stop_id))
+        raise RuntimeError("stop_sequence %d not found in trip_id %s" %
+                           sequence, trip.trip_id)
+    return trip_index
+ 
+  def GetStopTimeTrips(self, schedule=None):
+    """Return a list of (time, (trip, index), is_timepoint).
+
+    time: an integer. It might be interpolated.
+    trip: a Trip object.
+    index: the offset of this stop in trip.GetStopTimes(), which may be
+      different from the stop_sequence.
+    is_timepoint: a bool
+    """
+    time_trips = []
+    for trip, index in self._GetTripIndex(schedule):
+      secs, stoptime, is_timepoint = trip.GetTimeInterpolatedStops()[index]
+      time_trips.append((secs, (trip, index), is_timepoint))
     return time_trips
 
   def ParseAttributes(self, problems):
@@ -576,6 +607,8 @@ class Stop(object):
     """
     if name == "location_type":
       return 0
+    elif name == "trip_index":
+      return self._GetTripIndex()
     elif name in Stop._FIELD_NAMES:
       return None
     else:
@@ -843,8 +876,8 @@ def SortListOfTripByTime(trips):
 class StopTime(object):
   """
   Represents a single stop of a trip. StopTime contains most of the columns
-  from the stop_times.txt file. It does not contain trip_id or stop_sequence,
-  which are implied by its position in a Trip._stoptimes list.
+  from the stop_times.txt file. It does not contain trip_id, which is implied
+  by the Trip used to access it.
 
   See the Google Transit Feed Specification for the semantic details.
 
@@ -860,6 +893,7 @@ class StopTime(object):
   stop_id: str; readonly
   stop_time: The only time given for this stop.  If present, it is used
              for both arrival and departure time.
+  stop_sequence: int
   """
   _REQUIRED_FIELD_NAMES = ['trip_id', 'arrival_time', 'departure_time',
                            'stop_id', 'stop_sequence']
@@ -872,12 +906,12 @@ class StopTime(object):
 
   __slots__ = ('arrival_secs', 'departure_secs', 'stop_headsign', 'stop',
                'stop_headsign', 'pickup_type', 'drop_off_type',
-               'shape_dist_traveled')
+               'shape_dist_traveled', 'stop_sequence')
   def __init__(self, problems, stop,
                arrival_time=None, departure_time=None,
                stop_headsign=None, pickup_type=None, drop_off_type=None,
                shape_dist_traveled=None, arrival_secs=None,
-               departure_secs=None, stop_time=None):
+               departure_secs=None, stop_time=None, stop_sequence=None):
     if stop_time != None:
       arrival_time = departure_time = stop_time
 
@@ -978,28 +1012,27 @@ class StopTime(object):
       except ValueError:
         problems.InvalidValue('shape_dist_traveled', shape_dist_traveled)
 
-  def GetFieldValuesTuple(self, trip_id, sequence):
+    if stop_sequence is not None:
+      self.stop_sequence = stop_sequence
+
+  def GetFieldValuesTuple(self, trip_id):
     """Return a tuple that outputs a row of _FIELD_NAMES.
 
-    trip and sequence must be provided because they are not stored in StopTime.
+    trip must be provided because it is not stored in StopTime.
     """
     result = []
     for fn in StopTime._FIELD_NAMES:
       if fn == 'trip_id':
         result.append(trip_id)
-      elif fn == 'stop_sequence':
-        result.append(str(sequence))
       else:
         result.append(getattr(self, fn) or '' )
     return tuple(result)
 
-  def GetSqlValuesTuple(self, trip_id, stop_sequence):
+  def GetSqlValuesTuple(self, trip_id):
     result = []
     for fn in StopTime._SQL_FIELD_NAMES:
       if fn == 'trip_id':
         result.append(trip_id)
-      elif fn == 'stop_sequence':
-        result.append(stop_sequence)
       else:
         # This might append None, which will be inserted into SQLite as NULL
         result.append(getattr(self, fn))
@@ -1069,9 +1102,9 @@ class Trip(object):
     stoptime = StopTime(problems=problems, stop=stop, **kwargs)
     self.AddStopTimeObject(stoptime, schedule, problems=problems)
 
-  def _AddStopTimeObjectUnordered(self, stoptime, sequence, schedule,
+  def _AddStopTimeObjectUnordered(self, stoptime, schedule,
                                   problems=default_problem_reporter):
-    """Add StopTime object to this trip, at position sequence.
+    """Add StopTime object to this trip.
 
     The trip isn't checked for duplicate sequence numbers so it must be
     validated later."""
@@ -1081,7 +1114,7 @@ class Trip(object):
        ','.join(['?'] * len(StopTime._SQL_FIELD_NAMES)))
     cursor = schedule._connection.cursor()
     cursor.execute(
-        insert_query, stoptime.GetSqlValuesTuple(self.trip_id, sequence))
+        insert_query, stoptime.GetSqlValuesTuple(self.trip_id))
 
   def AddStopTimeObject(self, stoptime, schedule=None,
                         problems=default_problem_reporter):
@@ -1108,12 +1141,12 @@ class Trip(object):
     row = cursor.fetchone()
     if row[0] is None:
       # This is the first stop_time of the trip
-      sequence = 1
+      stoptime.stop_sequence = 1
       if new_secs == None:
         problems.OtherProblem(
             'No time for first StopTime of trip_id "%s"' % (self.trip_id,))
     else:
-      sequence = row[0] + 1
+      stoptime.stop_sequence = row[0] + 1
       prev_secs = max(row[1], row[2])
       if new_secs != None and new_secs < prev_secs:
         problems.OtherProblem(
@@ -1121,7 +1154,7 @@ class Trip(object):
             (stoptime.stop_id, self.trip_id,
              FormatSecondsSinceMidnight(new_secs),
              FormatSecondsSinceMidnight(prev_secs)))
-    self._AddStopTimeObjectUnordered(stoptime, sequence, schedule, problems)
+    self._AddStopTimeObjectUnordered(stoptime, schedule, problems)
 
   def GetTimeStops(self):
     """Return a list of (arrival_secs, departure_secs, stop) tuples.
@@ -1187,7 +1220,8 @@ class Trip(object):
     cursor = self._schedule._connection.cursor()
     cursor.execute(
         'SELECT arrival_secs,departure_secs,stop_headsign,pickup_type,'
-        'drop_off_type,shape_dist_traveled,stop_id FROM stop_times WHERE '
+        'drop_off_type,shape_dist_traveled,stop_id,stop_sequence FROM '
+        'stop_times WHERE '
         'trip_id=? ORDER BY stop_sequence', (self.trip_id,))
     stop_times = []
     for row in cursor.fetchall():
@@ -1199,7 +1233,8 @@ class Trip(object):
                                  stop_headsign=row[2],
                                  pickup_type=row[3],
                                  drop_off_type=row[4],
-                                 shape_dist_traveled=row[5]))
+                                 shape_dist_traveled=row[5],
+                                 stop_sequence=row[7]))
     return stop_times
 
   def GetStartTime(self, problems=default_problem_reporter):
@@ -1240,8 +1275,7 @@ class Trip(object):
     """Generator for rows of the stop_times file"""
     stoptimes = self.GetStopTimes()
     for i, st in enumerate(stoptimes):
-      # sequence is 1-based index
-      yield st.GetFieldValuesTuple(self.trip_id, i + 1)
+      yield st.GetFieldValuesTuple(self.trip_id)
 
   def GetStopTimesTuples(self):
     results = []
@@ -3260,8 +3294,8 @@ class Loader:
       stop_time = StopTime(self._problems, stop, arrival_time,
                            departure_time, stop_headsign,
                            pickup_type, drop_off_type,
-                           shape_dist_traveled)
-      trip._AddStopTimeObjectUnordered(stop_time, sequence, self._schedule,
+                           shape_dist_traveled, stop_sequence=sequence)
+      trip._AddStopTimeObjectUnordered(stop_time, self._schedule,
                                        self._problems)
       self._problems.ClearContext()
 
