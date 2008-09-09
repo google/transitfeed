@@ -257,14 +257,17 @@
       }
       var timeTrips = eval(data);
       var html = "<b>" + marker.stopName + "</b> (" + marker.stopId + ")<br>";
-      html = html + "<table>";
+      html = html + "<table><tr><th>service_id<th>time<th>name</tr>";
       for (var i=0; i < timeTrips.length; ++i) {
         var time = timeTrips[i][0];
         var tripid = timeTrips[i][1][0];
         var tripname = timeTrips[i][1][1];
+        var service_id = timeTrips[i][1][2];
         var timepoint = timeTrips[i][2];
         html = html + "<tr onClick='map.closeInfoWindow();selectTrip(\"" +
-          tripid + "\")'><td align='right'>" + (timepoint ? "" : "~") +
+          tripid + "\")'>" +
+          "<td>" + service_id +
+          "<td align='right'>" + (timepoint ? "" : "~") +
           formatTime(time) + "<td>" + tripname + "</tr>";
       }
       html = html + "</table>";

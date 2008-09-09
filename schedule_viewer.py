@@ -85,6 +85,12 @@ class StoppableHTTPServer(BaseHTTPServer.HTTPServer):
       self.handle_request()
 
 
+def StopToTuple(stop):
+  """Return tuple as expected by javascript function addStopMarkerFromList"""
+  return (stop.stop_id, stop.stop_name, float(stop.stop_lat),
+          float(stop.stop_lon))
+
+
 class ScheduleRequestHandler(BaseHTTPServer.BaseHTTPRequestHandler):
   def do_GET(self):
     scheme, host, path, x, params, fragment = urlparse.urlparse(self.path)
@@ -271,7 +277,7 @@ class ScheduleRequestHandler(BaseHTTPServer.BaseHTTPRequestHandler):
     stops = []
     times = []
     for arr,dep,stop in time_stops:
-      stops.append(stop.GetFieldValuesTuple())
+      stops.append(StopToTuple(stop))
       times.append(arr)
     return [stops, times]
 
@@ -296,7 +302,7 @@ class ScheduleRequestHandler(BaseHTTPServer.BaseHTTPRequestHandler):
     lon = float(params.get('lon'))
     limit = int(params.get('limit'))
     stops = schedule.GetNearestStops(lat=lat, lon=lon, n=limit)
-    return [s.GetFieldValuesTuple() for s in stops]
+    return [StopToTuple(s) for s in stops]
 
   def handle_json_GET_boundboxstops(self, params):
     """Return a list of up to 'limit' stops within bounding box with 'n','e'
@@ -309,7 +315,7 @@ class ScheduleRequestHandler(BaseHTTPServer.BaseHTTPRequestHandler):
     w = float(params.get('w'))
     limit = int(params.get('limit'))
     stops = schedule.GetStopsInBoundingBox(north=n, east=e, south=s, west=w, n=limit)
-    return [s.GetFieldValuesTuple() for s in stops]
+    return [StopToTuple(s) for s in stops]
 
   def handle_json_GET_stopsearch(self, params):
     schedule = self.server.schedule
@@ -317,7 +323,7 @@ class ScheduleRequestHandler(BaseHTTPServer.BaseHTTPRequestHandler):
     matches = []
     for s in schedule.GetStopList():
       if s.stop_id.lower().find(query) != -1 or s.stop_name.lower().find(query) != -1:
-        matches.append(s.GetFieldValuesTuple())
+        matches.append(StopToTuple(s))
     return matches
 
   def handle_json_GET_stoptrips(self, params):
@@ -355,7 +361,7 @@ class ScheduleRequestHandler(BaseHTTPServer.BaseHTTPRequestHandler):
       if headsign:
         trip_name += " (Direction: %s)" % headsign
 
-      result.append((time, (trip.trip_id, trip_name), tp))
+      result.append((time, (trip.trip_id, trip_name, trip.service_id), tp))
     return result
 
   def handle_GET_ttablegraph(self,params):
