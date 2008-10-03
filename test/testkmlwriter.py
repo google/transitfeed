@@ -348,5 +348,25 @@ class TestTripsKML(unittest.TestCase):
     self.assertEquals(trip_placemarks, set(['route_2_1', 'route_2_2']))
 
 
+class TestShapePointsKML(unittest.TestCase):
+  """Tests the shape points folder KML generation methods of KMLWriter."""
+
+  def setUp(self):
+    self.flatten_feed = transitfeed.Loader(DataPath('flatten_feed')).Load()
+    self.kmlwriter = kmlwriter.KMLWriter()
+    self.kmlwriter.shape_points = True
+    self.parent = ET.Element('parent')
+
+  def testCreateShapePointsFolder(self):
+    folder = self.kmlwriter._CreateShapesFolder(self.flatten_feed, self.parent)
+    shape_point_folder = folder.find('Folder')
+    self.assertEquals(shape_point_folder.find('name').text,
+                      'shape_1 Shape Points')
+    placemarks = shape_point_folder.findall('Placemark')
+    self.assertEquals(len(placemarks), 4)
+    for placemark in placemarks:
+      self.assert_(placemark.find('Point') is not None)
+
+
 if __name__ == '__main__':
   unittest.main()

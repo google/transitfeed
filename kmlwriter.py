@@ -41,7 +41,13 @@ The resulting KML file has a folder hierarchy which looks like this:
           * trip2
     - Shapes
       * shape1
+      - Shape Points
+        * shape_point1
+        * shape_point2
       * shape2
+      - Shape Points
+        * shape_point1
+        * shape_point2
 
 where the hyphens represent folders and the asteriks represent placemarks.
 
@@ -84,12 +90,14 @@ class KMLWriter(object):
     show_trips: True if the individual trips should be included in the routes.
     show_trips: True if the individual trips should be placed on ground.
     split_routes: True if the routes should be split by type.
+    shape_points: True if individual shape points should be plotted.
   """
 
   def __init__(self):
     """Initialise."""
     self.show_trips = False
     self.split_routes = False
+    self.shape_points = False
     self.altitude_per_sec = 0.0
 
   def _SetIndentation(self, elem, level=0):
@@ -504,7 +512,31 @@ class KMLWriter(object):
     for shape in shapes:
       placemark = self._CreatePlacemark(shapes_folder, shape.shape_id)
       self._CreateLineStringForShape(placemark, shape)
+      if self.shape_points:
+        self._CreateShapePointFolder(shapes_folder, shape)
     return shapes_folder
+
+  def _CreateShapePointFolder(self, shapes_folder, shape):
+    """Create a KML Folder containing all the shape points in a shape.
+
+    The folder contains placemarks for each shapepoint.
+
+    Args:
+      shapes_folder: A KML Shape Folder ElementTree.Element instance
+      shape: The shape to plot.
+
+    Returns:
+      The Folder ElementTree.Element instance or None.
+    """
+    
+    folder_name = shape.shape_id + ' Shape Points'
+    folder = self._CreateFolder(shapes_folder, folder_name, visible=False)
+    for (index, (lat, lon, dist)) in enumerate(shape.points):
+      placemark = self._CreatePlacemark(folder, str(index+1))
+      point = ET.SubElement(placemark, 'Point')
+      coordinates = ET.SubElement(point, 'coordinates')
+      coordinates.text = '%.6f,%.6f' % (lon, lat)
+    return folder
 
   def Write(self, schedule, output_file):
     """Writes out a feed as KML.
@@ -560,6 +592,9 @@ def main():
   parser.add_option('-s', '--splitroutes', action='store_true',
                     dest='split_routes',
                     help='split the routes by type')
+  parser.add_option('-p', '--display_shape_points', action='store_true',
+                    dest='shape_points',
+                    help='shows the actual points along shapes')
   options, args = parser.parse_args()
 
   if len(args) < 1:
@@ -585,6 +620,7 @@ def main():
   writer.show_trips = options.show_trips
   writer.altitude_per_sec = options.altitude_per_sec
   writer.split_routes = options.split_routes
+  writer.shape_points = options.shape_points
   writer.Write(feed, output_path)
 
 
