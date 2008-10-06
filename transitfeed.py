@@ -1215,8 +1215,10 @@ class Trip(object):
     cursor = self._schedule._connection.cursor()
     cursor.execute('DELETE FROM stop_times WHERE trip_id=?', (self.trip_id,))
 
-  def GetStopTimes(self):
+  def GetStopTimes(self, problems=None):
     """Return a sorted list of StopTime objects for this trip."""
+    # In theory problems=None should be safe because data from database has been
+    # validated. See comment in _LoadStopTimes for why this isn't always true.
     cursor = self._schedule._connection.cursor()
     cursor.execute(
         'SELECT arrival_secs,departure_secs,stop_headsign,pickup_type,'
@@ -1226,9 +1228,7 @@ class Trip(object):
     stop_times = []
     for row in cursor.fetchall():
       stop = self._schedule.GetStop(row[6])
-      # problems=None should be safe because data from database has been
-      # validated. If a problem is found an exception will be raised.
-      stop_times.append(StopTime(problems=None, stop=stop, arrival_secs=row[0],
+      stop_times.append(StopTime(problems=problems, stop=stop, arrival_secs=row[0],
                                  departure_secs=row[1],
                                  stop_headsign=row[2],
                                  pickup_type=row[3],
@@ -1419,7 +1419,7 @@ class Trip(object):
                             'Duplicate stop_sequence in trip_id %s' %
                             self.trip_id)
                  
-    stoptimes = self.GetStopTimes()
+    stoptimes = self.GetStopTimes(problems)
     if stoptimes:
       if stoptimes[0].arrival_time is None and stoptimes[0].departure_time is None:
         problems.OtherProblem(
@@ -3260,7 +3260,6 @@ class Loader:
       trip.Validate(self._problems)
 
   def _LoadStopTimes(self):
-    stoptimes = {}  # maps trip_id to list of stop time tuples
     for (row, row_num, cols) in self._ReadCSV('stop_times.txt',
                                               StopTime._FIELD_NAMES,
                                               StopTime._REQUIRED_FIELD_NAMES):
@@ -3291,6 +3290,14 @@ class Loader:
         continue
       trip = self._schedule.trips[trip_id]
 
+      # If self._problems.Report returns then StopTime.__init__ will return
+      # even if the StopTime object has an error. Thus this code may add a
+      # StopTime that didn't validate to the database.
+      # Trip.GetStopTimes then tries to make a StopTime from the invalid data
+      # and calls the problem reporter for errors. An ugly solution is to
+      # wrap problems and a better solution is to move all validation out of
+      # __init__. For now make sure Trip.GetStopTimes gets a problem reporter
+      # when called from Trip.Validate.
       stop_time = StopTime(self._problems, stop, arrival_time,
                            departure_time, stop_headsign,
                            pickup_type, drop_off_type,

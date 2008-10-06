@@ -88,13 +88,21 @@ class RecordingProblemReporter(transitfeed.ProblemReporterBase):
   def PopException(self, type_name):
     """Return the first exception, which must be a type_name."""
     e = self.exceptions.pop(0)
-    self._test_case.assertEqual(e[0].__class__.__name__, type_name)
+    e_name = e[0].__class__.__name__
+    self._test_case.assertEqual(e_name, type_name,
+                                "%s != %s\n%s" %
+                                (e_name, type_name, self.FormatException(*e)))
     return e[0]
 
+  def FormatException(self, exce, tb):
+    return ("%s\nwith gtfs file context\n%s\nand traceback\n%s" %
+            (exce.FormatProblem(), exce.FormatContext(), tb))
+
   def AssertNoMoreExceptions(self):
-    self._test_case.assertFalse(
-        self.exceptions,
-        "\n".join("%s at\n%s" % x for x in self.exceptions))
+    exceptions_as_text = []
+    for e, tb in self.exceptions:
+      exceptions_as_text.append(self.FormatException(e, tb))
+    self._test_case.assertFalse(self.exceptions, "\n".join(exceptions_as_text))
 
 
 class UnrecognizedColumnRecorder(transitfeed.ProblemReporter):
@@ -559,16 +567,6 @@ class DuplicateStopSequenceTestCase(unittest.TestCase):
     schedule.Load(DataPath('duplicate_stop_sequence'), extra_validation=True)
     e = problems.PopException('InvalidValue')
     self.assertEqual('stop_sequence', e.column_name)
-    problems.AssertNoMoreExceptions()
-
-
-class DuplicateStopSequenceTestCase(unittest.TestCase):
-  def runTest(self):
-    problems = RecordingProblemReporter(self, ("ExpirationDate",))
-    schedule = transitfeed.Schedule(problem_reporter=problems)
-    schedule.Load(DataPath('missing_departure_time'), extra_validation=True)
-    e = problems.PopException('MissingValue')
-    self.assertEqual('depature_time', e.column_name)
     problems.AssertNoMoreExceptions()
 
 
