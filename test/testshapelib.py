@@ -28,7 +28,7 @@ import unittest
 
 class ShapeLibTestBase(unittest.TestCase):
   def assertApproxEq(self, a, b):
-    self.assertAlmostEqual(a, b, 12)
+    self.assertAlmostEqual(a, b, 8)
 
   def assertPointApproxEq(self, a, b):
     try:
