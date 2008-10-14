@@ -93,8 +93,16 @@ class TempDirTestCaseBase(unittest.TestCase):
     script_path = cmd[0].replace("\\", "/")
     script_args = cmd[1:]
 
+    # Setting sys.path (perhaps using PYTHONPATH) of this process should also
+    # affect tests that run in a subprocess. The downside of this is that the
+    # subprocess is no longer a clean version of what you get when running
+    # "python" after installing transitfeed. Hopefully if this process uses a
+    # customized sys.path you know what you are doing.
+    env = {"PYTHONPATH": ":".join(sys.path)}
+
     cmd = [sys.executable,
            "-c",
            "import sys; sys.path.insert(0,'%s');exec(open('%s'))" %
            (transitfeed_parent, script_path)] + script_args
-    return check_call(cmd, expected_retcode=expected_retcode, shell=False)
+    return check_call(cmd, expected_retcode=expected_retcode, shell=False,
+                      env=env)
