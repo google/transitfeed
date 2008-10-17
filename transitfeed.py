@@ -1744,29 +1744,90 @@ class ISO639(object):
   ])
 
 class Agency(object):
-  """Represents an agency in a schedule"""
+  """Represents an agency in a schedule.
+
+  Callers may assign arbitrary values to instance attributes. __init__ makes no
+  attempt at validating the attributes. Call Validate() to check that
+  attributes are valid and the agency object is consistent with itself.
+
+  Attributes:
+    All attributes are strings.
+  """
   _REQUIRED_FIELD_NAMES = ['agency_name', 'agency_url', 'agency_timezone']
-  _FIELD_NAMES = _REQUIRED_FIELD_NAMES + ['agency_id', 'agency_lang']
+  _FIELD_NAMES = _REQUIRED_FIELD_NAMES + ['agency_id', 'agency_lang',
+                                          'agency_phone']
 
   def __init__(self, name=None, url=None, timezone=None, id=None,
-               field_list=None, agency_url=None, agency_name=None,
-               agency_timezone=None, agency_id=None,
-               lang=None, agency_lang=None):
-    if field_list:
-      for fn, fv in zip(Agency._FIELD_NAMES, field_list):
-        self.__dict__[fn] = fv
+               field_dict=None, lang=None, **kwargs):
+    """Initialize a new Agency object.
+
+    Args:
+      field_dict: A dictionary mapping attribute name to unicode string
+      name: a string, ignored when field_dict is present
+      url: a string, ignored when field_dict is present
+      timezone: a string, ignored when field_dict is present
+      id: a string, ignored when field_dict is present
+      kwargs: arbitrary keyword arguments may be used to add attributes to the
+        new object, ignored when field_dict is present
+    """
+
+    self._schedule = None
+
+    if not field_dict:
+      if name:
+        kwargs['agency_name'] = name
+      if url:
+        kwargs['agency_url'] = url
+      if timezone:
+        kwargs['agency_timezone'] = timezone
+      if id:
+        kwargs['agency_id'] = id
+      if lang:
+        kwargs['agency_lang'] = lang
+      field_dict = kwargs
+
+    if isinstance(field_dict, Agency):
+      # I don't know why update(field_dict) raises "dictionary update
+      # sequence element #0 has length 0; 2 is required" when field_dict is an
+      # Agency. iteritems returns pairs so I think it should work. Anyway,
+      # work-around is manually copying values.
+      for k, v in field_dict.iteritems():
+        self.__dict__[k] = v
     else:
-      self.agency_name = name or agency_name
-      self.agency_url = url or agency_url
-      self.agency_timezone = timezone or agency_timezone
-      self.agency_id = id or agency_id
-      self.agency_lang = lang or agency_lang
+      self.__dict__.update(field_dict)
 
   def GetFieldValuesTuple(self):
     return [getattr(self, fn) for fn in Agency._FIELD_NAMES]
 
   def __getitem__(self, name):
-    return getattr(self, name)
+    """Return a unicode or str representation of name or "" if not set."""
+    if name in self.__dict__ and self.__dict__[name] is not None:
+      return "%s" % self.__dict__[name]
+    else:
+      return ""
+
+  def __getattr__(self, name):
+    """Return None or the default value if name is a known attribute.
+
+    This method is only called when name is not found in __dict__.
+    """
+    if name in Agency._FIELD_NAMES:
+      return None
+    else:
+      raise AttributeError(name)
+
+  def iteritems(self):
+    """Return a iterable for (name, value) pairs of public attributes."""
+    for name, value in self.__dict__.iteritems():
+      if name[0] == "_":
+        continue
+      yield name, value
+
+  def __setattr__(self, name, value):
+    """Set an attribute, adding to schedule agency table as needed."""
+    object.__setattr__(self, name, value)
+    if name[0] != '_' and self._schedule:
+      self._schedule.AddTableColumn('agency', name)
 
   def __eq__(self, other):
     if not other:
@@ -1775,7 +1836,19 @@ class Agency(object):
     if id(self) == id(other):
       return True
 
-    return self.GetFieldValuesTuple() == other.GetFieldValuesTuple()
+    return dict(self.iteritems()) == dict(other.iteritems())
+
+  def _ColumnNames(self):
+    return self.keys()
+
+  def keys(self):
+    """Return iterable of columns used by this object."""
+    columns = set()
+    for name in vars(self):
+      if name[0] == "_":
+        continue
+      columns.add(name)
+    return columns
 
   def __ne__(self, other):
     return not self.__eq__(other)
@@ -1784,20 +1857,25 @@ class Agency(object):
     return "<Agency %s>" % self.__dict__
 
   def Validate(self, problems=default_problem_reporter):
-    if IsEmpty(self.agency_name):
-      problems.MissingValue('agency_name')
-      return False
-    if IsEmpty(self.agency_url):
-      problems.MissingValue('agency_url')
-      return False
-    elif not IsValidURL(self.agency_url):
+    """Validate attribute values and this object's internal consistency.
+
+    Returns:
+      True iff all validation checks passed.
+    """
+    found_problem = False
+    for required in Agency._REQUIRED_FIELD_NAMES:
+      if IsEmpty(getattr(self, required, None)):
+        problems.MissingValue(required)
+        found_problem = True
+
+    if self.agency_url and not IsValidURL(self.agency_url):
       problems.InvalidValue('agency_url', self.agency_url)
-      return False
-      
+      found_problem = True
+
     if (not IsEmpty(self.agency_lang) and
         self.agency_lang.lower() not in ISO639.codes_2letter):
       problems.InvalidValue('agency_lang', self.agency_lang)
-      return False
+      found_problem = True
 
     try:
       from pytz import common_timezones
@@ -1805,11 +1883,11 @@ class Agency(object):
         problems.InvalidValue('agency_timezone',
                               self.agency_timezone,
                               '"%s" isn\'t a recognized time zone')
-        return False
+        found_problem = True
     except ImportError:  # no pytz
       print ("Timezone not checked "
              "(install pytz package for timezone validation)")
-    return True
+    return not found_problem
 
 
 class ServicePeriod(object):
@@ -2172,12 +2250,20 @@ class Schedule:
     return agency
 
   def AddAgencyObject(self, agency, problem_reporter=None, validate=True):
+    assert agency._schedule is None
+
     if not problem_reporter:
       problem_reporter = self.problem_reporter
 
     if agency.agency_id in self._agencies:
       problem_reporter.DuplicateID('agency_id', agency.agency_id)
       return
+
+    table_columns = self._table_columns.setdefault('agency', [])
+    agency._schedule = weakref.proxy(self)
+    for attr in agency._ColumnNames():
+      if attr not in table_columns:
+        table_columns.append(attr)
 
     if validate:
       agency.Validate(problem_reporter)
@@ -2502,9 +2588,10 @@ class Schedule:
 
     agency_string = StringIO.StringIO()
     writer = CsvUnicodeWriter(agency_string)
-    writer.writerow(Agency._FIELD_NAMES)
-    for agency in self._agencies.values():
-      writer.writerow(agency.GetFieldValuesTuple())
+    columns = self.GetTableColumns('agency')
+    writer.writerow(columns)
+    for a in self._agencies.values():
+      writer.writerow([EncodeUnicode(a[c]) for c in columns])
     archive.writestr('agency.txt', agency_string.getvalue())
 
     calendar_dates_string = StringIO.StringIO()
@@ -3056,11 +3143,11 @@ class Loader:
     return results
 
   def _LoadAgencies(self):
-    for (row, row_num, cols) in self._ReadCSV('agency.txt',
+    for (d, row_num, header, row) in self._ReadCsvDict('agency.txt',
                                               Agency._FIELD_NAMES,
                                               Agency._REQUIRED_FIELD_NAMES):
-      self._problems.SetFileContext('agency.txt', row_num, row, cols)
-      agency = Agency(field_list=row)
+      self._problems.SetFileContext('agency.txt', row_num, row, header)
+      agency = Agency(field_dict=d)
       self._schedule.AddAgencyObject(agency, self._problems)
       self._problems.ClearContext()
 

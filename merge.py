@@ -805,7 +805,7 @@ class AgencyMerger(DataSetMerger):
     return self._SchemedMerge(scheme, a, b)
 
   def _Migrate(self, entity, schedule, newid):
-    a = transitfeed.Agency(field_list=entity.GetFieldValuesTuple())
+    a = transitfeed.Agency(field_dict=entity)
     if newid:
       a.agency_id = self.feed_merger.GenerateId(entity.agency_id)
     return a

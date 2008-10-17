@@ -611,6 +611,23 @@ class ValidationTestCase(unittest.TestCase):
   def setUp(self):
     self.problems = RecordingProblemReporter(self, ("ExpirationDate",))
 
+  def ExpectNoProblems(self, object):
+    self.ExpectNoProblemsInClosure(lambda: object.Validate(self.problems))
+
+  def ExpectNoProblemsInClosure(self, c):
+    # TODO: Get rid of Expect*Closure methods. With the
+    # RecordingProblemReporter it is now possible to replace
+    # self.ExpectMissingValueInClosure(lambda: o.method(...), foo)
+    # with
+    # o.method(...)
+    # self.ExpectMissingValueInClosure(foo)
+    # because problems don't raise an exception. This has the advantage of
+    # making it easy and clear to test the return value of o.method(...) and
+    # easier to test for a sequence of problems caused by one call.
+    self.problems.AssertNoMoreExceptions()
+    rv = c()
+    self.problems.AssertNoMoreExceptions()
+
   def ExpectMissingValue(self, object, column_name):
     self.ExpectMissingValueInClosure(column_name,
                                      lambda: object.Validate(self.problems))
@@ -661,7 +678,7 @@ class AgencyValidationTestCase(ValidationTestCase):
     agency = transitfeed.Agency(name='Test Agency', url='http://example.com',
                                 timezone='America/Los_Angeles', id='TA',
                                 lang='xh')
-    agency.Validate(self.problems)
+    self.ExpectNoProblems(agency)
 
     # bad agency
     agency = transitfeed.Agency(name='   ', url='http://example.com',
@@ -682,7 +699,7 @@ class AgencyValidationTestCase(ValidationTestCase):
     agency = transitfeed.Agency(name='Test Agency', url='http://example.com',
                                 timezone='America/Alviso', id='TA')
     self.ExpectInvalidValue(agency, 'agency_timezone')
-    
+
     # bad language code
     agency = transitfeed.Agency(name='Test Agency', url='http://example.com',
                                 timezone='America/Los_Angeles', id='TA',
@@ -699,7 +716,77 @@ class AgencyValidationTestCase(ValidationTestCase):
     agency = transitfeed.Agency(name='Test Agency', url='http://example.com',
                                 timezone='America/Los_Angeles', id='TA',
                                 lang='EN')
-    agency.Validate(self.problems)
+    self.ExpectNoProblems(agency)
+
+    # extra attribute in constructor is fine, only checked when loading a file
+    agency = transitfeed.Agency(name='Test Agency', url='http://example.com',
+                                timezone='America/Los_Angeles',
+                                agency_mission='monorail you there')
+    self.ExpectNoProblems(agency)
+
+    # extra attribute in assigned later is also fine
+    agency = transitfeed.Agency(name='Test Agency', url='http://example.com',
+                                timezone='America/Los_Angeles')
+    agency.agency_mission='monorail you there'
+    self.ExpectNoProblems(agency)
+
+    # Multiple problems
+    agency = transitfeed.Agency(name='Test Agency', url='www.example.com',
+                                timezone='America/West Coast', id='TA')
+    self.assertEquals(False, agency.Validate(self.problems))
+    e = self.problems.PopException('InvalidValue')
+    self.assertEqual(e.column_name, 'agency_url')
+    e = self.problems.PopException('InvalidValue')
+    self.assertEqual(e.column_name, 'agency_timezone')
+    self.problems.AssertNoMoreExceptions()
+
+
+
+class AgencyAttributesTestCase(ValidationTestCase):
+  def testCopy(self):
+    agency = transitfeed.Agency(field_dict={'agency_name': 'Test Agency',
+                                            'agency_url': 'http://example.com',
+                                            'timezone': 'America/Los_Angeles',
+                                            'agency_mission': 'get you there'})
+    self.assertEquals(agency.agency_mission, 'get you there')
+    agency_copy = transitfeed.Agency(field_dict=agency)
+    self.assertEquals(agency_copy.agency_mission, 'get you there')
+    self.assertEquals(agency_copy['agency_mission'], 'get you there')
+
+  def testEq(self):
+    agency1 = transitfeed.Agency("Test Agency", "http://example.com",
+                                 "America/Los_Angeles")
+    agency2 = transitfeed.Agency("Test Agency", "http://example.com",
+                                 "America/Los_Angeles")
+    # Unknown columns, such as agency_mission, do affect equality
+    self.assertEquals(agency1, agency2)
+    agency1.agency_mission = "Get you there"
+    self.assertNotEquals(agency1, agency2)
+    agency2.agency_mission = "Move you"
+    self.assertNotEquals(agency1, agency2)
+    agency1.agency_mission = "Move you"
+    self.assertEquals(agency1, agency2)
+    # Private attributes don't affect equality
+    agency1._private_attr = "My private message"
+    self.assertEquals(agency1, agency2)
+    agency2._private_attr = "Another private thing"
+    self.assertEquals(agency1, agency2)
+
+  def testDict(self):
+    agency = transitfeed.Agency("Test Agency", "http://example.com",
+                                "America/Los_Angeles")
+    agency._private_attribute = "blah"
+    # Private attributes don't appear when iterating through an agency as a
+    # dict but can be directly accessed.
+    self.assertEquals("blah", agency._private_attribute)
+    self.assertEquals("blah", agency["_private_attribute"])
+    self.assertEquals(
+        set("agency_name agency_url agency_timezone".split()),
+        set(agency.keys()))
+    self.assertEquals({"agency_name": "Test Agency",
+                       "agency_url": "http://example.com",
+                       "agency_timezone": "America/Los_Angeles"},
+                      dict(agency.iteritems()))
 
 
 class StopValidationTestCase(ValidationTestCase):
@@ -2100,6 +2187,8 @@ class WriteSampleFeedTestCase(TempFileTestCaseBase):
     agency.agency_url = "http://google.com"
     agency.agency_timezone = "America/Los_Angeles"
     agency.agency_lang = 'en'
+    # Test that unknown columns, such as agency_mission, are preserved
+    agency.agency_mission = "Get You There"
     schedule.AddAgencyObject(agency)
 
     routes = []
@@ -2173,6 +2262,7 @@ class WriteSampleFeedTestCase(TempFileTestCaseBase):
           stop.zone_id, stop.stop_code) = stop_entry
       schedule.AddStopObject(stop)
       stops.append(stop)
+    # Add a value to an unknown column and make sure it is preserved
     schedule.GetStop("BULLFROG").stop_sound = "croak!"
 
     trip_data = [
@@ -2299,6 +2389,10 @@ class WriteSampleFeedTestCase(TempFileTestCaseBase):
         transitfeed.Loader(self.tempfilepath, problems=problems,
                            extra_validation=True).Load()
     e = problems.PopException("UnrecognizedColumn")
+    self.assertEqual(e.file_name, "agency.txt")
+    self.assertEqual(e.column_name, "agency_mission")
+    e = problems.PopException("UnrecognizedColumn")
+    self.assertEqual(e.file_name, "stops.txt")
     self.assertEqual(e.column_name, "stop_sound")
     problems.AssertNoMoreExceptions()
 

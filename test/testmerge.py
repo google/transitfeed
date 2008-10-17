@@ -500,17 +500,12 @@ class TestAgencyMerger(unittest.TestCase):
 
     self.a1 = transitfeed.Agency(id='a1', agency_name='a1',
                                  agency_url='http://www.a1.com',
-                                 agency_timezone='Africa/Johannesburg')
+                                 agency_timezone='Africa/Johannesburg',
+                                 agency_phone='123 456 78 90')
     self.a2 = transitfeed.Agency(id='a2', agency_name='a1',
                                  agency_url='http://www.a1.com',
-                                 agency_timezone='Africa/Johannesburg')
-
-  def _Equal(self, a, b):
-    attrs = ['agency_name', 'agency_url', 'agency_timezone']
-    for k in attrs:
-      if getattr(a, k) != getattr(b, k):
-        return False
-    return True
+                                 agency_timezone='Africa/Johannesburg',
+                                 agency_phone='789 65 43 21')
 
   def testMerge(self):
     self.a2.agency_id = self.a1.agency_id
@@ -524,7 +519,8 @@ class TestAgencyMerger(unittest.TestCase):
                       self.fm.a_merge_map[self.a1])
     self.assertEquals(self.fm.a_merge_map[self.a1],
                       self.fm.b_merge_map[self.a2])
-    self.assert_(self._Equal(merged_schedule.GetAgencyList()[0], self.a2))
+    # differing values such as agency_phone should be taken from self.a2
+    self.assertEquals(merged_schedule.GetAgencyList()[0], self.a2)
     self.assertEquals(self.am.GetMergeStats(), (1, 0, 0))
 
     # check that id is preserved
@@ -543,8 +539,8 @@ class TestAgencyMerger(unittest.TestCase):
                  merged_schedule.GetAgencyList())
     self.assert_(self.fm.b_merge_map[self.a2] in
                  merged_schedule.GetAgencyList())
-    self.assert_(self._Equal(self.a1, self.fm.a_merge_map[self.a1]))
-    self.assert_(self._Equal(self.a2, self.fm.b_merge_map[self.a2]))
+    self.assertEquals(self.a1, self.fm.a_merge_map[self.a1])
+    self.assertEquals(self.a2, self.fm.b_merge_map[self.a2])
     self.assertEquals(self.am.GetMergeStats(), (0, 1, 1))
 
     # check that the ids are preserved
