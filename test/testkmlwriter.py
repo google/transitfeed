@@ -216,10 +216,29 @@ class TestRouteKML(unittest.TestCase):
         self.feed, self.parent, self.feed.GetRoute('route_4'))
     self.assert_(folder is None)
 
-  def testCreateRouteTripsFolderTwoTrips(self):
-    folder = self.kmlwriter._CreateRouteTripsFolder(
-        self.parent, self.feed.GetRoute('route_4'))
-    self.assertEquals(len(folder.findall('Placemark')), 2)
+  def assertRouteFolderContainsTrips(self, tripids, folder):
+    """Assert that the route folder contains exactly tripids"""
+    actual_tripds = set()
+    for placemark in folder.findall('Placemark'):
+      actual_tripds.add(placemark.find('name').text)
+    self.assertEquals(set(tripids), actual_tripds)
+
+  def testCreateTripsFolderForRouteTwoTrips(self):
+    route = self.feed.GetRoute('route_2')
+    folder = self.kmlwriter._CreateRouteTripsFolder(self.parent, route)
+    self.assertRouteFolderContainsTrips(['route_2_1', 'route_2_2'], folder)
+
+  def testCreateTripsFolderForRouteDateFilterNone(self):
+    self.kmlwriter.date_filter = None
+    route = self.feed.GetRoute('route_8')
+    folder = self.kmlwriter._CreateRouteTripsFolder(self.parent, route)
+    self.assertRouteFolderContainsTrips(['route_8_1', 'route_8_2'], folder)
+
+  def testCreateTripsFolderForRouteDateFilterSet(self):
+    self.kmlwriter.date_filter = '20070604'
+    route = self.feed.GetRoute('route_8')
+    folder = self.kmlwriter._CreateRouteTripsFolder(self.parent, route)
+    self.assertRouteFolderContainsTrips(['route_8_2'], folder)
 
   def _GetTripPlacemark(self, route_folder, trip_name):
     for trip_placemark in route_folder.findall('Placemark'):
@@ -323,29 +342,6 @@ class TestStopsKML(unittest.TestCase):
     folder = self.kmlwriter._CreateStopsFolder(self.feed, self.parent)
     placemarks = folder.findall('Placemark')
     self.assertEquals(len(placemarks), len(self.feed.GetStopList()))
-
-
-class TestTripsKML(unittest.TestCase):
-  """Tests the trips folder KML generation methods of KMLWriter."""
-
-  def setUp(self):
-    self.feed = transitfeed.Loader(DataPath('flatten_feed')).Load()
-    self.kmlwriter = kmlwriter.KMLWriter()
-    self.parent = ET.Element('parent')
-
-  def testCreateTripsFolderForRouteNoTrips(self):
-    route = self.feed.GetRoute('route_7')
-    folder = self.kmlwriter._CreateRouteTripsFolder(self.parent, route)
-    self.assert_(folder is None)
-
-  def testCreateTripsFolderForRoute(self):
-    route = self.feed.GetRoute('route_2')
-    folder = self.kmlwriter._CreateRouteTripsFolder(self.parent, route)
-    placemarks = folder.findall('Placemark')
-    trip_placemarks = set()
-    for placemark in placemarks:
-      trip_placemarks.add(placemark.find('name').text)
-    self.assertEquals(trip_placemarks, set(['route_2_1', 'route_2_2']))
 
 
 class TestShapePointsKML(unittest.TestCase):

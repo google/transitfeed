@@ -99,6 +99,7 @@ class KMLWriter(object):
     self.split_routes = False
     self.shape_points = False
     self.altitude_per_sec = 0.0
+    self.date_filter = None
 
   def _SetIndentation(self, elem, level=0):
     """Indented the ElementTree DOM.
@@ -362,7 +363,7 @@ class KMLWriter(object):
       self._CreateLineStringForShape(placemark, schedule.GetShape(shape_id))
     return folder
 
-  def _CreateRouteTripsFolder(self, parent, route, style_id=None):
+  def _CreateRouteTripsFolder(self, parent, route, style_id=None, schedule=None):
     """Create a KML Folder containing all the trips in the route.
 
     The folder contains a placemark for each of these trips. If there are no
@@ -382,6 +383,9 @@ class KMLWriter(object):
     trips.sort(key=lambda x: x.trip_id)
     trips_folder = self._CreateFolder(parent, 'Trips', visible=False)
     for trip in trips:
+      if self.date_filter and not trip.service_period.IsActiveOn(self.date_filter):
+        continue
+
       if trip.trip_headsign:
         description = 'Headsign: %s' % trip.trip_headsign
       else:
@@ -488,7 +492,7 @@ class KMLWriter(object):
                                     style_id, False)
       self._CreateRoutePatternsFolder(route_folder, route, style_id, False)
       if self.show_trips:
-        self._CreateRouteTripsFolder(route_folder, route, style_id)
+        self._CreateRouteTripsFolder(route_folder, route, style_id, schedule)
     return routes_folder
 
   def _CreateShapesFolder(self, schedule, doc):
@@ -592,6 +596,9 @@ def main():
   parser.add_option('-s', '--splitroutes', action='store_true',
                     dest='split_routes',
                     help='split the routes by type')
+  parser.add_option('-d', '--date_filter', action='store', type='string',
+                    dest='Restrict to trips active on date YYYYMMDD',
+                    help='')
   parser.add_option('-p', '--display_shape_points', action='store_true',
                     dest='shape_points',
                     help='shows the actual points along shapes')
@@ -620,6 +627,7 @@ def main():
   writer.show_trips = options.show_trips
   writer.altitude_per_sec = options.altitude_per_sec
   writer.split_routes = options.split_routes
+  writer.date_filter = options.date_filter
   writer.shape_points = options.shape_points
   writer.Write(feed, output_path)
 
