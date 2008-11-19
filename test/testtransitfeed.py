@@ -2145,6 +2145,36 @@ class TripAddStopTimeObjectTestCase(ValidationTestCase):
                            schedule=schedule, problems=self.problems)
     self.problems.AssertNoMoreExceptions()
 
+class TripReplaceStopTimeObjectTestCase(unittest.TestCase):
+  def runTest(self):
+    schedule = transitfeed.Schedule()
+    schedule.AddAgency("\xc8\x8b Fly Agency", "http://iflyagency.com",
+                       "America/Los_Angeles")
+    service_period = \
+      schedule.GetDefaultServicePeriod().SetDateHasService('20070101')
+    stop1 = schedule.AddStop(lng=140, lat=48.2, name="Stop 1")
+    route = schedule.AddRoute("B", "Beta", "Bus")
+    trip = route.AddTrip(schedule, "bus trip")
+    stoptime = transitfeed.StopTime(transitfeed.default_problem_reporter, stop1,
+                                    arrival_secs=10,
+                                    departure_secs=10)
+    trip.AddStopTimeObject(stoptime, schedule=schedule)
+    stoptimes = trip.GetStopTimes()
+    stoptime.departure_secs = 20
+    trip.ReplaceStopTimeObject(stoptime, schedule=schedule)
+    stoptimes = trip.GetStopTimes()
+    self.assertEqual(len(stoptimes), 1)
+    self.assertEqual(stoptimes[0].departure_secs, 20)
+
+    unknown_stop = schedule.AddStop(lng=140, lat=48.2, name="unknown")
+    unknown_stoptime = transitfeed.StopTime(
+        transitfeed.default_problem_reporter, unknown_stop,
+        arrival_secs=10,
+        departure_secs=10)
+    unknown_stoptime.stop_sequence = 5
+    # Attempting to replace a non-existent StopTime raises an error
+    self.assertRaises(transitfeed.Error, trip.ReplaceStopTimeObject,
+        unknown_stoptime, schedule=schedule)
 
 class TripStopTimeAccessorsTestCase(unittest.TestCase):
   def runTest(self):

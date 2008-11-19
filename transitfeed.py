@@ -1186,6 +1186,25 @@ class Trip(object):
     cursor.execute(
         insert_query, stoptime.GetSqlValuesTuple(self.trip_id))
 
+  def ReplaceStopTimeObject(self, stoptime, schedule=None):
+    """Replace a StopTime object from this trip with the given one.
+
+    Keys the StopTime object to be replaced by trip_id, stop_sequence
+    and stop_id as 'stoptime', with the object 'stoptime'.
+    """
+
+    if schedule is None:
+      schedule = self._schedule
+
+    new_secs = stoptime.GetTimeSecs()
+    cursor = schedule._connection.cursor()
+    cursor.execute("DELETE FROM stop_times WHERE trip_id=? and "
+                   "stop_sequence=? and stop_id=?",
+                   (self.trip_id, stoptime.stop_sequence, stoptime.stop_id))
+    if cursor.rowcount == 0:
+      raise Error, 'Attempted replacement of StopTime object which does not exist'
+    self._AddStopTimeObjectUnordered(stoptime, schedule)
+
   def AddStopTimeObject(self, stoptime, schedule=None, problems=None):
     """Add a StopTime object to the end of this trip.
 
