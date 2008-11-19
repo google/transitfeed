@@ -383,7 +383,8 @@ class KMLWriter(object):
     trips.sort(key=lambda x: x.trip_id)
     trips_folder = self._CreateFolder(parent, 'Trips', visible=False)
     for trip in trips:
-      if self.date_filter and not trip.service_period.IsActiveOn(self.date_filter):
+      if (self.date_filter and
+          not trip.service_period.IsActiveOn(self.date_filter)):
         continue
 
       if trip.trip_headsign:
