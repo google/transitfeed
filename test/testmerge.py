@@ -550,8 +550,12 @@ class TestAgencyMerger(unittest.TestCase):
                       self.a2.agency_id)
 
   def testNoMerge_SameId(self):
-    self.a2.agency_id = self.a1.agency_id
-    self.a2.agency_name = 'different'
+    # Force a1.agency_id to be unicode to make sure it is correctly encoded
+    # to utf-8 before concatinating to the agency_name containing non-ascii
+    # characters.
+    self.a1.agency_id = unicode(self.a1.agency_id)
+    self.a2.agency_id = str(self.a1.agency_id)
+    self.a2.agency_name = 'different \xc3\xa9'
     self.fm.a_schedule.AddAgencyObject(self.a1)
     self.fm.b_schedule.AddAgencyObject(self.a2)
 

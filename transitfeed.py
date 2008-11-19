@@ -35,6 +35,7 @@ Stop object which has attributes such as stop_lat and stop_name.
   Stop: Represents a single stop
   ServicePeriod: Represents a single service, a set of dates
   Agency: Represents the agency in this feed
+  Transfer: Represents a single transfer rule
   TimeToSecondsSinceMidnight(): Convert HH:MM:SS into seconds since midnight.
   FormatSecondsSinceMidnight(s): Formats number of seconds past midnight into a string
 """
@@ -68,7 +69,7 @@ import zipfile
 OUTPUT_ENCODING = 'utf-8'
 
 
-__version__ = '1.1.6'
+__version__ = '1.1.7'
 
 
 def EncodeUnicode(text):
@@ -146,6 +147,11 @@ class ProblemReporterBase:
                            type=TYPE_WARNING)
     self._Report(e)
 
+  def CsvSyntax(self, description=None, context=None, type=TYPE_ERROR):
+    e = CsvSyntax(description=description, context=context,
+                  context2=self._context, type=type)
+    self._Report(e)
+
   def MissingValue(self, column_name, reason=None, context=None):
     e = MissingValue(column_name=column_name, reason=reason, context=context,
                      context2=self._context)
@@ -165,6 +171,11 @@ class ProblemReporterBase:
   def UnusedStop(self, stop_id, stop_name, context=None):
     e = UnusedStop(stop_id=stop_id, stop_name=stop_name,
                    context=context, context2=self._context, type=TYPE_WARNING)
+    self._Report(e)
+
+  def UsedStation(self, stop_id, stop_name, context=None):
+    e = UsedStation(stop_id=stop_id, stop_name=stop_name,
+                    context=context, context2=self._context, type=TYPE_ERROR)
     self._Report(e)
 
   def ExpirationDate(self, expiration, context=None):
@@ -254,17 +265,29 @@ class ExceptionWithContext(Exception):
   def __str__(self):
     return self.FormatProblem()
 
-  def GetDict(self):
+  def GetDictToFormat(self):
     """Return a copy of self as a dict, suitable for passing to FormatProblem"""
     d = {}
-    d.update(self.__dict__)
+    for k, v in self.__dict__.items():
+      # TODO: Better handling of unicode/utf-8 within Schedule objects.
+      # Concatinating a unicode and utf-8 str object causes an exception such
+      # as "UnicodeDecodeError: 'ascii' codec can't decode byte ..." as python
+      # tries to convert the str to a unicode. To avoid that happening within
+      # the problem reporter convert all unicode attributes to utf-8.
+      # Currently valid utf-8 fields are converted to unicode in _ReadCsvDict.
+      # Perhaps all fields should be left as utf-8.
+      d[k] = EncodeUnicode(v)
     return d
 
   def FormatProblem(self, d=None):
-    """Return a text string describing the problem. d may be the return value
-    of GetDict with formatting added to the values."""
+    """Return a text string describing the problem.
+
+    Args:
+      d: map returned by GetDictToFormat with  with formatting added
+    """
     if not d:
-      d = self.__dict__
+      d = self.GetDictToFormat()
+
     output_error_text = self.__class__.ERROR_TEXT % d
     if ('reason' in d) and d['reason']:
       return '%s\n%s' % (output_error_text, d['reason'])
@@ -312,6 +335,9 @@ class UnrecognizedColumn(ExceptionWithContext):
                'about yet. Extra information is fine; this warning is here ' \
                'to catch misspelled optional column names.'
 
+class CsvSyntax(ExceptionWithContext):
+  ERROR_TEXT = '%(description)s'
+
 class MissingValue(ExceptionWithContext):
   ERROR_TEXT = 'Missing value for column %(column_name)s'
 
@@ -324,10 +350,14 @@ class DuplicateID(ExceptionWithContext):
 class UnusedStop(ExceptionWithContext):
   ERROR_TEXT = "%(stop_name)s (ID %(stop_id)s) isn't used in any trips"
 
+class UsedStation(ExceptionWithContext):
+  ERROR_TEXT = "%(stop_name)s (ID %(stop_id)s) has location_type=1 " \
+               "(station) so it should not appear in stop_times"
+
 class ExpirationDate(ExceptionWithContext):
   def FormatProblem(self, d=None):
     if not d:
-      d = self.__dict__
+      d = self.GetDictToFormat()
     expiration = d['expiration']
     formatted_date = time.strftime("%B %d, %Y",
                                    time.localtime(expiration))
@@ -428,6 +458,22 @@ def DateStringToDateObject(date_string):
                        int(date_string[6:8]))
 
 
+def FloatStringToFloat(float_string):
+  """Convert a float as a string to a float or raise an exception"""
+  # Will raise TypeError unless a string
+  if not re.match(r"^[+-]?\d+(\.\d+)?$", float_string):
+    raise ValueError()
+  return float(float_string)
+
+
+def NonNegIntStringToInt(int_string):
+  """Convert an non-negative integer string to an int or raise an exception"""
+  # Will raise TypeError unless a string
+  if not re.match(r"^(?:0|[1-9]\d*)$", int_string):
+    raise ValueError()
+  return int(int_string)
+
+
 EARTH_RADIUS = 6378135          # in meters
 def ApproximateDistanceBetweenStops(stop1, stop2):
   """Compute approximate distance between two stops in meters. Assumes the
@@ -503,7 +549,7 @@ class Stop(object):
 
   def _GetTripSequence(self, schedule=None):
     """Return a list of (trip, stop_sequence) for all trips visiting this stop.
-    
+
     A trip may be in the list multiple times with different index.
     stop_sequence is an integer.
 
@@ -537,7 +583,7 @@ class Stop(object):
         raise RuntimeError("stop_sequence %d not found in trip_id %s" %
                            sequence, trip.trip_id)
     return trip_index
- 
+
   def GetStopTimeTrips(self, schedule=None):
     """Return a list of (time, (trip, index), is_timepoint).
 
@@ -570,9 +616,10 @@ class Stop(object):
     """
     if name == 'stop_lat':
       try:
-        # TODO: http://code.google.com/p/googletransitdatafeed/issues/detail?id=75
-        # validate stop_latitude and lng are in format -?[1-9]\d+\.\d+
-        self.stop_lat = float(value)
+        if isinstance(value, (float, int)):
+          self.stop_lat = value
+        else:
+          self.stop_lat = FloatStringToFloat(value)
       except (ValueError, TypeError):
         problems.InvalidValue('stop_lat', value)
         del self.stop_lat
@@ -581,7 +628,10 @@ class Stop(object):
           problems.InvalidValue('stop_lat', value)
     elif name == 'stop_lon':
       try:
-        self.stop_lon = float(value)
+        if isinstance(value, (float, int)):
+          self.stop_lon = value
+        else:
+          self.stop_lon = FloatStringToFloat(value)
       except (ValueError, TypeError):
         problems.InvalidValue('stop_lon', value)
         del self.stop_lon
@@ -592,6 +642,18 @@ class Stop(object):
       if value and not IsValidURL(value):
         problems.InvalidValue('stop_url', value)
         del self.stop_url
+    elif name == 'location_type':
+      if value == '':
+        self.location_type = 0
+      else:
+        try:
+          self.location_type = int(value)
+        except (ValueError, TypeError):
+          problems.InvalidValue('location_type', value)
+          del self.location_type
+        else:
+          if self.location_type not in (0, 1):
+            problems.InvalidValue('location_type', value)
 
   def __getitem__(self, name):
     """Return a unicode or str representation of name or "" if not set."""
@@ -682,6 +744,11 @@ class Stop(object):
         self.stop_name.strip().lower() == self.stop_desc.strip().lower()):
       problems.InvalidValue('stop_desc', self.stop_desc,
                             'stop_desc should not be the same as stop_name')
+
+    if self.parent_station and self.location_type != 0:
+      problems.InvalidValue('parent_station', self.parent_station,
+                            'Only stops with location_type=0 may have a '
+                            'parent_station')
 
 
 class Route(object):
@@ -1089,7 +1156,7 @@ class Trip(object):
   def GetFieldValuesTuple(self):
     return [getattr(self, fn) or '' for fn in Trip._FIELD_NAMES]
 
-  def AddStopTime(self, stop, problems=default_problem_reporter, schedule=None, **kwargs):
+  def AddStopTime(self, stop, problems=None, schedule=None, **kwargs):
     """Add a stop to this trip. Stops must be added in the order visited.
 
     Args:
@@ -1099,11 +1166,14 @@ class Trip(object):
     Returns:
       None
     """
+    if problems is None:
+      # TODO: delete this branch when StopTime.__init__ doesn't need a
+      # ProblemReporter
+      problems = default_problem_reporter
     stoptime = StopTime(problems=problems, stop=stop, **kwargs)
-    self.AddStopTimeObject(stoptime, schedule, problems=problems)
+    self.AddStopTimeObject(stoptime, schedule)
 
-  def _AddStopTimeObjectUnordered(self, stoptime, schedule,
-                                  problems=default_problem_reporter):
+  def _AddStopTimeObjectUnordered(self, stoptime, schedule):
     """Add StopTime object to this trip.
 
     The trip isn't checked for duplicate sequence numbers so it must be
@@ -1116,8 +1186,7 @@ class Trip(object):
     cursor.execute(
         insert_query, stoptime.GetSqlValuesTuple(self.trip_id))
 
-  def AddStopTimeObject(self, stoptime, schedule=None,
-                        problems=default_problem_reporter):
+  def AddStopTimeObject(self, stoptime, schedule=None, problems=None):
     """Add a StopTime object to the end of this trip.
 
     Args:
@@ -1132,6 +1201,11 @@ class Trip(object):
     """
     if schedule is None:
       schedule = self._schedule
+    if schedule is None:
+      warnings.warn("No longer supported. _schedule attribute is  used to get "
+                    "stop_times table", DeprecationWarning)
+    if problems is None:
+      problems = schedule.problem_reporter
 
     new_secs = stoptime.GetTimeSecs()
     cursor = schedule._connection.cursor()
@@ -1151,10 +1225,10 @@ class Trip(object):
       if new_secs != None and new_secs < prev_secs:
         problems.OtherProblem(
             'out of order stop time for stop_id=%s trip_id=%s %s < %s' %
-            (stoptime.stop_id, self.trip_id,
+            (EncodeUnicode(stoptime.stop_id), EncodeUnicode(self.trip_id),
              FormatSecondsSinceMidnight(new_secs),
              FormatSecondsSinceMidnight(prev_secs)))
-    self._AddStopTimeObjectUnordered(stoptime, schedule, problems)
+    self._AddStopTimeObjectUnordered(stoptime, schedule)
 
   def GetTimeStops(self):
     """Return a list of (arrival_secs, departure_secs, stop) tuples.
@@ -1177,12 +1251,20 @@ class Trip(object):
     secs will always be an int. If the StopTime object does not have explict
     times this method guesses using distance. stoptime is a StopTime object and
     is_timepoint is a bool.
+
+    Raises:
+      ValueError if this trip does not have the times needed to interpolate
     """
     rv = []
 
     stoptimes = self.GetStopTimes()
-    assert stoptimes[0].GetTimeSecs() != None
-    assert stoptimes[-1].GetTimeSecs() != None
+    # If there are no stoptimes [] is the correct return value but if the start
+    # or end are missing times there is no correct return value.
+    if not stoptimes:
+      return []
+    if (stoptimes[0].GetTimeSecs() is None or
+        stoptimes[-1].GetTimeSecs() is None):
+      raise ValueError("%s must have time at first and last stop" % (self))
 
     cur_timepoint = None
     next_timepoint = None
@@ -1237,6 +1319,41 @@ class Trip(object):
                                  stop_sequence=row[7]))
     return stop_times
 
+  def GetHeadwayStopTimes(self, problems=None):
+    """Return a list of StopTime objects for each headway-based run.
+
+    Returns:
+      a list of list of StopTime objects. Each list of StopTime objects
+      represents one run. If this trip doesn't have headways returns an empty
+      list.
+    """
+    stoptimes_list = [] # list of stoptime lists to be returned
+    stoptime_pattern = self.GetStopTimes()
+    first_secs = stoptime_pattern[0].arrival_secs # first time of the trip
+    # for each start time of a headway run
+    for run_secs in self.GetHeadwayStartTimes():
+      # stop time list for a headway run
+      stoptimes = []
+      # go through the pattern and generate stoptimes
+      for st in stoptime_pattern:
+        arrival_secs, departure_secs = None, None # default value if the stoptime is not timepoint
+        if st.arrival_secs != None:
+          arrival_secs = st.arrival_secs - first_secs + run_secs
+        if st.departure_secs != None:
+          departure_secs = st.departure_secs - first_secs + run_secs
+        # append stoptime
+        stoptimes.append(StopTime(problems=problems, stop=st.stop,
+                                  arrival_secs=arrival_secs,
+                                  departure_secs=departure_secs,
+                                  stop_headsign=st.stop_headsign,
+                                  pickup_type=st.pickup_type,
+                                  drop_off_type=st.drop_off_type,
+                                  shape_dist_traveled=st.shape_dist_traveled,
+                                  stop_sequence=st.stop_sequence))
+      # add stoptimes to the stoptimes_list
+      stoptimes_list.append ( stoptimes )
+    return stoptimes_list
+
   def GetStartTime(self, problems=default_problem_reporter):
     """Return the first time of the trip. TODO: For trips defined by frequency
     return the first time of the first trip."""
@@ -1253,6 +1370,23 @@ class Trip(object):
       problems.InvalidValue('departure_time', '',
                             'The first stop_time in trip %s is missing '
                             'times.' % self.trip_id)
+
+  def GetHeadwayStartTimes(self):
+    """Return a list of start time for each headway-based run.
+
+    Returns:
+      a sorted list of seconds since midnight, the start time of each run. If
+      this trip doesn't have headways returns an empty list."""
+    start_times = []
+    # for each headway period of the trip
+    for start_secs, end_secs, headway_secs in self.GetHeadwayPeriodTuples():
+      # reset run secs to the start of the timeframe
+      run_secs = start_secs
+      while run_secs < end_secs:
+        start_times.append(run_secs)
+        # increment current run secs by headway secs
+        run_secs += headway_secs
+    return start_times
 
   def GetEndTime(self, problems=default_problem_reporter):
     """Return the last time of the trip. TODO: For trips defined by frequency
@@ -1418,7 +1552,7 @@ class Trip(object):
       problems.InvalidValue('stop_sequence', row[0],
                             'Duplicate stop_sequence in trip_id %s' %
                             self.trip_id)
-                 
+
     stoptimes = self.GetStopTimes(problems)
     if stoptimes:
       if stoptimes[0].arrival_time is None and stoptimes[0].departure_time is None:
@@ -1890,6 +2024,87 @@ class Agency(object):
     return not found_problem
 
 
+class Transfer(object):
+  """Represents a transfer in a schedule"""
+  _REQUIRED_FIELD_NAMES = ['from_stop_id', 'to_stop_id', 'transfer_type']
+  _FIELD_NAMES = _REQUIRED_FIELD_NAMES + ['min_transfer_time']
+
+  def __init__(self, schedule=None, from_stop_id=None, to_stop_id=None, transfer_type=None,
+               min_transfer_time=None, field_dict=None):
+    if schedule is not None:
+      self._schedule = weakref.proxy(schedule)  # See weakref comment at top
+    else:
+      self._schedule = None
+    if field_dict:
+      self.__dict__.update(field_dict)
+    else:
+      self.from_stop_id = from_stop_id
+      self.to_stop_id = to_stop_id
+      self.transfer_type = transfer_type
+      self.min_transfer_time = min_transfer_time
+
+    if getattr(self, 'transfer_type', None) in ("", None):
+      # Use the default, recommended transfer, if attribute is not set or blank
+      self.transfer_type = 0
+    else:
+      try:
+        self.transfer_type = NonNegIntStringToInt(self.transfer_type)
+      except (TypeError, ValueError):
+        pass
+
+    if hasattr(self, 'min_transfer_time'):
+      try:
+        self.min_transfer_time = NonNegIntStringToInt(self.min_transfer_time)
+      except (TypeError, ValueError):
+        pass
+    else:
+      self.min_transfer_time = None
+
+  def GetFieldValuesTuple(self):
+    return [getattr(self, fn) for fn in Transfer._FIELD_NAMES]
+
+  def __getitem__(self, name):
+    return getattr(self, name)
+
+  def __eq__(self, other):
+    if not other:
+      return False
+
+    if id(self) == id(other):
+      return True
+
+    return self.GetFieldValuesTuple() == other.GetFieldValuesTuple()
+
+  def __ne__(self, other):
+    return not self.__eq__(other)
+
+  def __repr__(self):
+    return "<Transfer %s>" % self.__dict__
+
+  def Validate(self, problems=default_problem_reporter):
+    if IsEmpty(self.from_stop_id):
+      problems.MissingValue('from_stop_id')
+    elif self._schedule:
+      if self.from_stop_id not in self._schedule.stops.keys():
+        problems.InvalidValue('from_stop_id', self.from_stop_id)
+
+    if IsEmpty(self.to_stop_id):
+      problems.MissingValue('to_stop_id')
+    elif self._schedule:
+      if self.to_stop_id not in self._schedule.stops.keys():
+        problems.InvalidValue('to_stop_id', self.to_stop_id)
+
+    if not IsEmpty(self.transfer_type):
+      if (not isinstance(self.transfer_type, int)) or \
+          (self.transfer_type not in range(0, 4)):
+        problems.InvalidValue('transfer_type', self.transfer_type)
+
+    if not IsEmpty(self.min_transfer_time):
+      if (not isinstance(self.min_transfer_time, int)) or \
+          self.min_transfer_time < 0:
+        problems.InvalidValue('min_transfer_time', self.min_transfer_time)
+
+
 class ServicePeriod(object):
   """Represents a service, which identifies a set of dates when one or more
   trips operate."""
@@ -2189,6 +2404,7 @@ class Schedule:
     self.fares = {}
     self.fare_zones = {}  # represents the set of all known fare zones
     self._shapes = {}  # shape_id to Shape
+    self._transfers = []  # list of transfers
     self._default_service_period = None
     self._default_agency = None
     self.problem_reporter = problem_reporter
@@ -2538,6 +2754,17 @@ class Schedule:
                                     'of the IDs defined in the '
                                     'fare attributes.)')
 
+  def AddTransferObject(self, transfer, problem_reporter=None):
+    transfer._schedule = weakref.proxy(self)  # See weakref comment at top
+    if not problem_reporter:
+      problem_reporter = self.problem_reporter
+
+    transfer.Validate(problem_reporter)
+    self._transfers.append(transfer)
+
+  def GetTransferList(self):
+    return self._transfers
+
   def GetStop(self, id):
     return self.stops[id]
 
@@ -2692,6 +2919,14 @@ class Schedule:
       writer.writerows(shape_rows)
       archive.writestr('shapes.txt', shape_string.getvalue())
 
+    # write transfers (if applicable)
+    if self.GetTransferList():
+      transfer_string = StringIO.StringIO()
+      writer = CsvUnicodeWriter(transfer_string)
+      writer.writerow(Transfer._FIELD_NAMES)
+      writer.writerows(f.GetFieldValuesTuple() for f in self.GetTransferList())
+      archive.writestr('transfers.txt', transfer_string.getvalue())
+
     archive.close()
 
   def Validate(self, problems=None, validate_children=True):
@@ -2716,7 +2951,8 @@ class Schedule:
 
     # TODO: Check Trip fields against valid values
 
-    # Check for stops that aren't referenced by any trips
+    # Check for stops that aren't referenced by any trips and broken
+    # parent_station references.
     for stop in self.stops.values():
       if validate_children:
         stop.Validate(problems)
@@ -2724,26 +2960,81 @@ class Schedule:
       cursor.execute("SELECT count(*) FROM stop_times WHERE stop_id=? LIMIT 1",
                      (stop.stop_id,))
       count = cursor.fetchone()[0]
-      if count == 0:
-        problems.UnusedStop(stop.stop_id, stop.stop_name)
+      if stop.location_type == 0:
+        if count == 0:
+          problems.UnusedStop(stop.stop_id, stop.stop_name)
+        if stop.parent_station:
+          if stop.parent_station not in self.stops:
+            problems.InvalidValue("parent_station",
+                                  EncodeUnicode(stop.parent_station),
+                                  "parent_station '%s' not found for stop_id "
+                                  "'%s' in stops.txt" %
+                                  (EncodeUnicode(stop.parent_station),
+                                   EncodeUnicode(stop.stop_id)))
+          elif self.stops[stop.parent_station].location_type != 1:
+            problems.InvalidValue("parent_station",
+                                  EncodeUnicode(stop.parent_station),
+                                  "parent_station '%s' of stop_id '%s' must "
+                                  "have location_type=1 in stops.txt" %
+                                  (EncodeUnicode(stop.parent_station),
+                                   EncodeUnicode(stop.stop_id)))
+      elif stop.location_type == 1:
+        if count != 0:
+          problems.UsedStation(stop.stop_id, stop.stop_name)
 
-    # Check for stops that might represent the same location
-    # (specifically, stops that are less that 2 meters apart)
-    sorted_stops = self.GetStopList()
+    #TODO: check that every station is used and within 1km of stops that are
+    # part of it. Then uncomment testStationWithoutReference.
+
+    # Check for stops that might represent the same location (specifically,
+    # stops that are less that 2 meters apart) First filter out stops without a
+    # valid lat and lon. Then sort by latitude, then find the distance between
+    # each pair of stations within 2 meters latitude of each other. This avoids
+    # doing n^2 comparisons in the average case and doesn't need a spatial
+    # index.
+    sorted_stops = filter(lambda s: s.stop_lat and s.stop_lon,
+                          self.GetStopList())
     sorted_stops.sort(key=(lambda x: x.stop_lat))
     TWO_METERS_LAT = 0.000018
     for index, stop in enumerate(sorted_stops[:-1]):
       index += 1
       while ((index < len(sorted_stops)) and
              ((sorted_stops[index].stop_lat - stop.stop_lat) < TWO_METERS_LAT)):
-        if ApproximateDistanceBetweenStops(stop, sorted_stops[index]) < 2:
-          problems.OtherProblem('The stops "%s" (ID "%s") and '
-                                '"%s" (ID "%s") are so close together that '
-                                'they probably represent the same location.' %
-                                (stop.stop_name, stop.stop_id,
-                                 sorted_stops[index].stop_name,
-                                 sorted_stops[index].stop_id),
-                                type=TYPE_WARNING)
+        distance  = ApproximateDistanceBetweenStops(stop, sorted_stops[index])
+        if distance < 2:
+          other_stop = sorted_stops[index]
+          if stop.location_type == 0 and other_stop.location_type == 0:
+            problems.OtherProblem(
+                'The stops "%s" (ID "%s") and "%s" (ID "%s") are %0.2fm apart '
+                'and probably represent the same location.' %
+                (EncodeUnicode(stop.stop_name),
+                 EncodeUnicode(stop.stop_id),
+                 EncodeUnicode(other_stop.stop_name),
+                 EncodeUnicode(other_stop.stop_id), distance),
+                type=TYPE_WARNING)
+          elif stop.location_type == 1 and other_stop.location_type == 1:
+            problems.OtherProblem(
+                'The stations "%s" (ID "%s") and "%s" (ID "%s") are %0.2fm '
+                'apart and probably represent the same location.' %
+                (EncodeUnicode(stop.stop_name), EncodeUnicode(stop.stop_id),
+                 EncodeUnicode(other_stop.stop_name),
+                 EncodeUnicode(other_stop.stop_id), distance), type=TYPE_WARNING)
+          else:
+            if stop.location_type == 0 and other_stop.location_type == 1:
+              this_stop = stop
+              this_station = other_stop
+            elif stop.location_type == 1 and other_stop.location_type == 0:
+              this_stop = other_stop
+              this_station = stop
+            else:
+              raise RuntimeError("New location_type added?")
+            if this_stop.parent_station != this_station.stop_id:
+              problems.OtherProblem(
+                  'The parent_station of stop "%s" (ID "%s") is not '
+                  'station "%s" (ID "%s") but they are only %0.2fm apart.' %
+                  (EncodeUnicode(this_stop.stop_name),
+                   EncodeUnicode(this_stop.stop_id),
+                   EncodeUnicode(this_station.stop_name),
+                   EncodeUnicode(this_station.stop_id), distance))
         index += 1
 
     # Check for multiple routes using same short + long name
@@ -2914,22 +3205,44 @@ class EndOfLineChecker:
 
 class Loader:
   def __init__(self,
-               feed_path,
+               feed_path=None,
                schedule=None,
                problems=default_problem_reporter,
                extra_validation=False,
-               memory_db=True):
+               load_stop_times=True,
+               memory_db=True,
+               zip=None):
+    """Initialize a new Loader object.
+
+    Args:
+      feed_path: string path to a zip file or directory
+      schedule: a Schedule object or None to have one created
+      problems: a ProblemReporter object, the default reporter raises an
+        exception for each problem
+      extra_validation: True if you would like extra validation
+      load_stop_times: load the stop_times table, used to speed load time when
+        times are not needed. The default is True.
+      memory_db: if creating a new Schedule object use an in-memory sqlite
+        database instead of creating one in a temporary file
+      zip: a zipfile.ZipFile object, optionally used instead of path
+    """
     if not schedule:
       schedule = Schedule(problem_reporter=problems, memory_db=memory_db)
     self._extra_validation = extra_validation
     self._schedule = schedule
     self._problems = problems
     self._path = feed_path
-    self._zip = None
+    self._zip = zip
+    self._load_stop_times = load_stop_times
 
   def _DetermineFormat(self):
     """Determines whether the feed is in a form that we understand, and
        if so, returns True."""
+    if self._zip:
+      # If zip was passed to __init__ then path isn't used
+      assert not self._path
+      return True
+
     if not os.path.exists(self._path):
       self._problems.FeedNotFound(self._path)
       return False
@@ -2978,7 +3291,6 @@ class Loader:
     contents = contents.lstrip(codecs.BOM_UTF8)
     return contents
 
-  # TODO: Add testing for this specific function
   def _ReadCsvDict(self, file_name, all_cols, required):
     """Reads lines from file_name, yielding a dict of unicode values."""
     assert file_name.endswith(".txt")
@@ -2989,9 +3301,23 @@ class Loader:
 
     eol_checker = EndOfLineChecker(StringIO.StringIO(contents),
                                    file_name, self._problems)
-    reader = csv.reader(eol_checker)  # Use excel dialect
+    # The csv module doesn't provide a way to skip trailing space, but when I
+    # checked 15/675 feeds had trailing space in a header row and 120 had spaces
+    # after fields. Space after header fields can cause a serious parsing
+    # problem, so warn. Space after body fields can cause a problem time,
+    # integer and id fields; they will be validated at higher levels.
+    reader = csv.reader(eol_checker, skipinitialspace=True)
 
-    header = reader.next()
+    raw_header = reader.next()
+    header = []
+    for h in raw_header:
+      if h != h.strip():
+        self._problems.CsvSyntax(
+            description="The header row should not contain any "
+                        "space characters.",
+            context=(file_name, 1, [''] * len(raw_header), raw_header),
+            type=TYPE_WARNING)
+      header.append(h.strip())
 
     self._schedule._table_columns[table_name] = header
 
@@ -3010,7 +3336,7 @@ class Loader:
       context = (file_name, 1, [''] * len(header), header)
       self._problems.MissingColumn(file_name, col, context)
 
-    line_num = 0  # First line read by reader.next() above
+    line_num = 1  # First line read by reader.next() above
     for row in reader:
       line_num += 1
       if len(row) == 0:  # skip extra empty lines in file
@@ -3389,12 +3715,23 @@ class Loader:
                            departure_time, stop_headsign,
                            pickup_type, drop_off_type,
                            shape_dist_traveled, stop_sequence=sequence)
-      trip._AddStopTimeObjectUnordered(stop_time, self._schedule,
-                                       self._problems)
+      trip._AddStopTimeObjectUnordered(stop_time, self._schedule)
       self._problems.ClearContext()
 
     for trip in self._schedule.trips.values():
       trip.Validate(self._problems)
+
+  def _LoadTransfers(self):
+    file_name = 'transfers.txt'
+    if not self._HasFile(file_name):  # transfers are an optional feature
+      return
+    for (d, row_num, header, row) in self._ReadCsvDict(file_name,
+                                              Transfer._FIELD_NAMES,
+                                              Transfer._REQUIRED_FIELD_NAMES):
+      self._problems.SetFileContext(file_name, row_num, row, header)
+      transfer = Transfer(field_dict=d)
+      self._schedule.AddTransferObject(transfer, self._problems)
+      self._problems.ClearContext()
 
   def Load(self):
     self._problems.ClearContext()
@@ -3408,9 +3745,11 @@ class Loader:
     self._LoadShapes()
     self._LoadTrips()
     self._LoadHeadways()
-    self._LoadStopTimes()
+    if self._load_stop_times:
+      self._LoadStopTimes()
     self._LoadFares()
     self._LoadFareRules()
+    self._LoadTransfers()
 
     if self._zip:
       self._zip.close()

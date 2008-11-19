@@ -87,7 +87,7 @@ class HTMLCountingProblemReporter(transitfeed.ProblemReporter):
     else:
       self.error_count += 1
       output = self._error_output
-    d = e.GetDict()
+    d = e.GetDictToFormat()
     for k in ('file_name', 'feedname', 'column_name'):
       if k in d.keys():
         d[k] = '<code>%s</code>' % d[k]

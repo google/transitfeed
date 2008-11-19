@@ -27,6 +27,7 @@ import traceback
 import transitfeed
 import unittest
 from StringIO import StringIO
+import zipfile
 
 
 def DataPath(path):
@@ -40,8 +41,11 @@ def GetDataPathContents():
 
 class ExceptionProblemReporterNoExpiration(
     transitfeed.ExceptionProblemReporter):
-  """This version, used for most tests, ignores feed expiration problems,
-     so that we don't need to keep updating the dates in our tests."""
+  """Ignores feed expiration problems.
+
+  Use TestFailureProblemReporter in new code because it fails more cleanly, is
+  easier to extend and does more thorough checking.
+  """
 
   def __init__(self):
     transitfeed.ExceptionProblemReporter.__init__(self, raise_warnings=True)
@@ -52,15 +56,20 @@ class ExceptionProblemReporterNoExpiration(
 
 class TestFailureProblemReporter(transitfeed.ProblemReporter):
   """Causes a test failure immediately on any problem."""
-  def __init__(self, test_case):
+  def __init__(self, test_case, ignore_types=("ExpirationDate",)):
     transitfeed.ProblemReporter.__init__(self)
     self.test_case = test_case
+    self._ignore_types = ignore_types or set()
 
-  def ExpirationDate(self, expiration, context=None):
-    pass  # We don't want to give errors about our test data files
-
-  def _Report(self, problem_text):
-    self.test_case.fail(problem_text)
+  def _Report(self, e):
+    # These should never crash
+    formatted_problem = e.FormatProblem()
+    formatted_context = e.FormatContext()
+    exception_class = e.__class__.__name__
+    if exception_class in self._ignore_types:
+      return
+    self.test_case.fail(
+        "%s: %s\n%s" % (exception_class, formatted_problem, formatted_context))
 
 
 class RecordingProblemReporter(transitfeed.ProblemReporterBase):
@@ -77,6 +86,9 @@ class RecordingProblemReporter(transitfeed.ProblemReporterBase):
     self._ignore_types = ignore_types or set()
 
   def _Report(self, e):
+    # Ensure that these don't crash
+    e.FormatProblem()
+    e.FormatContext()
     if e.__class__.__name__ in self._ignore_types:
       return
     # Keep the 7 nearest stack frames. This should be enough to identify
@@ -354,7 +366,8 @@ class LoadUnrecognizedColumnsTestCase(unittest.TestCase):
       ('stop_times.txt', 'drop_off_time'),
       ('fare_attributes.txt', 'transfer_time'),
       ('fare_rules.txt', 'source_id'),
-      ('frequencies.txt', 'superfluous')
+      ('frequencies.txt', 'superfluous'),
+      ('transfers.txt', 'to_stop')
     ])
 
     # Now make sure we got the unrecognized column errors that we expected.
@@ -449,10 +462,10 @@ class ProblemReporterTestCase(RedirectStdOutTestCaseBase):
   def testNoContextWithBadUnicode(self):
     pr = transitfeed.ProblemReporter()
     pr.OtherProblem('test string')
-    pr.OtherProblem('\xff\xfe\x80\x88')
+    pr.OtherProblem(u'\xff\xfe\x80\x88')
     # Invalid ascii and utf-8. encode('utf-8') and decode('utf-8') will fail
     # for this value
-    pr.OtherProblem(u'\xff\xfe\x80\x88')
+    pr.OtherProblem('\xff\xfe\x80\x88')
 
   def testBadUnicodeContext(self):
     pr = transitfeed.ProblemReporter()
@@ -855,7 +868,7 @@ class StopAttributes(ValidationTestCase):
       e = self.problems.PopException('MissingValue')
       self.assertEquals(name, e.column_name)
     self.problems.AssertNoMoreExceptions()
-    
+
     stop = transitfeed.Stop()
     # Test behaviour for unset and unknown attribute
     self.assertEquals(stop['new_column'], '')
@@ -961,6 +974,456 @@ class StopTimeValidationTestCase(ValidationTestCase):
     transitfeed.StopTime(self.problems, stop, arrival_time="10:00:00",
         departure_time="10:05:00", pickup_type='1', drop_off_type='1')
     transitfeed.StopTime(self.problems, stop)
+    self.problems.AssertNoMoreExceptions()
+
+
+class MemoryZipTestCase(unittest.TestCase):
+  def setUp(self):
+    self.problems = RecordingProblemReporter(self, ("ExpirationDate",))
+    self.zip = zipfile.ZipFile(StringIO(), 'a')
+    self.zip.writestr(
+        "agency.txt",
+        "agency_id,agency_name,agency_url,agency_timezone\n"
+        "DTA,Demo Agency,http://google.com,America/Los_Angeles\n")
+    self.zip.writestr(
+        "calendar.txt",
+        "service_id,monday,tuesday,wednesday,thursday,friday,saturday,sunday,"
+        "start_date,end_date\n"
+        "FULLW,1,1,1,1,1,1,1,20070101,20101231\n"
+        "WE,0,0,0,0,0,1,1,20070101,20101231\n")
+    self.zip.writestr(
+        "routes.txt",
+        "route_id,agency_id,route_short_name,route_long_name,route_type\n"
+        "AB,DTA,,Airport Bullfrog,3\n")
+    self.zip.writestr(
+        "trips.txt",
+        "route_id,service_id,trip_id\n"
+        "AB,FULLW,AB1\n")
+    self.zip.writestr(
+        "stops.txt",
+        "stop_id,stop_name,stop_lat,stop_lon\n"
+        "BEATTY_AIRPORT,Airport,36.868446,-116.784582\n"
+        "BULLFROG,Bullfrog,36.88108,-116.81797\n"
+        "STAGECOACH,Stagecoach Hotel,36.915682,-116.751677\n")
+    self.zip.writestr(
+        "stop_times.txt",
+        "trip_id,arrival_time,departure_time,stop_id,stop_sequence\n"
+        "AB1,10:00:00,10:00:00,BEATTY_AIRPORT,1\n"
+        "AB1,10:20:00,10:20:00,BULLFROG,2\n"
+        "AB1,10:25:00,10:25:00,STAGECOACH,3\n")
+    self.loader = transitfeed.Loader(
+        problems=self.problems,
+        extra_validation=True,
+        zip=self.zip)
+
+
+class CsvDictTestCase(unittest.TestCase):
+  def setUp(self):
+    self.problems = RecordingProblemReporter(self)
+    self.zip = zipfile.ZipFile(StringIO(), 'a')
+    self.loader = transitfeed.Loader(
+        problems=self.problems,
+        zip=self.zip)
+
+  def testEmptyFile(self):
+    self.zip.writestr("test.txt", "")
+    results = list(self.loader._ReadCsvDict("test.txt", [], []))
+    self.assertEquals([], results)
+    self.problems.PopException("EmptyFile")
+    self.problems.AssertNoMoreExceptions()
+
+  def testHeaderOnly(self):
+    self.zip.writestr("test.txt", "test_id,test_name")
+    results = list(self.loader._ReadCsvDict("test.txt",
+                                            ["test_id", "test_name"], []))
+    self.assertEquals([], results)
+    self.problems.AssertNoMoreExceptions()
+
+  def testHeaderAndNewLineOnly(self):
+    self.zip.writestr("test.txt", "test_id,test_name\n")
+    results = list(self.loader._ReadCsvDict("test.txt",
+                                            ["test_id", "test_name"], []))
+    self.assertEquals([], results)
+    self.problems.AssertNoMoreExceptions()
+
+  def testHeaderWithSpaceBefore(self):
+    self.zip.writestr("test.txt", " test_id, test_name\n")
+    results = list(self.loader._ReadCsvDict("test.txt",
+                                            ["test_id", "test_name"], []))
+    self.assertEquals([], results)
+    self.problems.AssertNoMoreExceptions()
+
+  def testHeaderWithSpaceBeforeAfter(self):
+    self.zip.writestr("test.txt", "test_id , test_name\n")
+    results = list(self.loader._ReadCsvDict("test.txt",
+                                            ["test_id", "test_name"], []))
+    self.assertEquals([], results)
+    e = self.problems.PopException("CsvSyntax")
+    self.problems.AssertNoMoreExceptions()
+
+  def testHeaderQuoted(self):
+    self.zip.writestr("test.txt", "\"test_id\", \"test_name\"\n")
+    results = list(self.loader._ReadCsvDict("test.txt",
+                                            ["test_id", "test_name"], []))
+    self.assertEquals([], results)
+    self.problems.AssertNoMoreExceptions()
+
+  def testHeaderSpaceAfterQuoted(self):
+    self.zip.writestr("test.txt", "\"test_id\" , \"test_name\"\n")
+    results = list(self.loader._ReadCsvDict("test.txt",
+                                            ["test_id", "test_name"], []))
+    self.assertEquals([], results)
+    e = self.problems.PopException("CsvSyntax")
+    self.problems.AssertNoMoreExceptions()
+
+  def testHeaderSpaceInQuotes(self):
+    self.zip.writestr("test.txt", "\"test_id \" , \"test_name\"\n")
+    results = list(self.loader._ReadCsvDict("test.txt",
+                                            ["test_id", "test_name"], []))
+    self.assertEquals([], results)
+    e = self.problems.PopException("CsvSyntax")
+    self.problems.AssertNoMoreExceptions()
+
+  def testFieldWithSpaces(self):
+    self.zip.writestr("test.txt",
+                      "test_id,test_name\n"
+                      "id1 , my name\n")
+    results = list(self.loader._ReadCsvDict("test.txt",
+                                            ["test_id", "test_name"], []))
+    self.assertEquals([({"test_id": "id1 ", "test_name": "my name"}, 2,
+                        ["test_id", "test_name"], ["id1 ","my name"])], results)
+    self.problems.AssertNoMoreExceptions()
+
+  def testFieldWithOnlySpaces(self):
+    self.zip.writestr("test.txt",
+                      "test_id,test_name\n"
+                      "id1,  \n")  # spaces are skipped to yield empty field
+    results = list(self.loader._ReadCsvDict("test.txt",
+                                            ["test_id", "test_name"], []))
+    self.assertEquals([({"test_id": "id1", "test_name": ""}, 2,
+                        ["test_id", "test_name"], ["id1",""])], results)
+    self.problems.AssertNoMoreExceptions()
+
+  def testQuotedFieldWithSpaces(self):
+    self.zip.writestr("test.txt",
+                      'test_id,"test_name",test_size\n'
+                      '"id1" , "my name" , "234 "\n')
+    results = list(self.loader._ReadCsvDict("test.txt",
+                                            ["test_id", "test_name",
+                                             "test_size"], []))
+    self.assertEquals(
+        [({"test_id": "id1 ", "test_name": "my name ", "test_size": "234 "}, 2,
+          ["test_id", "test_name", "test_size"], ["id1 ", "my name ", "234 "])],
+        results)
+    self.problems.AssertNoMoreExceptions()
+
+  def testQuotedFieldWithCommas(self):
+    self.zip.writestr("test.txt",
+                      'id,name1,name2\n'
+                      '"1", "brown, tom", "brown, ""tom"""\n')
+    results = list(self.loader._ReadCsvDict("test.txt",
+                                            ["id", "name1", "name2"], []))
+    self.assertEquals(
+        [({"id": "1", "name1": "brown, tom", "name2": "brown, \"tom\""}, 2,
+          ["id", "name1", "name2"], ["1", "brown, tom", "brown, \"tom\""])],
+        results)
+    self.problems.AssertNoMoreExceptions()
+
+  def testUnknownColumn(self):
+    # A small typo (omitting '_' in a header name) is detected
+    self.zip.writestr("test.txt", "test_id,testname\n")
+    results = list(self.loader._ReadCsvDict("test.txt",
+                                            ["test_id", "test_name"], []))
+    self.assertEquals([], results)
+    e = self.problems.PopException("UnrecognizedColumn")
+    self.assertEquals("testname", e.column_name)
+    self.problems.AssertNoMoreExceptions()
+
+  def testMissingRequiredColumn(self):
+    self.zip.writestr("test.txt", "test_id,test_size\n")
+    results = list(self.loader._ReadCsvDict("test.txt",
+                                            ["test_id", "test_size"],
+                                            ["test_name"]))
+    self.assertEquals([], results)
+    e = self.problems.PopException("MissingColumn")
+    self.assertEquals("test_name", e.column_name)
+    self.problems.AssertNoMoreExceptions()
+
+  def testRequiredNotInAllCols(self):
+    self.zip.writestr("test.txt", "test_id,test_name,test_size\n")
+    results = list(self.loader._ReadCsvDict("test.txt",
+                                            ["test_id", "test_size"],
+                                            ["test_name"]))
+    self.assertEquals([], results)
+    e = self.problems.PopException("UnrecognizedColumn")
+    self.assertEquals("test_name", e.column_name)
+    self.problems.AssertNoMoreExceptions()
+
+  def testBlankLine(self):
+    # line_num is increased for an empty line
+    self.zip.writestr("test.txt",
+                      "test_id,test_name\n"
+                      "\n"
+                      "id1,my name\n")
+    results = list(self.loader._ReadCsvDict("test.txt",
+                                            ["test_id", "test_name"], []))
+    self.assertEquals([({"test_id": "id1", "test_name": "my name"}, 3,
+                        ["test_id", "test_name"], ["id1","my name"])], results)
+    self.problems.AssertNoMoreExceptions()
+
+  def testExtraComma(self):
+    self.zip.writestr("test.txt",
+                      "test_id,test_name\n"
+                      "id1,my name,\n")
+    results = list(self.loader._ReadCsvDict("test.txt",
+                                            ["test_id", "test_name"], []))
+    self.assertEquals([({"test_id": "id1", "test_name": "my name"}, 2,
+                        ["test_id", "test_name"], ["id1","my name", ""])],
+                      results)
+    e = self.problems.PopException("OtherProblem")
+    self.assertTrue(e.FormatProblem().find("too many cells") != -1)
+    self.problems.AssertNoMoreExceptions()
+
+  def testMissingComma(self):
+    self.zip.writestr("test.txt",
+                      "test_id,test_name\n"
+                      "id1 my name\n")
+    results = list(self.loader._ReadCsvDict("test.txt",
+                                            ["test_id", "test_name"], []))
+    self.assertEquals([({"test_id": "id1 my name"}, 2,
+                        ["test_id", "test_name"], ["id1 my name"])], results)
+    e = self.problems.PopException("OtherProblem")
+    self.assertTrue(e.FormatProblem().find("missing cells") != -1)
+    self.problems.AssertNoMoreExceptions()
+
+
+class BasicMemoryZipTestCase(MemoryZipTestCase):
+  def run(self):
+    self.loader.Load()
+    self.problems.AssertNoMoreExceptions()
+
+
+class StopHierarchyTestCase(MemoryZipTestCase):
+  def testParentAtSameLatLon(self):
+    self.zip.writestr(
+        "stops.txt",
+        "stop_id,stop_name,stop_lat,stop_lon,location_type,parent_station\n"
+        "BEATTY_AIRPORT,Airport,36.868446,-116.784582,,STATION\n"
+        "STATION,Airport,36.868446,-116.784582,1,\n"
+        "BULLFROG,Bullfrog,36.88108,-116.81797,,\n"
+        "STAGECOACH,Stagecoach Hotel,36.915682,-116.751677,,\n")
+    schedule = self.loader.Load()
+    self.assertEquals(1, schedule.stops["STATION"].location_type)
+    self.assertEquals(0, schedule.stops["BEATTY_AIRPORT"].location_type)
+    self.problems.AssertNoMoreExceptions()
+
+  def testBadLocationType(self):
+    self.zip.writestr(
+        "stops.txt",
+        "stop_id,stop_name,stop_lat,stop_lon,location_type\n"
+        "BEATTY_AIRPORT,Airport,36.868446,-116.784582,2\n"
+        "BULLFROG,Bullfrog,36.88108,-116.81797,notvalid\n"
+        "STAGECOACH,Stagecoach Hotel,36.915682,-116.751677,\n")
+    schedule = self.loader.Load()
+    e = self.problems.PopException("InvalidValue")
+    self.assertEquals("location_type", e.column_name)
+    self.assertEquals(2, e.row_num)
+    e = self.problems.PopException("InvalidValue")
+    self.assertEquals("location_type", e.column_name)
+    self.assertEquals(3, e.row_num)
+    self.problems.AssertNoMoreExceptions()
+
+  def testStationUsed(self):
+    self.zip.writestr(
+        "stops.txt",
+        "stop_id,stop_name,stop_lat,stop_lon,location_type\n"
+        "BEATTY_AIRPORT,Airport,36.868446,-116.784582,1\n"
+        "BULLFROG,Bullfrog,36.88108,-116.81797,\n"
+        "STAGECOACH,Stagecoach Hotel,36.915682,-116.751677,\n")
+    schedule = self.loader.Load()
+    self.problems.PopException("UsedStation")
+    self.problems.AssertNoMoreExceptions()
+
+  def testParentNotFound(self):
+    self.zip.writestr(
+        "stops.txt",
+        "stop_id,stop_name,stop_lat,stop_lon,location_type,parent_station\n"
+        "BEATTY_AIRPORT,Airport,36.868446,-116.784582,,STATION\n"
+        "BULLFROG,Bullfrog,36.88108,-116.81797,,\n"
+        "STAGECOACH,Stagecoach Hotel,36.915682,-116.751677,,\n")
+    schedule = self.loader.Load()
+    e = self.problems.PopException("InvalidValue")
+    self.assertEquals("parent_station", e.column_name)
+    self.problems.AssertNoMoreExceptions()
+
+  def testParentIsStop(self):
+    self.zip.writestr(
+        "stops.txt",
+        "stop_id,stop_name,stop_lat,stop_lon,location_type,parent_station\n"
+        "BEATTY_AIRPORT,Airport,36.868446,-116.784582,,BULLFROG\n"
+        "BULLFROG,Bullfrog,36.88108,-116.81797,,\n"
+        "STAGECOACH,Stagecoach Hotel,36.915682,-116.751677,,\n")
+    schedule = self.loader.Load()
+    e = self.problems.PopException("InvalidValue")
+    self.assertEquals("parent_station", e.column_name)
+    self.problems.AssertNoMoreExceptions()
+
+  def testStationWithParent(self):
+    self.zip.writestr(
+        "stops.txt",
+        "stop_id,stop_name,stop_lat,stop_lon,location_type,parent_station\n"
+        "BEATTY_AIRPORT,Airport,36.868446,-116.784582,,STATION\n"
+        "STATION,Airport,36.868446,-116.784582,1,STATION2\n"
+        "STATION2,Airport 2,40.868446,-116.784582,1,\n"
+        "BULLFROG,Bullfrog,36.88108,-116.81797,,STATION2\n"
+        "STAGECOACH,Stagecoach Hotel,36.915682,-116.751677,,\n")
+    schedule = self.loader.Load()
+    e = self.problems.PopException("InvalidValue")
+    self.assertEquals("parent_station", e.column_name)
+    self.assertEquals(3, e.row_num)
+    self.problems.AssertNoMoreExceptions()
+
+  def testStationWithSelfParent(self):
+    self.zip.writestr(
+        "stops.txt",
+        "stop_id,stop_name,stop_lat,stop_lon,location_type,parent_station\n"
+        "BEATTY_AIRPORT,Airport,36.868446,-116.784582,,STATION\n"
+        "STATION,Airport,36.868446,-116.784582,1,STATION\n"
+        "BULLFROG,Bullfrog,36.88108,-116.81797,,\n"
+        "STAGECOACH,Stagecoach Hotel,36.915682,-116.751677,,\n")
+    schedule = self.loader.Load()
+    e = self.problems.PopException("InvalidValue")
+    self.assertEquals("parent_station", e.column_name)
+    self.assertEquals(3, e.row_num)
+    self.problems.AssertNoMoreExceptions()
+
+  #Uncomment once validation is implemented
+  #def testStationWithoutReference(self):
+  #  self.zip.writestr(
+  #      "stops.txt",
+  #      "stop_id,stop_name,stop_lat,stop_lon,location_type,parent_station\n"
+  #      "BEATTY_AIRPORT,Airport,36.868446,-116.784582,,\n"
+  #      "STATION,Airport,36.868446,-116.784582,1,\n"
+  #      "BULLFROG,Bullfrog,36.88108,-116.81797,,\n"
+  #      "STAGECOACH,Stagecoach Hotel,36.915682,-116.751677,,\n")
+  #  schedule = self.loader.Load()
+  #  e = self.problems.PopException("OtherProblem")
+  #  self.assertEquals("parent_station", e.column_name)
+  #  self.assertEquals(2, e.row_num)
+  #  self.problems.AssertNoMoreExceptions()
+
+
+class StopSpacesTestCase(MemoryZipTestCase):
+  def testFieldsWithSpace(self):
+    self.zip.writestr(
+        "stops.txt",
+        "stop_id,stop_code,stop_name,stop_lat,stop_lon,stop_url,location_type,"
+        "parent_station\n"
+        "BEATTY_AIRPORT, ,Airport,36.868446,-116.784582, , ,\n"
+        "BULLFROG,,Bullfrog,36.88108,-116.81797,,,\n"
+        "STAGECOACH,,Stagecoach Hotel,36.915682,-116.751677,,,\n")
+    schedule = self.loader.Load()
+    self.problems.AssertNoMoreExceptions()
+
+
+class StopsNearEachOther(MemoryZipTestCase):
+  def testTooNear(self):
+    self.zip.writestr(
+        "stops.txt",
+        "stop_id,stop_name,stop_lat,stop_lon\n"
+        "BEATTY_AIRPORT,Airport,48.20000,140\n"
+        "BULLFROG,Bullfrog,48.20001,140\n"
+        "STAGECOACH,Stagecoach Hotel,36.915682,-116.751677\n")
+    schedule = self.loader.Load()
+    e = self.problems.PopException('OtherProblem')
+    self.assertTrue(e.FormatProblem().find("1.11m apart") != -1)
+    self.problems.AssertNoMoreExceptions()
+
+  def testJustFarEnough(self):
+    self.zip.writestr(
+        "stops.txt",
+        "stop_id,stop_name,stop_lat,stop_lon\n"
+        "BEATTY_AIRPORT,Airport,48.20000,140\n"
+        "BULLFROG,Bullfrog,48.20002,140\n"
+        "STAGECOACH,Stagecoach Hotel,36.915682,-116.751677\n")
+    schedule = self.loader.Load()
+    # Stops are 2.2m apart
+    self.problems.AssertNoMoreExceptions()
+
+  def testSameLocation(self):
+    self.zip.writestr(
+        "stops.txt",
+        "stop_id,stop_name,stop_lat,stop_lon\n"
+        "BEATTY_AIRPORT,Airport,48.2,140\n"
+        "BULLFROG,Bullfrog,48.2,140\n"
+        "STAGECOACH,Stagecoach Hotel,36.915682,-116.751677\n")
+    schedule = self.loader.Load()
+    e = self.problems.PopException('OtherProblem')
+    self.assertTrue(e.FormatProblem().find("0.00m apart") != -1)
+    self.problems.AssertNoMoreExceptions()
+
+  def testStationsTooNear(self):
+    self.zip.writestr(
+        "stops.txt",
+        "stop_id,stop_name,stop_lat,stop_lon,location_type,parent_station\n"
+        "BEATTY_AIRPORT,Airport,48.20000,140,,BEATTY_AIRPORT_STATION\n"
+        "BULLFROG,Bullfrog,48.20003,140,,BULLFROG_STATION\n"
+        "BEATTY_AIRPORT_STATION,Airport,48.20001,140,1,\n"
+        "BULLFROG_STATION,Bullfrog,48.20002,140,1,\n"
+        "STAGECOACH,Stagecoach Hotel,36.915682,-116.751677,,\n")
+    schedule = self.loader.Load()
+    e = self.problems.PopException('OtherProblem')
+    self.assertTrue(e.FormatProblem().find("1.11m apart") != -1)
+    self.assertTrue(e.FormatProblem().find("BEATTY_AIRPORT_STATION") != -1)
+    self.problems.AssertNoMoreExceptions()
+
+  def testStopNearNonParentStation(self):
+    self.zip.writestr(
+        "stops.txt",
+        "stop_id,stop_name,stop_lat,stop_lon,location_type,parent_station\n"
+        "BEATTY_AIRPORT,Airport,48.20000,140,,\n"
+        "BULLFROG,Bullfrog,48.20005,140,,\n"
+        "BULLFROG_STATION,Bullfrog,48.20006,140,1,\n"
+        "STAGECOACH,Stagecoach Hotel,36.915682,-116.751677,,\n")
+    schedule = self.loader.Load()
+    e = self.problems.PopException('OtherProblem')
+    fmt = e.FormatProblem()
+    self.assertTrue(re.search(
+      r"parent_station of.*BULLFROG.*station.*BULLFROG_STATION.* 1.11m apart",
+      fmt), fmt)
+    self.problems.AssertNoMoreExceptions()
+
+
+class BadLatLonInStopUnitTest(ValidationTestCase):
+  def runTest(self):
+    stop = transitfeed.Stop(field_dict={"stop_id": "STOP1",
+                                        "stop_name": "Stop one",
+                                        "stop_lat": "0x20",
+                                        "stop_lon": "140.01"})
+    self.ExpectInvalidValue(stop, "stop_lat")
+
+    stop = transitfeed.Stop(field_dict={"stop_id": "STOP1",
+                                        "stop_name": "Stop one",
+                                        "stop_lat": "13.0",
+                                        "stop_lon": "1e2"})
+    self.ExpectInvalidValue(stop, "stop_lon")
+
+
+class BadLatLonInFileUnitTest(MemoryZipTestCase):
+  def runTest(self):
+    self.zip.writestr(
+        "stops.txt",
+        "stop_id,stop_name,stop_lat,stop_lon\n"
+        "BEATTY_AIRPORT,Airport,0x20,140.00\n"
+        "BULLFROG,Bullfrog,48.20001,140.0123\n"
+        "STAGECOACH,Stagecoach Hotel,48.002,bogus\n")
+    schedule = self.loader.Load()
+    e = self.problems.PopException('InvalidValue')
+    self.assertEquals(2, e.row_num)
+    self.assertEquals("stop_lat", e.column_name)
+    e = self.problems.PopException('InvalidValue')
+    self.assertEquals(4, e.row_num)
+    self.assertEquals("stop_lon", e.column_name)
     self.problems.AssertNoMoreExceptions()
 
 
@@ -1223,6 +1686,124 @@ class FareValidationTestCase(ValidationTestCase):
     fare.transfer_duration = 7200
     self.problems.AssertNoMoreExceptions()
 
+class TransferValidationTestCase(ValidationTestCase):
+  def runTest(self):
+    # Totally bogus data shouldn't cause a crash
+    transfer = transitfeed.Transfer(field_dict={"ignored": "foo"})
+    self.assertEquals(0, transfer.transfer_type)
+
+    transfer = transitfeed.Transfer(from_stop_id = "S1", to_stop_id = "S2",
+                                    transfer_type = "1", min_transfer_time = 2)
+    self.assertEquals("S1", transfer.from_stop_id)
+    self.assertEquals("S2", transfer.to_stop_id)
+    self.assertEquals(1, transfer.transfer_type)
+    self.assertEquals(2, transfer.min_transfer_time)
+    transfer.Validate(self.problems)
+    self.assertEquals("S1", transfer.from_stop_id)
+    self.assertEquals("S2", transfer.to_stop_id)
+    self.assertEquals(1, transfer.transfer_type)
+    self.assertEquals(2, transfer.min_transfer_time)
+    self.problems.AssertNoMoreExceptions()
+
+    transfer = transitfeed.Transfer(field_dict={"from_stop_id": "S1", \
+                                                "to_stop_id": "S2", \
+                                                "transfer_type": "0", \
+                                                "min_transfer_time": "2"})
+    self.assertEquals("S1", transfer.from_stop_id)
+    self.assertEquals("S2", transfer.to_stop_id)
+    self.assertEquals(0, transfer.transfer_type)
+    self.assertEquals(2, transfer.min_transfer_time)
+    transfer.Validate(self.problems)
+    self.assertEquals("S1", transfer.from_stop_id)
+    self.assertEquals("S2", transfer.to_stop_id)
+    self.assertEquals(0, transfer.transfer_type)
+    self.assertEquals(2, transfer.min_transfer_time)
+    self.problems.AssertNoMoreExceptions()
+
+    transfer = transitfeed.Transfer(field_dict={"from_stop_id": "S1", \
+                                                "to_stop_id": "S2", \
+                                                "transfer_type": "-4", \
+                                                "min_transfer_time": "2"})
+    self.assertEquals("S1", transfer.from_stop_id)
+    self.assertEquals("S2", transfer.to_stop_id)
+    self.assertEquals("-4", transfer.transfer_type)
+    self.assertEquals(2, transfer.min_transfer_time)
+    self.ExpectInvalidValue(transfer, "transfer_type")
+    self.assertEquals("S1", transfer.from_stop_id)
+    self.assertEquals("S2", transfer.to_stop_id)
+    self.assertEquals("-4", transfer.transfer_type)
+    self.assertEquals(2, transfer.min_transfer_time)
+
+    transfer = transitfeed.Transfer(field_dict={"from_stop_id": "S1", \
+                                                "to_stop_id": "S2", \
+                                                "transfer_type": "", \
+                                                "min_transfer_time": "-1"})
+    self.assertEquals(0, transfer.transfer_type)
+    self.ExpectInvalidValue(transfer, "min_transfer_time")
+
+    # simple successes
+    transfer = transitfeed.Transfer()
+    transfer.from_stop_id = "S1"
+    transfer.to_stop_id = "S2"
+    transfer.transfer_type = 0
+    repr(transfer)  # shouldn't crash
+    transfer.Validate(self.problems)
+    transfer.transfer_type = 3
+    transfer.Validate(self.problems)
+    self.problems.AssertNoMoreExceptions()
+
+    # transfer_type is out of range
+    transfer.transfer_type = 4
+    self.ExpectInvalidValue(transfer, "transfer_type")
+    transfer.transfer_type = -1
+    self.ExpectInvalidValue(transfer, "transfer_type")
+    transfer.transfer_type = "text"
+    self.ExpectInvalidValue(transfer, "transfer_type")
+    transfer.transfer_type = 2
+
+    # invalid min_transfer_time
+    transfer.min_transfer_time = -1
+    self.ExpectInvalidValue(transfer, "min_transfer_time")
+    transfer.min_transfer_time = "text"
+    self.ExpectInvalidValue(transfer, "min_transfer_time")
+    transfer.min_transfer_time = 250
+    transfer.Validate(self.problems)
+    self.problems.AssertNoMoreExceptions()
+
+    # missing stop ids
+    transfer.from_stop_id = ""
+    self.ExpectMissingValue(transfer, 'from_stop_id')
+    transfer.from_stop_id = "S1"
+    transfer.to_stop_id = None
+    self.ExpectMissingValue(transfer, 'to_stop_id')
+    transfer.to_stop_id = "S2"
+
+    # stops are presented in schedule case
+    schedule = transitfeed.Schedule()
+    stop1 = schedule.AddStop(57.5, 30.2, "stop 1")
+    stop2 = schedule.AddStop(57.5, 30.3, "stop 2")
+    transfer = transitfeed.Transfer(schedule=schedule)
+    transfer.from_stop_id = stop1.stop_id
+    transfer.to_stop_id = stop2.stop_id
+    transfer.transfer_type = 2
+    transfer.min_transfer_time = 250
+    repr(transfer)  # shouldn't crash
+    transfer.Validate(self.problems)
+    self.problems.AssertNoMoreExceptions()
+
+    # stops are not presented in schedule case
+    schedule = transitfeed.Schedule()
+    stop1 = schedule.AddStop(57.5, 30.2, "stop 1")
+    transfer = transitfeed.Transfer(schedule=schedule)
+    transfer.from_stop_id = stop1.stop_id
+    transfer.to_stop_id = "unexist"
+    transfer.transfer_type = 2
+    transfer.min_transfer_time = 250
+    self.ExpectInvalidValue(transfer, 'to_stop_id')
+    transfer.from_stop_id = "unexist"
+    transfer.to_stop_id = stop1.stop_id
+    self.ExpectInvalidValue(transfer, "from_stop_id")
+    self.problems.AssertNoMoreExceptions()
 
 class ServicePeriodValidationTestCase(ValidationTestCase):
   def runTest(self):
@@ -1389,7 +1970,7 @@ class TripValidationTestCase(ValidationTestCase):
   def runTest(self):
     trip = transitfeed.Trip()
     repr(trip)  # shouldn't crash
-    
+
     schedule = transitfeed.Schedule()  # Needed to find StopTimes
     trip = transitfeed.Trip(schedule=schedule)
     repr(trip)  # shouldn't crash
@@ -1645,9 +2226,12 @@ class BasicParsingTestCase(unittest.TestCase):
     self.assertEqual(1, len(schedule._agencies))
     self.assertEqual(5, len(schedule.routes))
     self.assertEqual(2, len(schedule.service_periods))
-    self.assertEqual(9, len(schedule.stops))
+    self.assertEqual(10, len(schedule.stops))
     self.assertEqual(11, len(schedule.trips))
     self.assertEqual(0, len(schedule.fare_zones))
+
+  def assertLoadedStopTimesCorrectly(self, schedule):
+    self.assertEqual(5, len(schedule.GetTrip('CITY1').GetStopTimes()))
     self.assertEqual('to airport', schedule.GetTrip('STBA').GetStopTimes()[0].stop_headsign)
     self.assertEqual(2, schedule.GetTrip('CITY1').GetStopTimes()[1].pickup_type)
     self.assertEqual(3, schedule.GetTrip('CITY1').GetStopTimes()[1].drop_off_type)
@@ -1655,20 +2239,34 @@ class BasicParsingTestCase(unittest.TestCase):
   def test_MemoryDb(self):
     loader = transitfeed.Loader(
       DataPath('good_feed.zip'),
-      problems=ExceptionProblemReporterNoExpiration(),
+      problems=TestFailureProblemReporter(self),
       extra_validation=True,
       memory_db=True)
     schedule = loader.Load()
     self.assertLoadedCorrectly(schedule)
+    self.assertLoadedStopTimesCorrectly(schedule)
 
   def test_TemporaryFile(self):
     loader = transitfeed.Loader(
       DataPath('good_feed.zip'),
-      problems=ExceptionProblemReporterNoExpiration(),
+      problems=TestFailureProblemReporter(self),
       extra_validation=True,
       memory_db=False)
     schedule = loader.Load()
     self.assertLoadedCorrectly(schedule)
+    self.assertLoadedStopTimesCorrectly(schedule)
+
+  def test_NoLoadStopTimes(self):
+    problems = TestFailureProblemReporter(
+        self, ignore_types=("ExpirationDate", "UnusedStop", "OtherProblem"))
+    loader = transitfeed.Loader(
+      DataPath('good_feed.zip'),
+      problems=problems,
+      extra_validation=True,
+      load_stop_times=False)
+    schedule = loader.Load()
+    self.assertLoadedCorrectly(schedule)
+    self.assertEqual(0, len(schedule.GetTrip('CITY1').GetStopTimes()))
 
 
 class RepeatedRouteNameTestCase(LoadTestCase):
@@ -2637,7 +3235,7 @@ class GetTripTimeTestCase(unittest.TestCase):
     self.trip3 = self.route1.AddTrip(schedule, "trip 3", trip_id='trip3')
 
   def testGetTimeInterpolatedStops(self):
-    rv = self.schedule.GetTrip('trip1').GetTimeInterpolatedStops()
+    rv = self.trip1.GetTimeInterpolatedStops()
     self.assertEqual(4, len(rv))
     (secs, stoptimes, istimepoints) = tuple(zip(*rv))
 
@@ -2645,6 +3243,32 @@ class GetTripTimeTestCase(unittest.TestCase):
     self.assertEqual(("140.01,0", "140.02,0", "140.03,0", "140.04,0"),
                      tuple([st.stop.stop_name for st in stoptimes]))
     self.assertEqual((True, False, False, True), istimepoints)
+
+    self.assertEqual([], self.trip3.GetTimeInterpolatedStops())
+
+  def testGetTimeInterpolatedStopsUntimedEnd(self):
+    self.trip2.AddStopTime(self.stop3, schedule=self.schedule)
+    self.assertRaises(ValueError, self.trip2.GetTimeInterpolatedStops)
+
+  def testGetTimeInterpolatedStopsUntimedStart(self):
+    # Temporarily replace the problem reporter so that adding the first
+    # StopTime without a time doesn't throw an exception.
+    old_problems = self.schedule.problem_reporter
+    self.schedule.problem_reporter = TestFailureProblemReporter(
+        self, ("OtherProblem",))
+    self.trip3.AddStopTime(self.stop3, schedule=self.schedule)
+    self.schedule.problem_reporter = old_problems
+    self.trip3.AddStopTime(self.stop2, schedule=self.schedule,
+                           departure_secs=500, arrival_secs=500)
+    self.assertRaises(ValueError, self.trip3.GetTimeInterpolatedStops)
+
+  def testGetTimeInterpolatedStopsSingleStopTime(self):
+    self.trip3.AddStopTime(self.stop3, schedule=self.schedule,
+                           departure_secs=500, arrival_secs=500)
+    rv = self.trip3.GetTimeInterpolatedStops()
+    self.assertEqual(1, len(rv))
+    self.assertEqual(500, rv[0][0])
+    self.assertEqual(True, rv[0][2])
 
   def testGetStopTimeTrips(self):
     stopa = self.schedule.GetNearestStops(lon=140.03, lat=0)[0]
@@ -2723,6 +3347,89 @@ class TimeConversionHelpersTestCase(unittest.TestCase):
     else:
       self.fail("Should have thrown ValueError")
 
+
+class NonNegIntStringToIntTestCase(unittest.TestCase):
+  def runTest(self):
+    self.assertEqual(0, transitfeed.NonNegIntStringToInt("0"))
+    self.assertEqual(0, transitfeed.NonNegIntStringToInt(u"0"))
+    self.assertEqual(1, transitfeed.NonNegIntStringToInt("1"))
+    self.assertEqual(2, transitfeed.NonNegIntStringToInt("2"))
+    self.assertEqual(10, transitfeed.NonNegIntStringToInt("10"))
+    self.assertEqual(1234567890123456789,
+                     transitfeed.NonNegIntStringToInt("1234567890123456789"))
+    self.assertRaises(ValueError, transitfeed.NonNegIntStringToInt, "")
+    self.assertRaises(ValueError, transitfeed.NonNegIntStringToInt, "-1")
+    self.assertRaises(ValueError, transitfeed.NonNegIntStringToInt, "+1")
+    self.assertRaises(ValueError, transitfeed.NonNegIntStringToInt, "01")
+    self.assertRaises(ValueError, transitfeed.NonNegIntStringToInt, "00")
+    self.assertRaises(ValueError, transitfeed.NonNegIntStringToInt, "0x1")
+    self.assertRaises(ValueError, transitfeed.NonNegIntStringToInt, "1.0")
+    self.assertRaises(ValueError, transitfeed.NonNegIntStringToInt, "1e1")
+    self.assertRaises(TypeError, transitfeed.NonNegIntStringToInt, 1)
+    self.assertRaises(TypeError, transitfeed.NonNegIntStringToInt, None)
+
+
+class GetHeadwayTimesTestCase(unittest.TestCase):
+  """Test for GetHeadwayStartTimes and GetHeadwayStopTimes"""
+  def setUp(self):
+    problems = TestFailureProblemReporter(self)
+    schedule = transitfeed.Schedule(problem_reporter=problems)
+    self.schedule = schedule
+    schedule.AddAgency("Agency", "http://iflyagency.com",
+                       "America/Los_Angeles")
+    service_period = schedule.GetDefaultServicePeriod()
+    service_period.SetStartDate("20080101")
+    service_period.SetEndDate("20090101")
+    service_period.SetWeekdayService(True)
+    self.stop1 = schedule.AddStop(lng=140.01, lat=0, name="140.01,0")
+    self.stop2 = schedule.AddStop(lng=140.02, lat=0, name="140.02,0")
+    self.stop3 = schedule.AddStop(lng=140.03, lat=0, name="140.03,0")
+    self.stop4 = schedule.AddStop(lng=140.04, lat=0, name="140.04,0")
+    self.stop5 = schedule.AddStop(lng=140.05, lat=0, name="140.05,0")
+    self.route1 = schedule.AddRoute("1", "One", "Bus")
+
+    self.trip1 = self.route1.AddTrip(schedule, "trip 1", trip_id="trip1")
+    # add different types of stop times
+    self.trip1.AddStopTime(self.stop1, arrival_time="17:00:00", departure_time="17:01:00") # both arrival and departure time
+    self.trip1.AddStopTime(self.stop2, schedule=schedule) # non timed
+    self.trip1.AddStopTime(self.stop3, stop_time="17:45:00") # only stop_time
+
+    # add headways starting before the trip
+    self.trip1.AddHeadwayPeriod("16:00:00","18:00:00",1800) # each 30 min
+    self.trip1.AddHeadwayPeriod("18:00:00","20:00:00",2700) # each 45 min
+
+  def testGetHeadwayStartTimes(self):
+    start_times = self.trip1.GetHeadwayStartTimes()
+    self.assertEqual(
+        ["16:00:00", "16:30:00", "17:00:00", "17:30:00",
+         "18:00:00", "18:45:00", "19:30:00"],
+        [transitfeed.FormatSecondsSinceMidnight(secs) for secs in start_times])
+
+  def testGetHeadwayStopTimes(self):
+    stoptimes_list = self.trip1.GetHeadwayStopTimes()
+    arrival_secs = []
+    departure_secs = []
+    for stoptimes in stoptimes_list:
+      arrival_secs.append([st.arrival_secs for st in stoptimes])
+      departure_secs.append([st.departure_secs for st in stoptimes])
+
+    self.assertEqual(([57600,None,60300],[59400,None,62100],[61200,None,63900],
+                      [63000,None,65700],[64800,None,67500],[67500,None,70200],
+                      [70200,None,72900]),
+                     tuple(arrival_secs))
+    self.assertEqual(([57660,None,60300],[59460,None,62100],[61260,None,63900],
+                      [63060,None,65700],[64860,None,67500],[67560,None,70200],
+                      [70260,None,72900]),
+                     tuple(departure_secs))
+
+    # test if stoptimes are created with same parameters than the ones from the original trip
+    stoptimes = self.trip1.GetStopTimes()
+    for stoptimes_clone in stoptimes_list:
+      self.assertEqual(len(stoptimes_clone), len(stoptimes))
+      for st_clone, st in zip(stoptimes_clone, stoptimes):
+        for name in st.__slots__:
+          if name not in ('arrival_secs', 'departure_secs'):
+            self.assertEqual(getattr(st, name), getattr(st_clone, name))
 
 if __name__ == '__main__':
   unittest.main()
