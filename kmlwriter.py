@@ -598,8 +598,8 @@ def main():
                     dest='split_routes',
                     help='split the routes by type')
   parser.add_option('-d', '--date_filter', action='store', type='string',
-                    dest='Restrict to trips active on date YYYYMMDD',
-                    help='')
+                    dest='date_filter',
+                    help='Restrict to trips active on date YYYYMMDD')
   parser.add_option('-p', '--display_shape_points', action='store_true',
                     dest='shape_points',
                     help='shows the actual points along shapes')
