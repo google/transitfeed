@@ -439,7 +439,8 @@ def TimeToSecondsSinceMidnight(time_string):
 
   For example "01:02:03" returns 3723. The leading zero of the hours may be
   omitted. HH may be more than 23 if the time is on the following day."""
-  m = re.match(r'(\d?\d):(\d\d):(\d\d)$', time_string)
+  m = re.match(r'(\d{1,2}):([0-5]\d):([0-5]\d)$', time_string)
+  # ignored: matching for leap seconds
   if not m:
     raise Error, 'Bad HH:MM:SS "%s"' % time_string
   return int(m.group(1)) * 3600 + int(m.group(2)) * 60 + int(m.group(3))

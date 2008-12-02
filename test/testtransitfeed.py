@@ -970,9 +970,29 @@ class StopTimeValidationTestCase(ValidationTestCase):
         lambda: transitfeed.StopTime(self.problems, stop,
                                      arrival_time="10:00:00",
                                      departure_time=""))
+    self.ExpectInvalidValueInClosure('departure_time', '10:70:00',
+        lambda: transitfeed.StopTime(self.problems, stop,
+                                     arrival_time="10:00:00",
+                                     departure_time="10:70:00"))
+    self.ExpectInvalidValueInClosure('departure_time', '10:00:62',
+        lambda: transitfeed.StopTime(self.problems, stop,
+                                     arrival_time="10:00:00",
+                                     departure_time="10:00:62"))
+    self.ExpectInvalidValueInClosure('arrival_time', '10:00:63',
+        lambda: transitfeed.StopTime(self.problems, stop,
+                                     arrival_time="10:00:63",
+                                     departure_time="10:10:00"))
+    self.ExpectInvalidValueInClosure('arrival_time', '10:60:00',
+        lambda: transitfeed.StopTime(self.problems, stop,
+                                     arrival_time="10:60:00",
+                                     departure_time="11:02:00"))
     # The following should work
     transitfeed.StopTime(self.problems, stop, arrival_time="10:00:00",
         departure_time="10:05:00", pickup_type='1', drop_off_type='1')
+    transitfeed.StopTime(self.problems, stop, arrival_time="1:00:00",
+        departure_time="1:05:00")
+    transitfeed.StopTime(self.problems, stop, arrival_time="24:59:00",
+        departure_time="25:05:00")
     transitfeed.StopTime(self.problems, stop)
     self.problems.AssertNoMoreExceptions()
 
