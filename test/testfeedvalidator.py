@@ -44,6 +44,21 @@ class missing_stops(util.TempDirTestCaseBase):
     self.assertTrue(re.search(r'Invalid value FUR_CREEK_RES', htmlout))
     self.assertFalse(re.search(r'feed validated successfully', htmlout))
 
+
+class bad_date_format(util.TempDirTestCaseBase):
+  def runTest(self):
+    (out, err) = self.CheckCallWithPath(
+        [self.GetPath('feedvalidator.py'), '-n',
+         self.GetPath('test', 'data', 'bad_date_format')],
+        expected_retcode=1)
+    self.assertTrue(re.search(r'ERROR', out))
+    self.assertFalse(re.search(r'feed validated successfully', out))
+    htmlout = open('validation-results.html').read()
+    self.assertTrue(re.search(r'in field <code>start_date', htmlout))
+    self.assertTrue(re.search(r'in field <code>date', htmlout))
+    self.assertFalse(re.search(r'feed validated successfully', htmlout))
+
+
 class crash_handler(util.TempDirTestCaseBase):
   def runTest(self):
     (out, err) = self.CheckCallWithPath(

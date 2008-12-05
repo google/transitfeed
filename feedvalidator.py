@@ -163,11 +163,17 @@ class HTMLCountingProblemReporter(transitfeed.ProblemReporter):
     dates = "No valid service dates found"
     (start, end) = schedule.GetDateRange()
     if start and end:
-      src_format = "%Y%m%d"
-      dst_format = "%B %d, %Y"
-      formatted_start = time.strftime(dst_format,
-                                      time.strptime(start, src_format))
-      formatted_end = time.strftime(dst_format, time.strptime(end, src_format))
+      def FormatDate(yyyymmdd):
+        src_format = "%Y%m%d"
+        dst_format = "%B %d, %Y"
+        try:
+          return time.strftime(dst_format,
+                               time.strptime(yyyymmdd, src_format))
+        except ValueError:
+          return yyyymmdd
+
+      formatted_start = FormatDate(start)
+      formatted_end = FormatDate(end)
       dates = "%s to %s" % (formatted_start, formatted_end)
 
     output_prefix = """
