@@ -365,6 +365,7 @@ if __name__ == '__main__':
     raise
   except:
     import inspect
+    import sys
     import traceback
 
     # Save trace and exception now. These calls look at the most recently
@@ -403,10 +404,14 @@ or an email to tom.brown.code@gmail.com. Sorry!
           else:
             dump.append('     %s' % line)
       for local_name, local_val in frame_obj.f_locals.items():
-        truncated_val = str(local_val)[0:500]
-        if len(truncated_val) == 500:
-          truncated_val = '%s...' % truncated_val[0:499]
-        dump.append('    %s = %s\n' % (local_name, truncated_val))
+        try:
+          truncated_val = str(local_val)[0:500]
+        except Exception, e:
+          dump.append('    Exception in str(%s): %s' % (local_name, e))
+        else:
+          if len(truncated_val) >= 500:
+            truncated_val = '%s...' % truncated_val[0:499]
+          dump.append('    %s = %s\n' % (local_name, truncated_val))
       dump.append('\n')
 
     dump.append(''.join(formatted_exception))
@@ -418,7 +423,6 @@ or an email to tom.brown.code@gmail.com. Sorry!
     print dashes
     print apology
 
-    import sys
     if '-n' not in sys.argv and '--noprompt' not in sys.argv:
       raw_input('Press enter to continue')
     sys.exit(127)

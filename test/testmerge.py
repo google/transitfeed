@@ -21,9 +21,11 @@ __author__ = 'timothy.stranex@gmail.com (Timothy Stranex)'
 
 
 import merge
+import re
 import StringIO
 import transitfeed
 import unittest
+import util
 
 
 def CheckAttribs(a, b, attrs, assertEquals):
@@ -1297,6 +1299,17 @@ class TestHTMLProblemReporter(unittest.TestCase):
     self.assert_(html.startswith('<html>'))
     self.assert_(html.endswith('</html>'))
 
+
+class crash_handler(util.TempDirTestCaseBase):
+  def runTest(self):
+    (out, err) = self.CheckCallWithPath(
+        [self.GetPath('merge.py'), '--no_browser',
+         'IWantMy-merge-crash.txt', 'file2', 'fileout.zip'],
+        expected_retcode=127)
+    self.assertTrue(re.search(r'Yikes', out))
+    crashout = open('merge-crash.txt').read()
+    self.assertTrue(re.search(r'For testing the merge crash handler',
+                              crashout), crashout)
 
 if __name__ == '__main__':
   unittest.main()
