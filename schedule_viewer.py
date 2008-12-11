@@ -258,7 +258,11 @@ class ScheduleRequestHandler(BaseHTTPServer.BaseHTTPRequestHandler):
     """Return a list of rows from the feed file that are related to this
     trip."""
     schedule = self.server.schedule
-    trip = schedule.GetTrip(params.get('trip', None))
+    try:
+      trip = schedule.GetTrip(params.get('trip', None))
+    except KeyError:
+      # if a non-existent trip is searched for, the return nothing
+      return
     route = schedule.GetRoute(trip.route_id)
     trip_row = {}
     for column in transitfeed.Trip._FIELD_NAMES:
@@ -272,7 +276,11 @@ class ScheduleRequestHandler(BaseHTTPServer.BaseHTTPRequestHandler):
 
   def handle_json_GET_tripstoptimes(self, params):
     schedule = self.server.schedule
-    trip = schedule.GetTrip(params.get('trip'))
+    try:
+      trip = schedule.GetTrip(params.get('trip'))
+    except KeyError:
+       # if a non-existent trip is searched for, the return nothing
+      return
     time_stops = trip.GetTimeStops()
     stops = []
     times = []
@@ -283,7 +291,11 @@ class ScheduleRequestHandler(BaseHTTPServer.BaseHTTPRequestHandler):
 
   def handle_json_GET_tripshape(self, params):
     schedule = self.server.schedule
-    trip = schedule.GetTrip(params.get('trip'))
+    try:
+      trip = schedule.GetTrip(params.get('trip'))
+    except KeyError:
+       # if a non-existent trip is searched for, the return nothing
+      return
     points = []
     if trip.shape_id:
       shape = schedule.GetShape(trip.shape_id)

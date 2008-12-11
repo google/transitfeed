@@ -94,6 +94,11 @@
       GDownloadUrl(url, callbackDisplayStops);
     }
 
+    function tripTextSearchSubmit() {
+      var text = document.getElementById("tripTextSearchInput").value;
+      selectTrip(text);
+    }
+
     /**
      * Add stops markers to the map and remove stops no longer in the
      * background.
@@ -473,6 +478,7 @@
         return;
       }
       var stopsTimes = eval(data);
+      if (!stopsTimes) return;
       displayTripStopTimes(stopsTimes[0], stopsTimes[1]);
     }
 
@@ -488,6 +494,7 @@
         return;
       }
       var points = eval(data);
+      if (!points) return;
       displayPolyLine(points);
     }
 
@@ -542,6 +549,7 @@
         return;
       }
       var rows = eval(data);
+      if (!rows) return;
       var html = "";
       for (var i = 0; i < rows.length; ++i) {
         var filename = rows[i][0];
@@ -633,7 +641,9 @@
 	Time:&nbsp;<input type="text" value="8:00" width="9" id="timeInput"><br>
 	<form onSubmit="stopTextSearchSubmit(); return false;">
 	Find Station: <input type="text" id="stopTextSearchInput"><input value="Search" type="submit"></form><br>
-	<div id="routeList">routelist</div>
+	<form onSubmit="tripTextSearchSubmit(); return false;">
+	Find Trip ID: <input type="text" id="tripTextSearchInput"><input value="Search" type="submit"></form><br>
+        <div id="routeList">routelist</div>
 	</div></div>
 
 	<div id='map-wrapper'> <div id='map'></div> </div>
