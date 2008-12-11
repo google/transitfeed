@@ -32,8 +32,9 @@ enough.
 __author__ = 'chris.harrelson.code@gmail.com (Chris Harrelson)'
 
 import copy
+import decimal
+import heapq
 import math
-
 
 class ShapeError(Exception):
   """Thrown whenever there is a shape parsing error."""
@@ -52,6 +53,15 @@ class Point(object):
     self.y = y
     self.z = z
 
+  def __hash__(self):
+    return hash((self.x, self.y, self.z))
+
+  def __cmp__(self, other):
+    if not isinstance(other, Point):
+      raise TypeError('Point.__cmp__(x,y) requires y to be a "Point", '
+                      'not a "%s"' % type(other).__name__)
+    return cmp((self.x, self.y, self.z), (other.x, other.y, other.z))
+
   def __str__(self):
     return "(%.15f, %.15f, %.15f) " % (self.x, self.y, self.z)
 
@@ -60,7 +70,7 @@ class Point(object):
     Returns the L_2 (Euclidean) norm of self.
     """
     sum = self.x * self.x + self.y * self.y + self.z * self.z
-    return math.sqrt(sum)
+    return math.sqrt(float(sum))
 
   def IsUnitLength(self):
     return abs(self.Norm2() - 1.0) < 1e-14
@@ -259,6 +269,12 @@ class Poly(object):
   def GetNumPoints(self):
     return len(self._points)
 
+  def _GetPointSafe(self, i):
+    try:
+      return self.GetPoint(i)
+    except IndexError:
+      return None
+
   def GetClosestPoint(self, p):
     """
     Returns (closest_p, closest_i), where closest_p is the closest point
@@ -278,6 +294,18 @@ class Poly(object):
         closest_i = i
 
     return (closest_point, closest_i)
+
+  def LengthMeters(self):
+    """Return length of this polyline in meters."""
+    assert(len(self._points) > 0)
+    length = 0
+    for i in range(0, len(self._points) - 1):
+      length += self._points[i].GetDistanceMeters(self._points[i+1])
+    return length
+
+  def Reversed(self):
+    """Return a polyline that is the reverse of this polyline."""
+    return Poly(reversed(self.GetPoints()), self.GetName())
 
   def CutAtClosestPoint(self, p):
     """
@@ -311,15 +339,45 @@ class Poly(object):
       max_radius = max(max_radius, dist)
     return max_radius
 
+  @staticmethod
+  def MergePolys(polys, merge_point_threshold=10):
+    """
+    Merge multiple polylines, in the order that they were passed in.
+    Merged polyline will have the names of their component parts joined by ';'.
+    Example: merging [a,b], [c,d] and [e,f] will result in [a,b,c,d,e,f].
+    However if the endpoints of two adjacent polylines are less than
+    merge_point_threshold meters apart, we will only use the first endpoint in
+    the merged polyline.
+    """
+    name = ";".join((p.GetName(), '')[p.GetName() is None] for p in polys)
+    merged = Poly([], name)
+    if polys:
+      first_poly = polys[0]
+      for p in first_poly.GetPoints():
+        merged.AddPoint(p)
+      last_point = merged._GetPointSafe(-1)
+      for poly in polys[1:]:
+        first_point = poly._GetPointSafe(0)
+        if (last_point and first_point and
+            last_point.GetDistanceMeters(first_point) <= merge_point_threshold):
+          points = poly.GetPoints()[1:]
+        else:
+          points = poly.GetPoints()
+        for p in points:
+          merged.AddPoint(p)
+        last_point = merged._GetPointSafe(-1)
+    return merged
+
+
   def __str__(self):
-    out = [self.GetName()]
-    if not out:
-      out = [': ']
-    else:
-      out = out.append(': ')
-    for point in self._points:
-      out = out.append(str(point))
-    return ' '.join(out)
+    return self._ToString(str)
+
+  def ToLatLngString(self):
+    return self._ToString(lambda p: str(p.ToLatLng()))
+
+  def _ToString(self, pointToStringFn):
+    return "%s: %s" % (self.GetName() or "",
+                       ", ".join([pointToStringFn(p) for p in self._points]))
 
 
 class PolyCollection(object):
@@ -354,7 +412,7 @@ class PolyCollection(object):
   def FindMatchingPolys(self, start_point, end_point, max_radius=150):
     """
     Returns a list of polylines in the collection that have endpoints
-    within max_radius of the given start end end points.
+    within max_radius of the given start and end points.
     """
     matches = []
     for shape in self._name_to_shape.itervalues():
@@ -362,3 +420,193 @@ class PolyCollection(object):
         end_point.GetDistanceMeters(shape.GetPoint(-1)) < max_radius:
         matches.append(shape)
     return matches
+
+class PolyGraph(PolyCollection):
+  """
+  A class representing a graph where the edges are polylines.
+  """
+  def __init__(self):
+    PolyCollection.__init__(self)
+    self._nodes = {}
+
+  def AddPoly(self, poly, smart_duplicate_handling=True):
+    PolyCollection.AddPoly(self, poly, smart_duplicate_handling)
+    start_point = poly.GetPoint(0)
+    end_point = poly.GetPoint(-1)
+    self._AddNodeWithEdge(start_point, poly)
+    self._AddNodeWithEdge(end_point, poly)
+
+  def _AddNodeWithEdge(self, point, edge):
+    if point in self._nodes:
+      self._nodes[point].add(edge)
+    else:
+      self._nodes[point] = set([edge])
+
+  def ShortestPath(self, start, goal):
+    """Uses the A* algorithm to find a shortest path between start and goal.
+
+    For more background see http://en.wikipedia.org/wiki/A-star_algorithm
+
+    Some definitions:
+    g(x): The actual shortest distance traveled from initial node to current
+          node.
+    h(x): The estimated (or "heuristic") distance from current node to goal.
+          We use the distance on Earth from node to goal as the heuristic.
+          This heuristic is both admissible and monotonic (see wikipedia for
+          more details).
+    f(x): The sum of g(x) and h(x), used to prioritize elements to look at.
+
+    Arguments:
+      start: Point that is in the graph, start point of the search.
+      goal: Point that is in the graph, end point for the search.
+
+    Returns:
+      A Poly object representing the shortest polyline through the graph from
+      start to goal, or None if no path found.
+    """
+
+    assert start in self._nodes
+    assert goal in self._nodes
+    closed_set = set() # Set of nodes already evaluated.
+    open_heap = [(0, start)] # Nodes to visit, heapified by f(x).
+    open_set = set([start]) # Same as open_heap, but a set instead of a heap.
+    g_scores = { start: 0 } # Distance from start along optimal path
+    came_from = {} # Map to reconstruct optimal path once we're done.
+    while open_set:
+      (f_x, x) = heapq.heappop(open_heap)
+      open_set.remove(x)
+      if x == goal:
+        return self._ReconstructPath(came_from, goal)
+      closed_set.add(x)
+      edges = self._nodes[x]
+      for edge in edges:
+        if edge.GetPoint(0) == x:
+          y = edge.GetPoint(-1)
+        else:
+          y = edge.GetPoint(0)
+        if y in closed_set:
+          continue
+        tentative_g_score = g_scores[x] + edge.LengthMeters()
+        tentative_is_better = False
+        if y not in open_set:
+          h_y = y.GetDistanceMeters(goal)
+          f_y = tentative_g_score + h_y
+          open_set.add(y)
+          heapq.heappush(open_heap, (f_y, y))
+          tentative_is_better = True
+        elif tentative_g_score < g_scores[y]:
+          tentative_is_better = True
+        if tentative_is_better:
+          came_from[y] = (x, edge)
+          g_scores[y] = tentative_g_score
+    return None
+
+  def _ReconstructPath(self, came_from, current_node):
+    """
+    Helper method for ShortestPath, to reconstruct path.
+
+    Arguments:
+      came_from: a dictionary mapping Point to (Point, Poly) tuples.
+          This dictionary keeps track of the previous neighbor to a node, and
+          the edge used to get from the previous neighbor to the node.
+      current_node: the current Point in the path.
+
+    Returns:
+      A Poly that represents the path through the graph from the start of the
+      search to current_node.
+    """
+    if current_node in came_from:
+      (previous_node, previous_edge) = came_from[current_node]
+      if previous_edge.GetPoint(0) == current_node:
+        previous_edge = previous_edge.Reversed()
+      p = self._ReconstructPath(came_from, previous_node)
+      return Poly.MergePolys([p, previous_edge], merge_point_threshold=0)
+    else:
+      return Poly([], '')
+
+  def FindShortestMultiPointPath(self, points, max_radius=150, keep_best_n=10,
+                                 verbosity=0):
+    """
+    Return a polyline, representing the shortest path through this graph that
+    has edge endpoints on each of a given list of points in sequence.  We allow
+    fuzziness in matching of input points to points in this graph.
+
+    We limit ourselves to a view of the best keep_best_n paths at any time, as a
+    greedy optimization.
+    """
+    assert len(points) > 1
+    nearby_points = []
+    paths_found = [] # A heap sorted by inverse path length.
+
+    for i, point in enumerate(points):
+      nearby = [p for p in self._nodes.iterkeys()
+                if p.GetDistanceMeters(point) < max_radius]
+      if verbosity >= 2:
+        print ("Nearby points for point %d %s: %s"
+               % (i + 1,
+                  str(point.ToLatLng()),
+                  ", ".join([str(n.ToLatLng()) for n in nearby])))
+      if nearby:
+        nearby_points.append(nearby)
+      else:
+        print "No nearby points found for point %s" % str(point.ToLatLng())
+        return None
+
+    pathToStr = lambda start, end, path: ("  Best path %s -> %s: %s"
+                                          % (str(start.ToLatLng()),
+                                             str(end.ToLatLng()),
+                                             path and path.GetName() or
+                                             "None"))
+    if verbosity >= 3:
+      print "Step 1"
+    step = 2
+
+    start_points = nearby_points[0]
+    end_points = nearby_points[1]
+
+    for start in start_points:
+      for end in end_points:
+        path = self.ShortestPath(start, end)
+        if verbosity >= 3:
+          print pathToStr(start, end, path)
+        PolyGraph._AddPathToHeap(paths_found, path, keep_best_n)
+
+    for possible_points in nearby_points[2:]:
+      if verbosity >= 3:
+        print "\nStep %d" % step
+        step += 1
+      new_paths_found = []
+
+      start_end_paths = {} # cache of shortest paths between (start, end) pairs
+      for score, path in paths_found:
+        start = path.GetPoint(-1)
+        for end in possible_points:
+          if (start, end) in start_end_paths:
+            new_segment = start_end_paths[(start, end)]
+          else:
+            new_segment = self.ShortestPath(start, end)
+            if verbosity >= 3:
+              print pathToStr(start, end, new_segment)
+            start_end_paths[(start, end)] = new_segment
+
+          if new_segment:
+            new_path = Poly.MergePolys([path, new_segment],
+                                       merge_point_threshold=0)
+            PolyGraph._AddPathToHeap(new_paths_found, new_path, keep_best_n)
+      paths_found = new_paths_found
+
+    if paths_found:
+      best_score, best_path = max(paths_found)
+      return best_path
+    else:
+      return None
+
+  @staticmethod
+  def _AddPathToHeap(heap, path, keep_best_n):
+    if path and path.GetNumPoints():
+      new_item = (-path.LengthMeters(), path)
+      if new_item not in heap:
+        if len(heap) < keep_best_n:
+          heapq.heappush(heap, new_item)
+        else:
+          heapq.heapreplace(heap, new_item)

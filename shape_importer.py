@@ -25,9 +25,13 @@ import csv
 import glob
 import ogr
 from optparse import OptionParser
+import os
+import shutil
 import sys
+import tempfile
 import transitfeed
 import transitshapelib
+import zipfile
 
 
 class ShapeImporterError(Exception):
@@ -44,16 +48,16 @@ def PrintColumns(shapefile):
     raise ShapeImporterError("Layer 0 has no elements!")
 
   feature = layer.GetFeature(0)
-  print feature.GetFieldCount()
+  print "%d features" % feature.GetFieldCount()
   for j in range(0, feature.GetFieldCount()):
     print '--' + feature.GetFieldDefnRef(j).GetName() + \
           ': ' + feature.GetFieldAsString(j)
 
 
-def AddShapefile(shapefile, collection, key_cols):
+def AddShapefile(shapefile, graph, key_cols):
   """
   Adds shapes found in the given shape filename to the given polyline
-  collection object.
+  graph object.
   """
   ds = ogr.Open(shapefile)
   layer = ds.GetLayer(0)
@@ -73,27 +77,27 @@ def AddShapefile(shapefile, collection, key_cols):
 
     poly = transitshapelib.Poly(name=shape_id)
     for j in range(0, geometry.GetPointCount()):
-      (lat, lng) = (geometry.GetY(j), geometry.GetX(j))
+      (lat, lng) = (round(geometry.GetY(j), 15), round(geometry.GetX(j), 15))
       poly.AddPoint(transitshapelib.Point.FromLatLng(lat, lng))
-    collection.AddPoly(poly)
+    graph.AddPoly(poly)
 
-  return collection
+  return graph
 
 
-def GetMatchingShape(pattern_poly, trip, matches, max_distance):
+def GetMatchingShape(pattern_poly, trip, matches, max_distance, verbosity=0):
   """
   Tries to find a matching shape for the given pattern Poly object,
   trip, and set of possibly matching Polys from which to choose a match.
   """
-  scores = []
-  for match in matches:
-    score = pattern_poly.GreedyPolyMatchDist(match)
-
-    scores.append((score, match))
-
-  if len(scores) == 0:
+  if len(matches) == 0:
     print 'No shapes to which to match trip', trip.trip_id
     return None
+
+  if verbosity >= 1:
+    for match in matches:
+      print "match: size %d" % match.GetNumPoints()
+  scores = [(pattern_poly.GreedyPolyMatchDist(match), match)
+            for match in matches]
 
   scores.sort()
 
@@ -105,11 +109,42 @@ def GetMatchingShape(pattern_poly, trip, matches, max_distance):
 
   return scores[0][1]
 
+def AddExtraShapes(extra_shapes_txt, graph):
+  """
+  Add extra shapes into our input set by parsing them out of a GTFS-formatted
+  shapes.txt file.  Useful for manually adding lines to a shape file, since it's
+  a pain to edit .shp files.
+  """
+
+  print "Adding extra shapes from %s" % extra_shapes_txt
+  try:
+    tmpdir = tempfile.mkdtemp()
+    shutil.copy(extra_shapes_txt, os.path.join(tmpdir, 'shapes.txt'))
+    loader = transitfeed.ShapeLoader(tmpdir)
+    schedule = loader.Load()
+    for shape in schedule.GetShapeList():
+      print "Adding extra shape: %s" % shape.shape_id
+      graph.AddPoly(ShapeToPoly(shape))
+  finally:
+    if tmpdir:
+      shutil.rmtree(tmpdir)
+
+
+# Note: this method lives here to avoid cross-dependencies between
+# transitshapelib and transitfeed.
+def ShapeToPoly(shape):
+  poly = transitshapelib.Poly(name=shape.shape_id)
+  for lat, lng, distance in shape.points:
+    point = transitshapelib.Point.FromLatLng(round(lat, 15), round(lng, 15))
+    poly.AddPoint(point)
+  return poly
+
 
 def ValidateArgs(options_parser, options, args):
   if not (args and options.source_gtfs and options.dest_gtfs):
     options_parser.error("You must specify a source and dest GTFS file, "
                          "and at least one source shapefile")
+
 
 def DefineOptions():
   options_parser = OptionParser()
@@ -138,41 +173,77 @@ def DefineOptions():
                             dest="dest_gtfs",
                             metavar="FILE",
                             help="Write output GTFS with shapes to FILE")
+  options_parser.add_option("--extra_shapes",
+                            default="",
+                            dest="extra_shapes",
+                            metavar="FILE",
+                            help="Extra shapes.txt (CSV) formatted file")
+  options_parser.add_option("--verbosity",
+                            type="int",
+                            default=0,
+                            dest="verbosity",
+                            help="Verbosity level. Higher is more verbose")
   return options_parser
 
 def main(key_cols):
   print 'Parsing shapefile(s)...'
-  collection = transitshapelib.PolyCollection()
+  graph = transitshapelib.PolyGraph()
   for arg in args:
     print '  ' + arg
-    AddShapefile(arg, collection, key_cols)
+    AddShapefile(arg, graph, key_cols)
 
+  if options.extra_shapes:
+    AddExtraShapes(options.extra_shapes, graph)
 
   print 'Loading GTFS from %s...' % options.source_gtfs
   schedule = transitfeed.Loader(options.source_gtfs).Load()
+  shape_count = 0
+  pattern_count = 0
+
+  verbosity = options.verbosity
 
   print 'Matching shapes to trips...'
   for route in schedule.GetRouteList():
     print 'Processing route', route.route_short_name
     patterns = route.GetPatternIdTripDict()
-    for pattern_id in patterns:
-      pattern = patterns[pattern_id][0].GetPattern()
+    for pattern_id, trips in patterns.iteritems():
+      pattern_count += 1
+      pattern = trips[0].GetPattern()
 
-      matches = collection.FindMatchingPolys(
-          transitshapelib.Point.FromLatLng(pattern[0].stop_lat,
-                                           pattern[0].stop_lon),
-          transitshapelib.Point.FromLatLng(pattern[-1].stop_lat,
-                                           pattern[-1].stop_lon))
-      poly_points = []
-      for stop in pattern:
-        poly_points.append(
-            transitshapelib.Point.FromLatLng(stop.stop_lat, stop.stop_lon))
+      poly_points = [transitshapelib.Point.FromLatLng(p.stop_lat, p.stop_lon)
+                     for p in pattern]
+      if verbosity >= 2:
+        print "\npattern %d, %d points:" % (pattern_id, len(poly_points))
+        for i, (stop, point) in enumerate(zip(pattern, poly_points)):
+          print "Stop %d '%s': %s" % (i + 1, stop.stop_name, point.ToLatLng())
+
+      # First, try to find polys that run all the way from
+      # the start of the trip to the end.
+      matches = graph.FindMatchingPolys(poly_points[0], poly_points[-1])
+      if not matches:
+        # Try to find a path through the graph, joining
+        # multiple edges to find a path that covers all the
+        # points in the trip.  Some shape files are structured
+        # this way, with a polyline for each segment between
+        # stations instead of a polyline covering an entire line.
+        shortest_path = graph.FindShortestMultiPointPath(poly_points,
+                                                         options.max_distance,
+                                                         verbosity=verbosity)
+        if shortest_path:
+          matches = [shortest_path]
+        else:
+          matches = []
 
       pattern_poly = transitshapelib.Poly(poly_points)
-      shape_match = GetMatchingShape(pattern_poly, patterns[pattern_id][0],
-                                     matches, options.max_distance)
+      shape_match = GetMatchingShape(pattern_poly, trips[0],
+                                     matches, options.max_distance,
+                                     verbosity=verbosity)
       if shape_match:
-        for trip in patterns[pattern_id]:
+        shape_count += 1
+        # Rename shape for readability.
+        shape_match = transitshapelib.Poly(points=shape_match.GetPoints(),
+                                           name="shape_%d" % shape_count)
+        for trip in trips:
           try:
             shape = schedule.GetShape(shape_match.GetName())
           except KeyError:
@@ -183,10 +254,18 @@ def main(key_cols):
             schedule.AddShapeObject(shape)
           trip.shape_id = shape.shape_id
 
+  print "Matched %d shapes out of %d patterns" % (shape_count, pattern_count)
   schedule.WriteGoogleTransitFeed(options.dest_gtfs)
 
 
 if __name__ == '__main__':
+  # Import psyco if available for better performance.
+  try:
+    import psyco
+    psyco.full()
+  except ImportError:
+    pass
+
   options_parser = DefineOptions()
   (options, args) = options_parser.parse_args()
 

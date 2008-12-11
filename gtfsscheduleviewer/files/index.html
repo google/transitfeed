@@ -257,6 +257,8 @@
       }
       var timeTrips = eval(data);
       var html = "<b>" + marker.stopName + "</b> (" + marker.stopId + ")<br>";
+      var latLng = marker.getLatLng();
+      html = html + "(" + latLng.lat() + ", " + latLng.lng() + ")<br>";
       html = html + "<table><tr><th>service_id<th>time<th>name</tr>";
       for (var i=0; i < timeTrips.length; ++i) {
         var time = timeTrips[i][0];

@@ -23,7 +23,17 @@ import transitshapelib
 from transitshapelib import Point
 from transitshapelib import Poly
 from transitshapelib import PolyCollection
+from transitshapelib import PolyGraph
 import unittest
+
+
+def formatPoint(p, precision=12):
+  formatString = "(%%.%df, %%.%df, %%.%df)" % (precision, precision, precision)
+  return formatString % (p.x, p.y, p.z)
+
+
+def formatPoints(points):
+    return "[%s]" % ", ".join([formatPoint(p, precision=4) for p in points])
 
 
 class ShapeLibTestBase(unittest.TestCase):
@@ -36,9 +46,23 @@ class ShapeLibTestBase(unittest.TestCase):
       self.assertApproxEq(a.y, b.y)
       self.assertApproxEq(a.z, b.z)
     except AssertionError:
-      print ('ERROR: (%.12f, %.12f, %.12f) != (%.12f, %.12f, %.12f)'
-             % (a.x, a.y, a.z, b.x, b.y, b.z))
+      print 'ERROR: %s != %s' % (formatPoint(a), formatPoint(b))
       raise
+
+  def assertPointsApproxEq(self, points1, points2):
+    try:
+      self.assertEqual(len(points1), len(points2))
+    except AssertionError:
+      print "ERROR: %s != %s" % (formatPoints(points1), formatPoints(points2))
+      raise
+    for i in xrange(len(points1)):
+      try:
+        self.assertPointApproxEq(points1[i], points2[i])
+      except AssertionError:
+        print ('ERROR: points not equal in position %d\n%s != %s'
+               % (i, formatPoints(points1), formatPoints(points2)))
+        raise
+
 
 class TestPoints(ShapeLibTestBase):
   def testPoints(self):
@@ -158,10 +182,85 @@ class TestPoly(ShapeLibTestBase):
     poly.AddPoint(Point.FromLatLng(40.524681000000001, -74.189579999999992))
     poly.AddPoint(Point.FromLatLng(40.523128999999997, -74.188467000000003))
     poly.AddPoint(Point.FromLatLng(40.523054999999999, -74.188676000000001))
-    pattern =  Poly()
+    pattern = Poly()
     pattern.AddPoint(Point.FromLatLng(40.52713,
                                       -74.191146000000003))
     self.assertApproxEq(14.564268281551, pattern.GreedyPolyMatchDist(poly))
+
+  def testMergePolys(self):
+    poly1 = Poly(name="Foo")
+    poly1.AddPoint(Point(0, 1, 0).Normalize())
+    poly1.AddPoint(Point(0, 0.5, 0.5).Normalize())
+    poly1.AddPoint(Point(0, 0, 1).Normalize())
+    poly1.AddPoint(Point(1, 1, 1).Normalize())
+
+    poly2 = Poly()
+    poly3 = Poly(name="Bar")
+    poly3.AddPoint(Point(1, 1, 1).Normalize())
+    poly3.AddPoint(Point(2, 0.5, 0.5).Normalize())
+
+    merged1 = Poly.MergePolys([poly1, poly2])
+    self.assertPointsApproxEq(poly1.GetPoints(), merged1.GetPoints())
+    self.assertEqual("Foo;", merged1.GetName())
+
+    merged2 = Poly.MergePolys([poly2, poly3])
+    self.assertPointsApproxEq(poly3.GetPoints(), merged2.GetPoints())
+    self.assertEqual(";Bar", merged2.GetName())
+
+    merged3 = Poly.MergePolys([poly1, poly2, poly3], merge_point_threshold=0)
+    mergedPoints = poly1.GetPoints()[:]
+    mergedPoints.append(poly3.GetPoint(-1))
+    self.assertPointsApproxEq(mergedPoints, merged3.GetPoints())
+    self.assertEqual("Foo;;Bar", merged3.GetName())
+
+    merged4 = Poly.MergePolys([poly2])
+    self.assertEqual("", merged4.GetName())
+    self.assertEqual(0, merged4.GetNumPoints())
+
+    # test merging two nearby points
+    newPoint = poly1.GetPoint(-1).Plus(Point(0.000001, 0, 0)).Normalize()
+    poly1.AddPoint(newPoint)
+    distance = poly1.GetPoint(-1).GetDistanceMeters(poly3.GetPoint(0))
+    self.assertTrue(distance <= 10)
+    self.assertTrue(distance > 5)
+
+    merged5 = Poly.MergePolys([poly1, poly2, poly3], merge_point_threshold=10)
+    mergedPoints = poly1.GetPoints()[:]
+    mergedPoints.append(poly3.GetPoint(-1))
+    self.assertPointsApproxEq(mergedPoints, merged5.GetPoints())
+    self.assertEqual("Foo;;Bar", merged5.GetName())
+
+    merged6 = Poly.MergePolys([poly1, poly2, poly3], merge_point_threshold=5)
+    mergedPoints = poly1.GetPoints()[:]
+    mergedPoints += poly3.GetPoints()
+    self.assertPointsApproxEq(mergedPoints, merged6.GetPoints())
+    self.assertEqual("Foo;;Bar", merged6.GetName())
+
+  def testReversed(self):
+    p1 = Point(1, 0, 0).Normalize()
+    p2 = Point(0, 0.5, 0.5).Normalize()
+    p3 = Point(0.3, 0.8, 0.5).Normalize()
+    poly1 = Poly([p1, p2, p3])
+    self.assertPointsApproxEq([p3, p2, p1], poly1.Reversed().GetPoints())
+
+  def testLengthMeters(self):
+    p1 = Point(1, 0, 0).Normalize()
+    p2 = Point(0, 0.5, 0.5).Normalize()
+    p3 = Point(0.3, 0.8, 0.5).Normalize()
+    poly0 = Poly([p1])
+    poly1 = Poly([p1, p2])
+    poly2 = Poly([p1, p2, p3])
+    try:
+      poly0.LengthMeters()
+      self.fail("Should have thrown AssertionError")
+    except AssertionError:
+      pass
+
+    p1_p2 = p1.GetDistanceMeters(p2)
+    p2_p3 = p2.GetDistanceMeters(p3)
+    self.assertEqual(p1_p2, poly1.LengthMeters())
+    self.assertEqual(p1_p2 + p2_p3, poly2.LengthMeters())
+    self.assertEqual(p1_p2 + p2_p3, poly2.Reversed().LengthMeters())
 
 
 class TestCollection(ShapeLibTestBase):
@@ -203,6 +302,70 @@ class TestCollection(ShapeLibTestBase):
         Point.FromLatLng(45.587212,-122.586136),
         Point.FromLatLng(45.586654,-122.587595))
     self.assert_(len(match) == 0)
+
+
+class TestGraph(ShapeLibTestBase):
+  def testReconstructPath(self):
+    p1 = Point(1, 0, 0).Normalize()
+    p2 = Point(0, 0.5, 0.5).Normalize()
+    p3 = Point(0.3, 0.8, 0.5).Normalize()
+    poly1 = Poly([p1, p2])
+    poly2 = Poly([p3, p2])
+    came_from = {
+        p2: (p1, poly1),
+        p3: (p2, poly2)
+    }
+
+    graph = PolyGraph()
+    reconstructed1 = graph._ReconstructPath(came_from, p1)
+    self.assertEqual(0, reconstructed1.GetNumPoints())
+
+    reconstructed2 = graph._ReconstructPath(came_from, p2)
+    self.assertPointsApproxEq([p1, p2], reconstructed2.GetPoints())
+
+    reconstructed3 = graph._ReconstructPath(came_from, p3)
+    self.assertPointsApproxEq([p1, p2, p3], reconstructed3.GetPoints())
+
+  def testShortestPath(self):
+    p1 = Point(1, 0, 0).Normalize()
+    p2 = Point(0, 0.5, 0.5).Normalize()
+    p3 = Point(0.3, 0.8, 0.5).Normalize()
+    p4 = Point(0.7, 0.7, 0.5).Normalize()
+    poly1 = Poly([p1, p2, p3], "poly1")
+    poly2 = Poly([p4, p3], "poly2")
+    poly3 = Poly([p4, p1], "poly3")
+    graph = PolyGraph()
+    graph.AddPoly(poly1)
+    graph.AddPoly(poly2)
+    graph.AddPoly(poly3)
+    path = graph.ShortestPath(p1, p4)
+    self.assert_(path is not None)
+    self.assertPointsApproxEq([p1, p4], path.GetPoints())
+
+    path = graph.ShortestPath(p1, p3)
+    self.assert_(path is not None)
+    self.assertPointsApproxEq([p1, p4, p3], path.GetPoints())
+
+    path = graph.ShortestPath(p3, p1)
+    self.assert_(path is not None)
+    self.assertPointsApproxEq([p3, p4, p1], path.GetPoints())
+
+  def testFindShortestMultiPointPath(self):
+    p1 = Point(1, 0, 0).Normalize()
+    p2 = Point(0.5, 0.5, 0).Normalize()
+    p3 = Point(0.5, 0.5, 0.1).Normalize()
+    p4 = Point(0, 1, 0).Normalize()
+    poly1 = Poly([p1, p2, p3], "poly1")
+    poly2 = Poly([p4, p3], "poly2")
+    poly3 = Poly([p4, p1], "poly3")
+    graph = PolyGraph()
+    graph.AddPoly(poly1)
+    graph.AddPoly(poly2)
+    graph.AddPoly(poly3)
+    path = graph.FindShortestMultiPointPath([p1, p3, p4])
+    self.assert_(path is not None)
+    self.assertPointsApproxEq([p1, p2, p3, p4], path.GetPoints())
+
 
 if __name__ == '__main__':
   unittest.main()
