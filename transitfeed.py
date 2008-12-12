@@ -1582,6 +1582,20 @@ class Trip(object):
         problems.OtherProblem(
           'No time for end of trip_id "%s""' % (self.trip_id))
 
+      # Sorts the stoptimes by sequence and then checks that the arrival time
+      # for each time point is after the departure time of the previous.
+      stoptimes.sort(key=lambda x: x.stop_sequence)
+      prev_departure = 0
+      for timepoint in stoptimes:
+        if timepoint.arrival_secs is not None:
+          if timepoint.arrival_secs >= prev_departure:
+            prev_departure = timepoint.departure_secs
+          else:
+            problems.OtherProblem('Timetravel detected! Arrival time '
+                                  'is before previous departure '
+                                  'at sequence number %s in trip %s' %
+                                  (timepoint.stop_sequence, self.trip_id))
+
     # O(n^2), but we don't anticipate many headway periods per trip
     for headway_index, headway in enumerate(self._headways[0:-1]):
       for other in self._headways[headway_index + 1:]:

@@ -2056,6 +2056,40 @@ class TripValidationTestCase(ValidationTestCase):
     trip.ClearHeadwayPeriods()
     self.problems.AssertNoMoreExceptions()
 
+class TripSequenceValidationTestCase(ValidationTestCase):
+  def runTest(self):
+    trip = transitfeed.Trip()
+    schedule = transitfeed.Schedule()  # Needed to find StopTimes
+    trip = transitfeed.Trip(schedule=schedule)
+    trip.trip_headsign = '\xBA\xDF\x0D'  # Not valid ascii or utf8
+    trip.route_id = '054C'
+    trip.service_id = 'WEEK'
+    trip.trip_id = '054C-00'
+    trip.trip_headsign = 'via Polish Hill'
+    trip.direction_id = '0'
+    trip.block_id = None
+    trip.shape_id = None
+    stop1 = transitfeed.Stop(36.425288, -117.133162, "Demo Stop 1", "STOP1")
+    stop2 = transitfeed.Stop(36.425666, -117.133666, "Demo Stop 2", "STOP2")
+    stop3 = transitfeed.Stop(36.425999, -117.133999, "Demo Stop 3", "STOP3")
+    schedule.AddStopObject(stop1)
+    schedule.AddStopObject(stop2)
+    schedule.AddStopObject(stop3)
+    stoptime1 = transitfeed.StopTime(self.problems, stop1,
+                                     stop_time='12:00:00', stop_sequence=1)
+    stoptime2 = transitfeed.StopTime(self.problems, stop2,
+                                     stop_time='11:30:00', stop_sequence=2)
+    stoptime3 = transitfeed.StopTime(self.problems, stop3,
+                                     stop_time='12:15:00', stop_sequence=3)
+    trip._AddStopTimeObjectUnordered(stoptime1, schedule)
+    trip._AddStopTimeObjectUnordered(stoptime2, schedule)
+    trip._AddStopTimeObjectUnordered(stoptime3, schedule)
+    trip.Validate(self.problems)
+    e = self.problems.PopException('OtherProblem')
+    self.assertTrue(e.FormatProblem().find('Timetravel detected') != -1)
+    self.assertTrue(e.FormatProblem().find('number 2 in trip 054C-00') != -1)
+    self.problems.AssertNoMoreExceptions()
+
 
 class TripServiceIDValidationTestCase(ValidationTestCase):
   def runTest(self):
