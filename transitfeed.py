@@ -1288,20 +1288,25 @@ class Trip(object):
 
     cur_timepoint = None
     next_timepoint = None
+    distance_between_timepoints = 0
+    distance_traveled_between_timepoints = 0
 
     for i, st in enumerate(stoptimes):
       if st.GetTimeSecs() != None:
         cur_timepoint = st
+        distance_between_timepoints = 0
+        distance_traveled_between_timepoints = 0
         if i + 1 < len(stoptimes):
           k = i + 1
+          distance_between_timepoints += ApproximateDistanceBetweenStops(stoptimes[k-1].stop, stoptimes[k].stop)
           while stoptimes[k].GetTimeSecs() == None:
             k += 1
+            distance_between_timepoints += ApproximateDistanceBetweenStops(stoptimes[k-1].stop, stoptimes[k].stop)
           next_timepoint = stoptimes[k]
         rv.append( (st.GetTimeSecs(), st, True) )
       else:
-        distance1 = ApproximateDistanceBetweenStops(cur_timepoint.stop, st.stop)
-        distance2 = ApproximateDistanceBetweenStops(st.stop, next_timepoint.stop)
-        distance_percent = distance1 / (distance1 + distance2)
+        distance_traveled_between_timepoints += ApproximateDistanceBetweenStops(stoptimes[i-1].stop, st.stop)
+        distance_percent = distance_traveled_between_timepoints / distance_between_timepoints
         total_time = next_timepoint.GetTimeSecs() - cur_timepoint.GetTimeSecs()
         time_estimate = distance_percent * total_time + cur_timepoint.GetTimeSecs()
         rv.append( (int(round(time_estimate)), st, False) )

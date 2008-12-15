@@ -3308,6 +3308,10 @@ class GetTripTimeTestCase(unittest.TestCase):
     self.trip1.AddStopTime(self.stop1, schedule=schedule, departure_secs=100, arrival_secs=100)
     self.trip1.AddStopTime(self.stop2, schedule=schedule)
     self.trip1.AddStopTime(self.stop3, schedule=schedule)
+    # loop back to stop2 to test that interpolated stops work ok even when
+    # a stop between timepoints is further from the timepoint than the 
+    # preceding
+    self.trip1.AddStopTime(self.stop2, schedule=schedule)
     self.trip1.AddStopTime(self.stop4, schedule=schedule, departure_secs=400, arrival_secs=400)
 
     self.trip2 = self.route1.AddTrip(schedule, "trip 2", trip_id='trip2')
@@ -3320,13 +3324,13 @@ class GetTripTimeTestCase(unittest.TestCase):
 
   def testGetTimeInterpolatedStops(self):
     rv = self.trip1.GetTimeInterpolatedStops()
-    self.assertEqual(4, len(rv))
+    self.assertEqual(5, len(rv))
     (secs, stoptimes, istimepoints) = tuple(zip(*rv))
 
-    self.assertEqual((100, 200, 300, 400), secs)
-    self.assertEqual(("140.01,0", "140.02,0", "140.03,0", "140.04,0"),
+    self.assertEqual((100, 160, 220, 280, 400), secs)
+    self.assertEqual(("140.01,0", "140.02,0", "140.03,0", "140.02,0", "140.04,0"),
                      tuple([st.stop.stop_name for st in stoptimes]))
-    self.assertEqual((True, False, False, True), istimepoints)
+    self.assertEqual((True, False, False, False, True), istimepoints)
 
     self.assertEqual([], self.trip3.GetTimeInterpolatedStops())
 
@@ -3360,7 +3364,7 @@ class GetTripTimeTestCase(unittest.TestCase):
     rv = stopa.GetStopTimeTrips(self.schedule)
     self.assertEqual(3, len(rv))
     (secs, trip_index, istimepoints) = tuple(zip(*rv))
-    self.assertEqual((300, 600, 800), secs)
+    self.assertEqual((220, 600, 800), secs)
     self.assertEqual(("trip1", "trip2", "trip2"), tuple([ti[0].trip_id for ti in trip_index]))
     self.assertEqual((2, 1, 3), tuple([ti[1] for ti in trip_index]))
     self.assertEqual((False, True, True), istimepoints)
