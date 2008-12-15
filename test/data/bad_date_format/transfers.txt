@@ -1,0 +1,3 @@
+from_stop_id,to_stop_id,transfer_type,min_transfer_time
+NADAV,NANAA,3,
+EMSI,NANAA,2,1200
