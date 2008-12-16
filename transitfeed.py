@@ -3057,15 +3057,14 @@ class Schedule:
                 (EncodeUnicode(stop.stop_name), EncodeUnicode(stop.stop_id),
                  EncodeUnicode(other_stop.stop_name),
                  EncodeUnicode(other_stop.stop_id), distance), type=TYPE_WARNING)
-          else:
+          elif (stop.location_type in (0, 1) and
+                other_stop.location_type  in (0, 1)):
             if stop.location_type == 0 and other_stop.location_type == 1:
               this_stop = stop
               this_station = other_stop
             elif stop.location_type == 1 and other_stop.location_type == 0:
               this_stop = other_stop
               this_station = stop
-            else:
-              raise RuntimeError("New location_type added?")
             if this_stop.parent_station != this_station.stop_id:
               problems.OtherProblem(
                   'The parent_station of stop "%s" (ID "%s") is not '
