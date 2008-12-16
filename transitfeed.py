@@ -2454,6 +2454,17 @@ class Schedule:
     if column not in self._table_columns[table]:
       self._table_columns[table].append(column)
 
+  def AddTableColumns(self, table, columns):
+    """Add columns to table if they are not already there.
+
+    Args:
+      table: table name as a string
+      columns: an iterable of column names"""
+    table_columns = self._table_columns.setdefault(table, [])
+    for attr in columns:
+      if attr not in table_columns:
+        table_columns.append(attr)
+
   def GetTableColumns(self, table):
     """Return list of columns in a table."""
     return self._table_columns[table]
@@ -2514,11 +2525,8 @@ class Schedule:
       problem_reporter.DuplicateID('agency_id', agency.agency_id)
       return
 
-    table_columns = self._table_columns.setdefault('agency', [])
+    self.AddTableColumns('agency', agency._ColumnNames())
     agency._schedule = weakref.proxy(self)
-    for attr in agency._ColumnNames():
-      if attr not in table_columns:
-        table_columns.append(attr)
 
     if validate:
       agency.Validate(problem_reporter)
@@ -2641,11 +2649,8 @@ class Schedule:
   def AddStopObject(self, stop):
     assert stop._schedule is None
     assert stop.stop_id
-    table_columns = self._table_columns.setdefault('stops', [])
     stop._schedule = weakref.proxy(self)
-    for attr in stop._ColumnNames():
-      if attr not in table_columns:
-        table_columns.append(attr)
+    self.AddTableColumns('stops', stop._ColumnNames())
     self.stops[stop.stop_id] = stop
     if hasattr(stop, 'zone_id') and stop.zone_id:
       self.fare_zones[stop.zone_id] = True
