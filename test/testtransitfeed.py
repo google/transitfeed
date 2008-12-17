@@ -404,6 +404,20 @@ class LoadMissingCellValidationTestCase(unittest.TestCase):
     except transitfeed.OtherProblem:
       pass
 
+class LoadUnknownFileTestCase(unittest.TestCase):
+  """Check that the validation detects unknown files."""
+  def runTest(self):
+    feed_name = DataPath('unknown_file')
+    self.problems = RecordingProblemReporter(self, ("ExpirationDate",))
+    loader = transitfeed.Loader(
+      feed_name,
+      problems = self.problems,
+      extra_validation = True)
+    loader.Load()
+    e = self.problems.PopException('UnknownFile')
+    self.assertEqual('frecuencias.txt', e.file_name)
+    self.problems.AssertNoMoreExceptions()
+
 class LoadUTF8BOMTestCase(unittest.TestCase):
   def runTest(self):
     loader = transitfeed.Loader(
@@ -1462,6 +1476,19 @@ class BadLatLonInFileUnitTest(MemoryZipTestCase):
     self.assertEquals("stop_lon", e.column_name)
     self.problems.AssertNoMoreExceptions()
 
+class LoadUnknownFileInZipTestCase(MemoryZipTestCase):
+  def runTest(self):
+    self.zip.writestr(
+        "stpos.txt",
+        "stop_id,stop_name,stop_lat,stop_lon,location_type,parent_station\n"
+        "BEATTY_AIRPORT,Airport,36.868446,-116.784582,,STATION\n"
+        "STATION,Airport,36.868446,-116.784582,1,\n"
+        "BULLFROG,Bullfrog,36.88108,-116.81797,,\n"
+        "STAGECOACH,Stagecoach Hotel,36.915682,-116.751677,,\n")
+    schedule = self.loader.Load()
+    e = self.problems.PopException('UnknownFile')
+    self.assertEquals('stpos.txt', e.file_name)
+    self.problems.AssertNoMoreExceptions()
 
 class RouteConstructorTestCase(unittest.TestCase):
   def setUp(self):

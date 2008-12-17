@@ -131,6 +131,11 @@ class ProblemReporterBase:
                     context2=self._context)
     self._Report(e)
 
+  def UnknownFile(self, file_name, context=None):
+    e = UnknownFile(file_name=file_name, context=context,
+                  context2=self._context, type=TYPE_WARNING)
+    self._Report(e)
+
   def EmptyFile(self, file_name, context=None):
     e = EmptyFile(file_name=file_name, context=context,
                   context2=self._context)
@@ -312,6 +317,12 @@ class MissingFile(ExceptionWithContext):
 
 class EmptyFile(ExceptionWithContext):
   ERROR_TEXT = "File %(file_name)s is empty"
+
+class UnknownFile(ExceptionWithContext):
+  ERROR_TEXT = 'The file named %(file_name)s was not expected.\n' \
+               'This may be a misspelled file name or the file may be ' \
+               'included in a subdirectory. Please check spellings and ' \
+               'make sure that there are no subdirectories within the feed'
 
 class FeedNotFound(ExceptionWithContext):
   ERROR_TEXT = 'Couldn\'t find a feed named %(feed_name)s'
@@ -3246,6 +3257,22 @@ class EndOfLineChecker:
       self._lf = 0
 
 
+# Filenames specified in GTFS spec
+KNOWN_FILENAMES = [
+  'agency.txt',
+  'stops.txt',
+  'routes.txt',
+  'trips.txt',
+  'stop_times.txt',
+  'calendar.txt',
+  'calendar_dates.txt',
+  'fare_attributes.txt',
+  'fare_rules.txt',
+  'shapes.txt',
+  'frequencies.txt',
+  'transfers.txt',
+]
+
 class Loader:
   def __init__(self,
                feed_path=None,
@@ -3304,6 +3331,22 @@ class Loader:
       return False
 
     return True
+
+  def _GetFileNames(self):
+    """Returns a list of file names in the feed."""
+    if self._zip:
+      return self._zip.namelist()
+    else:
+      return os.listdir(self._path)
+
+  def _CheckFileNames(self):
+    filenames = self._GetFileNames()
+    for feed_file in filenames:
+      if feed_file not in KNOWN_FILENAMES:
+        if not feed_file.startswith('.'):
+          # Don't worry about .svn files and other hidden files
+          # as this will break the tests.
+          self._problems.UnknownFile(feed_file)
 
   def _GetUtf8Contents(self, file_name):
     """Check for errors in file_name and return a string for csv reader."""
@@ -3780,6 +3823,8 @@ class Loader:
     self._problems.ClearContext()
     if not self._DetermineFormat():
       return self._schedule
+
+    self._CheckFileNames()
 
     self._LoadAgencies()
     self._LoadStops()
