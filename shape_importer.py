@@ -90,7 +90,8 @@ def GetMatchingShape(pattern_poly, trip, matches, max_distance, verbosity=0):
   trip, and set of possibly matching Polys from which to choose a match.
   """
   if len(matches) == 0:
-    print 'No shapes to which to match trip', trip.trip_id
+    print ('No matching shape found within max-distance %d for trip %s '
+           % (max_distance, trip.trip_id))
     return None
 
   if verbosity >= 1:
@@ -219,7 +220,8 @@ def main(key_cols):
 
       # First, try to find polys that run all the way from
       # the start of the trip to the end.
-      matches = graph.FindMatchingPolys(poly_points[0], poly_points[-1])
+      matches = graph.FindMatchingPolys(poly_points[0], poly_points[-1],
+                                        options.max_distance)
       if not matches:
         # Try to find a path through the graph, joining
         # multiple edges to find a path that covers all the
