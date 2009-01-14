@@ -30,6 +30,7 @@ attributes for each value on the row. For example, schedule.AddStop returns a
 Stop object which has attributes such as stop_lat and stop_name.
 
   Schedule: Central object of the parser
+  GenericGTFSObject: A base class for each of the objects below
   Route: Represents a single route
   Trip: Represents a single trip
   Stop: Represents a single stop
@@ -502,6 +503,78 @@ def ApproximateDistanceBetweenStops(stop1, stop2):
   return EARTH_RADIUS * (2 * math.atan2(math.sqrt(x),
       math.sqrt(max(0.0, 1.0 - x))))
 
+
+class GenericGTFSObject(object):
+  """Object with arbitrary attributes which may be added to a schedule.
+
+  This class should be used as the base class for GTFS objects which may
+  be stored in a Schedule. It defines some methods for reading and writing
+  attributes. If self._schedule is None than the object is not in a Schedule.
+
+  Subclasses must:
+  * define an __init__ method which sets the _schedule member to None or a
+    weakref to a Schedule
+  * Set the _TABLE_NAME class variable to a name such as 'stops', 'agency', ...
+  * define methods to validate objects of that type
+  """
+  def __getitem__(self, name):
+    """Return a unicode or str representation of name or "" if not set."""
+    if name in self.__dict__ and self.__dict__[name] is not None:
+      return "%s" % self.__dict__[name]
+    else:
+      return ""
+
+  def __getattr__(self, name):
+    """Return None or the default value if name is a known attribute.
+
+    This method is only called when name is not found in __dict__.
+    """
+    if name in self.__class__._FIELD_NAMES:
+      return None
+    else:
+      raise AttributeError(name)
+
+  def iteritems(self):
+    """Return a iterable for (name, value) pairs of public attributes."""
+    for name, value in self.__dict__.iteritems():
+      if name[0] == "_":
+        continue
+      yield name, value
+
+  def __setattr__(self, name, value):
+    """Set an attribute, adding name to the list of columns as needed."""
+    object.__setattr__(self, name, value)
+    if name[0] != '_' and self._schedule:
+      self._schedule.AddTableColumn(self.__class__._TABLE_NAME, name)
+
+  def __eq__(self, other):
+    if not other:
+      return False
+
+    if id(self) == id(other):
+      return True
+
+    return dict(self.iteritems()) == dict(other.iteritems())
+
+  def __ne__(self, other):
+    return not self.__eq__(other)
+
+  def __repr__(self):
+    return "<%s %s>" % (self.__class__.__name__, sorted(self.iteritems()))
+
+  def keys(self):
+    """Return iterable of columns used by this object."""
+    columns = set()
+    for name in vars(self):
+      if name[0] == "_":
+        continue
+      columns.add(name)
+    return columns
+
+  def _ColumnNames(self):
+    return self.keys()
+
+
 class Stop(object):
   """Represents a single stop. A stop must have a latitude, longitude and name.
 
@@ -763,7 +836,7 @@ class Stop(object):
                             'parent_station')
 
 
-class Route(object):
+class Route(GenericGTFSObject):
   """Represents a single route."""
 
   _REQUIRED_FIELD_NAMES = [
@@ -772,7 +845,7 @@ class Route(object):
   _FIELD_NAMES = _REQUIRED_FIELD_NAMES + [
     'agency_id', 'route_desc', 'route_url', 'route_color', 'route_text_color'
     ]
-  _ROUTE_TYPE_IDS = {
+  _ROUTE_TYPE_NAMES = {
     'Tram': 0,
     'Subway': 1,
     'Rail': 2,
@@ -782,38 +855,30 @@ class Route(object):
     'Gondola': 6,
     'Funicular': 7
     }
+  _ROUTE_TYPE_IDS = set(_ROUTE_TYPE_NAMES.values())
+  _TABLE_NAME = 'routes'
 
   def __init__(self, short_name=None, long_name=None, route_type=None,
-               route_id=None, agency_id=None, field_list=None, schedule=None):
-    self.route_desc = ''
-    self.route_url = ''
-    self.route_color = ''
-    self.route_text_color = ''
-    self.route_type = -1
-    if field_list:
-      (route_id, short_name, long_name, route_type,
-       agency_id, self.route_desc, self.route_url,
-       self.route_color, self.route_text_color) = field_list
-    self.route_id = route_id
-    self.route_short_name = short_name
-    self.route_long_name = long_name
-    self.agency_id = agency_id
-    if schedule is not None:
-      self._schedule = weakref.proxy(schedule)  # See weakref comment at top
+               route_id=None, agency_id=None, field_dict=None):
+    self._schedule = None
+    self._trips = []
 
-    if route_type in Route._ROUTE_TYPE_IDS:
-      self.route_type = Route._ROUTE_TYPE_IDS[route_type]
-    else:
-      try:
-        self.route_type = int(route_type)
-      except TypeError:
-        self.route_type = route_type
-      except ValueError:
-        self.route_type = route_type
-    self.trips = []
-
-  def GetFieldValuesTuple(self):
-    return [getattr(self, fn) for fn in Route._FIELD_NAMES]
+    if not field_dict:
+      field_dict = {}
+      if short_name is not None:
+        field_dict['route_short_name'] = short_name
+      if long_name is not None:
+        field_dict['route_long_name'] = long_name
+      if route_type is not None:
+        if route_type in Route._ROUTE_TYPE_NAMES:
+          self.route_type = Route._ROUTE_TYPE_NAMES[route_type]
+        else:
+          field_dict['route_type'] = route_type
+      if route_id is not None:
+        field_dict['route_id'] = route_id
+      if agency_id is not None:
+        field_dict['agency_id'] = agency_id
+    self.__dict__.update(field_dict)
 
   def AddTrip(self, schedule, headsign, service_period=None, trip_id=None):
     """ Adds a trip to this route.
@@ -834,36 +899,32 @@ class Route(object):
     return trip
 
   def AddTripObject(self, trip):
-    self.trips.append(trip)
+    self._trips.append(trip)
+
+  def __getattr__(self, name):
+    """Return None or the default value if name is a known attribute.
+
+    This method overrides GenericGTFSObject.__getattr__ to provide backwards
+    compatible access to trips.
+    """
+    if name == 'trips':
+      return self._trips
+    else:
+      return GenericGTFSObject.__getattr__(self, name)
 
   def GetPatternIdTripDict(self):
     """Return a dictionary that maps pattern_id to a list of Trip objects."""
     d = {}
-    for t in self.trips:
+    for t in self._trips:
       d.setdefault(t.pattern_id, []).append(t)
     return d
-
-  def __getitem__(self, name):
-    return getattr(self, name)
-
-  def __eq__(self, other):
-    if not other:
-      return False
-
-    if id(self) == id(other):
-      return True
-
-    return self.GetFieldValuesTuple() == other.GetFieldValuesTuple()
-
-  def __ne__(self, other):
-    return not self.__eq__(other)
-
-  def __repr__(self):
-    return "<Route %s>" % self.__dict__
 
   def Validate(self, problems=default_problem_reporter):
     if IsEmpty(self.route_id):
       problems.MissingValue('route_id')
+    if IsEmpty(self.route_type):
+      problems.MissingValue('route_type')
+
     if IsEmpty(self.route_short_name) and IsEmpty(self.route_long_name):
       problems.InvalidValue('route_short_name',
                             self.route_short_name,
@@ -907,9 +968,17 @@ class Route(object):
                             self.route_desc,
                             'route_desc shouldn\'t be the same as '
                             'route_short_name or route_long_name')
-    if (type(self.route_type) != type(0) or
-        self.route_type not in range(len(Route._ROUTE_TYPE_IDS))):
-      problems.InvalidValue('route_type', self.route_type)
+
+    if self.route_type is not None:
+      try:
+        if not isinstance(self.route_type, int):
+          self.route_type = NonNegIntStringToInt(self.route_type)
+      except (TypeError, ValueError):
+        problems.InvalidValue('route_type', self.route_type)
+      else:
+        if self.route_type not in Route._ROUTE_TYPE_IDS:
+          problems.InvalidValue('route_type', self.route_type)
+
     if self.route_url and not IsValidURL(self.route_url):
       problems.InvalidValue('route_url', self.route_url)
 
@@ -1927,7 +1996,8 @@ class ISO639(object):
     'yi', 'yo', 'za', 'zh', 'zu',
   ])
 
-class Agency(object):
+
+class Agency(GenericGTFSObject):
   """Represents an agency in a schedule.
 
   Callers may assign arbitrary values to instance attributes. __init__ makes no
@@ -1940,6 +2010,7 @@ class Agency(object):
   _REQUIRED_FIELD_NAMES = ['agency_name', 'agency_url', 'agency_timezone']
   _FIELD_NAMES = _REQUIRED_FIELD_NAMES + ['agency_id', 'agency_lang',
                                           'agency_phone']
+  _TABLE_NAME = 'agency'
 
   def __init__(self, name=None, url=None, timezone=None, id=None,
                field_dict=None, lang=None, **kwargs):
@@ -1954,7 +2025,6 @@ class Agency(object):
       kwargs: arbitrary keyword arguments may be used to add attributes to the
         new object, ignored when field_dict is present
     """
-
     self._schedule = None
 
     if not field_dict:
@@ -1970,75 +2040,7 @@ class Agency(object):
         kwargs['agency_lang'] = lang
       field_dict = kwargs
 
-    if isinstance(field_dict, Agency):
-      # I don't know why update(field_dict) raises "dictionary update
-      # sequence element #0 has length 0; 2 is required" when field_dict is an
-      # Agency. iteritems returns pairs so I think it should work. Anyway,
-      # work-around is manually copying values.
-      for k, v in field_dict.iteritems():
-        self.__dict__[k] = v
-    else:
-      self.__dict__.update(field_dict)
-
-  def GetFieldValuesTuple(self):
-    return [getattr(self, fn) for fn in Agency._FIELD_NAMES]
-
-  def __getitem__(self, name):
-    """Return a unicode or str representation of name or "" if not set."""
-    if name in self.__dict__ and self.__dict__[name] is not None:
-      return "%s" % self.__dict__[name]
-    else:
-      return ""
-
-  def __getattr__(self, name):
-    """Return None or the default value if name is a known attribute.
-
-    This method is only called when name is not found in __dict__.
-    """
-    if name in Agency._FIELD_NAMES:
-      return None
-    else:
-      raise AttributeError(name)
-
-  def iteritems(self):
-    """Return a iterable for (name, value) pairs of public attributes."""
-    for name, value in self.__dict__.iteritems():
-      if name[0] == "_":
-        continue
-      yield name, value
-
-  def __setattr__(self, name, value):
-    """Set an attribute, adding to schedule agency table as needed."""
-    object.__setattr__(self, name, value)
-    if name[0] != '_' and self._schedule:
-      self._schedule.AddTableColumn('agency', name)
-
-  def __eq__(self, other):
-    if not other:
-      return False
-
-    if id(self) == id(other):
-      return True
-
-    return dict(self.iteritems()) == dict(other.iteritems())
-
-  def _ColumnNames(self):
-    return self.keys()
-
-  def keys(self):
-    """Return iterable of columns used by this object."""
-    columns = set()
-    for name in vars(self):
-      if name[0] == "_":
-        continue
-      columns.add(name)
-    return columns
-
-  def __ne__(self, other):
-    return not self.__eq__(other)
-
-  def __repr__(self):
-    return "<Agency %s>" % self.__dict__
+    self.__dict__.update(field_dict)
 
   def Validate(self, problems=default_problem_reporter):
     """Validate attribute values and this object's internal consistency.
@@ -2705,6 +2707,8 @@ class Schedule:
                                       'Route uses an unknown agency_id.')
         return
 
+    self.AddTableColumns('routes', route._ColumnNames())
+    route._schedule = weakref.proxy(self)
     self.routes[route.route_id] = route
 
   def GetRouteList(self):
@@ -2911,8 +2915,10 @@ class Schedule:
 
     route_string = StringIO.StringIO()
     writer = CsvUnicodeWriter(route_string)
-    writer.writerow(Route._FIELD_NAMES)
-    writer.writerows(r.GetFieldValuesTuple() for r in self.routes.values())
+    columns = self.GetTableColumns('routes')
+    writer.writerow(columns)
+    for r in self.routes.values():
+      writer.writerow([EncodeUnicode(r[c]) for c in columns])
     archive.writestr('routes.txt', route_string.getvalue())
 
     # write trips.txt
@@ -3313,6 +3319,11 @@ class Loader:
       assert not self._path
       return True
 
+    if not isinstance(self._path, basestring) and hasattr(self._path, 'read'):
+      # A file-like object, used for testing with a StringIO file
+      self._zip = zipfile.ZipFile(self._path, mode='r')
+      return True
+
     if not os.path.exists(self._path):
       self._problems.FeedNotFound(self._path)
       return False
@@ -3581,12 +3592,13 @@ class Loader:
       self._problems.ClearContext()
 
   def _LoadRoutes(self):
-    for (row, row_num, cols) in self._ReadCSV('routes.txt',
-                                              Route._FIELD_NAMES,
-                                              Route._REQUIRED_FIELD_NAMES):
-      self._problems.SetFileContext('routes.txt', row_num, row, cols)
+    for (d, row_num, header, row) in self._ReadCsvDict(
+                                         'routes.txt',
+                                         Route._FIELD_NAMES,
+                                         Route._REQUIRED_FIELD_NAMES):
+      self._problems.SetFileContext('routes.txt', row_num, row, header)
 
-      route = Route(field_list=row)
+      route = Route(field_dict=d)
       self._schedule.AddRouteObject(route, self._problems)
 
       self._problems.ClearContext()

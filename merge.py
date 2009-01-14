@@ -989,7 +989,7 @@ class RouteMerger(DataSetMerger):
     return self._SchemedMerge(scheme, a, b)
 
   def _Migrate(self, entity, schedule, newid):
-    migrated_route = transitfeed.Route(field_list=entity.GetFieldValuesTuple())
+    migrated_route = transitfeed.Route(field_dict=entity)
     if newid:
       migrated_route.route_id = self.feed_merger.GenerateId(entity.route_id)
     if entity.agency_id:

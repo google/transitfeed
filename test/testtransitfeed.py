@@ -1490,6 +1490,61 @@ class LoadUnknownFileInZipTestCase(MemoryZipTestCase):
     self.assertEquals('stpos.txt', e.file_name)
     self.problems.AssertNoMoreExceptions()
 
+class RouteMemoryZipTestCase(MemoryZipTestCase):
+  def assertLoadAndCheckExtraValues(self, schedule_file):
+    """Load file-like schedule_file and check for extra route columns."""
+    load_problems = TestFailureProblemReporter(
+        self, ("ExpirationDate", "UnrecognizedColumn"))
+    loaded_schedule = transitfeed.Loader(schedule_file,
+                                         problems=load_problems,
+                                         extra_validation=True).Load()
+    self.assertEqual("foo", loaded_schedule.GetRoute("t")["t_foo"])
+    self.assertEqual("", loaded_schedule.GetRoute("AB")["t_foo"])
+    self.assertEqual("bar", loaded_schedule.GetRoute("n")["n_foo"])
+    self.assertEqual("", loaded_schedule.GetRoute("AB")["n_foo"])
+    # Uncomment the following lines to print the string in testExtraFileColumn
+    # print repr(zipfile.ZipFile(saved_schedule_file).read("routes.txt"))
+    # self.fail()
+
+  def testExtraObjectAttribute(self):
+    """Extra columns added to an object are preserved when writing."""
+    schedule = self.loader.Load()
+    # Add an attribute after AddRouteObject
+    route_t = transitfeed.Route(short_name="T", route_type="Bus", route_id="t")
+    schedule.AddRouteObject(route_t)
+    route_t.t_foo = "foo"
+    # Add an attribute before AddRouteObject
+    route_n = transitfeed.Route(short_name="N", route_type="Bus", route_id="n")
+    route_n.n_foo = "bar"
+    schedule.AddRouteObject(route_n)
+    saved_schedule_file = StringIO()
+    schedule.WriteGoogleTransitFeed(saved_schedule_file)
+    self.problems.AssertNoMoreExceptions()
+
+    self.assertLoadAndCheckExtraValues(saved_schedule_file)
+
+  def testExtraFileColumn(self):
+    """Extra columns loaded from a file are preserved when writing."""
+    # Uncomment the code in assertLoadAndCheckExtraValues to generate this
+    # string.
+    self.zip.writestr(
+        "routes.txt",
+        "route_id,agency_id,route_short_name,route_long_name,route_type,"
+        "t_foo,n_foo\n"
+        "AB,DTA,,Airport Bullfrog,3,,\n"
+        "t,DTA,T,,3,foo,\n"
+        "n,DTA,N,,3,,bar\n")
+    load1_problems = TestFailureProblemReporter(
+        self, ("ExpirationDate", "UnrecognizedColumn"))
+    schedule = transitfeed.Loader(problems=load1_problems,
+                                  extra_validation=True,
+                                  zip=self.zip).Load()
+    saved_schedule_file = StringIO()
+    schedule.WriteGoogleTransitFeed(saved_schedule_file)
+
+    self.assertLoadAndCheckExtraValues(saved_schedule_file)
+
+
 class RouteConstructorTestCase(unittest.TestCase):
   def setUp(self):
     self.problems = RecordingProblemReporter(self)
@@ -1497,39 +1552,99 @@ class RouteConstructorTestCase(unittest.TestCase):
   def testDefault(self):
     route = transitfeed.Route()
     repr(route)
+    self.assertEqual({}, dict(route))
     route.Validate(self.problems)
     repr(route)
+    self.assertEqual({}, dict(route))
 
     e = self.problems.PopException('MissingValue')
     self.assertEqual('route_id', e.column_name)
+    e = self.problems.PopException('MissingValue')
+    self.assertEqual('route_type', e.column_name)
     e = self.problems.PopException('InvalidValue')
     self.assertEqual('route_short_name', e.column_name)
-    e = self.problems.PopException('InvalidValue')
-    self.assertEqual('route_type', e.column_name)
     self.problems.AssertNoMoreExceptions()
 
-  def testMinimal(self):
+  def testInitArgs(self):
+    # route_type name
     route = transitfeed.Route(route_id='id1', short_name='22', route_type='Bus')
     repr(route)
     route.Validate(self.problems)
     self.problems.AssertNoMoreExceptions()
+    self.assertEquals(3, route.route_type)  # converted to an int
+    self.assertEquals({'route_id': 'id1', 'route_short_name': '22',
+                       'route_type': '3'}, dict(route))
 
-    route = transitfeed.Route(route_id='id1', short_name='22', route_type=1)
+    # route_type as an int
+    route = transitfeed.Route(route_id='i1', long_name='Twenty 2', route_type=1)
     repr(route)
     route.Validate(self.problems)
     self.problems.AssertNoMoreExceptions()
+    self.assertEquals(1, route.route_type)  # kept as an int
+    self.assertEquals({'route_id': 'i1', 'route_long_name': 'Twenty 2',
+                       'route_type': '1'}, dict(route))
 
+    # route_type as a string
     route = transitfeed.Route(route_id='id1', short_name='22', route_type='1')
     repr(route)
     route.Validate(self.problems)
     self.problems.AssertNoMoreExceptions()
+    self.assertEquals(1, route.route_type)  # converted to an int
+    self.assertEquals({'route_id': 'id1', 'route_short_name': '22',
+                       'route_type': '1'}, dict(route))
 
-    route = transitfeed.Route(route_id='id1', short_name='22', route_type='1foo')
+    # route_type that doesn't parse
+    route = transitfeed.Route(route_id='id1', short_name='22',
+                              route_type='1foo')
     repr(route)
     route.Validate(self.problems)
     e = self.problems.PopException('InvalidValue')
     self.assertEqual('route_type', e.column_name)
     self.problems.AssertNoMoreExceptions()
+    self.assertEquals({'route_id': 'id1', 'route_short_name': '22',
+                       'route_type': '1foo'}, dict(route))
+
+    # agency_id
+    route = transitfeed.Route(route_id='id1', short_name='22', route_type=1,
+                              agency_id='myage')
+    repr(route)
+    route.Validate(self.problems)
+    self.problems.AssertNoMoreExceptions()
+    self.assertEquals({'route_id': 'id1', 'route_short_name': '22',
+                       'route_type': '1', 'agency_id': 'myage'}, dict(route))
+
+  def testInitArgOrder(self):
+    """Call Route.__init__ without any names so a change in order is noticed."""
+    route = transitfeed.Route('short', 'long name', 'Bus', 'r1', 'a1')
+    self.assertEquals({'route_id': 'r1', 'route_short_name': 'short',
+                       'route_long_name': 'long name',
+                       'route_type': '3', 'agency_id': 'a1'}, dict(route))
+
+  def testFieldDict(self):
+    route = transitfeed.Route(field_dict={})
+    self.assertEquals({}, dict(route))
+
+    route = transitfeed.Route(field_dict={
+      'route_id': 'id1', 'route_short_name': '22', 'agency_id': 'myage',
+      'route_type': '1'})
+    route.Validate(self.problems)
+    self.problems.AssertNoMoreExceptions()
+    self.assertEquals({'route_id': 'id1', 'route_short_name': '22',
+                       'agency_id': 'myage', 'route_type': '1'}, dict(route))
+
+    route = transitfeed.Route(field_dict={
+      'route_id': 'id1', 'route_short_name': '22', 'agency_id': 'myage',
+      'route_type': '1', 'my_column': 'v'})
+    route.Validate(self.problems)
+    self.problems.AssertNoMoreExceptions()
+    self.assertEquals({'route_id': 'id1', 'route_short_name': '22',
+                       'agency_id': 'myage', 'route_type': '1',
+                       'my_column':'v'}, dict(route))
+    route._private = 0.3  # Isn't copied
+    route_copy = transitfeed.Route(field_dict=route)
+    self.assertEquals({'route_id': 'id1', 'route_short_name': '22',
+                       'agency_id': 'myage', 'route_type': '1',
+                       'my_column':'v'}, dict(route_copy))
 
 
 class RouteValidationTestCase(ValidationTestCase):
@@ -3108,6 +3223,7 @@ class WriteSampleFeedTestCase(TempFileTestCaseBase):
       schedule.AddFareRuleObject(rule, problems)
 
     schedule.Validate(problems)
+    problems.AssertNoMoreExceptions()
     schedule.WriteGoogleTransitFeed(self.tempfilepath)
 
     read_schedule = \
