@@ -548,13 +548,18 @@ class GenericGTFSObject(object):
       self._schedule.AddTableColumn(self.__class__._TABLE_NAME, name)
 
   def __eq__(self, other):
+    """Return true iff self and other are equivalent"""
     if not other:
       return False
 
     if id(self) == id(other):
       return True
 
-    return dict(self.iteritems()) == dict(other.iteritems())
+    for k in self.keys().union(other.keys()):
+      # use __getitem__ which returns "" for missing columns values
+      if self[k] != other[k]:
+        return False
+    return True
 
   def __ne__(self, other):
     return not self.__eq__(other)
@@ -575,7 +580,7 @@ class GenericGTFSObject(object):
     return self.keys()
 
 
-class Stop(object):
+class Stop(GenericGTFSObject):
   """Represents a single stop. A stop must have a latitude, longitude and name.
 
   Callers may assign arbitrary values to instance attributes.
@@ -594,6 +599,7 @@ class Stop(object):
   _FIELD_NAMES = _REQUIRED_FIELD_NAMES + \
                  ['stop_desc', 'zone_id', 'stop_url', 'stop_code',
                   'location_type', 'parent_station']
+  _TABLE_NAME = 'stops'
 
   def __init__(self, lat=None, lng=None, name=None, stop_id=None,
                field_dict=None, stop_code=None):
@@ -740,13 +746,6 @@ class Stop(object):
           if self.location_type not in (0, 1):
             problems.InvalidValue('location_type', value)
 
-  def __getitem__(self, name):
-    """Return a unicode or str representation of name or "" if not set."""
-    if name in self.__dict__ and self.__dict__[name] is not None:
-      return "%s" % self.__dict__[name]
-    else:
-      return ""
-
   def __getattr__(self, name):
     """Return None or the default value if name is a known attribute.
 
@@ -760,50 +759,6 @@ class Stop(object):
       return None
     else:
       raise AttributeError(name)
-
-  def __setattr__(self, name, value):
-    """Set an attribute, adding to schedule stop table as needed."""
-    object.__setattr__(self, name, value)
-    if name[0] != '_' and self._schedule:
-      self._schedule.AddTableColumn('stops', name)
-
-  def iteritems(self):
-    """Return a iterable for (name, value) pairs of public attributes."""
-    for name, value in self.__dict__.iteritems():
-      if name[0] == "_":
-        continue
-      yield name, value
-
-  def __eq__(self, other):
-    """Return True if two Stops are identical."""
-    if not other:
-      return False
-
-    if self is other:
-      return True
-
-    for name in self._ColumnNames().union(other._ColumnNames()):
-      if self[name] != other[name]:
-        return False
-    return True
-
-  def _ColumnNames(self):
-    return self.keys()
-
-  def keys(self):
-    """Return iterable of columns used by this object."""
-    columns = set()
-    for name in vars(self):
-      if name[0] == "_":
-        continue
-      columns.add(name)
-    return columns
-
-  def __ne__(self, other):
-    return not self.__eq__(other)
-
-  def __repr__(self):
-    return "<Stop %s>" % self.__dict__
 
   def Validate(self, problems=default_problem_reporter):
     # First check that all required fields are present because ParseAttributes
