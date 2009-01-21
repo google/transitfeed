@@ -2816,6 +2816,15 @@ class Schedule:
                     extra_validation=extra_validation)
     loader.Load()
 
+  def _WriteArchiveString(self, archive, filename, stringio):
+    zi = zipfile.ZipInfo(filename)
+    # See
+    # http://stackoverflow.com/questions/434641/how-do-i-set-permissions-attributes-on-a-file-in-a-zip-file-using-pythons-zipf
+    zi.external_attr = 0666 << 16L  # Set unix permissions to -rw-rw-rw
+    # ZIP_DEFLATED requires zlib. zlib comes with Python 2.4 and 2.5
+    zi.compress_type = zipfile.ZIP_DEFLATED
+    archive.writestr(zi, stringio.getvalue())
+
   def WriteGoogleTransitFeed(self, file):
     """Output this schedule as a Google Transit Feed in file_name.
 
@@ -2825,6 +2834,7 @@ class Schedule:
     Returns:
       None
     """
+    # Compression type given when adding each file
     archive = zipfile.ZipFile(file, 'w')
 
     agency_string = StringIO.StringIO()
@@ -2833,7 +2843,7 @@ class Schedule:
     writer.writerow(columns)
     for a in self._agencies.values():
       writer.writerow([EncodeUnicode(a[c]) for c in columns])
-    archive.writestr('agency.txt', agency_string.getvalue())
+    self._WriteArchiveString(archive, 'agency.txt', agency_string)
 
     calendar_dates_string = StringIO.StringIO()
     writer = CsvUnicodeWriter(calendar_dates_string)
@@ -2846,7 +2856,8 @@ class Schedule:
     wrote_calendar_dates = False
     if has_data:
       wrote_calendar_dates = True
-      archive.writestr('calendar_dates.txt', calendar_dates_string.getvalue())
+      self._WriteArchiveString(archive, 'calendar_dates.txt',
+                               calendar_dates_string)
 
     calendar_string = StringIO.StringIO()
     writer = CsvUnicodeWriter(calendar_string)
@@ -2858,7 +2869,7 @@ class Schedule:
         has_data = True
         writer.writerow(row)
     if has_data or not wrote_calendar_dates:
-      archive.writestr('calendar.txt', calendar_string.getvalue())
+      self._WriteArchiveString(archive, 'calendar.txt', calendar_string)
 
     stop_string = StringIO.StringIO()
     writer = CsvUnicodeWriter(stop_string)
@@ -2866,7 +2877,7 @@ class Schedule:
     writer.writerow(columns)
     for s in self.stops.values():
       writer.writerow([EncodeUnicode(s[c]) for c in columns])
-    archive.writestr('stops.txt', stop_string.getvalue())
+    self._WriteArchiveString(archive, 'stops.txt', stop_string)
 
     route_string = StringIO.StringIO()
     writer = CsvUnicodeWriter(route_string)
@@ -2874,14 +2885,14 @@ class Schedule:
     writer.writerow(columns)
     for r in self.routes.values():
       writer.writerow([EncodeUnicode(r[c]) for c in columns])
-    archive.writestr('routes.txt', route_string.getvalue())
+    self._WriteArchiveString(archive, 'routes.txt', route_string)
 
     # write trips.txt
     trips_string = StringIO.StringIO()
     writer = CsvUnicodeWriter(trips_string)
     writer.writerow(Trip._FIELD_NAMES)
     writer.writerows(t.GetFieldValuesTuple() for t in self.trips.values())
-    archive.writestr('trips.txt', trips_string.getvalue())
+    self._WriteArchiveString(archive, 'trips.txt', trips_string)
 
     # write frequencies.txt (if applicable)
     headway_rows = []
@@ -2892,7 +2903,7 @@ class Schedule:
       writer = CsvUnicodeWriter(headway_string)
       writer.writerow(Trip._FIELD_NAMES_HEADWAY)
       writer.writerows(headway_rows)
-      archive.writestr('frequencies.txt', headway_string.getvalue())
+      self._WriteArchiveString(archive, 'frequencies.txt', headway_string)
 
     # write fares (if applicable)
     if self.GetFareList():
@@ -2900,7 +2911,7 @@ class Schedule:
       writer = CsvUnicodeWriter(fare_string)
       writer.writerow(Fare._FIELD_NAMES)
       writer.writerows(f.GetFieldValuesTuple() for f in self.GetFareList())
-      archive.writestr('fare_attributes.txt', fare_string.getvalue())
+      self._WriteArchiveString(archive, 'fare_attributes.txt', fare_string)
 
     # write fare rules (if applicable)
     rule_rows = []
@@ -2912,14 +2923,13 @@ class Schedule:
       writer = CsvUnicodeWriter(rule_string)
       writer.writerow(FareRule._FIELD_NAMES)
       writer.writerows(rule_rows)
-      archive.writestr('fare_rules.txt', rule_string.getvalue())
-
+      self._WriteArchiveString(archive, 'fare_rules.txt', rule_string) 
     stop_times_string = StringIO.StringIO()
     writer = CsvUnicodeWriter(stop_times_string)
     writer.writerow(StopTime._FIELD_NAMES)
     for t in self.trips.values():
       writer.writerows(t._GenerateStopTimesTuples())
-    archive.writestr('stop_times.txt', stop_times_string.getvalue())
+    self._WriteArchiveString(archive, 'stop_times.txt', stop_times_string)
 
     # write shapes (if applicable)
     shape_rows = []
@@ -2933,7 +2943,7 @@ class Schedule:
       writer = CsvUnicodeWriter(shape_string)
       writer.writerow(Shape._FIELD_NAMES)
       writer.writerows(shape_rows)
-      archive.writestr('shapes.txt', shape_string.getvalue())
+      self._WriteArchiveString(archive, 'shapes.txt', shape_string)
 
     # write transfers (if applicable)
     if self.GetTransferList():
@@ -2941,7 +2951,7 @@ class Schedule:
       writer = CsvUnicodeWriter(transfer_string)
       writer.writerow(Transfer._FIELD_NAMES)
       writer.writerows(f.GetFieldValuesTuple() for f in self.GetTransferList())
-      archive.writestr('transfers.txt', transfer_string.getvalue())
+      self._WriteArchiveString(archive, 'transfers.txt', transfer_string)
 
     archive.close()
 

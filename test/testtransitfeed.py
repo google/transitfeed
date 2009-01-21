@@ -28,6 +28,7 @@ import transitfeed
 import unittest
 from StringIO import StringIO
 import zipfile
+import zlib
 
 
 def DataPath(path):
@@ -1014,7 +1015,8 @@ class StopTimeValidationTestCase(ValidationTestCase):
 class MemoryZipTestCase(unittest.TestCase):
   def setUp(self):
     self.problems = RecordingProblemReporter(self, ("ExpirationDate",))
-    self.zip = zipfile.ZipFile(StringIO(), 'a')
+    self.zipfile = StringIO()
+    self.zip = zipfile.ZipFile(self.zipfile, 'a')
     self.zip.writestr(
         "agency.txt",
         "agency_id,agency_name,agency_url,agency_timezone\n"
@@ -1232,9 +1234,26 @@ class CsvDictTestCase(unittest.TestCase):
 
 
 class BasicMemoryZipTestCase(MemoryZipTestCase):
-  def run(self):
+  def runTest(self):
     self.loader.Load()
     self.problems.AssertNoMoreExceptions()
+
+
+class ZipCompressionTestCase(MemoryZipTestCase):
+  def runTest(self):
+    schedule = self.loader.Load()
+    self.zip.close()
+    write_output = StringIO()
+    schedule.WriteGoogleTransitFeed(write_output)
+    recompressedzip = zlib.compress(write_output.getvalue())
+    write_size = len(write_output.getvalue())
+    recompressedzip_size = len(recompressedzip)
+    # If zlib can compress write_output it probably wasn't compressed
+    self.assertFalse(
+        recompressedzip_size < write_size * 0.60,
+        "Are you sure WriteGoogleTransitFeed wrote a compressed zip? "
+        "Orginial size: %d  recompressed: %d" %
+        (write_size, recompressedzip_size))
 
 
 class StopHierarchyTestCase(MemoryZipTestCase):
