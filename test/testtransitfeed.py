@@ -2169,6 +2169,11 @@ class TripValidationTestCase(ValidationTestCase):
     repr(trip)  # shouldn't crash
 
     schedule = transitfeed.Schedule()  # Needed to find StopTimes
+    schedule.AddRouteObject(
+        transitfeed.Route(short_name="54C", long_name="", route_type="Bus",
+                          route_id="054C",
+                          agency_id=schedule.GetDefaultAgency().agency_id))
+    schedule.AddServicePeriodObject(transitfeed.ServicePeriod(id="WEEK"))
     trip = transitfeed.Trip(schedule=schedule)
     repr(trip)  # shouldn't crash
 
@@ -2184,6 +2189,7 @@ class TripValidationTestCase(ValidationTestCase):
     trip.block_id = None
     trip.shape_id = None
     trip.Validate(self.problems)
+    self.problems.AssertNoMoreExceptions()
     repr(trip)  # shouldn't crash
 
     # missing route ID
@@ -2212,6 +2218,7 @@ class TripValidationTestCase(ValidationTestCase):
     trip.AddHeadwayPeriod("04:00:00", "05:00:00", 1000)
     trip.AddHeadwayPeriod("12:00:00", "19:00:00", 700)
     trip.Validate(self.problems)
+    self.problems.AssertNoMoreExceptions()
     trip.ClearHeadwayPeriods()
 
     # overlapping headway periods
@@ -2237,6 +2244,13 @@ class TripSequenceValidationTestCase(ValidationTestCase):
   def runTest(self):
     trip = transitfeed.Trip()
     schedule = transitfeed.Schedule()  # Needed to find StopTimes
+    route = transitfeed.Route(short_name="54C", long_name="", route_type="Bus",
+                              route_id="054C")
+    route.agency_id = schedule.GetDefaultAgency().agency_id
+    schedule.AddRouteObject(route)
+    service_period = transitfeed.ServicePeriod("WEEK")
+    service_period.SetWeekdayService(True)
+    schedule.AddServicePeriodObject(service_period)
     trip = transitfeed.Trip(schedule=schedule)
     trip.trip_headsign = '\xBA\xDF\x0D'  # Not valid ascii or utf8
     trip.route_id = '054C'
@@ -2578,12 +2592,13 @@ class AddStopTimeParametersTestCase(unittest.TestCase):
   def runTest(self):
     problem_reporter = TestFailureProblemReporter(self)
     schedule = transitfeed.Schedule(problem_reporter=problem_reporter)
+    route = schedule.AddRoute(short_name="10", long_name="", route_type="Bus")
     stop = schedule.AddStop(40, -128, "My stop")
     # Stop must be added to schedule so that the call
     # AddStopTime -> AddStopTimeObject -> GetStopTimes -> GetStop can work
     trip = transitfeed.Trip(schedule=schedule)
-    trip.route_id = "SAMPLE_ID"
-    trip.service_id = "WEEK"
+    trip.route_id = route.route_id
+    trip.service_id = schedule.GetDefaultServicePeriod().service_id
     trip.trip_id = "SAMPLE_TRIP"
 
     # First stop must have time
@@ -2658,7 +2673,7 @@ class DuplicateTripIDValidationTestCase(unittest.TestCase):
 
     trip2 = transitfeed.Trip()
     trip2.route_id = "SAMPLE_ID"
-    trip2.service_id = "SATU"
+    trip2.service_id = "WEEK"
     trip2.trip_id = "SAMPLE_TRIP"
     try:
       schedule.AddTripObject(trip2)

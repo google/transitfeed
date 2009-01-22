@@ -849,7 +849,7 @@ class Route(GenericGTFSObject):
     if service_period is None:
       service_period = schedule.GetDefaultServicePeriod()
     trip = Trip(route=self, headsign=headsign, service_period=service_period,
-                trip_id=trip_id, schedule=schedule)
+                trip_id=trip_id)
     schedule.AddTripObject(trip)
     return trip
 
@@ -1170,7 +1170,6 @@ class Trip(object):
     ]
   _FIELD_NAMES_HEADWAY = ['trip_id', 'start_time', 'end_time', 'headway_secs']
 
-
   def __init__(self, headsign=None, service_period=None,
                route=None, trip_id=None, field_list=None, schedule=None):
     self._stoptimes = []  # [StopTime, StopTime, ...]
@@ -1180,7 +1179,14 @@ class Trip(object):
     if route:
       self.route_id = route.route_id
     self.trip_id = trip_id
-    self.service_period = service_period
+    # Earlier versions of transitfeed.py assigned self.service_period here
+    # and allowed the caller to set self.service_id. Schedule.Validate
+    # checked the service_id attribute if it was assigned and changed it to a
+    # service_period attribute. Now only the service_id attribute is used and
+    # it is validated by Trip.Validate.
+    if service_period is not None:
+      # For backwards compatibility
+      self.service_id = service_period.service_id
     self.direction_id = None
     self.block_id = None
     if schedule is not None:
@@ -1563,8 +1569,9 @@ class Trip(object):
     return self._headways
 
   def __getattr__(self, name):
-    if name == 'service_id':
-      return self.service_period.service_id
+    if name == 'service_period':
+      assert self._schedule, "Must be in a schedule to get service_period"
+      return self._schedule.GetServicePeriod(self.service_id)
     elif name == 'pattern_id':
       if 'pattern_id' not in self.__dict__:
         self.__dict__['pattern_id'] = hash(self.GetPattern())
@@ -1593,9 +1600,25 @@ class Trip(object):
   def __repr__(self):
     return "<Trip %s>" % self.__dict__
 
-  def Validate(self, problems=default_problem_reporter):
+  def Validate(self, problems, validate_children=True):
+    """Validate attributes of this object.
+
+    Check that this object has all required values set to a valid value without
+    reference to the rest of the schedule. If the _schedule attribute is set
+    then also check that references such as route_id and service_id are correct.
+    If validate_children is True than also call ValidateChildren.
+
+    Args:
+      problems: A ProblemReporter object
+      validate_children: if True than also call ValidateChildren
+    """
     if IsEmpty(self.route_id):
       problems.MissingValue('route_id')
+    if 'service_period' in self.__dict__:
+      # Some tests assign to the service_period attribute. Patch up self before
+      # proceeding with validation. See also comment in Trip.__init__.
+      self.service_id = self.__dict__['service_period'].service_id
+      del self.service_period
     if IsEmpty(self.service_id):
       problems.MissingValue('service_id')
     if IsEmpty(self.trip_id):
@@ -1604,6 +1627,21 @@ class Trip(object):
         (self.direction_id != '0') and (self.direction_id != '1'):
       problems.InvalidValue('direction_id', self.direction_id,
                             'direction_id must be "0" or "1"')
+    if self._schedule:
+      if self.shape_id and self.shape_id not in self._schedule._shapes:
+        problems.InvalidValue('shape_id', self.shape_id)
+      if self.route_id and self.route_id not in self._schedule.routes:
+        problems.InvalidValue('route_id', self.route_id)
+      if (self.service_id and
+          self.service_id not in self._schedule.service_periods):
+        problems.InvalidValue('service_id', self.service_id)
+
+    if validate_children:
+      self.ValidateChildren(problems)
+
+  def ValidateChildren(self, problems):
+    """Validate StopTimes and headways of this trip."""
+    # TODO: validate distance values in stop times (if applicable)
     cursor = self._schedule._connection.cursor()
     cursor.execute("SELECT COUNT(stop_sequence) AS a FROM stop_times "
                    "WHERE trip_id=? GROUP BY stop_sequence HAVING a > 1",
@@ -2695,30 +2733,20 @@ class Schedule:
     # Validate trip object before adding
     if not problem_reporter:
       problem_reporter = self.problem_reporter
-    trip.Validate(problem_reporter)
+    # trip.ValidateChildren will be called directly by schedule.Validate, after
+    # stop_times has been loaded.
+    trip.Validate(problem_reporter, validate_children=False)
 
     if trip.trip_id in self.trips:
       problem_reporter.DuplicateID('trip_id', trip.trip_id)
       return
 
-    if trip.shape_id and trip.shape_id not in self._shapes:
-      problem_reporter.InvalidValue('shape_id', trip.shape_id)
-
-    if not trip.service_period:
-      if trip.service_id not in self.service_periods:
-        problem_reporter.InvalidValue('service_id', trip.service_id)
-        return
-      else:
-        trip.service_period = self.service_periods[trip.service_id]
-        del trip.service_id  # so that trip only has one service member
-
-    # TODO: validate distance values in stop times (if applicable)
-
     self.trips[trip.trip_id] = trip
-    if trip.route_id not in self.routes:
-      problem_reporter.InvalidValue('route_id', trip.route_id)
-    else:
+    try:
       self.routes[trip.route_id].AddTripObject(trip)
+    except KeyError:
+      # Invalid route_id was reported in the Trip.Validate call above
+      pass
 
   def GetTripList(self):
     return self.trips.values()
@@ -3101,6 +3129,7 @@ class Schedule:
     # We're doing this here instead of in Trip.Validate() so that
     # Trips can be validated without error during the reading of trips.txt
     for trip in self.trips.values():
+      trip.ValidateChildren(problems)
       count_stop_times = trip.GetCountStopTimes()
       if not count_stop_times:
         problems.OtherProblem('The trip with the trip_id "%s" doesn\'t have '
@@ -3781,8 +3810,8 @@ class Loader:
       trip._AddStopTimeObjectUnordered(stop_time, self._schedule)
       self._problems.ClearContext()
 
-    for trip in self._schedule.trips.values():
-      trip.Validate(self._problems)
+    # stop_times are validated in Trip.ValidateChildren, called by
+    # Schedule.Validate
 
   def _LoadTransfers(self):
     file_name = 'transfers.txt'
