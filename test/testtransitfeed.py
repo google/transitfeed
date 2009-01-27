@@ -118,21 +118,16 @@ class RecordingProblemReporter(transitfeed.ProblemReporterBase):
     self._test_case.assertFalse(self.exceptions, "\n".join(exceptions_as_text))
 
 
-class UnrecognizedColumnRecorder(transitfeed.ProblemReporter):
+class UnrecognizedColumnRecorder(RecordingProblemReporter):
   """Keeps track of unrecognized column errors."""
   def __init__(self, test_case):
-    transitfeed.ProblemReporter.__init__(self)
-    self.test_case = test_case
+    RecordingProblemReporter.__init__(self, test_case,
+                                      ignore_types=("ExpirationDate",))
     self.column_errors = []
 
   def UnrecognizedColumn(self, file_name, column_name, context=None):
     self.column_errors.append((file_name, column_name))
 
-  def ExpirationDate(self, expiration, context=None):
-    pass  # We don't want to give errors about our test data
-
-  def _Report(self, problem_text):
-    self.test_case.fail(problem_text)
 
 class RedirectStdOutTestCaseBase(unittest.TestCase):
   """Save stdout to the StringIO buffer self.this_stdout"""
@@ -262,9 +257,17 @@ class EndOfLineCheckerTestCase(unittest.TestCase):
 
     e = self.problems.PopException("OtherProblem")
     self.assertEqual(e.file_name, "trips.txt")
+    self.assertEqual(e.row_num, 1)
     self.assertTrue(re.search(
       r"contains ASCII Form Feed",
       e.FormatProblem()))
+    # TODO(Tom): avoid this duplicate error for the same issue
+    e = self.problems.PopException("CsvSyntax")
+    self.assertEqual(e.row_num, 1)
+    self.assertTrue(re.search(
+      r"header row should not contain any space char",
+      e.FormatProblem()))
+
     self.problems.AssertNoMoreExceptions()
 
 
@@ -1052,6 +1055,11 @@ class MemoryZipTestCase(unittest.TestCase):
         extra_validation=True,
         zip=self.zip)
 
+  def appendToZip(self, file, arcname, s):
+    """Append s to the arcname in the zip stored in a file object."""
+    zip = zipfile.ZipFile(file, 'a')
+    zip.writestr(arcname, zip.read(arcname) + s)
+    zip.close()
 
 class CsvDictTestCase(unittest.TestCase):
   def setUp(self):
@@ -1495,6 +1503,7 @@ class BadLatLonInFileUnitTest(MemoryZipTestCase):
     self.assertEquals("stop_lon", e.column_name)
     self.problems.AssertNoMoreExceptions()
 
+
 class LoadUnknownFileInZipTestCase(MemoryZipTestCase):
   def runTest(self):
     self.zip.writestr(
@@ -1509,6 +1518,7 @@ class LoadUnknownFileInZipTestCase(MemoryZipTestCase):
     self.assertEquals('stpos.txt', e.file_name)
     self.problems.AssertNoMoreExceptions()
 
+
 class RouteMemoryZipTestCase(MemoryZipTestCase):
   def assertLoadAndCheckExtraValues(self, schedule_file):
     """Load file-like schedule_file and check for extra route columns."""
@@ -1522,7 +1532,7 @@ class RouteMemoryZipTestCase(MemoryZipTestCase):
     self.assertEqual("bar", loaded_schedule.GetRoute("n")["n_foo"])
     self.assertEqual("", loaded_schedule.GetRoute("AB")["n_foo"])
     # Uncomment the following lines to print the string in testExtraFileColumn
-    # print repr(zipfile.ZipFile(saved_schedule_file).read("routes.txt"))
+    # print repr(zipfile.ZipFile(schedule_file).read("routes.txt"))
     # self.fail()
 
   def testExtraObjectAttribute(self):
@@ -2163,6 +2173,68 @@ class ServicePeriodTestCase(unittest.TestCase):
     self.assertEquals(period_empty.ActiveDates(), [])
 
 
+class TripMemoryZipTestCase(MemoryZipTestCase):
+  def assertLoadAndCheckExtraValues(self, schedule_file):
+    """Load file-like schedule_file and check for extra trip columns."""
+    load_problems = TestFailureProblemReporter(
+        self, ("ExpirationDate", "UnrecognizedColumn"))
+    loaded_schedule = transitfeed.Loader(schedule_file,
+                                         problems=load_problems,
+                                         extra_validation=True).Load()
+    self.assertEqual("foo", loaded_schedule.GetTrip("AB1")["t_foo"])
+    self.assertEqual("", loaded_schedule.GetTrip("AB2")["t_foo"])
+    self.assertEqual("", loaded_schedule.GetTrip("AB1")["n_foo"])
+    self.assertEqual("bar", loaded_schedule.GetTrip("AB2")["n_foo"])
+    # Uncomment the following lines to print the string in testExtraFileColumn
+    # print repr(zipfile.ZipFile(schedule_file).read("trips.txt"))
+    # self.fail()
+
+  def testExtraObjectAttribute(self):
+    """Extra columns added to an object are preserved when writing."""
+    schedule = self.loader.Load()
+    # Add an attribute to an existing trip
+    trip1 = schedule.GetTrip("AB1")
+    trip1.t_foo = "foo"
+    # Make a copy of trip_id=AB1 and add an attribute before AddTripObject
+    trip2 = transitfeed.Trip(field_dict=trip1)
+    trip2.trip_id = "AB2"
+    trip2.t_foo = ""
+    trip2.n_foo = "bar"
+    schedule.AddTripObject(trip2)
+    trip2.AddStopTime(stop=schedule.GetStop("BULLFROG"), stop_time="09:00:00")
+    trip2.AddStopTime(stop=schedule.GetStop("STAGECOACH"), stop_time="09:30:00")
+    saved_schedule_file = StringIO()
+    schedule.WriteGoogleTransitFeed(saved_schedule_file)
+    self.appendToZip(saved_schedule_file, "stop_times.txt","")
+    self.problems.AssertNoMoreExceptions()
+
+    self.assertLoadAndCheckExtraValues(saved_schedule_file)
+
+  def testExtraFileColumn(self):
+    """Extra columns loaded from a file are preserved when writing."""
+    # Uncomment the code in assertLoadAndCheckExtraValues to generate this
+    # string.
+    self.zip.writestr(
+        "trips.txt",
+        "route_id,service_id,trip_id,t_foo,n_foo\n"
+        "AB,FULLW,AB1,foo,\n"
+        "AB,FULLW,AB2,,bar\n")
+    self.zip.writestr(
+        "stop_times.txt",
+        self.zip.read("stop_times.txt") +
+        "AB2,09:00:00,09:00:00,BULLFROG,1\n"
+        "AB2,09:30:00,09:30:00,STAGECOACH,2\n")
+    load1_problems = TestFailureProblemReporter(
+        self, ("ExpirationDate", "UnrecognizedColumn"))
+    schedule = transitfeed.Loader(problems=load1_problems,
+                                  extra_validation=True,
+                                  zip=self.zip).Load()
+    saved_schedule_file = StringIO()
+    schedule.WriteGoogleTransitFeed(saved_schedule_file)
+
+    self.assertLoadAndCheckExtraValues(saved_schedule_file)
+
+
 class TripValidationTestCase(ValidationTestCase):
   def runTest(self):
     trip = transitfeed.Trip()
@@ -2174,10 +2246,11 @@ class TripValidationTestCase(ValidationTestCase):
                           route_id="054C",
                           agency_id=schedule.GetDefaultAgency().agency_id))
     schedule.AddServicePeriodObject(transitfeed.ServicePeriod(id="WEEK"))
-    trip = transitfeed.Trip(schedule=schedule)
+    schedule.GetDefaultServicePeriod().SetDateHasService('20070101')
+    trip = transitfeed.Trip()
     repr(trip)  # shouldn't crash
 
-    trip = transitfeed.Trip(schedule=schedule)
+    trip = transitfeed.Trip()
     trip.trip_headsign = '\xBA\xDF\x0D'  # Not valid ascii or utf8
     repr(trip)  # shouldn't crash
 
@@ -2211,6 +2284,28 @@ class TripValidationTestCase(ValidationTestCase):
     trip.direction_id = 'NORTH'
     self.ExpectInvalidValue(trip, 'direction_id')
     trip.direction_id = '0'
+
+    # AddTripObject validates that route_id, service_id, .... are found in the
+    # schedule. The Validate calls made by self.Expect... above can't make this
+    # check because trip is not in a schedule.
+    trip.route_id = '054C-notfound'
+    schedule.AddTripObject(trip, self.problems)
+    e = self.problems.PopException('InvalidValue')
+    self.assertEqual('route_id', e.column_name)
+    self.problems.AssertNoMoreExceptions()
+    trip.route_id = '054C'
+
+    # Make sure calling Trip.Validate validates that route_id and service_id
+    # are found in the schedule.
+    trip.service_id = 'WEEK-notfound'
+    trip.Validate(self.problems)
+    e = self.problems.PopException('InvalidValue')
+    self.assertEqual('service_id', e.column_name)
+    self.problems.AssertNoMoreExceptions()
+    trip.service_id = 'WEEK'
+
+    trip.Validate(self.problems)
+    self.problems.AssertNoMoreExceptions()
 
     # expect no problems for non-overlapping periods
     trip.AddHeadwayPeriod("06:00:00", "12:00:00", 600)
@@ -2251,7 +2346,7 @@ class TripSequenceValidationTestCase(ValidationTestCase):
     service_period = transitfeed.ServicePeriod("WEEK")
     service_period.SetWeekdayService(True)
     schedule.AddServicePeriodObject(service_period)
-    trip = transitfeed.Trip(schedule=schedule)
+    trip = transitfeed.Trip()
     trip.trip_headsign = '\xBA\xDF\x0D'  # Not valid ascii or utf8
     trip.route_id = '054C'
     trip.service_id = 'WEEK'
@@ -2263,6 +2358,7 @@ class TripSequenceValidationTestCase(ValidationTestCase):
     stop1 = transitfeed.Stop(36.425288, -117.133162, "Demo Stop 1", "STOP1")
     stop2 = transitfeed.Stop(36.425666, -117.133666, "Demo Stop 2", "STOP2")
     stop3 = transitfeed.Stop(36.425999, -117.133999, "Demo Stop 3", "STOP3")
+    schedule.AddTripObject(trip)
     schedule.AddStopObject(stop1)
     schedule.AddStopObject(stop2)
     schedule.AddStopObject(stop3)
@@ -2596,10 +2692,11 @@ class AddStopTimeParametersTestCase(unittest.TestCase):
     stop = schedule.AddStop(40, -128, "My stop")
     # Stop must be added to schedule so that the call
     # AddStopTime -> AddStopTimeObject -> GetStopTimes -> GetStop can work
-    trip = transitfeed.Trip(schedule=schedule)
+    trip = transitfeed.Trip()
     trip.route_id = route.route_id
     trip.service_id = schedule.GetDefaultServicePeriod().service_id
     trip.trip_id = "SAMPLE_TRIP"
+    schedule.AddTripObject(trip)
 
     # First stop must have time
     trip.AddStopTime(stop, arrival_secs=300, departure_secs=360)

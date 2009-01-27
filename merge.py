@@ -1306,9 +1306,10 @@ class TripMerger(DataSetMerger):
     raise MergeError('Cannot merge trips')
 
   def _Migrate(self, original_trip, schedule, newid):
-    migrated_trip = transitfeed.Trip(
-        field_list=original_trip.GetFieldValuesTuple(),
-        schedule=self.feed_merger.merged_schedule)
+    migrated_trip = transitfeed.Trip(field_dict=original_trip)
+    # Need to add trip to schedule before copying stoptimes
+    self.feed_merger.merged_schedule.AddTripObject(migrated_trip,
+                                                   validate=False)
     if newid:
       migrated_trip.trip_id = self.feed_merger.GenerateId(
           original_trip.trip_id)
@@ -1354,8 +1355,9 @@ class TripMerger(DataSetMerger):
     return migrated_trip
 
   def _Add(self, a, b, migrated_trip):
+    # Validate now, since it wasn't done in _Migrate
+    migrated_trip.Validate(self.feed_merger.merged_schedule.problem_reporter)
     self.feed_merger.Register(a, b, migrated_trip)
-    self.feed_merger.merged_schedule.AddTripObject(migrated_trip)
 
   def _GetId(self, trip):
     return trip.trip_id

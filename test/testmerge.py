@@ -969,9 +969,12 @@ class TestTripMerger(unittest.TestCase):
     self.shape.AddPoint(30.0, 30.0)
 
     self.t1 = transitfeed.Trip(service_period=self.s1,
-                               route=self.r1, trip_id='t1', schedule=a_schedule)
+                               route=self.r1, trip_id='t1')
     self.t2 = transitfeed.Trip(service_period=self.s1,
-                               route=self.r1, trip_id='t2', schedule=a_schedule)
+                               route=self.r1, trip_id='t2')
+    # Must add self.t1 to a schedule before calling self.t1.AddStopTime
+    a_schedule.AddTripObject(self.t1, validate=False)
+    a_schedule.AddTripObject(self.t2, validate=False)
     self.t1.block_id = 'b1'
     self.t2.block_id = 'b1'
     self.t1.shape_id = 'shape1'
@@ -984,8 +987,6 @@ class TestTripMerger(unittest.TestCase):
     a_schedule.AddRouteObject(self.r1)
     a_schedule.AddServicePeriodObject(self.s1)
     a_schedule.AddShapeObject(self.shape)
-    a_schedule.AddTripObject(self.t1)
-    a_schedule.AddTripObject(self.t2)
 
   def testMigrate(self):
     self.fm.problem_reporter.ExpectProblemClass(merge.MergeNotImplemented)

@@ -1163,37 +1163,37 @@ class StopTime(object):
     raise AttributeError(name)
 
 
-class Trip(object):
+class Trip(GenericGTFSObject):
   _REQUIRED_FIELD_NAMES = ['route_id', 'service_id', 'trip_id']
   _FIELD_NAMES = _REQUIRED_FIELD_NAMES + [
     'trip_headsign', 'direction_id', 'block_id', 'shape_id'
     ]
   _FIELD_NAMES_HEADWAY = ['trip_id', 'start_time', 'end_time', 'headway_secs']
+  _TABLE_NAME= "trips"
 
   def __init__(self, headsign=None, service_period=None,
-               route=None, trip_id=None, field_list=None, schedule=None):
-    self._stoptimes = []  # [StopTime, StopTime, ...]
+               route=None, trip_id=None, field_dict=None):
+    self._schedule = None
     self._headways = []  # [(start_time, end_time, headway_secs)]
-    self.trip_headsign = headsign
-    self.shape_id = None
-    if route:
-      self.route_id = route.route_id
-    self.trip_id = trip_id
-    # Earlier versions of transitfeed.py assigned self.service_period here
-    # and allowed the caller to set self.service_id. Schedule.Validate
-    # checked the service_id attribute if it was assigned and changed it to a
-    # service_period attribute. Now only the service_id attribute is used and
-    # it is validated by Trip.Validate.
-    if service_period is not None:
-      # For backwards compatibility
-      self.service_id = service_period.service_id
-    self.direction_id = None
-    self.block_id = None
-    if schedule is not None:
-      self._schedule = weakref.proxy(schedule)  # See weakref comment at top
-    if field_list:
-      (self.route_id, self.service_id, self.trip_id, self.trip_headsign,
-       self.direction_id, self.block_id, self.shape_id) = field_list
+    if not field_dict:
+      field_dict = {}
+      if headsign is not None:
+        field_dict['trip_headsign'] = headsign
+      if route:
+        field_dict['route_id'] = route.route_id
+      if trip_id is not None:
+        field_dict['trip_id'] = trip_id
+      if service_period is not None:
+        field_dict['service_id'] = service_period.service_id
+      # Earlier versions of transitfeed.py assigned self.service_period here
+      # and allowed the caller to set self.service_id. Schedule.Validate
+      # checked the service_id attribute if it was assigned and changed it to a
+      # service_period attribute. Now only the service_id attribute is used and
+      # it is validated by Trip.Validate.
+      if service_period is not None:
+        # For backwards compatibility
+        self.service_id = service_period.service_id
+    self.__dict__.update(field_dict)
 
   def GetFieldValuesTuple(self):
     return [getattr(self, fn) or '' for fn in Trip._FIELD_NAMES]
@@ -1573,44 +1573,23 @@ class Trip(object):
       assert self._schedule, "Must be in a schedule to get service_period"
       return self._schedule.GetServicePeriod(self.service_id)
     elif name == 'pattern_id':
-      if 'pattern_id' not in self.__dict__:
-        self.__dict__['pattern_id'] = hash(self.GetPattern())
-      return self.__dict__['pattern_id']
-    raise AttributeError(name)
-
-  def __getitem__(self, name):
-    return getattr(self, name)
-
-  def __eq__(self, other):
-    if not other:
-      return False
-    if id(self) == id(other):
-      return True
-
-    if self.GetFieldValuesTuple() != other.GetFieldValuesTuple():
-      return False
-    if self.GetStopTimesTuples() != other.GetStopTimesTuples():
-      return False
-
-    return True
-
-  def __ne__(self, other):
-    return not self.__eq__(other)
-
-  def __repr__(self):
-    return "<Trip %s>" % self.__dict__
+      if '_pattern_id' not in self.__dict__:
+        self.__dict__['_pattern_id'] = hash(self.GetPattern())
+      return self.__dict__['_pattern_id']
+    else:
+      return GenericGTFSObject.__getattr__(self, name)
 
   def Validate(self, problems, validate_children=True):
     """Validate attributes of this object.
 
     Check that this object has all required values set to a valid value without
     reference to the rest of the schedule. If the _schedule attribute is set
-    then also check that references such as route_id and service_id are correct.
-    If validate_children is True than also call ValidateChildren.
+    then check that references such as route_id and service_id are correct.
 
     Args:
       problems: A ProblemReporter object
-      validate_children: if True than also call ValidateChildren
+      validate_children: if True and the _schedule attribute is set than call
+                         ValidateChildren
     """
     if IsEmpty(self.route_id):
       problems.MissingValue('route_id')
@@ -1636,11 +1615,12 @@ class Trip(object):
           self.service_id not in self._schedule.service_periods):
         problems.InvalidValue('service_id', self.service_id)
 
-    if validate_children:
-      self.ValidateChildren(problems)
+      if validate_children:
+        self.ValidateChildren(problems)
 
   def ValidateChildren(self, problems):
     """Validate StopTimes and headways of this trip."""
+    assert self._schedule, "Trip must be in a schedule to ValidateChildren"
     # TODO: validate distance values in stop times (if applicable)
     cursor = self._schedule._connection.cursor()
     cursor.execute("SELECT COUNT(stop_sequence) AS a FROM stop_times "
@@ -2728,20 +2708,25 @@ class Schedule:
   def GetShape(self, shape_id):
     return self._shapes[shape_id]
 
-  def AddTripObject(self, trip, problem_reporter=None):
-    trip._schedule = weakref.proxy(self)  # See weakref comment at top
-    # Validate trip object before adding
+  def AddTripObject(self, trip, problem_reporter=None, validate=True):
     if not problem_reporter:
       problem_reporter = self.problem_reporter
-    # trip.ValidateChildren will be called directly by schedule.Validate, after
-    # stop_times has been loaded.
-    trip.Validate(problem_reporter, validate_children=False)
 
     if trip.trip_id in self.trips:
       problem_reporter.DuplicateID('trip_id', trip.trip_id)
       return
 
+    self.AddTableColumns('trips', trip._ColumnNames())
+    trip._schedule = weakref.proxy(self)
     self.trips[trip.trip_id] = trip
+
+    # Call Trip.Validate after setting trip._schedule so that references
+    # are checked. trip.ValidateChildren will be called directly by
+    # schedule.Validate, after stop_times has been loaded.
+    if validate:
+      if not problem_reporter:
+        problem_reporter = self.problem_reporter
+      trip.Validate(problem_reporter, validate_children=False)
     try:
       self.routes[trip.route_id].AddTripObject(trip)
     except KeyError:
@@ -2918,8 +2903,10 @@ class Schedule:
     # write trips.txt
     trips_string = StringIO.StringIO()
     writer = CsvUnicodeWriter(trips_string)
-    writer.writerow(Trip._FIELD_NAMES)
-    writer.writerows(t.GetFieldValuesTuple() for t in self.trips.values())
+    columns = self.GetTableColumns('trips')
+    writer.writerow(columns)
+    for t in self.trips.values():
+      writer.writerow([EncodeUnicode(t[c]) for c in columns])
     self._WriteArchiveString(archive, 'trips.txt', trips_string)
 
     # write frequencies.txt (if applicable)
@@ -3705,12 +3692,13 @@ class Loader:
       self._schedule.AddShapeObject(shape, self._problems)
 
   def _LoadTrips(self):
-    for (row, row_num, cols) in self._ReadCSV('trips.txt',
-                                              Trip._FIELD_NAMES,
-                                              Trip._REQUIRED_FIELD_NAMES):
-      self._problems.SetFileContext('trips.txt', row_num, row, cols)
+    for (d, row_num, header, row) in self._ReadCsvDict(
+                                         'trips.txt',
+                                         Trip._FIELD_NAMES,
+                                         Trip._REQUIRED_FIELD_NAMES):
+      self._problems.SetFileContext('trips.txt', row_num, row, header)
 
-      trip = Trip(field_list=row)
+      trip = Trip(field_dict=d)
       self._schedule.AddTripObject(trip, self._problems)
 
       self._problems.ClearContext()
