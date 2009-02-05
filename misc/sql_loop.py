@@ -118,7 +118,6 @@ def LoadFile(f, table_name, conn):
       if len(row) < len(columns):
         row.extend([None] * (len(columns) - len(row)))
       c.execute(insert_values, row)
-      conn.commit()
   #c.execute("END TRANSACTION;")
   conn.commit()
 
