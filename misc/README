@@ -1,0 +1,10 @@
+README file for the transitfeed/misc directory
+
+
+This directory contains a potpourri of code that has been written while hacking
+on transitfeed but doesn't suitable for the main transitfeed distribution.
+The software here may be totally useless, especially if you don't want to dive
+into the source. The programs might not be tested and could be totally broken.
+Of course, feedback is always welcome at googletransitdatafeed@googlegroups.com
+If you complain about things in this directory please be prepared to help write
+the fix.
