@@ -1,0 +1,137 @@
+#!/usr/bin/python2.5
+
+# Copyright (C) 2007 Google Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#      http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+"""
+Filters out trips which are not on the defualt routes and
+  set their trip_typeattribute accordingly.
+
+Run with 'unusual_trip_filter.py --help' for options help.
+"""
+
+__author__ = 'Jiri Semecky <jiri.semecky@gmail.com>'
+
+import codecs
+import optparse
+import os
+import os.path
+import time
+import transitfeed
+import sys
+
+
+class UnusualTripFilter(object):
+  """Class filtering trips going on unusual paths.
+  
+  Those are usually trips going to/from depot or changing to another route
+  in the middle. Sets the 'trip_type' attribute of the trips.txt dataset
+  so that non-standard trips are marked as special (value 1)
+  instead of regular (default value 0).
+  """
+  
+  def __init__ (self, threshold=0.1, force=False, quiet=False):
+    self._threshold = threshold
+    self._quiet = quiet
+    self._force = force
+
+  def filter_line(self, route):
+    """Mark unusual trips for the given route."""
+    self.info('Filtering infrequent trips for route %s.' % route.route_id)
+    trip_count = len(route.trips)
+    for pattern_id, pattern in route.GetPatternIdTripDict().items():
+      ratio = float(1.0 * len(pattern) / trip_count)
+      if not self._force:
+        if (ratio < self._threshold):
+          self.info("\t%d trips on route %s with headsign '%s' recognized "
+                    "as unusual (ratio %f)" %
+                    (len(pattern),
+                     route['route_short_name'],
+                     pattern[0]['trip_headsign'],
+                     ratio))    
+          for trip in pattern:
+            trip.trip_type = 1 # special
+            self.info("\t\tsetting trip_type of trip %s as special" % 
+                      trip.trip_id)
+      else:
+        self.info("\t%d trips on route %s with headsign '%s' recognized "
+                  "as %s (ratio %f)" % 
+                  (len(pattern),
+                   route['route_short_name'],
+                   pattern[0]['trip_headsign'],
+                   ('regular', 'unusual')[ratio < self._threshold],
+                   ratio))
+        for trip in pattern:
+          trip.trip_type = ('0','1')[ratio < self._threshold]
+          self.info("\t\tsetting trip_type of trip %s as %s" % 
+                    (trip.trip_id,
+                     ('regular', 'unusual')[ratio < self._threshold]))
+  
+  def filter(self, dataset):
+    """Mark unusual trips for all the routes in the dataset."""
+    self.info('Going to filter infrequent routes in the dataset')
+    for route in dataset.routes.values():
+      self.filter_line(route)
+  
+  def info(self, text):
+    if not self._quiet:
+      print text
+
+
+def main():
+  parser = optparse.OptionParser(usage='usage: %prog [options] <feed_filename>',
+                                 version='%prog '+transitfeed.__version__)
+  parser.add_option('-o', '--output', dest='output', metavar='FILE',
+         help='name of the output GTFS file (writing to input feed if omitted)')
+  parser.add_option('-m', '--memory_db', dest='memory_db', action='store_true',
+         help='Force use of in-memory sqlite db')
+  parser.add_option('-t', '--threshold', default=0.1,
+         dest='threshold', type="float", 
+         help='frequency threshold for considering pattern as non-regular')
+  parser.add_option('-f', '--override_trip_type', default=False,
+         dest='override_trip_type', action="store_true",
+         help='Forces overwrite of current trip_type values')
+  parser.add_option('-q', '--quiet', dest='quiet',
+         default=False, action="store_true",
+         help='Suppress information output')
+  
+  (options, args) = parser.parse_args()
+  if len(args) < 1:
+    print >>sys.stderr, parser.format_help()
+    print >>sys.stderr, ('\nYou must provide the path'
+                         'of a single feed or specify the pipe mode')
+    sys.exit(1)
+
+  filter = UnusualTripFilter(float(options.threshold),
+                             force=options.override_trip_type,
+                             quiet=options.quiet)
+  feed_name = args[0]
+  feed_name = feed_name.strip()
+  filter.info('Loading %s' % feed_name)
+  loader = transitfeed.Loader(feed_name, extra_validation=True,
+                              memory_db=options.memory_db)
+  data = loader.Load()
+  filter.filter(data)
+  print 'Saving data'
+
+  # Write the result
+  if options.output is None:
+    data.WriteGoogleTransitFeed(feed_name)
+  else:
+    data.WriteGoogleTransitFeed(options.output)
+
+
+if __name__ == '__main__':
+    main()
+  
