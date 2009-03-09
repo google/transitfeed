@@ -1622,6 +1622,18 @@ class RouteConstructorTestCase(unittest.TestCase):
     self.assertEquals({'route_id': 'id1', 'route_short_name': '22',
                        'route_type': '1'}, dict(route))
 
+    # route_type has undefined int value
+    route = transitfeed.Route(route_id='id1', short_name='22',
+                              route_type='8')
+    repr(route)
+    route.Validate(self.problems)
+    e = self.problems.PopException('InvalidValue')
+    self.assertEqual('route_type', e.column_name)
+    self.assertEqual(1, e.type)
+    self.problems.AssertNoMoreExceptions()
+    self.assertEquals({'route_id': 'id1', 'route_short_name': '22',
+                       'route_type': '8'}, dict(route))
+
     # route_type that doesn't parse
     route = transitfeed.Route(route_id='id1', short_name='22',
                               route_type='1foo')

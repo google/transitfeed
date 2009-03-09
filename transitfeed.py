@@ -932,7 +932,9 @@ class Route(GenericGTFSObject):
         problems.InvalidValue('route_type', self.route_type)
       else:
         if self.route_type not in Route._ROUTE_TYPE_IDS:
-          problems.InvalidValue('route_type', self.route_type)
+          problems.InvalidValue('route_type', 
+                                self.route_type,
+                                type=TYPE_WARNING)
 
     if self.route_url and not IsValidURL(self.route_url):
       problems.InvalidValue('route_url', self.route_url)
