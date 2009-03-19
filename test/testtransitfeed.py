@@ -1289,9 +1289,11 @@ class StopHierarchyTestCase(MemoryZipTestCase):
     e = self.problems.PopException("InvalidValue")
     self.assertEquals("location_type", e.column_name)
     self.assertEquals(2, e.row_num)
+    self.assertEquals(1, e.type)
     e = self.problems.PopException("InvalidValue")
     self.assertEquals("location_type", e.column_name)
     self.assertEquals(3, e.row_num)
+    self.assertEquals(0, e.type)
     self.problems.AssertNoMoreExceptions()
 
   def testBadLocationTypeAtSameLatLon(self):

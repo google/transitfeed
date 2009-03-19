@@ -744,7 +744,7 @@ class Stop(GenericGTFSObject):
           del self.location_type
         else:
           if self.location_type not in (0, 1):
-            problems.InvalidValue('location_type', value)
+            problems.InvalidValue('location_type', value, type=TYPE_WARNING)
 
   def __getattr__(self, name):
     """Return None or the default value if name is a known attribute.
@@ -785,10 +785,10 @@ class Stop(GenericGTFSObject):
       problems.InvalidValue('stop_desc', self.stop_desc,
                             'stop_desc should not be the same as stop_name')
 
-    if self.parent_station and self.location_type != 0:
+    if self.parent_station and self.location_type == 1:
       problems.InvalidValue('parent_station', self.parent_station,
-                            'Only stops with location_type=0 may have a '
-                            'parent_station')
+                            'Stop row with location_type=1 (a station) must '
+                            'not have a parent_station')
 
 
 class Route(GenericGTFSObject):
