@@ -3440,14 +3440,25 @@ class Loader:
                                     (file_name, line_num),
                                     type=TYPE_WARNING)
 
+      # row is a list of raw bytes which should be valid utf-8. Convert them
+      # all into Unicode.
+      unicode_error_columns = []  # A list of column numbers with an error
       for i in xrange(len(row)):
         try:
           row[i] = row[i].decode('utf-8')
         except UnicodeDecodeError:
-          self._problems.InvalidValue(header[i], row[i],
-                                      'Unicode error',
-                                      (file_name, line_num,
-                                       row, header))
+          # Replace all invalid characters with REPLACEMENT CHARACTER (U+FFFD)
+          row[i] = codecs.getdecoder("utf8")(row[i], errors="replace")[0]
+          unicode_error_columns.append(i)
+
+      # The error report may contain a dump of all values in row so problems
+      # can not be reported until after converting all of row to Unicode.
+      for i in unicode_error_columns:
+        self._problems.InvalidValue(header[i], row[i],
+                                    'Unicode error',
+                                    (file_name, line_num,
+                                     row, header))
+
 
       d = dict(zip(header, row))
       yield (d, line_num, header, row)
@@ -3505,6 +3516,7 @@ class Loader:
                                     type=TYPE_WARNING)
 
       result = [None] * len(cols)
+      unicode_error_columns = []  # A list of column numbers with an error
       for i in range(len(cols)):
         ci = col_index[i]
         if ci >= 0:
@@ -3514,9 +3526,16 @@ class Loader:
             try:
               result[i] = row[ci].decode('utf-8').strip()
             except UnicodeDecodeError:
-              self._problems.InvalidValue(cols[i], row[ci],
-                                          'Unicode error',
-                                          (file_name, row_num, row, header))
+              # Replace all invalid characters with
+              # REPLACEMENT CHARACTER (U+FFFD)
+              result[i] = codecs.getdecoder("utf8")(row[ci],
+                                                    errors="replace")[0].strip()
+              unicode_error_columns.append(i)
+
+      for i in unicode_error_columns:
+        self._problems.InvalidValue(cols[i], result[i],
+                                    'Unicode error',
+                                    (file_name, row_num, result, cols))
       yield (result, row_num, cols)
 
   def _HasFile(self, file_name):

@@ -109,8 +109,9 @@ class HTMLCountingProblemReporter(transitfeed.ProblemReporter):
           attributes = ' class="problem"'
         table_header += '<th%s>%s</th>' % (attributes, header)
         table_data += '<td%s>%s</td>' % (attributes, value)
-      output.append('<table><tr>%s</tr>\n' % table_header)
-      # Make sure output contains strings with UTF-8 or binary data, not unicode
+      # Make sure output is encoded into UTF-8
+      output.append('<table><tr>%s</tr>\n' %
+                    transitfeed.EncodeUnicode(table_header))
       output.append('<tr>%s</tr></table>\n' %
                     transitfeed.EncodeUnicode(table_data))
     except AttributeError, e:

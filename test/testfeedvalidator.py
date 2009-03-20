@@ -32,6 +32,7 @@ class good_feed(util.TempDirTestCaseBase):
     self.assertTrue(re.search(r'feed validated successfully', htmlout))
     self.assertFalse(re.search(r'ERROR', htmlout))
 
+
 class missing_stops(util.TempDirTestCaseBase):
   def runTest(self):
     (out, err) = self.CheckCallWithPath(
@@ -56,6 +57,19 @@ class bad_date_format(util.TempDirTestCaseBase):
     htmlout = open('validation-results.html').read()
     self.assertTrue(re.search(r'in field <code>start_date', htmlout))
     self.assertTrue(re.search(r'in field <code>date', htmlout))
+    self.assertFalse(re.search(r'feed validated successfully', htmlout))
+
+
+class bad_utf8(util.TempDirTestCaseBase):
+  def runTest(self):
+    (out, err) = self.CheckCallWithPath(
+        [self.GetPath('feedvalidator.py'), '-n',
+         self.GetPath('test', 'data', 'bad_utf8')],
+        expected_retcode=1)
+    self.assertTrue(re.search(r'ERROR', out))
+    self.assertFalse(re.search(r'feed validated successfully', out))
+    htmlout = open('validation-results.html').read()
+    self.assertTrue(re.search(r'Unicode error', htmlout))
     self.assertFalse(re.search(r'feed validated successfully', htmlout))
 
 
