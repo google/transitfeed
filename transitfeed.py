@@ -311,6 +311,7 @@ class ExceptionWithContext(Exception):
       text += ":%i" % self.row_num
     if hasattr(self, 'column_name'):
       text += " column %s" % self.column_name
+    return text
 
 
 class MissingFile(ExceptionWithContext):

@@ -476,6 +476,8 @@ class ProblemReporterTestCase(RedirectStdOutTestCaseBase):
     # Invalid ascii and utf-8. encode('utf-8') and decode('utf-8') will fail
     # for this value
     pr.OtherProblem('\xff\xfe\x80\x88')
+    self.assertTrue(re.search(r"test string", self.this_stdout.getvalue()))
+    self.assertTrue(re.search(r"filename.foo:23", self.this_stdout.getvalue()))
 
   def testNoContextWithBadUnicode(self):
     pr = transitfeed.ProblemReporter()
@@ -484,6 +486,7 @@ class ProblemReporterTestCase(RedirectStdOutTestCaseBase):
     # Invalid ascii and utf-8. encode('utf-8') and decode('utf-8') will fail
     # for this value
     pr.OtherProblem('\xff\xfe\x80\x88')
+    self.assertTrue(re.search(r"test string", self.this_stdout.getvalue()))
 
   def testBadUnicodeContext(self):
     pr = transitfeed.ProblemReporter()
@@ -491,12 +494,15 @@ class ProblemReporterTestCase(RedirectStdOutTestCaseBase):
                       [u'Andr\202', 'Person \xff\xfe\x80\x88 foo', None],
                       [u'1\202', u'2\202', u'3\202'])
     pr.OtherProblem("help, my context isn't utf-8!")
+    self.assertTrue(re.search(r"help, my context", self.this_stdout.getvalue()))
+    self.assertTrue(re.search(r"filename.foo:23", self.this_stdout.getvalue()))
 
   def testLongWord(self):
     # Make sure LineWrap doesn't puke
     pr = transitfeed.ProblemReporter()
-    pr.OtherProblem('nthountheontuhoenuthoentuhntoehuontehuntoehuntoehunto'
-                    'huntoheuntheounthoeunthoeunthoeuntheontuheontuhoue')
+    pr.OtherProblem('1111untheontuhoenuthoentuhntoehuontehuntoehuntoehunto'
+                    '2222oheuntheounthoeunthoeunthoeuntheontuheontuhoue')
+    self.assertTrue(re.search(r"1111.+2222", self.this_stdout.getvalue()))
 
 
 class BadProblemReporterTestCase(RedirectStdOutTestCaseBase):
