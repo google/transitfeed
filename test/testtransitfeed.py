@@ -108,7 +108,7 @@ class RecordingProblemReporter(transitfeed.ProblemReporterBase):
     return e[0]
 
   def FormatException(self, exce, tb):
-    return ("%s\nwith gtfs file context\n%s\nand traceback\n%s" %
+    return ("%s\nwith gtfs file context %s\nand traceback\n%s" %
             (exce.FormatProblem(), exce.FormatContext(), tb))
 
   def AssertNoMoreExceptions(self):
@@ -116,6 +116,12 @@ class RecordingProblemReporter(transitfeed.ProblemReporterBase):
     for e, tb in self.exceptions:
       exceptions_as_text.append(self.FormatException(e, tb))
     self._test_case.assertFalse(self.exceptions, "\n".join(exceptions_as_text))
+
+  def PopInvalidValue(self, column_name, file_name=None):
+    e = self.PopException("InvalidValue")
+    self._test_case.assertEquals(column_name, e.column_name)
+    if file_name:
+      self._test_case.assertEquals(file_name, e.file_name)
 
 
 class UnrecognizedColumnRecorder(RecordingProblemReporter):
@@ -272,25 +278,25 @@ class EndOfLineCheckerTestCase(unittest.TestCase):
 
 
 class LoadTestCase(unittest.TestCase):
-  problems = ExceptionProblemReporterNoExpiration()
+  def setUp(self):
+    self.problems = RecordingProblemReporter(self, ("ExpirationDate",))
+
+  def Load(self, feed_name):
+    loader = transitfeed.Loader(
+      DataPath(feed_name), problems=self.problems, extra_validation=True)
+    loader.Load()
 
   def ExpectInvalidValue(self, feed_name, column_name):
-    loader = transitfeed.Loader(
-      DataPath(feed_name), problems=self.problems, extra_validation=True)
-    try:
-      loader.Load()
-      self.fail('InvalidValue exception expected')
-    except transitfeed.InvalidValue, e:
-      self.assertEqual(column_name, e.column_name)
+    self.Load(feed_name)
+    self.problems.PopInvalidValue(column_name)
+    self.problems.AssertNoMoreExceptions()
 
   def ExpectMissingFile(self, feed_name, file_name):
-    loader = transitfeed.Loader(
-      DataPath(feed_name), problems=self.problems, extra_validation=True)
-    try:
-      loader.Load()
-      self.fail('MissingFile exception expected')
-    except transitfeed.MissingFile, e:
-      self.assertEqual(file_name, e.file_name)
+    self.Load(feed_name)
+    e = self.problems.PopException("MissingFile")
+    self.assertEqual(file_name, e.file_name)
+    # Don't call AssertNoMoreExceptions() because a missing file causes
+    # many errors.
 
 
 class LoadFromZipTestCase(unittest.TestCase):
@@ -380,33 +386,24 @@ class LoadUnrecognizedColumnsTestCase(unittest.TestCase):
     not_found = expected_errors.difference(found_errors)
     self.failIf(not_found, 'expected but not found: %s' % str(not_found))
 
-class LoadExtraCellValidationTestCase(unittest.TestCase):
+class LoadExtraCellValidationTestCase(LoadTestCase):
   """Check that the validation detects too many cells in a row."""
   def runTest(self):
-    feed_name = DataPath('extra_row_cells')
-    loader = transitfeed.Loader(
-      feed_name,
-      problems = ExceptionProblemReporterNoExpiration(),
-      extra_validation = True)
-    try:
-      loader.Load()
-      self.fail('OtherProblem exception expected')
-    except transitfeed.OtherProblem:
-      pass
+    self.Load('extra_row_cells')
+    e = self.problems.PopException("OtherProblem")
+    self.assertEquals("routes.txt", e.file_name)
+    self.assertEquals(4, e.row_num)
+    self.problems.AssertNoMoreExceptions()
 
-class LoadMissingCellValidationTestCase(unittest.TestCase):
+
+class LoadMissingCellValidationTestCase(LoadTestCase):
   """Check that the validation detects missing cells in a row."""
   def runTest(self):
-    feed_name = DataPath('missing_row_cells')
-    loader = transitfeed.Loader(
-      feed_name,
-      problems = ExceptionProblemReporterNoExpiration(),
-      extra_validation = True)
-    try:
-      loader.Load()
-      self.fail('OtherProblem exception expected')
-    except transitfeed.OtherProblem:
-      pass
+    self.Load('missing_row_cells')
+    e = self.problems.PopException("OtherProblem")
+    self.assertEquals("routes.txt", e.file_name)
+    self.assertEquals(4, e.row_num)
+    self.problems.AssertNoMoreExceptions()
 
 class LoadUnknownFileTestCase(unittest.TestCase):
   """Check that the validation detects unknown files."""
@@ -522,7 +519,15 @@ class BadProblemReporterTestCase(RedirectStdOutTestCaseBase):
 
 class BadUtf8TestCase(LoadTestCase):
   def runTest(self):
-    self.ExpectInvalidValue('bad_utf8', 'agency_name')
+    self.Load('bad_utf8')
+    self.problems.PopException("UnrecognizedColumn")
+    self.problems.PopInvalidValue("agency_name", "agency.txt")
+    self.problems.PopInvalidValue("stop_name", "stops.txt")
+    self.problems.PopInvalidValue("route_short_name", "routes.txt")
+    self.problems.PopInvalidValue("route_long_name", "routes.txt")
+    self.problems.PopInvalidValue("trip_headsign", "trips.txt")
+    self.problems.PopInvalidValue("stop_headsign", "stop_times.txt")
+    self.problems.AssertNoMoreExceptions()
 
 
 class LoadMissingAgencyTestCase(LoadTestCase):
@@ -2667,7 +2672,10 @@ class RepeatedRouteNameTestCase(LoadTestCase):
 
 class InvalidRouteAgencyTestCase(LoadTestCase):
   def runTest(self):
-    self.ExpectInvalidValue('invalid_route_agency', 'agency_id')
+    self.Load('invalid_route_agency')
+    self.problems.PopInvalidValue("agency_id", "routes.txt")
+    self.problems.PopInvalidValue("route_id", "trips.txt")
+    self.problems.AssertNoMoreExceptions()
 
 
 class UndefinedStopAgencyTestCase(LoadTestCase):
@@ -2680,28 +2688,20 @@ class SameShortLongNameTestCase(LoadTestCase):
     self.ExpectInvalidValue('same_short_long_name', 'route_long_name')
 
 
-class UnusedStopAgencyTestCase(unittest.TestCase):
+class UnusedStopAgencyTestCase(LoadTestCase):
   def runTest(self):
-    loader = transitfeed.Loader(
-      DataPath('unused_stop'),
-      problems = ExceptionProblemReporterNoExpiration(),
-      extra_validation = True)
-    try:
-      loader.Load()
-      self.fail('UnusedStop exception expected')
-    except transitfeed.UnusedStop, e:
-      self.assertEqual("Bogus Stop (Demo)", e.stop_name)
-      self.assertEqual("BOGUS", e.stop_id)
-      pass
+    self.Load('unused_stop'),
+    e = self.problems.PopException("UnusedStop")
+    self.assertEqual("Bogus Stop (Demo)", e.stop_name)
+    self.assertEqual("BOGUS", e.stop_id)
+    self.problems.AssertNoMoreExceptions()
+    
 
 
-class OnlyCalendarDatesTestCase(unittest.TestCase):
+class OnlyCalendarDatesTestCase(LoadTestCase):
   def runTest(self):
-    loader = transitfeed.Loader(
-      DataPath('only_calendar_dates'),
-      problems = TestFailureProblemReporter(self),
-      extra_validation = True)
-    loader.Load()
+    self.Load('only_calendar_dates'),
+    self.problems.AssertNoMoreExceptions()
 
 
 class AddStopTimeParametersTestCase(unittest.TestCase):
