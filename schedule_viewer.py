@@ -195,6 +195,10 @@ class ScheduleRequestHandler(BaseHTTPServer.BaseHTTPRequestHandler):
       time_stops = trips[0].GetTimeStops()
       if not time_stops:
         continue
+      has_non_zero_trip_type = False;
+      for trip in trips:
+        if trip['trip_type'] and trip['trip_type'] != '0':
+          has_non_zero_trip_type = True
       name = u'%s to %s, %d stops' % (time_stops[0][2].stop_name, time_stops[-1][2].stop_name, len(time_stops))
       transitfeed.SortListOfTripByTime(trips)
 
@@ -224,7 +228,8 @@ class ScheduleRequestHandler(BaseHTTPServer.BaseHTTPRequestHandler):
       for t in trips[start_sample_index:start_sample_index + sample_size]:
         sample.append( (t.GetStartTime(), t.trip_id) )
 
-      patterns.append((name, pattern_id, start_sample_index, sample, num_after_sample))
+      patterns.append((name, pattern_id, start_sample_index, sample,
+                       num_after_sample, (0,1)[has_non_zero_trip_type]))
 
     patterns.sort()
     return patterns
@@ -264,14 +269,8 @@ class ScheduleRequestHandler(BaseHTTPServer.BaseHTTPRequestHandler):
       # if a non-existent trip is searched for, the return nothing
       return
     route = schedule.GetRoute(trip.route_id)
-    trip_row = {}
-    for column in transitfeed.Trip._FIELD_NAMES:
-      if getattr(trip, column) != None:
-        trip_row[column] = getattr(trip, column)
-    route_row = {}
-    for column in transitfeed.Route._FIELD_NAMES:
-      if getattr(route, column) != None:
-        route_row[column] = getattr(route, column)
+    trip_row = dict(trip.iteritems())
+    route_row = dict(route.iteritems())
     return [['trips.txt', trip_row], ['routes.txt', route_row]]
 
   def handle_json_GET_tripstoptimes(self, params):

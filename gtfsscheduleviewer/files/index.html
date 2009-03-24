@@ -409,29 +409,35 @@
       var patterns = eval(data);
       clearMap();
       for (i = 0; i < patterns.length; ++i) {
-        var pat = patterns[i];  // [patName, patId, len(early trips), trips, len(later trips)]
-        div.appendChild(document.createTextNode(pat[0]));
-        div.appendChild(document.createTextNode(", " + (pat[2] + pat[3].length + pat[4]) + " trips: "));
+        patternDiv = document.createElement("div")
+        patternDiv.className = 'patternSection';
+        div.appendChild(patternDiv)
+        var pat = patterns[i];  // [patName, patId, len(early trips), trips, len(later trips), has_non_zero_trip_type]
+        if (pat[5] == '1') {
+          patternDiv.className += " unusualPattern"
+        }
+        patternDiv.appendChild(document.createTextNode(pat[0]));
+        patternDiv.appendChild(document.createTextNode(", " + (pat[2] + pat[3].length + pat[4]) + " trips: "));
         if (pat[2] > 0) {
-          div.appendChild(document.createTextNode(countToRepeatedDots(pat[2]) + " "));
+          patternDiv.appendChild(document.createTextNode(countToRepeatedDots(pat[2]) + " "));
         }
         for (j = 0; j < pat[3].length; ++j) {
           var trip = pat[3][j];
           var tripId = trip[1];
           if ((i == 0) && (j == 0))
             firstTrip = tripId;
-          div.appendChild(document.createTextNode(" "));
+          patternDiv.appendChild(document.createTextNode(" "));
           var span = document.createElement("span");
           span.appendChild(document.createTextNode(formatTime(trip[0])));
           span.id = "trip_" + tripId;
           GEvent.addDomListener(span, "click", makeClosure(selectTrip, tripId));
-          div.appendChild(span)
+          patternDiv.appendChild(span)
           span.className = "tripChoice";
         }
         if (pat[4] > 0) {
-          div.appendChild(document.createTextNode(" " + countToRepeatedDots(pat[4])));
+          patternDiv.appendChild(document.createTextNode(" " + countToRepeatedDots(pat[4])));
         }
-        div.appendChild(document.createElement("br"));
+        patternDiv.appendChild(document.createElement("br"));
       }
       route = document.getElementById("route_container_" + selectedRoute);
       route.appendChild(div);
