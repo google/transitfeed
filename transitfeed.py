@@ -1163,6 +1163,8 @@ class StopTime(object):
     elif name == 'departure_time':
       return (self.departure_secs != None and
           FormatSecondsSinceMidnight(self.departure_secs) or '')
+    elif name == 'shape_dist_traveled':
+      return ''
     raise AttributeError(name)
 
 
