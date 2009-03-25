@@ -3140,6 +3140,9 @@ class Schedule:
         problems.OtherProblem('The trip with the trip_id "%s" doesn\'t have '
                               'any stop times defined.' % trip.trip_id,
                               type=TYPE_WARNING)
+        if len(trip._headways) > 0:  # no stoptimes, but there are headways
+          problems.OtherProblem('Frequencies defined, but no stop times given '
+                                'in trip %s' % trip.trip_id, type=TYPE_ERROR)
       elif count_stop_times == 1:
         problems.OtherProblem('The trip with the trip_id "%s" only has one '
                               'stop on it; it should have at least one more '

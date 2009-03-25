@@ -2460,6 +2460,18 @@ class TripHasStopTimeValidationTestCase(ValidationTestCase):
     # We should get an OtherProblem here because the trip has no stops.
     self.ExpectOtherProblem(schedule)
 
+    # It should trigger a TYPE_ERROR if there are frequencies for the trip
+    # but no stops
+    trip.AddHeadwayPeriod("01:00:00","12:00:00", 600)
+    schedule.Validate(self.problems)
+    self.problems.PopException('OtherProblem')  # pop first warning
+    e = self.problems.PopException('OtherProblem')  # pop frequency error
+    self.assertTrue(e.FormatProblem().find('Frequencies defined, but') != -1)
+    self.assertTrue(e.FormatProblem().find('given in trip 054C-00') != -1)
+    self.assertEquals(transitfeed.TYPE_ERROR, e.type)
+    self.problems.AssertNoMoreExceptions()
+    trip.ClearHeadwayPeriods()
+
     # Add a stop, but with only one stop passengers have nowhere to exit!
     stop = transitfeed.Stop(36.425288, -117.133162, "Demo Stop 1", "STOP1")
     schedule.AddStopObject(stop)
