@@ -2481,6 +2481,55 @@ class TripHasStopTimeValidationTestCase(ValidationTestCase):
         'arrival_time', c=lambda: trip.GetEndTime(problems=self.problems))
 
 
+class ShapeDistTraveledOfStopTimeValidationTestCase(ValidationTestCase):
+  def runTest(self):
+    schedule = transitfeed.Schedule(self.problems)
+    schedule.AddAgency("Test Agency", "http://example.com",
+                       "America/Los_Angeles")
+    schedule.AddRouteObject(
+        transitfeed.Route("54C", "Polish Hill", 3, "054C"))
+
+    service_period = transitfeed.ServicePeriod("WEEK")
+    service_period.SetStartDate("20070101")
+    service_period.SetEndDate("20071231")
+    service_period.SetWeekdayService(True)
+    schedule.AddServicePeriodObject(service_period)
+
+    shape = transitfeed.Shape("shape_1")
+    shape.AddPoint(1, 1, 0)
+    shape.AddPoint(2, 2, 1)
+    schedule.AddShapeObject(shape)
+
+    trip = transitfeed.Trip()
+    trip.route_id = '054C'
+    trip.service_id = 'WEEK'
+    trip.trip_id = '054C-00'
+    trip.trip_headsign = 'via Polish Hill'
+    trip.direction_id = '0'
+    trip.block_id = None
+    trip.shape_id = 'shape_1'
+    schedule.AddTripObject(trip)
+
+    stop = transitfeed.Stop(36.425288, -117.133162, "Demo Stop 1", "STOP1")
+    schedule.AddStopObject(stop)
+    trip.AddStopTime(stop, arrival_time="5:11:00", departure_time="5:12:00",
+                     stop_sequence=0, shape_dist_traveled=0)
+    stop = transitfeed.Stop(36.424288, -117.133142, "Demo Stop 2", "STOP2")
+    schedule.AddStopObject(stop)
+    trip.AddStopTime(stop, arrival_time="5:15:00", departure_time="5:16:00",
+                     stop_sequence=1, shape_dist_traveled=1)
+
+    stop = transitfeed.Stop(36.423288, -117.133122, "Demo Stop 3", "STOP3")
+    schedule.AddStopObject(stop)
+    trip.AddStopTime(stop, arrival_time="5:18:00", departure_time="5:19:00",
+                     stop_sequence=2, shape_dist_traveled=2)
+    self.problems.AssertNoMoreExceptions()
+    schedule.Validate(self.problems)
+    e = self.problems.PopException('OtherProblem')
+    self.assertTrue(e.FormatProblem().find('shape_dist_traveled=2') != -1)
+    self.problems.AssertNoMoreExceptions()
+
+
 class TripAddStopTimeObjectTestCase(ValidationTestCase):
   def runTest(self):
     schedule = transitfeed.Schedule(problem_reporter=self.problems)

@@ -1659,6 +1659,19 @@ class Trip(GenericGTFSObject):
                                   'at sequence number %s in trip %s' %
                                   (timepoint.stop_sequence, self.trip_id))
 
+      if self.shape_id and self.shape_id in self._schedule._shapes:
+        max_shape_dist = self._schedule.GetShape(self.shape_id).max_distance
+        st = stoptimes[-1]
+        if (st.shape_dist_traveled and
+            st.shape_dist_traveled > max_shape_dist):
+          problems.OtherProblem(
+              'In stop_times.txt, the stop with trip_id=%s and '
+              'stop_sequence=%d has shape_dist_traveled=%f, which is larger '
+              'than the max shape_dist_traveled=%f of the corresponding '
+              'shape (shape_id=%s)' %
+              (self.trip_id, st.stop_sequence, st.shape_dist_traveled,
+               max_shape_dist, self.shape_id), type=TYPE_WARNING)
+
     # O(n^2), but we don't anticipate many headway periods per trip
     for headway_index, headway in enumerate(self._headways[0:-1]):
       for other in self._headways[headway_index + 1:]:
