@@ -3019,27 +3019,26 @@ class Schedule:
       cursor.execute("SELECT count(*) FROM stop_times WHERE stop_id=? LIMIT 1",
                      (stop.stop_id,))
       count = cursor.fetchone()[0]
-      if stop.location_type == 0:
-        if count == 0:
+      if stop.location_type == 0 and count == 0:
           problems.UnusedStop(stop.stop_id, stop.stop_name)
-        if stop.parent_station:
-          if stop.parent_station not in self.stops:
-            problems.InvalidValue("parent_station",
-                                  EncodeUnicode(stop.parent_station),
-                                  "parent_station '%s' not found for stop_id "
-                                  "'%s' in stops.txt" %
-                                  (EncodeUnicode(stop.parent_station),
-                                   EncodeUnicode(stop.stop_id)))
-          elif self.stops[stop.parent_station].location_type != 1:
-            problems.InvalidValue("parent_station",
-                                  EncodeUnicode(stop.parent_station),
-                                  "parent_station '%s' of stop_id '%s' must "
-                                  "have location_type=1 in stops.txt" %
-                                  (EncodeUnicode(stop.parent_station),
-                                   EncodeUnicode(stop.stop_id)))
-      elif stop.location_type == 1:
-        if count != 0:
+      elif stop.location_type == 1 and count != 0:
           problems.UsedStation(stop.stop_id, stop.stop_name)
+
+      if stop.location_type != 1 and stop.parent_station:
+        if stop.parent_station not in self.stops:
+          problems.InvalidValue("parent_station",
+                                EncodeUnicode(stop.parent_station),
+                                "parent_station '%s' not found for stop_id "
+                                "'%s' in stops.txt" %
+                                (EncodeUnicode(stop.parent_station),
+                                 EncodeUnicode(stop.stop_id)))
+        elif self.stops[stop.parent_station].location_type != 1:
+          problems.InvalidValue("parent_station",
+                                EncodeUnicode(stop.parent_station),
+                                "parent_station '%s' of stop_id '%s' must "
+                                "have location_type=1 in stops.txt" %
+                                (EncodeUnicode(stop.parent_station),
+                                 EncodeUnicode(stop.stop_id)))
 
     #TODO: check that every station is used and within 1km of stops that are
     # part of it. Then uncomment testStationWithoutReference.

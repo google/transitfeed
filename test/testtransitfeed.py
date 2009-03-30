@@ -1365,6 +1365,21 @@ class StopHierarchyTestCase(MemoryZipTestCase):
     self.assertEquals("parent_station", e.column_name)
     self.problems.AssertNoMoreExceptions()
 
+  def testParentOfEntranceIsStop(self):
+    self.zip.writestr(
+        "stops.txt",
+        "stop_id,stop_name,stop_lat,stop_lon,location_type,parent_station\n"
+        "BEATTY_AIRPORT,Airport,36.868446,-116.784582,2,BULLFROG\n"
+        "BULLFROG,Bullfrog,36.88108,-116.81797,,\n"
+        "STAGECOACH,Stagecoach Hotel,36.915682,-116.751677,,\n")
+    schedule = self.loader.Load()
+    e = self.problems.PopException("InvalidValue")
+    self.assertEquals("location_type", e.column_name)
+    e = self.problems.PopException("InvalidValue")
+    self.assertEquals("parent_station", e.column_name)
+    self.assertTrue(e.FormatProblem().find("location_type=1") != -1)
+    self.problems.AssertNoMoreExceptions()
+
   def testStationWithParent(self):
     self.zip.writestr(
         "stops.txt",
