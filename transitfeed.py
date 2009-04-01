@@ -901,6 +901,7 @@ class Route(GenericGTFSObject):
       short_name = self.route_short_name.strip().lower()
       long_name = self.route_long_name.strip().lower()
       if (long_name.startswith(short_name + ' ') or
+          long_name.startswith(short_name + '(') or
           long_name.startswith(short_name + '-')):
         problems.InvalidValue('route_long_name',
                               self.route_long_name,

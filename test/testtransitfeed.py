@@ -1749,6 +1749,8 @@ class RouteValidationTestCase(ValidationTestCase):
     route.route_short_name = '54C'
     route.route_long_name = '54C South Side - North Side'
     self.ExpectInvalidValue(route, 'route_long_name')
+    route.route_long_name = '54C(South Side - North Side)'
+    self.ExpectInvalidValue(route, 'route_long_name')
     route.route_long_name = '54C-South Side - North Side'
     self.ExpectInvalidValue(route, 'route_long_name')
 
