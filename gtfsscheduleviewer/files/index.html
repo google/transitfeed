@@ -29,6 +29,7 @@
         map.addControl(new GLargeMapControl());
         map.addControl(new GMapTypeControl());
         map.addControl(new GOverviewMapControl());
+        map.enableScrollWheelZoom();
         var bb = new GLatLngBounds(new GLatLng([min_lat], [min_lon]),new GLatLng([max_lat], [max_lon]));
         map.setCenter(bb.getCenter(), map.getBoundsZoomLevel(bb));
         map.enableDoubleClickZoom();
