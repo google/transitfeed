@@ -109,7 +109,7 @@ def main():
   (options, args) = parser.parse_args()
   if len(args) < 1:
     print >>sys.stderr, parser.format_help()
-    print >>sys.stderr, ('\nYou must provide the path'
+    print >>sys.stderr, ('\nYou must provide the path '
                          'of a single feed or specify the pipe mode')
     sys.exit(1)
 
