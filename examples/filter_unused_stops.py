@@ -18,6 +18,7 @@
 """Filter the unused stops out of a transit feed file."""
 
 import optparse
+import sys
 import transitfeed
 
 
