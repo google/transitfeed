@@ -2525,8 +2525,8 @@ class ShapeDistTraveledOfStopTimeValidationTestCase(ValidationTestCase):
     schedule.AddServicePeriodObject(service_period)
 
     shape = transitfeed.Shape("shape_1")
-    shape.AddPoint(1, 1, 0)
-    shape.AddPoint(2, 2, 1)
+    shape.AddPoint(36.425288, -117.133162, 0)
+    shape.AddPoint(36.424288, -117.133142, 1)
     schedule.AddShapeObject(shape)
 
     trip = transitfeed.Trip()
@@ -2556,6 +2556,48 @@ class ShapeDistTraveledOfStopTimeValidationTestCase(ValidationTestCase):
     schedule.Validate(self.problems)
     e = self.problems.PopException('OtherProblem')
     self.assertTrue(e.FormatProblem().find('shape_dist_traveled=2') != -1)
+    self.problems.AssertNoMoreExceptions()
+
+
+class StopMatchWithShapeTestCase(ValidationTestCase):
+  def runTest(self):
+    schedule = transitfeed.Schedule(self.problems)
+    schedule.AddAgency("Test Agency", "http://example.com",
+                       "America/Los_Angeles")
+    schedule.AddRouteObject(
+        transitfeed.Route("54C", "Polish Hill", 3, "054C"))
+
+    service_period = transitfeed.ServicePeriod("WEEK")
+    service_period.SetDateHasService('20070101')
+    schedule.AddServicePeriodObject(service_period)
+
+    shape = transitfeed.Shape("shape_1")
+    shape.AddPoint(36.425288, -117.133162, 0)
+    shape.AddPoint(36.424288, -117.143142, 1)
+    schedule.AddShapeObject(shape)
+
+    trip = transitfeed.Trip()
+    trip.route_id = '054C'
+    trip.service_id = 'WEEK'
+    trip.trip_id = '054C-00'
+    trip.shape_id = 'shape_1'
+    schedule.AddTripObject(trip)
+
+    # Stop 1 is only 600 meters away from shape, which is allowed.
+    stop = transitfeed.Stop(36.425288, -117.139162, "Demo Stop 1", "STOP1")
+    schedule.AddStopObject(stop)
+    trip.AddStopTime(stop, arrival_time="5:11:00", departure_time="5:12:00",
+                     stop_sequence=0, shape_dist_traveled=0)
+    # Stop 2 is more than 1000 meters away from shape, which is not allowed.
+    stop = transitfeed.Stop(36.424288, -117.158142, "Demo Stop 2", "STOP2")
+    schedule.AddStopObject(stop)
+    trip.AddStopTime(stop, arrival_time="5:15:00", departure_time="5:16:00",
+                     stop_sequence=1, shape_dist_traveled=1)
+
+    schedule.Validate(self.problems)
+    e = self.problems.PopException('OtherProblem')
+    self.assertTrue(e.FormatProblem().find('Demo Stop 2') != -1)
+    self.assertTrue(e.FormatProblem().find('1344 meters away') != -1)
     self.problems.AssertNoMoreExceptions()
 
 

@@ -68,6 +68,7 @@ import weakref
 import zipfile
 
 OUTPUT_ENCODING = 'utf-8'
+MAX_DISTANCE_FROM_STOP_TO_SHAPE = 1000
 
 
 __version__ = '1.2.0'
@@ -489,20 +490,27 @@ def NonNegIntStringToInt(int_string):
 
 
 EARTH_RADIUS = 6378135          # in meters
-def ApproximateDistanceBetweenStops(stop1, stop2):
-  """Compute approximate distance between two stops in meters. Assumes the
+def ApproximateDistance(degree_lat1, degree_lng1, degree_lat2, degree_lng2):
+  """Compute approximate distance between two points in meters. Assumes the
   Earth is a sphere."""
   # TODO: change to ellipsoid approximation, such as
   # http://www.codeguru.com/Cpp/Cpp/algorithms/article.php/c5115/
-  lat1 = math.radians(stop1.stop_lat)
-  lat2 = math.radians(stop2.stop_lat)
-  lng1 = math.radians(stop1.stop_lon)
-  lng2 = math.radians(stop2.stop_lon)
+  lat1 = math.radians(degree_lat1)
+  lng1 = math.radians(degree_lng1)
+  lat2 = math.radians(degree_lat2)
+  lng2 = math.radians(degree_lng2)
   dlat = math.sin(0.5 * (lat2 - lat1))
   dlng = math.sin(0.5 * (lng2 - lng1))
   x = dlat * dlat + dlng * dlng * math.cos(lat1) * math.cos(lat2)
   return EARTH_RADIUS * (2 * math.atan2(math.sqrt(x),
       math.sqrt(max(0.0, 1.0 - x))))
+
+
+def ApproximateDistanceBetweenStops(stop1, stop2):
+  """Compute approximate distance between two stops in meters. Assumes the
+  Earth is a sphere."""
+  return ApproximateDistance(stop1.stop_lat, stop1.stop_lon,
+                             stop2.stop_lat, stop2.stop_lon)
 
 
 class GenericGTFSObject(object):
@@ -1661,7 +1669,8 @@ class Trip(GenericGTFSObject):
                                   (timepoint.stop_sequence, self.trip_id))
 
       if self.shape_id and self.shape_id in self._schedule._shapes:
-        max_shape_dist = self._schedule.GetShape(self.shape_id).max_distance
+        shape = self._schedule.GetShape(self.shape_id)
+        max_shape_dist = shape.max_distance
         st = stoptimes[-1]
         if (st.shape_dist_traveled and
             st.shape_dist_traveled > max_shape_dist):
@@ -1672,6 +1681,26 @@ class Trip(GenericGTFSObject):
               'shape (shape_id=%s)' %
               (self.trip_id, st.stop_sequence, st.shape_dist_traveled,
                max_shape_dist, self.shape_id), type=TYPE_WARNING)
+
+        # shape_dist_traveled is valid in shape if max_shape_dist larger than
+        # 0.
+        if max_shape_dist > 0:
+          for st in stoptimes:
+            if st.shape_dist_traveled is None:
+              continue
+            pt = shape.GetPointWithDistanceTraveled(st.shape_dist_traveled)
+            if pt:
+              stop = self._schedule.GetStop(st.stop_id)
+              distance = ApproximateDistance(stop.stop_lat, stop.stop_lon,
+                                             pt[0], pt[1])
+              if distance > MAX_DISTANCE_FROM_STOP_TO_SHAPE:
+                problems.OtherProblem(
+                    'For trip %s the stop %s (id: %s) is %.0f meters away from '
+                    'the corresponding point (shape_dist_traveled: %f) on '
+                    'shape %s. It should be closer than %.0f meters.' %
+                    (self.trip_id, stop.stop_name, stop.stop_id, distance,
+                     pt[2], self.shape_id, MAX_DISTANCE_FROM_STOP_TO_SHAPE),
+                    type=TYPE_WARNING)
 
     # O(n^2), but we don't anticipate many headway periods per trip
     for headway_index, headway in enumerate(self._headways[0:-1]):
@@ -1886,9 +1915,16 @@ class Shape(object):
                            'shape_pt_sequence']
   _FIELD_NAMES = _REQUIRED_FIELD_NAMES + ['shape_dist_traveled']
   def __init__(self, shape_id):
+    # List of shape point tuple (lat, lng, shape_dist_traveled), where lat and
+    # lon is the location of the shape point, and shape_dist_traveled is an
+    # increasing metric representing the distance traveled along the shape.
     self.points = []
+    # An ID that uniquely identifies a shape in the dataset.
     self.shape_id = shape_id
+    # The max shape_dist_traveled of shape points in this shape.
     self.max_distance = 0
+    # List of shape_dist_traveled of each shape point.
+    self.distance = []
 
   def AddPoint(self, lat, lon, distance=None,
                problems=default_problem_reporter):
@@ -1934,6 +1970,7 @@ class Shape(object):
           return
         else:
           self.max_distance = distance
+          self.distance.append(distance)
       except (TypeError, ValueError):
         problems.InvalidValue('shape_dist_traveled', distance,
                               'This value should be a positive number.')
@@ -1966,6 +2003,50 @@ class Shape(object):
     if not self.points:
       problems.OtherProblem('The shape with shape_id "%s" contains no points.' %
                             self.shape_id, type=TYPE_WARNING)
+
+  def GetPointWithDistanceTraveled(self, shape_dist_traveled):
+    """Returns a point on the shape polyline with the input shape_dist_traveled.
+
+    Args:
+      shape_dist_traveled: The input shape_dist_traveled.
+
+    Returns:
+      The shape point as a tuple (lat, lng, shape_dist_traveled), where lat and
+      lng is the location of the shape point, and shape_dist_traveled is an
+      increasing metric representing the distance traveled along the shape.
+      Returns None if there is data error in shape.
+    """
+    if not self.distance:
+      return None
+    if shape_dist_traveled <= self.distance[0]:
+      return self.points[0]
+    if shape_dist_traveled >= self.distance[-1]:
+      return self.points[-1]
+
+    index = bisect.bisect(self.distance, shape_dist_traveled)
+    (lat0, lng0, dist0) = self.points[index - 1]
+    (lat1, lng1, dist1) = self.points[index]
+
+    # Interpolate if shape_dist_traveled does not equal to any of the point
+    # in shape segment.
+    # (lat0, lng0)          (lat, lng)           (lat1, lng1)
+    # -----|--------------------|---------------------|------
+    #    dist0          shape_dist_traveled         dist1
+    #      \------- ca --------/ \-------- bc -------/
+    #       \----------------- ba ------------------/
+    ca = shape_dist_traveled - dist0
+    bc = dist1 - shape_dist_traveled
+    ba = bc + ca
+    if ba == 0:
+      # This only happens when there's data error in shapes and should have been
+      # catched before. Check to avoid crash.
+      return None
+    # This won't work crossing longitude 180 and is only an approximation which
+    # works well for short distance.
+    lat = (lat1 * ca + lat0 * bc) / ba
+    lng = (lng1 * ca + lng0 * bc) / ba
+    return (lat, lng, shape_dist_traveled)
+
 
 class ISO639(object):
   # Set of all the 2-letter ISO 639-1 language codes.
