@@ -1307,12 +1307,14 @@ class TripMerger(DataSetMerger):
 
   def _Migrate(self, original_trip, schedule, newid):
     migrated_trip = transitfeed.Trip(field_dict=original_trip)
-    # Need to add trip to schedule before copying stoptimes
-    self.feed_merger.merged_schedule.AddTripObject(migrated_trip,
-                                                   validate=False)
+    # Make new trip_id first. AddTripObject reports a problem if it conflicts
+    # with an existing id.
     if newid:
       migrated_trip.trip_id = self.feed_merger.GenerateId(
           original_trip.trip_id)
+    # Need to add trip to schedule before copying stoptimes
+    self.feed_merger.merged_schedule.AddTripObject(migrated_trip,
+                                                   validate=False)
 
     if schedule == self.feed_merger.a_schedule:
       merge_map = self.feed_merger.a_merge_map

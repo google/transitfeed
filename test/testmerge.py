@@ -961,7 +961,7 @@ class TestTripMerger(unittest.TestCase):
     self.r1 = transitfeed.Route(**rkwargs)
 
     self.s1 = transitfeed.ServicePeriod('s1')
-    self.s1.start_date = '20071213'
+    self.s1.start_date = '20071201'
     self.s1.end_date = '20071231'
     self.s1.SetWeekdayService()
 
@@ -1015,6 +1015,28 @@ class TestTripMerger(unittest.TestCase):
 
   def testMergeStats(self):
     self.assert_(self.tm.GetMergeStats() is None)
+
+  def testConflictingTripid(self):
+    a1_in_b = transitfeed.Agency(field_dict=self.a1)
+    r1_in_b = transitfeed.Route(field_dict=self.r1)
+    t1_in_b = transitfeed.Trip(field_dict=self.t1)
+    shape_in_b = transitfeed.Shape('shape1')
+    shape_in_b.AddPoint(30.0, 30.0)
+    s_in_b = transitfeed.ServicePeriod('s1')
+    s_in_b.start_date = '20080101'
+    s_in_b.end_date = '20080131'
+    s_in_b.SetWeekdayService()
+
+    self.fm.b_schedule.AddAgencyObject(a1_in_b)
+    self.fm.b_schedule.AddRouteObject(r1_in_b)
+    self.fm.b_schedule.AddShapeObject(shape_in_b)
+    self.fm.b_schedule.AddTripObject(t1_in_b, validate=False)
+    self.fm.b_schedule.AddServicePeriodObject(s_in_b, validate=False)
+    self.fm.problem_reporter.ExpectProblemClass(merge.MergeNotImplemented)
+    self.fm.MergeSchedules()
+    # 3 trips moved to merged_schedule: from a_schedule t1, t2 and from
+    # b_schedule t1
+    self.assertEquals(len(self.fm.merged_schedule.GetTripList()), 3)
 
 
 class TestFareMerger(unittest.TestCase):
