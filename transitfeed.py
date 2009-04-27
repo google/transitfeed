@@ -2720,21 +2720,37 @@ class Schedule:
   def AddStop(self, lat, lng, name):
     """Add a stop to this schedule.
 
+    A new stop_id is created for this stop. Do not use this method unless all
+    stops in this Schedule are created with it. See source for details.
+
     Args:
       lat: Latitude of the stop as a float or string
       lng: Longitude of the stop as a float or string
       name: Name of the stop, which will appear in the feed
+
     Returns:
       A new Stop object
     """
+    # TODO: stop_id isn't guarenteed to be unique and conflicts are not
+    # handled. Please fix.
     stop_id = unicode(len(self.stops))
     stop = Stop(stop_id=stop_id, lat=lat, lng=lng, name=name)
     self.AddStopObject(stop)
     return stop
 
-  def AddStopObject(self, stop):
+  def AddStopObject(self, stop, problem_reporter=None):
+    """Add Stop object to this schedule if stop_id is non-blank."""
     assert stop._schedule is None
-    assert stop.stop_id
+    if not problem_reporter:
+      problem_reporter = self.problem_reporter
+    
+    if not stop.stop_id:
+      return
+
+    if stop.stop_id in self.stops:
+      problem_reporter.DuplicateID('stop_id', stop.stop_id)
+      return
+
     stop._schedule = weakref.proxy(self)
     self.AddTableColumns('stops', stop._ColumnNames())
     self.stops[stop.stop_id] = stop
@@ -2882,6 +2898,7 @@ class Schedule:
                                     'fare attributes.)')
 
   def AddTransferObject(self, transfer, problem_reporter=None):
+    assert transfer._schedule is None, "only add Transfer to a schedule once"
     transfer._schedule = weakref.proxy(self)  # See weakref comment at top
     if not problem_reporter:
       problem_reporter = self.problem_reporter
@@ -3685,11 +3702,7 @@ class Loader:
 
       stop = Stop(field_dict=d)
       stop.Validate(self._problems)
-
-      if stop.stop_id in self._schedule.stops:
-        self._problems.DuplicateID('stop_id', stop.stop_id)
-      else:
-        self._schedule.AddStopObject(stop)
+      self._schedule.AddStopObject(stop, self._problems)
 
       self._problems.ClearContext()
 

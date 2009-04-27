@@ -926,14 +926,12 @@ class StopAttributes(ValidationTestCase):
     self.assertEquals(stop['new_column'], 'val')
 
   def testWithSchedule(self):
-    schedule = transitfeed.Schedule()
+    schedule = transitfeed.Schedule(problem_reporter=self.problems)
 
     stop = transitfeed.Stop(field_dict={})
-    try:
-      schedule.AddStopObject(stop)
-      self.fail("Expecting AssertionError for stop_id")
-    except AssertionError:
-      pass  # Expected
+    # AddStopObject silently fails for Stop objects without stop_id
+    schedule.AddStopObject(stop)
+    self.assertFalse(schedule.GetStopList())
     self.assertFalse(stop._schedule)
 
     # Okay to add a stop with only stop_id
@@ -947,6 +945,11 @@ class StopAttributes(ValidationTestCase):
 
     stop.new_column = "val"
     self.assertTrue("new_column" in schedule.GetTableColumns("stops"))
+
+    # Adding a duplicate stop_id fails
+    schedule.AddStopObject(transitfeed.Stop(field_dict={"stop_id": "b"}))
+    self.problems.PopException("DuplicateID")
+    self.problems.AssertNoMoreExceptions()
 
 
 class StopTimeValidationTestCase(ValidationTestCase):
@@ -1078,6 +1081,7 @@ class MemoryZipTestCase(unittest.TestCase):
     zip = zipfile.ZipFile(file, 'a')
     zip.writestr(arcname, zip.read(arcname) + s)
     zip.close()
+
 
 class CsvDictTestCase(unittest.TestCase):
   def setUp(self):
@@ -1552,6 +1556,19 @@ class LoadUnknownFileInZipTestCase(MemoryZipTestCase):
     e = self.problems.PopException('UnknownFile')
     self.assertEquals('stpos.txt', e.file_name)
     self.problems.AssertNoMoreExceptions()
+
+
+class TabDelimitedTestCase(MemoryZipTestCase):
+  def runTest(self):
+    # Create an extremely corrupt file by replacing each comma with a tab,
+    # ignoring csv quoting.
+    for arcname in self.zip.namelist():
+      orig = self.zip.read(arcname)
+      self.zip.writestr(arcname, orig.replace(",", "\t"))
+    schedule = self.loader.Load()
+    # Don't call self.problems.AssertNoMoreExceptions() because there are lots
+    # of problems but I only care that the validator doesn't crash. In the
+    # magical future the validator will stop when the csv is obviously hosed.
 
 
 class RouteMemoryZipTestCase(MemoryZipTestCase):
@@ -2060,6 +2077,14 @@ class TransferValidationTestCase(ValidationTestCase):
     transfer.to_stop_id = stop1.stop_id
     self.ExpectInvalidValue(transfer, "from_stop_id")
     self.problems.AssertNoMoreExceptions()
+
+    # Transfer can only be added to a schedule once
+    transfer = transitfeed.Transfer()
+    transfer.from_stop_id = stop1.stop_id
+    transfer.to_stop_id = stop1.stop_id
+    schedule.AddTransferObject(transfer)
+    self.assertRaises(AssertionError, schedule.AddTransferObject, transfer)
+
 
 class ServicePeriodValidationTestCase(ValidationTestCase):
   def runTest(self):
