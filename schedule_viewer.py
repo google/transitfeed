@@ -88,7 +88,7 @@ class StoppableHTTPServer(BaseHTTPServer.HTTPServer):
 def StopToTuple(stop):
   """Return tuple as expected by javascript function addStopMarkerFromList"""
   return (stop.stop_id, stop.stop_name, float(stop.stop_lat),
-          float(stop.stop_lon))
+          float(stop.stop_lon), stop.location_type)
 
 
 class ScheduleRequestHandler(BaseHTTPServer.BaseHTTPRequestHandler):

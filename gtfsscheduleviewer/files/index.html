@@ -167,11 +167,14 @@
       iconBackground = makeStopIcon();
       iconBackground.image = "/file/mm_20_blue_trans.png";
       iconBackground.shadow = "/file/mm_20_shadow_trans.png";
+      iconBackgroundStation = makeStopIcon();
+      iconBackgroundStation.image = "/file/mm_20_red_trans.png";
+      iconBackgroundStation.shadow = "/file/mm_20_shadow_trans.png";
     }
 
     var iconSelected;
     var iconBackground;
-
+    var iconBackgroundStation;
     // Map from stopId to GMarker object for stops selected because they are
     // part of a trip, etc
     var stopMarkersSelected = {};
@@ -182,13 +185,13 @@
      * Add a stop to the map, given a row from stops.txt.
      */
     function addStopMarkerFromList(list, selected, text) {
-      return addStopMarker(list[0], list[1], list[2], list[3], selected, text);
+      return addStopMarker(list[0], list[1], list[2], list[3], list[4], selected, text);
     }
 
     /**
      * Add a stop to the map, returning the new marker
      */
-    function addStopMarker(stopId, stopName, stopLat, stopLon, selected, text) {
+    function addStopMarker(stopId, stopName, stopLat, stopLon, locationType, selected, text) {
       if (stopMarkersSelected[stopId]) {
         // stop was selected
 	var marker = stopMarkersSelected[stopId];
@@ -215,6 +218,8 @@
       var icon;
       if (selected) {
         icon = iconSelected;
+      } else if (locationType == 1)  {
+        icon = iconBackgroundStation
       } else {
         icon = iconBackground;
       }
@@ -225,10 +230,10 @@
           text = "";  // Make sure every selected icon has a text box, even if empty
         }
         var markerOpts = new Object();
-	markerOpts.icon = icon;
-	markerOpts.labelText = text;
-	markerOpts.labelClass = "tooltip";
-	markerOpts.labelOffset = new GSize(6, -20);
+        markerOpts.icon = icon;
+        markerOpts.labelText = text;
+        markerOpts.labelClass = "tooltip";
+        markerOpts.labelOffset = new GSize(6, -20);
         marker = new LabeledMarker(ll, markerOpts);
       } else {
         marker = new GMarker(ll, icon);
