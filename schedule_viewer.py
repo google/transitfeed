@@ -163,12 +163,14 @@ class ScheduleRequestHandler(BaseHTTPServer.BaseHTTPRequestHandler):
     agency = ', '.join(a.agency_name for a in schedule.GetAgencyList()).encode('utf-8')
 
     key = self.server.key
+    host = self.server.host
 
     # A very simple template system. For a fixed set of values replace [xxx]
     # with the value of local variable xxx
     f, _ = self.OpenFile('index.html')
     content = f.read()
-    for v in ('agency', 'min_lat', 'min_lon', 'max_lat', 'max_lon', 'key'):
+    for v in ('agency', 'min_lat', 'min_lon', 'max_lat', 'max_lon', 'key',
+              'host'):
       content = content.replace('[%s]' % v, str(locals()[v]))
 
     self.send_response(200)
@@ -456,6 +458,7 @@ def main():
   parser.add_option('--key', dest='key',
                     help='Google Maps API key or the name '
                     'of a text file that contains an API key')
+  parser.add_option('--host', dest='host', help='Host name of Google Maps')
   parser.add_option('--port', dest='port', type='int',
                     help='port on which to listen')
   parser.add_option('--file_dir', dest='file_dir',
@@ -464,6 +467,7 @@ def main():
                     dest='manual_entry',
                     help='disable interactive prompts')
   parser.set_defaults(port=8765,
+                      host='maps.google.com',
                       file_dir=FindDefaultFileDir(),
                       manual_entry=True)
   (options, args) = parser.parse_args()
@@ -495,6 +499,7 @@ def main():
   server.key = options.key
   server.schedule = schedule
   server.file_dir = options.file_dir
+  server.host = options.host
 
   print ("To view, point your browser at http://localhost:%d/" %
          (server.server_port))
