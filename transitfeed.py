@@ -2137,11 +2137,13 @@ class Agency(GenericGTFSObject):
       found_problem = True
 
     try:
-      from pytz import common_timezones
-      if self.agency_timezone not in common_timezones:
-        problems.InvalidValue('agency_timezone',
-                              self.agency_timezone,
-                              '"%s" isn\'t a recognized time zone')
+      import pytz
+      if self.agency_timezone not in pytz.common_timezones:
+        problems.InvalidValue(
+            'agency_timezone',
+            self.agency_timezone,
+            '"%s" is not a common timezone name according to pytz version %s' %
+            (self.agency_timezone, pytz.VERSION))
         found_problem = True
     except ImportError:  # no pytz
       print ("Timezone not checked "

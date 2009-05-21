@@ -122,6 +122,14 @@ class RecordingProblemReporter(transitfeed.ProblemReporterBase):
     self._test_case.assertEquals(column_name, e.column_name)
     if file_name:
       self._test_case.assertEquals(file_name, e.file_name)
+    return e
+
+  def PopMissingValue(self, column_name, file_name=None):
+    e = self.PopException("MissingValue")
+    self._test_case.assertEquals(column_name, e.column_name)
+    if file_name:
+      self._test_case.assertEquals(file_name, e.file_name)
+    return e
 
 
 class UnrecognizedColumnRecorder(RecordingProblemReporter):
@@ -653,23 +661,25 @@ class ValidationTestCase(unittest.TestCase):
   def setUp(self):
     self.problems = RecordingProblemReporter(self, ("ExpirationDate",))
 
+  def assertMatchesRegex(self, regex, string):
+    """Assert that regex is found in string."""
+    if not re.search(regex, string):
+      self.fail("string %r did not match regex %r" % (string, regex))
+
   def ExpectNoProblems(self, object):
-    self.ExpectNoProblemsInClosure(lambda: object.Validate(self.problems))
-
-  def ExpectNoProblemsInClosure(self, c):
-    # TODO: Get rid of Expect*Closure methods. With the
-    # RecordingProblemReporter it is now possible to replace
-    # self.ExpectMissingValueInClosure(lambda: o.method(...), foo)
-    # with
-    # o.method(...)
-    # self.ExpectMissingValueInClosure(foo)
-    # because problems don't raise an exception. This has the advantage of
-    # making it easy and clear to test the return value of o.method(...) and
-    # easier to test for a sequence of problems caused by one call.
     self.problems.AssertNoMoreExceptions()
-    rv = c()
+    object.Validate(self.problems)
     self.problems.AssertNoMoreExceptions()
 
+  # TODO: Get rid of Expect*Closure methods. With the
+  # RecordingProblemReporter it is now possible to replace
+  # self.ExpectMissingValueInClosure(lambda: o.method(...), foo)
+  # with
+  # o.method(...)
+  # self.ExpectMissingValueInClosure(foo)
+  # because problems don't raise an exception. This has the advantage of
+  # making it easy and clear to test the return value of o.method(...) and
+  # easier to test for a sequence of problems caused by one call.
   def ExpectMissingValue(self, object, column_name):
     self.ExpectMissingValueInClosure(column_name,
                                      lambda: object.Validate(self.problems))
@@ -740,7 +750,10 @@ class AgencyValidationTestCase(ValidationTestCase):
     # bad time zone
     agency = transitfeed.Agency(name='Test Agency', url='http://example.com',
                                 timezone='America/Alviso', id='TA')
-    self.ExpectInvalidValue(agency, 'agency_timezone')
+    agency.Validate(self.problems)
+    e = self.problems.PopInvalidValue('agency_timezone')
+    self.assertMatchesRegex('"America/Alviso" isn\'t', e.FormatProblem())
+    self.problems.AssertNoMoreExceptions()
 
     # bad language code
     agency = transitfeed.Agency(name='Test Agency', url='http://example.com',
