@@ -752,7 +752,8 @@ class AgencyValidationTestCase(ValidationTestCase):
                                 timezone='America/Alviso', id='TA')
     agency.Validate(self.problems)
     e = self.problems.PopInvalidValue('agency_timezone')
-    self.assertMatchesRegex('"America/Alviso" isn\'t', e.FormatProblem())
+    self.assertMatchesRegex('"America/Alviso" is not a common timezone',
+                            e.FormatProblem())
     self.problems.AssertNoMoreExceptions()
 
     # bad language code
