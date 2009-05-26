@@ -71,7 +71,7 @@ OUTPUT_ENCODING = 'utf-8'
 MAX_DISTANCE_FROM_STOP_TO_SHAPE = 1000
 
 
-__version__ = '1.2.0'
+__version__ = '1.2.1'
 
 
 def EncodeUnicode(text):
