@@ -150,7 +150,9 @@ class TestSchemedMerge(unittest.TestCase):
   def setUp(self):
     a_schedule = transitfeed.Schedule()
     b_schedule = transitfeed.Schedule()
+    merged_schedule = transitfeed.Schedule()
     self.fm = merge.FeedMerger(a_schedule, b_schedule,
+                               merged_schedule,
                                TestingProblemReporter())
     self.ds = merge.DataSetMerger(self.fm)
 
@@ -303,13 +305,16 @@ class TestFeedMerger(unittest.TestCase):
   def setUp(self):
     a_schedule = transitfeed.Schedule()
     b_schedule = transitfeed.Schedule()
+    merged_schedule = transitfeed.Schedule()
     self.fm = merge.FeedMerger(a_schedule, b_schedule,
+                               merged_schedule,
                                TestingProblemReporter())
     self.called = []
 
   def testDefaultProblemReporter(self):
     feed_merger = merge.FeedMerger(self.fm.a_schedule,
                                    self.fm.b_schedule,
+                                   self.fm.merged_schedule,
                                    None)
     self.assert_(isinstance(feed_merger.problem_reporter,
                             merge.MergeProblemReporterBase))
@@ -352,6 +357,7 @@ class TestFeedMerger(unittest.TestCase):
   def testGenerateId_InitialCounter(self):
     a_schedule = transitfeed.Schedule()
     b_schedule = transitfeed.Schedule()
+    merged_schedule = transitfeed.Schedule()
 
     for i in range(10):
       agency = transitfeed.Agency(name='agency', url='http://agency',
@@ -363,6 +369,7 @@ class TestFeedMerger(unittest.TestCase):
         a_schedule.AddAgencyObject(agency)
 
     feed_merger = merge.FeedMerger(a_schedule, b_schedule,
+                                   merged_schedule,
                                    TestingProblemReporter())
 
     # check that the postfix number of any generated ids are greater than
@@ -396,7 +403,8 @@ class TestServicePeriodMerger(unittest.TestCase):
   def setUp(self):
     a_schedule = transitfeed.Schedule()
     b_schedule = transitfeed.Schedule()
-    self.fm = merge.FeedMerger(a_schedule, b_schedule,
+    merged_schedule = transitfeed.Schedule()
+    self.fm = merge.FeedMerger(a_schedule, b_schedule, merged_schedule,
                                TestingProblemReporter())
     self.spm = merge.ServicePeriodMerger(self.fm)
     self.fm.AddMerger(self.spm)
@@ -495,7 +503,8 @@ class TestAgencyMerger(unittest.TestCase):
   def setUp(self):
     a_schedule = transitfeed.Schedule()
     b_schedule = transitfeed.Schedule()
-    self.fm = merge.FeedMerger(a_schedule, b_schedule,
+    merged_schedule = transitfeed.Schedule()
+    self.fm = merge.FeedMerger(a_schedule, b_schedule, merged_schedule,
                                TestingProblemReporter())
     self.am = merge.AgencyMerger(self.fm)
     self.fm.AddMerger(self.am)
@@ -580,7 +589,8 @@ class TestStopMerger(unittest.TestCase):
   def setUp(self):
     a_schedule = transitfeed.Schedule()
     b_schedule = transitfeed.Schedule()
-    self.fm = merge.FeedMerger(a_schedule, b_schedule,
+    merged_schedule = transitfeed.Schedule()
+    self.fm = merge.FeedMerger(a_schedule, b_schedule, merged_schedule,
                                TestingProblemReporter())
     self.sm = merge.StopMerger(self.fm)
     self.fm.AddMerger(self.sm)
@@ -843,7 +853,8 @@ class TestRouteMerger(unittest.TestCase):
   def setUp(self):
     a_schedule = transitfeed.Schedule()
     b_schedule = transitfeed.Schedule()
-    self.fm = merge.FeedMerger(a_schedule, b_schedule,
+    merged_schedule = transitfeed.Schedule()
+    self.fm = merge.FeedMerger(a_schedule, b_schedule, merged_schedule,
                                TestingProblemReporter())
     self.fm.AddMerger(merge.AgencyMerger(self.fm))
     self.rm = merge.RouteMerger(self.fm)
@@ -942,7 +953,8 @@ class TestTripMerger(unittest.TestCase):
   def setUp(self):
     a_schedule = transitfeed.Schedule()
     b_schedule = transitfeed.Schedule()
-    self.fm = merge.FeedMerger(a_schedule, b_schedule,
+    merged_schedule = transitfeed.Schedule()
+    self.fm = merge.FeedMerger(a_schedule, b_schedule, merged_schedule,
                                TestingProblemReporter())
     self.fm.AddDefaultMergers()
     self.tm = self.fm.GetMerger(merge.TripMerger)
@@ -1044,7 +1056,8 @@ class TestFareMerger(unittest.TestCase):
   def setUp(self):
     a_schedule = transitfeed.Schedule()
     b_schedule = transitfeed.Schedule()
-    self.fm = merge.FeedMerger(a_schedule, b_schedule,
+    merged_schedule = transitfeed.Schedule()
+    self.fm = merge.FeedMerger(a_schedule, b_schedule, merged_schedule,
                                TestingProblemReporter())
     self.faremerger = merge.FareMerger(self.fm)
     self.fm.AddMerger(self.faremerger)
@@ -1096,7 +1109,8 @@ class TestShapeMerger(unittest.TestCase):
   def setUp(self):
     a_schedule = transitfeed.Schedule()
     b_schedule = transitfeed.Schedule()
-    self.fm = merge.FeedMerger(a_schedule, b_schedule,
+    merged_schedule = transitfeed.Schedule()
+    self.fm = merge.FeedMerger(a_schedule, b_schedule, merged_schedule,
                                TestingProblemReporter())
     self.sm = merge.ShapeMerger(self.fm)
     self.fm.AddMerger(self.sm)
@@ -1201,7 +1215,8 @@ class TestFareRuleMerger(unittest.TestCase):
   def setUp(self):
     a_schedule = transitfeed.Schedule()
     b_schedule = transitfeed.Schedule()
-    self.fm = merge.FeedMerger(a_schedule, b_schedule,
+    merged_schedule = transitfeed.Schedule()
+    self.fm = merge.FeedMerger(a_schedule, b_schedule, merged_schedule,
                                TestingProblemReporter())
     self.fm.AddDefaultMergers()
     self.fare_rule_merger = self.fm.GetMerger(merge.FareRuleMerger)
@@ -1299,7 +1314,9 @@ class TestHTMLProblemReporter(unittest.TestCase):
     self.problem_reporter = merge.HTMLProblemReporter()
     a_schedule = transitfeed.Schedule()
     b_schedule = transitfeed.Schedule()
+    merged_schedule = transitfeed.Schedule()
     self.feed_merger = merge.FeedMerger(a_schedule, b_schedule,
+                                        merged_schedule,
                                         self.problem_reporter)
     self.dataset_merger = merge.TripMerger(None)
 

@@ -1440,7 +1440,8 @@ class FeedMerger(object):
     b_zone_map: A map from new zone ids to merged zone ids.
   """
 
-  def __init__(self, a_schedule, b_schedule, problem_reporter=None):
+  def __init__(self, a_schedule, b_schedule, merged_schedule,
+               problem_reporter=None):
     """Initialise the merger.
 
     Once this initialiser has been called, a_schedule and b_schedule should
@@ -1455,7 +1456,7 @@ class FeedMerger(object):
     """
     self.a_schedule = a_schedule
     self.b_schedule = b_schedule
-    self.merged_schedule = transitfeed.Schedule()
+    self.merged_schedule = merged_schedule
     self.a_merge_map = {}
     self.b_merge_map = {}
     self.a_zone_map = {}
@@ -1681,6 +1682,10 @@ Merges <feed_input_a> and <feed_input_b> into a new GTFS file <feed_output.zip>.
                     action='store_true',
                     help='prevents the merge results from being opened in a '
                     'browser')
+  parser.add_option('-m', '--memory_db', dest='memory_db',  action='store_true',
+                    help='Use in-memory sqlite db instead of a temporary file. '
+                         'It is faster but uses more RAM.')
+  parser.set_defaults(memory_db=False)
   options, args = parser.parse_args()
 
   old_feed_path = os.path.abspath(args[0])
@@ -1691,10 +1696,14 @@ Merges <feed_input_a> and <feed_input_b> into a new GTFS file <feed_output.zip>.
     # See test/testmerge.py
     raise Exception('For testing the merge crash handler.')
 
-  a_schedule = transitfeed.Loader(old_feed_path).Load()
-  b_schedule = transitfeed.Loader(new_feed_path).Load()
+  a_schedule = transitfeed.Loader(old_feed_path,
+                                  memory_db=options.memory_db).Load()
+  b_schedule = transitfeed.Loader(new_feed_path,
+                                  memory_db=options.memory_db).Load()
+  merged_schedule = transitfeed.Schedule(memory_db=options.memory_db)
   problem_reporter = HTMLProblemReporter()
-  feed_merger = FeedMerger(a_schedule, b_schedule, problem_reporter)
+  feed_merger = FeedMerger(a_schedule, b_schedule, merged_schedule,
+                           problem_reporter)
   feed_merger.AddDefaultMergers()
 
   feed_merger.GetMerger(StopMerger).SetLargestStopDistance(float(

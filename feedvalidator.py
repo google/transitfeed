@@ -269,7 +269,8 @@ def main():
                     help='output memory and time performance (Availability: '
                     'Unix')
   parser.add_option('-m', '--memory_db', dest='memory_db',  action='store_true',
-                    help='Force use of in-memory sqlite db')
+                    help='Use in-memory sqlite db instead of a temporary file. '
+                         'It is faster but uses more RAM.')
   parser.set_defaults(manual_entry=True, output='validation-results.html',
                       memory_db=False)
   (options, args) = parser.parse_args()
