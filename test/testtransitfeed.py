@@ -939,6 +939,15 @@ class StopAttributes(ValidationTestCase):
     self.assertEquals(stop.new_column, 'val')
     self.assertEquals(stop['new_column'], 'val')
 
+  def testBlankAttributeName(self):
+    stop1 = transitfeed.Stop(field_dict={"": "a"})
+    stop2 = transitfeed.Stop(field_dict=stop1)
+    self.assertEquals("a", getattr(stop1, ""))
+    # The attribute "" is treated as private and not copied
+    self.assertRaises(AttributeError, getattr, stop2, "")
+    self.assertEquals(set(), set(stop1.keys()))
+    self.assertEquals(set(), set(stop2.keys()))
+
   def testWithSchedule(self):
     schedule = transitfeed.Schedule(problem_reporter=self.problems)
 
@@ -1156,12 +1165,37 @@ class CsvDictTestCase(unittest.TestCase):
     e = self.problems.PopException("CsvSyntax")
     self.problems.AssertNoMoreExceptions()
 
-  def testHeaderSpaceInQuotes(self):
-    self.zip.writestr("test.txt", "\"test_id \" , \"test_name\"\n")
+  def testHeaderSpaceInQuotesAfterValue(self):
+    self.zip.writestr("test.txt", "\"test_id \",\"test_name\"\n")
     results = list(self.loader._ReadCsvDict("test.txt",
                                             ["test_id", "test_name"], []))
     self.assertEquals([], results)
     e = self.problems.PopException("CsvSyntax")
+    self.problems.AssertNoMoreExceptions()
+
+  def testHeaderSpaceInQuotesBeforeValue(self):
+    self.zip.writestr("test.txt", "\"test_id\",\" test_name\"\n")
+    results = list(self.loader._ReadCsvDict("test.txt",
+                                            ["test_id", "test_name"], []))
+    self.assertEquals([], results)
+    e = self.problems.PopException("CsvSyntax")
+    self.problems.AssertNoMoreExceptions()
+
+  def testHeaderEmptyColumnName(self):
+    self.zip.writestr("test.txt", 'test_id,test_name,\n')
+    results = list(self.loader._ReadCsvDict("test.txt",
+                                            ["test_id", "test_name"], []))
+    self.assertEquals([], results)
+    e = self.problems.PopException("CsvSyntax")
+    self.problems.AssertNoMoreExceptions()
+
+  def testHeaderAllUnknownColumnNames(self):
+    self.zip.writestr("test.txt", 'id,nam\n')
+    results = list(self.loader._ReadCsvDict("test.txt",
+                                            ["test_id", "test_name"], []))
+    self.assertEquals([], results)
+    e = self.problems.PopException("CsvSyntax")
+    self.assertTrue(e.FormatProblem().find("missing the header") != -1)
     self.problems.AssertNoMoreExceptions()
 
   def testFieldWithSpaces(self):
@@ -1258,7 +1292,7 @@ class CsvDictTestCase(unittest.TestCase):
     results = list(self.loader._ReadCsvDict("test.txt",
                                             ["test_id", "test_name"], []))
     self.assertEquals([({"test_id": "id1", "test_name": "my name"}, 2,
-                        ["test_id", "test_name"], ["id1","my name", ""])],
+                        ["test_id", "test_name"], ["id1","my name"])],
                       results)
     e = self.problems.PopException("OtherProblem")
     self.assertTrue(e.FormatProblem().find("too many cells") != -1)
@@ -1453,6 +1487,63 @@ class StopSpacesTestCase(MemoryZipTestCase):
         "BULLFROG,,Bullfrog,36.88108,-116.81797,,,\n"
         "STAGECOACH,,Stagecoach Hotel,36.915682,-116.751677,,,\n")
     schedule = self.loader.Load()
+    self.problems.AssertNoMoreExceptions()
+
+
+class StopBlankHeaders(MemoryZipTestCase):
+  def testBlankHeaderValueAtEnd(self):
+    # Modify the stops.txt added by MemoryZipTestCase.setUp. This allows the
+    # original stops.txt to be changed without modifying anything in this test.
+    # Add a column to the end of every row, leaving the header name blank.
+    new = []
+    for i, row in enumerate(self.zip.read("stops.txt").split("\n")):
+      if i == 0:
+        new.append(row + ",")
+      elif row:
+        new.append(row + "," + str(i))  # Put a junk value in data rows
+    self.zip.writestr("stops.txt", "\n".join(new))
+    schedule = self.loader.Load()
+    e = self.problems.PopException("CsvSyntax")
+    self.assertTrue(e.FormatProblem().
+                    find("header row should not contain any blank") != -1)
+    self.problems.AssertNoMoreExceptions()
+
+  def testBlankHeaderValueAtStart(self):
+    # Modify the stops.txt added by MemoryZipTestCase.setUp. This allows the
+    # original stops.txt to be changed without modifying anything in this test.
+    # Add a column to the start of every row, leaving the header name blank.
+    new = []
+    for i, row in enumerate(self.zip.read("stops.txt").split("\n")):
+      if i == 0:
+        new.append("," + row)
+      elif row:
+        new.append(str(i) + "," + row)  # Put a junk value in data rows
+    self.zip.writestr("stops.txt", "\n".join(new))
+    schedule = self.loader.Load()
+    e = self.problems.PopException("CsvSyntax")
+    self.assertTrue(e.FormatProblem().
+                    find("header row should not contain any blank") != -1)
+    self.problems.AssertNoMoreExceptions()
+
+  def testBlankHeaderValueInMiddle(self):
+    # Modify the stops.txt added by MemoryZipTestCase.setUp. This allows the
+    # original stops.txt to be changed without modifying anything in this test.
+    # Add two columns to the start of every row, leaving the second header name
+    # blank.
+    new = []
+    for i, row in enumerate(self.zip.read("stops.txt").split("\n")):
+      if i == 0:
+        new.append("test_name,," + row)
+      elif row:
+        # Put a junk value in data rows
+        new.append(str(i) + "," + str(i) + "," + row)
+    self.zip.writestr("stops.txt", "\n".join(new))
+    schedule = self.loader.Load()
+    e = self.problems.PopException("CsvSyntax")
+    self.assertTrue(e.FormatProblem().
+                    find("header row should not contain any blank") != -1)
+    e = self.problems.PopException("UnrecognizedColumn")
+    self.assertEquals("test_name", e.column_name)
     self.problems.AssertNoMoreExceptions()
 
 

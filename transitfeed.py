@@ -546,7 +546,7 @@ class GenericGTFSObject(object):
   def iteritems(self):
     """Return a iterable for (name, value) pairs of public attributes."""
     for name, value in self.__dict__.iteritems():
-      if name[0] == "_":
+      if (not name) or name[0] == "_":
         continue
       yield name, value
 
@@ -580,7 +580,7 @@ class GenericGTFSObject(object):
     """Return iterable of columns used by this object."""
     columns = set()
     for name in vars(self):
-      if name[0] == "_":
+      if (not name) or name[0] == "_":
         continue
       columns.add(name)
     return columns
@@ -3509,24 +3509,43 @@ class Loader:
 
     raw_header = reader.next()
     header = []
-    for h in raw_header:
-      if h != h.strip():
+    valid_columns = []  # Index into raw_header and raw_row
+    for i, h in enumerate(raw_header):
+      h_stripped = h.strip()
+      if not h_stripped:
+        self._problems.CsvSyntax(
+            description="The header row should not contain any blank values. "
+                        "The corresponding column will be skipped for the "
+                        "entire file.",
+            context=(file_name, 1, [''] * len(raw_header), raw_header),
+            type=TYPE_ERROR)
+        continue
+      elif h != h_stripped:
         self._problems.CsvSyntax(
             description="The header row should not contain any "
                         "space characters.",
             context=(file_name, 1, [''] * len(raw_header), raw_header),
             type=TYPE_WARNING)
-      header.append(h.strip())
+      header.append(h_stripped)
+      valid_columns.append(i)
 
     self._schedule._table_columns[table_name] = header
 
     # check for unrecognized columns, which are often misspellings
     unknown_cols = set(header) - set(all_cols)
-    for col in unknown_cols:
-      # this is provided in order to create a nice colored list of
-      # columns in the validator output
-      context = (file_name, 1, [''] * len(header), header)
-      self._problems.UnrecognizedColumn(file_name, col, context)
+    if len(unknown_cols) == len(header):
+      self._problems.CsvSyntax(
+            description="The header row did not contain any known column "
+                        "names. The file is most likely missing the header row "
+                        "or not in the expected CSV format.",
+            context=(file_name, 1, [''] * len(raw_header), raw_header),
+            type=TYPE_ERROR)
+    else:
+      for col in unknown_cols:
+        # this is provided in order to create a nice colored list of
+        # columns in the validator output
+        context = (file_name, 1, [''] * len(header), header)
+        self._problems.UnrecognizedColumn(file_name, col, context)
 
     missing_cols = set(required) - set(header)
     for col in missing_cols:
@@ -3536,12 +3555,12 @@ class Loader:
       self._problems.MissingColumn(file_name, col, context)
 
     line_num = 1  # First line read by reader.next() above
-    for row in reader:
+    for raw_row in reader:
       line_num += 1
-      if len(row) == 0:  # skip extra empty lines in file
+      if len(raw_row) == 0:  # skip extra empty lines in file
         continue
 
-      if len(row) > len(header):
+      if len(raw_row) > len(raw_header):
         self._problems.OtherProblem('Found too many cells (commas) in line '
                                     '%d of file "%s".  Every row in the file '
                                     'should have the same number of cells as '
@@ -3550,7 +3569,7 @@ class Loader:
                                     (file_name, line_num),
                                     type=TYPE_WARNING)
 
-      if len(row) < len(header):
+      if len(raw_row) < len(raw_header):
         self._problems.OtherProblem('Found missing cells (commas) in line '
                                     '%d of file "%s".  Every row in the file '
                                     'should have the same number of cells as '
@@ -3559,28 +3578,33 @@ class Loader:
                                     (file_name, line_num),
                                     type=TYPE_WARNING)
 
-      # row is a list of raw bytes which should be valid utf-8. Convert them
-      # all into Unicode.
-      unicode_error_columns = []  # A list of column numbers with an error
-      for i in xrange(len(row)):
+      # raw_row is a list of raw bytes which should be valid utf-8. Convert each
+      # valid_columns of raw_row into Unicode.
+      valid_values = []
+      unicode_error_columns = []  # index of valid_values elements with an error
+      for i in valid_columns:
         try:
-          row[i] = row[i].decode('utf-8')
+          valid_values.append(raw_row[i].decode('utf-8'))
         except UnicodeDecodeError:
           # Replace all invalid characters with REPLACEMENT CHARACTER (U+FFFD)
-          row[i] = codecs.getdecoder("utf8")(row[i], errors="replace")[0]
-          unicode_error_columns.append(i)
+          valid_values.append(codecs.getdecoder("utf8")
+                              (raw_row[i], errors="replace")[0])
+          unicode_error_columns.append(len(valid_values) - 1)
+        except IndexError:
+          break
 
-      # The error report may contain a dump of all values in row so problems
-      # can not be reported until after converting all of row to Unicode.
+      # The error report may contain a dump of all values in valid_values so
+      # problems can not be reported until after converting all of raw_row to
+      # Unicode.
       for i in unicode_error_columns:
-        self._problems.InvalidValue(header[i], row[i],
+        self._problems.InvalidValue(header[i], valid_values[i],
                                     'Unicode error',
                                     (file_name, line_num,
-                                     row, header))
+                                     valid_values, header))
 
 
-      d = dict(zip(header, row))
-      yield (d, line_num, header, row)
+      d = dict(zip(header, valid_values))
+      yield (d, line_num, header, valid_values)
 
   # TODO: Add testing for this specific function
   def _ReadCSV(self, file_name, cols, required):
