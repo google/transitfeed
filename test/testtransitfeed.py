@@ -2768,6 +2768,72 @@ class TripAddStopTimeObjectTestCase(ValidationTestCase):
                            schedule=schedule, problems=self.problems)
     self.problems.AssertNoMoreExceptions()
 
+class DuplicateTripTestCase(ValidationTestCase):
+  def runTest(self):
+    
+    schedule = transitfeed.Schedule(self.problems)
+    schedule._check_duplicate_trips = True;
+    
+    agency = transitfeed.Agency('Demo agency', 'http://google.com',
+                                'America/Los_Angeles', 'agency1')
+    schedule.AddAgencyObject(agency)
+
+    service = schedule.GetDefaultServicePeriod()
+    service.SetDateHasService('20070101')
+
+    route1 = transitfeed.Route('Route1', 'route 1', 3, 'route_1', 'agency1')
+    schedule.AddRouteObject(route1)
+    route2 = transitfeed.Route('Route2', 'route 2', 3, 'route_2', 'agency1')
+    schedule.AddRouteObject(route2)
+    
+    trip1 = transitfeed.Trip()
+    trip1.route_id = 'route_1'
+    trip1.trip_id = 't1'
+    trip1.trip_headsign = 'via Polish Hill'
+    trip1.direction_id =  '0'
+    trip1.service_id = service.service_id
+    schedule.AddTripObject(trip1)
+
+    trip2 = transitfeed.Trip()
+    trip2.route_id = 'route_2'
+    trip2.trip_id = 't2'
+    trip2.trip_headsign = 'New'
+    trip2.direction_id =  '0'
+    trip2.service_id = service.service_id
+    schedule.AddTripObject(trip2)
+    
+    trip3 = transitfeed.Trip()
+    trip3.route_id = 'route_1'
+    trip3.trip_id = 't3'
+    trip3.trip_headsign = 'New Demo'
+    trip3.direction_id =  '0'
+    trip3.service_id = service.service_id
+    schedule.AddTripObject(trip3)
+
+    stop1 = transitfeed.Stop(36.425288, -117.139162, "Demo Stop 1", "STOP1")
+    schedule.AddStopObject(stop1)
+    trip1.AddStopTime(stop1, arrival_time="5:11:00", departure_time="5:12:00",
+                     stop_sequence=0, shape_dist_traveled=0)
+    trip2.AddStopTime(stop1, arrival_time="5:11:00", departure_time="5:12:00",
+                     stop_sequence=0, shape_dist_traveled=0)
+    trip3.AddStopTime(stop1, arrival_time="6:11:00", departure_time="6:12:00",
+                     stop_sequence=0, shape_dist_traveled=0)
+
+    stop2 = transitfeed.Stop(36.424288, -117.158142, "Demo Stop 2", "STOP2")
+    schedule.AddStopObject(stop2)
+    trip1.AddStopTime(stop2, arrival_time="5:15:00", departure_time="5:16:00",
+                      stop_sequence=1, shape_dist_traveled=1)
+    trip2.AddStopTime(stop2, arrival_time="5:25:00", departure_time="5:26:00",
+                      stop_sequence=1, shape_dist_traveled=1)
+    trip3.AddStopTime(stop2, arrival_time="6:15:00", departure_time="6:16:00",
+                      stop_sequence=0, shape_dist_traveled=0)
+    
+    schedule.Validate(self.problems)
+    e = self.problems.PopException('OtherProblem')
+    self.assertTrue(e.FormatProblem().find('t1 of route') != -1)
+    self.assertTrue(e.FormatProblem().find('t2 of route') != -1)
+    self.problems.AssertNoMoreExceptions()
+        
 class TripReplaceStopTimeObjectTestCase(unittest.TestCase):
   def runTest(self):
     schedule = transitfeed.Schedule()

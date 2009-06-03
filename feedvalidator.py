@@ -41,27 +41,27 @@ DEFAULT_UNUSED_LIMIT = 5  # number of unused stops to print
 def ProblemCountText(error_count, warning_count):
   error_text = ''
   warning_text= ''
-  
+
   if error_count > 1:
     error_text = '%d errors' % error_count
   elif error_count == 1:
     error_text = 'one error'
-    
+
   if warning_count > 1:
     warning_text = '%d warnings' % warning_count
   elif warning_count == 1:
     warning_text = 'one warning'
-  
-  # Add a way to jump to the warning section when it's useful  
+
+  # Add a way to jump to the warning section when it's useful
   if error_count and warning_count:
     warning_text = '<a href="#warnings">%s</a>' % warning_text
-    
+
   results = []
   if error_text:
     results.append(error_text)
   if warning_text:
     results.append(warning_text)
-    
+
   return ' and '.join(results)
 
 class HTMLCountingProblemReporter(transitfeed.ProblemReporter):
@@ -271,8 +271,12 @@ def main():
   parser.add_option('-m', '--memory_db', dest='memory_db',  action='store_true',
                     help='Use in-memory sqlite db instead of a temporary file. '
                          'It is faster but uses more RAM.')
+  parser.add_option('-d', '--duplicate_trip_check',
+                    dest='check_duplicate_trips', action='store_true',
+                    help='Check for duplicate trips which go through the same '
+                    'stops with same service and start times')
   parser.set_defaults(manual_entry=True, output='validation-results.html',
-                      memory_db=False)
+                      memory_db=False, check_duplicate_trips=False)
   (options, args) = parser.parse_args()
   manual_entry = options.manual_entry
   if not len(args) == 1:
@@ -289,7 +293,9 @@ def main():
   print 'validating %s' % feed
   problems = HTMLCountingProblemReporter()
   loader = transitfeed.Loader(feed, problems=problems, extra_validation=True,
-                              memory_db=options.memory_db)
+                              memory_db=options.memory_db,
+                              check_duplicate_trips=\
+                              options.check_duplicate_trips)
   schedule = loader.Load()
 
   if feed == 'IWantMyvalidation-crash.txt':

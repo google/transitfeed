@@ -942,7 +942,7 @@ class Route(GenericGTFSObject):
         problems.InvalidValue('route_type', self.route_type)
       else:
         if self.route_type not in Route._ROUTE_TYPE_IDS:
-          problems.InvalidValue('route_type', 
+          problems.InvalidValue('route_type',
                                 self.route_type,
                                 type=TYPE_WARNING)
 
@@ -2519,7 +2519,7 @@ class Schedule:
   an agency.  This is the main class for this module."""
 
   def __init__(self, problem_reporter=default_problem_reporter,
-               memory_db=True):
+               memory_db=True, check_duplicate_trips=False):
     # Map from table name to list of columns present in this schedule
     self._table_columns = {}
 
@@ -2535,6 +2535,7 @@ class Schedule:
     self._default_service_period = None
     self._default_agency = None
     self.problem_reporter = problem_reporter
+    self._check_duplicate_trips = check_duplicate_trips
     self.ConnectDb(memory_db)
 
   def AddTableColumn(self, table, column):
@@ -3057,7 +3058,7 @@ class Schedule:
       writer = CsvUnicodeWriter(rule_string)
       writer.writerow(FareRule._FIELD_NAMES)
       writer.writerows(rule_rows)
-      self._WriteArchiveString(archive, 'fare_rules.txt', rule_string) 
+      self._WriteArchiveString(archive, 'fare_rules.txt', rule_string)
     stop_times_string = StringIO.StringIO()
     writer = CsvUnicodeWriter(stop_times_string)
     writer.writerow(StopTime._FIELD_NAMES)
@@ -3219,6 +3220,30 @@ class Schedule:
                               type=TYPE_WARNING)
       else:
         route_names[name] = route
+
+    # Check duplicate trips which go through the same stops with same
+    # service and start times.
+
+    if self._check_duplicate_trips:
+      trips = {}
+      for trip in self.trips.values():
+        stop_ids = []
+        stop_times = []
+        for index, st in enumerate(trip.GetStopTimes(problems)):
+          stop_times.append(st.arrival_time)
+          stop_ids.append(st.stop.stop_id)
+        if not stop_ids or not stop_times:
+          continue
+        key = (trip.service_id, min(stop_times), str(stop_ids))
+        if key not in trips:
+          trips[key] = [trip.route_id, trip.trip_id]
+        else:
+          problems.OtherProblem('Trip %s of route %s might be duplicated '
+                                'with trip %s of route %s. They go through '
+                                'the same stops with same service. '
+                                % (trips[key][1], trips[key][0],
+                                trip.trip_id, trip.route_id), 
+                                type=TYPE_WARNING)
 
     # Check that routes' agency IDs are valid, if set
     for route in self.routes.values():
@@ -3389,7 +3414,8 @@ class Loader:
                extra_validation=False,
                load_stop_times=True,
                memory_db=True,
-               zip=None):
+               zip=None,
+               check_duplicate_trips=False):
     """Initialize a new Loader object.
 
     Args:
@@ -3405,7 +3431,8 @@ class Loader:
       zip: a zipfile.ZipFile object, optionally used instead of path
     """
     if not schedule:
-      schedule = Schedule(problem_reporter=problems, memory_db=memory_db)
+      schedule = Schedule(problem_reporter=problems, memory_db=memory_db,
+                          check_duplicate_trips=check_duplicate_trips)
     self._extra_validation = extra_validation
     self._schedule = schedule
     self._problems = problems
