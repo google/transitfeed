@@ -70,5 +70,49 @@ class UnusualTripFilterTestCase(util.TempDirTestCaseBase):
     trip2 = schedule.trips['CITY2']
     self.assertEquals(trip2['trip_type'], '0')
 
+  def testFilterAppliedForSpecifiedRouteType(self):
+    """Setting integer route_type filters trips of this route type."""
+    filter = unusual_trip_filter.UnusualTripFilter(0.1, quiet=True,
+                                                   route_type=3)
+    input = self.GetPath('test', 'data', 'filter_unusual_trips')
+    loader = transitfeed.Loader(input, extra_validation=True)
+    schedule = loader.Load()
+    filter.filter(schedule)
+    actual_trip_type = schedule.trips['CITY11']['trip_type']
+    self.assertEquals(actual_trip_type, '1')
+
+  def testFilterNotAppliedForUnspecifiedRouteType(self):
+    """Setting integer route_type filters trips of this route type."""
+    filter = unusual_trip_filter.UnusualTripFilter(0.1, quiet=True,
+                                                   route_type=2)
+    input = self.GetPath('test', 'data', 'filter_unusual_trips')
+    loader = transitfeed.Loader(input, extra_validation=True)
+    schedule = loader.Load()
+    filter.filter(schedule)
+    actual_trip_type = schedule.trips['CITY11']['trip_type']
+    self.assertEquals(actual_trip_type, '')
+
+  def testFilterAppliedForRouteTypeSpecifiedByName(self):
+    """Setting integer route_type filters trips of this route type."""
+    filter = unusual_trip_filter.UnusualTripFilter(0.1, quiet=True,
+                                                   route_type='Bus')
+    input = self.GetPath('test', 'data', 'filter_unusual_trips')
+    loader = transitfeed.Loader(input, extra_validation=True)
+    schedule = loader.Load()
+    filter.filter(schedule)
+    actual_trip_type = schedule.trips['CITY11']['trip_type']
+    self.assertEquals(actual_trip_type, '1')
+
+  def testFilterNotAppliedForDifferentRouteTypeSpecifiedByName(self):
+    """Setting integer route_type filters trips of this route type."""
+    filter = unusual_trip_filter.UnusualTripFilter(0.1, quiet=True,
+                                                   route_type='Ferry')
+    input = self.GetPath('test', 'data', 'filter_unusual_trips')
+    loader = transitfeed.Loader(input, extra_validation=True)
+    schedule = loader.Load()
+    filter.filter(schedule)
+    actual_trip_type = schedule.trips['CITY11']['trip_type']
+    self.assertEquals(actual_trip_type, '')
+
 if __name__ == '__main__':
   unittest.main()

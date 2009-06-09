@@ -41,13 +41,23 @@ class UnusualTripFilter(object):
   instead of regular (default value 0).
   """
   
-  def __init__ (self, threshold=0.1, force=False, quiet=False):
+  def __init__ (self, threshold=0.1, force=False, quiet=False, route_type=None):
     self._threshold = threshold
     self._quiet = quiet
     self._force = force
+    if route_type in transitfeed.Route._ROUTE_TYPE_NAMES:
+      self._route_type = transitfeed.Route._ROUTE_TYPE_NAMES[route_type]
+    elif route_type is None:
+      self._route_type = None
+    else:
+      self._route_type = int(route_type)
 
   def filter_line(self, route):
     """Mark unusual trips for the given route."""
+    if self._route_type is not None and self._route_type != route.route_type:
+      self.info('Skipping route %s due to different route_type value (%s)' %
+                (route['route_id'], route['route_type']))
+      return
     self.info('Filtering infrequent trips for route %s.' % route.route_id)
     trip_count = len(route.trips)
     for pattern_id, pattern in route.GetPatternIdTripDict().items():
@@ -57,9 +67,9 @@ class UnusualTripFilter(object):
           self.info("\t%d trips on route %s with headsign '%s' recognized "
                     "as unusual (ratio %f)" %
                     (len(pattern),
-                     route['route_short_name'],
-                     pattern[0]['trip_headsign'],
-                     ratio))    
+                    route['route_short_name'],
+                    pattern[0]['trip_headsign'],
+                    ratio))
           for trip in pattern:
             trip.trip_type = 1 # special
             self.info("\t\tsetting trip_type of trip %s as special" % 
@@ -86,25 +96,30 @@ class UnusualTripFilter(object):
   
   def info(self, text):
     if not self._quiet:
-      print text
+      print text.encode("utf-8")
 
 
 def main():
   parser = optparse.OptionParser(usage='usage: %prog [options] <feed_filename>',
                                  version='%prog '+transitfeed.__version__)
   parser.add_option('-o', '--output', dest='output', metavar='FILE',
-         help='name of the output GTFS file (writing to input feed if omitted)')
+         help='Name of the output GTFS file (writing to input feed if omitted).')
   parser.add_option('-m', '--memory_db', dest='memory_db', action='store_true',
-         help='Force use of in-memory sqlite db')
+         help='Force use of in-memory sqlite db.')
   parser.add_option('-t', '--threshold', default=0.1,
-         dest='threshold', type="float", 
-         help='frequency threshold for considering pattern as non-regular')
+         dest='threshold', type='float', 
+         help='Frequency threshold for considering pattern as non-regular.')
+  parser.add_option('-r', '--route_type', default=None,
+         dest='route_type', type='string',
+         help='Filter only selected route type (specified by number'
+              'or one of the following names: ' + \
+              ', '.join(transitfeed.Route._ROUTE_TYPE_NAMES) + ').')
   parser.add_option('-f', '--override_trip_type', default=False,
-         dest='override_trip_type', action="store_true",
-         help='Forces overwrite of current trip_type values')
+         dest='override_trip_type', action='store_true',
+         help='Forces overwrite of current trip_type values.')
   parser.add_option('-q', '--quiet', dest='quiet',
-         default=False, action="store_true",
-         help='Suppress information output')
+         default=False, action='store_true',
+         help='Suppress information output.')
   
   (options, args) = parser.parse_args()
   if len(args) < 1:
@@ -115,7 +130,8 @@ def main():
 
   filter = UnusualTripFilter(float(options.threshold),
                              force=options.override_trip_type,
-                             quiet=options.quiet)
+                             quiet=options.quiet,
+                             route_type=options.route_type)
   feed_name = args[0]
   feed_name = feed_name.strip()
   filter.info('Loading %s' % feed_name)
@@ -134,4 +150,3 @@ def main():
 
 if __name__ == '__main__':
     main()
-  
