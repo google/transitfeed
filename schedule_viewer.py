@@ -156,9 +156,13 @@ class ScheduleRequestHandler(BaseHTTPServer.BaseHTTPRequestHandler):
     self.end_headers()
     self.wfile.write(content)
 
+  def AllowEditMode(self):
+    return False
+
   def handle_GET_home(self):
     schedule = self.server.schedule
     (min_lat, min_lon, max_lat, max_lon) = schedule.GetStopBoundingBox()
+    forbid_editing = ('true', 'false')[self.AllowEditMode()] 
 
     agency = ', '.join(a.agency_name for a in schedule.GetAgencyList()).encode('utf-8')
 
@@ -170,7 +174,7 @@ class ScheduleRequestHandler(BaseHTTPServer.BaseHTTPRequestHandler):
     f, _ = self.OpenFile('index.html')
     content = f.read()
     for v in ('agency', 'min_lat', 'min_lon', 'max_lat', 'max_lon', 'key',
-              'host'):
+              'host', 'forbid_editing'):
       content = content.replace('[%s]' % v, str(locals()[v]))
 
     self.send_response(200)
@@ -450,7 +454,7 @@ def GetDefaultKeyFilePath():
     return 'key.txt'
 
 
-def main():
+def main(RequestHandlerClass = ScheduleRequestHandler):
   parser = OptionParser(usage='usage: %prog [options] feed_filename',
                         version='%prog '+transitfeed.__version__)
   parser.add_option('--feed_filename', '--feed', dest='feed_filename',
@@ -495,11 +499,12 @@ def main():
   schedule.Load(options.feed_filename)
 
   server = StoppableHTTPServer(server_address=('', options.port),
-                               RequestHandlerClass=ScheduleRequestHandler)
+                               RequestHandlerClass=RequestHandlerClass)
   server.key = options.key
   server.schedule = schedule
   server.file_dir = options.file_dir
   server.host = options.host
+  server.feed_path = options.feed_filename
 
   print ("To view, point your browser at http://localhost:%d/" %
          (server.server_port))

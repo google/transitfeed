@@ -151,3 +151,12 @@ h3 {
   background-color: #aaa;
   color: #444;
 }
+/* Following styles are used by location_editor.py */
+#edit {
+  visibility: hidden;
+  float: right;
+  font-size: 80%;
+}
+#edit form {
+  display: inline;
+}

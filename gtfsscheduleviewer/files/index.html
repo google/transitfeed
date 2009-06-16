@@ -20,6 +20,7 @@
     var log = false;
     var twelveHourTime = false;  // set to true to see AM/PM
     var selectedRoute = null;
+    var forbid_editing = [forbid_editing];
 
     function load() {
       if (GBrowserIsCompatible()) {
@@ -236,7 +237,7 @@
         markerOpts.labelOffset = new GSize(6, -20);
         marker = new LabeledMarker(ll, markerOpts);
       } else {
-        marker = new GMarker(ll, icon);
+        marker = new GMarker(ll, {icon: icon, draggable: !forbid_editing});
       }
       marker.stopName = stopName;
       marker.stopId = stopId;
@@ -247,7 +248,39 @@
       }
       map.addOverlay(marker);
       marker.clickListener = GEvent.addListener(marker, "click", function() {fetchStopInfoWindow(marker);});
+      GEvent.addListener(marker, "dragend", function() {
+        
+        document.getElementById("edit").style.visibility = "visible";
+        document.getElementById("edit_status").innerHTML = "updating..."
+        changeStopLocation(marker);
+      });
       return marker;
+    }
+    
+    /**
+     * Sends new location of a stop to server.
+     */
+    function changeStopLocation(marker) {
+      var url = "/json/setstoplocation?id=" +
+      			encodeURIComponent(marker.stopId) +
+                "&lat=" + encodeURIComponent(marker.getLatLng().lat()) + 
+                "&lng=" + encodeURIComponent(marker.getLatLng().lng());
+      GDownloadUrl(url, function(data, responseCode) {
+          document.getElementById("edit_status").innerHTML = unescape(data);
+          } );
+      if (log)
+        GLog.writeUrl(url);
+    }
+
+    /**
+     * Saves the current state of the data file opened at server side to file.
+     */
+    function saveData() {
+      var url = "/json/savedata";
+      GDownloadUrl(url, function(data, responseCode) {
+          document.getElementById("edit_status").innerHTML = data;} );
+      if (log)
+        GLog.writeUrl(url);
     }
 
     /**
@@ -646,6 +679,10 @@
 
 <body class='sidebar-left' onload="load();" onunload="GUnload()" onresize="sizeRouteList()">
 <div id='topbar'>
+<div id="edit">
+  <span id="edit_status">...</span>
+  <form onSubmit="saveData(); return false;"><input value="Save" type="submit">
+</div>
 <div id="agencyHeader">[agency]</div>
 </div>
 <div id='content'>
