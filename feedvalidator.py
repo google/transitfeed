@@ -311,10 +311,16 @@ def main():
     print 'feed validated successfully'
 
   output_filename = options.output
-  output_file = open(output_filename, 'w')
-  problems.WriteOutput(os.path.abspath(feed), output_file, schedule, problems)
-  output_file.close()
-  if manual_entry:
+  try:
+    output_file = open(output_filename, 'w')
+    problems.WriteOutput(os.path.abspath(feed), output_file, schedule, problems)
+    output_file.close()
+  except IOError, e:
+    print 'Error while writing %s: %s' % (output_filename, e)
+    output_filename = None
+    exit_code = 2
+
+  if manual_entry and output_filename:
     webbrowser.open('file://%s' % os.path.abspath(output_filename))
 
   if options.performance:

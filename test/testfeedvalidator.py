@@ -17,12 +17,14 @@
 # Smoke tests feed validator. Make sure it runs and returns the right things
 # for a valid feed and a feed with errors.
 
+import os.path
 import re
 import unittest
 import util
 
-class good_feed(util.TempDirTestCaseBase):
-  def runTest(self):
+
+class FullTests(util.TempDirTestCaseBase):
+  def testGoodFeed(self):
     (out, err) = self.CheckCallWithPath(
         [self.GetPath('feedvalidator.py'), '-n',
          self.GetPath('test', 'data', 'good_feed')])
@@ -31,10 +33,9 @@ class good_feed(util.TempDirTestCaseBase):
     htmlout = open('validation-results.html').read()
     self.assertTrue(re.search(r'feed validated successfully', htmlout))
     self.assertFalse(re.search(r'ERROR', htmlout))
+    self.assertFalse(os.path.exists('validation-crash.txt'))
 
-
-class missing_stops(util.TempDirTestCaseBase):
-  def runTest(self):
+  def testMissingStops(self):
     (out, err) = self.CheckCallWithPath(
         [self.GetPath('feedvalidator.py'), '-n',
          self.GetPath('test', 'data', 'missing_stops')],
@@ -44,10 +45,9 @@ class missing_stops(util.TempDirTestCaseBase):
     htmlout = open('validation-results.html').read()
     self.assertTrue(re.search(r'Invalid value FUR_CREEK_RES', htmlout))
     self.assertFalse(re.search(r'feed validated successfully', htmlout))
+    self.assertFalse(os.path.exists('validation-crash.txt'))
 
-
-class bad_date_format(util.TempDirTestCaseBase):
-  def runTest(self):
+  def testBadDateFormat(self):
     (out, err) = self.CheckCallWithPath(
         [self.GetPath('feedvalidator.py'), '-n',
          self.GetPath('test', 'data', 'bad_date_format')],
@@ -58,10 +58,9 @@ class bad_date_format(util.TempDirTestCaseBase):
     self.assertTrue(re.search(r'in field <code>start_date', htmlout))
     self.assertTrue(re.search(r'in field <code>date', htmlout))
     self.assertFalse(re.search(r'feed validated successfully', htmlout))
+    self.assertFalse(os.path.exists('validation-crash.txt'))
 
-
-class bad_utf8(util.TempDirTestCaseBase):
-  def runTest(self):
+  def testBadUtf8(self):
     (out, err) = self.CheckCallWithPath(
         [self.GetPath('feedvalidator.py'), '-n',
          self.GetPath('test', 'data', 'bad_utf8')],
@@ -71,10 +70,24 @@ class bad_utf8(util.TempDirTestCaseBase):
     htmlout = open('validation-results.html').read()
     self.assertTrue(re.search(r'Unicode error', htmlout))
     self.assertFalse(re.search(r'feed validated successfully', htmlout))
+    self.assertFalse(os.path.exists('validation-crash.txt'))
 
+  def testFileNotFound(self):
+    (out, err) = self.CheckCallWithPath(
+        [self.GetPath('feedvalidator.py'), '-n',
+         'file-not-found.zip'],
+        expected_retcode=1)
+    self.assertFalse(os.path.exists('validation-crash.txt'))
 
-class crash_handler(util.TempDirTestCaseBase):
-  def runTest(self):
+  def testBadOutputPath(self):
+    (out, err) = self.CheckCallWithPath(
+        [self.GetPath('feedvalidator.py'), '-n',
+         '-o', 'path/does/not/exist.html',
+         self.GetPath('test', 'data', 'good_feed')],
+        expected_retcode=2)
+    self.assertFalse(os.path.exists('validation-crash.txt'))
+
+  def testCrashHandler(self):
     (out, err) = self.CheckCallWithPath(
         [self.GetPath('feedvalidator.py'), '-n',
          'IWantMyvalidation-crash.txt'],
@@ -84,6 +97,7 @@ class crash_handler(util.TempDirTestCaseBase):
     crashout = open('validation-crash.txt').read()
     self.assertTrue(re.search(r'For testing the feed validator crash handler',
                               crashout))
+
 
 if __name__ == '__main__':
   unittest.main()
