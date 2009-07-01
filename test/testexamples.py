@@ -66,6 +66,15 @@ class google_random_queries(util.TempDirTestCaseBase):
     if not os.path.exists('queries.html'):
       raise Exception('should have created output')
 
+  def testInvalidFeedStillWorks(self):
+    self.CheckCallWithPath(
+        [self.GetExamplePath('google_random_queries.py'),
+         '--output', 'queries.html',
+         '--limit', '5',
+         self.GetPath('test', 'data', 'invalid_route_agency')])
+    if not os.path.exists('queries.html'):
+      raise Exception('should have created output')
+
   def testBadArgs(self):
     self.CheckCallWithPath(
         [self.GetExamplePath('google_random_queries.py'),

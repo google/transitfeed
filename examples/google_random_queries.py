@@ -203,7 +203,8 @@ def main():
     sys.exit(2)
   feed_path = args[0]
 
-  loader = transitfeed.Loader(feed_path)
+  # ProblemReporter prints problems on console.
+  loader = transitfeed.Loader(feed_path, problems=transitfeed.ProblemReporter())
   schedule = loader.Load()
   locations = GetRandomLocationsNearStops(schedule)
   random.shuffle(locations)
