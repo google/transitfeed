@@ -3193,7 +3193,8 @@ class Schedule:
                   (EncodeUnicode(this_stop.stop_name),
                    EncodeUnicode(this_stop.stop_id),
                    EncodeUnicode(this_station.stop_name),
-                   EncodeUnicode(this_station.stop_id), distance))
+                   EncodeUnicode(this_station.stop_id), distance),
+                  type=TYPE_WARNING)
         index += 1
 
     # Check for multiple routes using same short + long name
@@ -3242,7 +3243,7 @@ class Schedule:
                                 'with trip %s of route %s. They go through '
                                 'the same stops with same service. '
                                 % (trips[key][1], trips[key][0],
-                                trip.trip_id, trip.route_id), 
+                                trip.trip_id, trip.route_id),
                                 type=TYPE_WARNING)
 
     # Check that routes' agency IDs are valid, if set

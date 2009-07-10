@@ -1461,6 +1461,26 @@ class StopHierarchyTestCase(MemoryZipTestCase):
     self.assertEquals(3, e.row_num)
     self.problems.AssertNoMoreExceptions()
 
+  def testStopNearToNonParentStation(self):
+    self.zip.writestr(
+        "stops.txt",
+        "stop_id,stop_name,stop_lat,stop_lon,location_type,parent_station\n"
+        "BEATTY_AIRPORT,Airport,36.868446,-116.784582,,\n"
+        "BULLFROG,Bullfrog,36.868446,-116.784582,,\n"
+        "BULLFROG_ST,Bullfrog,36.868446,-116.784582,1,\n"
+        "STAGECOACH,Stagecoach Hotel,36.915682,-116.751677,,\n")
+    schedule = self.loader.Load()
+    e = self.problems.PopException("OtherProblem")
+    self.assertTrue(e.FormatProblem().find(
+        "The parent_station of stop \"Bullfrog\"") != -1)
+    e = self.problems.PopException("OtherProblem")
+    e = self.problems.PopException("OtherProblem")
+    self.assertTrue(e.FormatProblem().find(
+        "The parent_station of stop \"Airport\"") != -1)
+    self.problems.AssertNoMoreExceptions()
+
+
+
   #Uncomment once validation is implemented
   #def testStationWithoutReference(self):
   #  self.zip.writestr(
