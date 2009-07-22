@@ -28,65 +28,127 @@
 #                         write html output to FILE
 
 import codecs
+from collections import defaultdict
 import optparse
 import os
 import os.path
+import re
 import time
 import transitfeed
+from transitfeed import TYPE_ERROR, TYPE_WARNING
 import sys
 import webbrowser
 
-DEFAULT_UNUSED_LIMIT = 5  # number of unused stops to print
+
+def MaybePluralizeWord(count, word):
+  if count == 1:
+    return word
+  else:
+    return word + 's'
+
+
+def PrettyNumberWord(count, word):
+  return '%d %s' % (count, MaybePluralizeWord(count, word))
+
+
+def UnCamelCase(camel):
+  return re.sub(r'([a-z])([A-Z])', r'\1 \2', camel)
+
 
 def ProblemCountText(error_count, warning_count):
-  error_text = ''
-  warning_text= ''
-
-  if error_count > 1:
-    error_text = '%d errors' % error_count
-  elif error_count == 1:
-    error_text = 'one error'
-
-  if warning_count > 1:
-    warning_text = '%d warnings' % warning_count
-  elif warning_count == 1:
-    warning_text = 'one warning'
-
-  # Add a way to jump to the warning section when it's useful
-  if error_count and warning_count:
-    warning_text = '<a href="#warnings">%s</a>' % warning_text
-
   results = []
-  if error_text:
-    results.append(error_text)
-  if warning_text:
-    results.append(warning_text)
+  if error_count:
+    results.append(PrettyNumberWord(error_count, 'error'))
+  if warning_count:
+    results.append(PrettyNumberWord(warning_count, 'warning'))
 
   return ' and '.join(results)
 
+
+class ErrorSet(object):
+  """A collection error exceptions of one type with bounded size."""
+  def __init__(self, set_size_bound):
+    self._count = 0
+    self._exceptions = []
+    self._set_size_bound = set_size_bound
+
+  def Add(self, error):
+    self._count += 1
+    if self._count <= self._set_size_bound:
+      self._exceptions.append(error)
+
+  def _GetDroppedCount(self):
+    return max(self._count - len(self._exceptions), 0)
+
+  count = property(lambda s: s._count)
+  dropped_count = property(_GetDroppedCount)
+  errors = property(lambda s: s._exceptions)
+
+
 class HTMLCountingProblemReporter(transitfeed.ProblemReporter):
-  def __init__(self):
+  def __init__(self, limit_per_type):
     transitfeed.ProblemReporter.__init__(self)
-    self._error_output = []
-    self._warning_output = []
-    self.error_count = 0
-    self.warning_count = 0
     self.unused_stops = []  # [(stop_id, stop_name)...]
 
-  def HasIssues(self):
-    return self.error_count or self.warning_count
+    # {TYPE_WARNING: {"ClassName": ErrorSet()}}
+    self._type_to_name_to_errorset = {
+      TYPE_WARNING: defaultdict(lambda: ErrorSet(limit_per_type)),
+      TYPE_ERROR: defaultdict(lambda: ErrorSet(limit_per_type))
+    }
 
-  def UnusedStop(self, stop_id, stop_name):
-    self.warning_count += 1
-    self.unused_stops.append((stop_id, stop_name))
+  def HasIssues(self):
+    return (self._type_to_name_to_errorset[TYPE_ERROR] or
+            self._type_to_name_to_errorset[TYPE_WARNING])
 
   def _Report(self, e):
-    if e.IsWarning():
-      self.warning_count += 1
-      output = self._warning_output
-    else:
-      self.error_count += 1
-      output = self._error_output
+    self._type_to_name_to_errorset[e.GetType()][e.__class__.__name__].Add(e)
+
+  def FormatType(self, f, level_name, class_errorsets):
+    """Write the HTML dumping all problems of one type.
+
+    Args:
+      f: file object open for writing
+      level_name: string such as "Error" or "Warning"
+      class_errorsets: sequence of tuples (class name, ErrorSet object)
+
+    Returns:
+      None
+    """
+    class_errorsets.sort()
+    output = []
+    for classname, errorset in class_errorsets:
+      output.append('<h4 class="issueHeader"><a name="%s%s">%s</a></h4><ul>\n' %
+                    (level_name, classname, UnCamelCase(classname)))
+      for e in errorset.errors:
+        self.FormatException(e, output)
+      if errorset.dropped_count:
+        output.append('<li>and %d more of this type.' %
+                      (errorset.dropped_count))
+      output.append('</ul>\n')
+    f.write(''.join(output))
+
+  def FormatTypeSummaryTable(self, level_name, name_to_errorset):
+    """Return an HTML table listing the number of errors by class name.
+
+    Args:
+      level_name: string such as "Error" or "Warning"
+      name_to_errorset: dict mapping class name to an ErrorSet object
+
+    Returns:
+      HTML in a string
+    """
+    output = []
+    output.append('<table>')
+    for classname in sorted(name_to_errorset.keys()):
+      errorset = name_to_errorset[classname]
+      human_name = MaybePluralizeWord(errorset.count, UnCamelCase(classname))
+      output.append('<tr><td>%d</td><td><a href="#%s%s">%s</a></td></tr>\n' %
+                    (errorset.count, level_name, classname, human_name))
+    output.append('</table>\n')
+    return ''.join(output)
+
+  def FormatException(self, e, output):
+    """Append HTML version of e to list output."""
     d = e.GetDictToFormat()
     for k in ('file_name', 'feedname', 'column_name'):
       if k in d.keys():
@@ -110,7 +172,7 @@ class HTMLCountingProblemReporter(transitfeed.ProblemReporter):
         table_header += '<th%s>%s</th>' % (attributes, header)
         table_data += '<td%s>%s</td>' % (attributes, value)
       # Make sure output is encoded into UTF-8
-      output.append('<table><tr>%s</tr>\n' %
+      output.append('<table class="dump"><tr>%s</tr>\n' %
                     transitfeed.EncodeUnicode(table_header))
       output.append('<tr>%s</tr></table>\n' %
                     transitfeed.EncodeUnicode(table_data))
@@ -118,38 +180,50 @@ class HTMLCountingProblemReporter(transitfeed.ProblemReporter):
       pass  # Hope this was getting an attribute from e ;-)
     output.append('<br></li>\n')
 
-  def _UnusedStopSection(self):
-    unused = []
-    unused_count = len(self.unused_stops)
-    if unused_count:
-      if unused_count == 1:
-        unused.append('%d.<br>' % self.warning_count)
-        unused.append('<div class="unused">')
-        unused.append('one stop was found that wasn\'t')
-      else:
-        unused.append('%d&ndash;%d.<br>' %
-                      (self.warning_count - unused_count + 1,
-                       self.warning_count))
-        unused.append('<div class="unused">')
-        unused.append('%d stops were found that weren\'t' % unused_count)
-      unused.append(' used in any trips')
-      if unused_count > DEFAULT_UNUSED_LIMIT:
-        self.unused_stops = self.unused_stops[:DEFAULT_UNUSED_LIMIT]
-        unused.append(' (the first %d are shown below)' %
-                      len(self.unused_stops))
-      unused.append(':<br>')
-      unused.append('<table><tr><th>stop_name</th><th>stop_id</th></tr>')
-      for stop_id, stop_name in self.unused_stops:
-        unused.append('<tr><td>%s</td><td>%s</td></tr>' % (stop_name, stop_id))
-      unused.append('</table><br>')
-      unused.append('</div>')
-    return ''.join(unused)
+  def ErrorCount(self):
+    error_sets = self._type_to_name_to_errorset[TYPE_ERROR].values()
+    return sum(map(lambda v: v.count, error_sets))
+
+  def WarningCount(self):
+    warning_sets = self._type_to_name_to_errorset[TYPE_WARNING].values()
+    return sum(map(lambda v: v.count, warning_sets))
+
+  def FormatCount(self):
+    return ProblemCountText(self.ErrorCount(), self.WarningCount())
+
+  def CountTable(self):
+    output = []
+    output.append('<table class="count_outside">\n')
+    output.append('<tr>')
+    if self._type_to_name_to_errorset[TYPE_ERROR]:
+      output.append('<td><span class="fail">%s</span></td>' %
+                    PrettyNumberWord(self.ErrorCount(), "error"))
+    if self._type_to_name_to_errorset[TYPE_WARNING]:
+      output.append('<td><span class="fail">%s</span></td>' %
+                    PrettyNumberWord(self.WarningCount(), "warning"))
+    output.append('</tr>\n<tr>')
+    if self._type_to_name_to_errorset[TYPE_ERROR]:
+      output.append('<td>\n')
+      output.append(self.FormatTypeSummaryTable("Error",
+                    self._type_to_name_to_errorset[TYPE_ERROR]))
+      output.append('</td>\n')
+    if self._type_to_name_to_errorset[TYPE_WARNING]:
+      output.append('<td>\n')
+      output.append(self.FormatTypeSummaryTable("Warning",
+                    self._type_to_name_to_errorset[TYPE_WARNING]))
+      output.append('</td>\n')
+    output.append('</table>')
+    return ''.join(output)
 
   def WriteOutput(self, feed_location, f, schedule, problems):
     """Write the html output to f."""
     if problems.HasIssues():
-      summary = ('<span class="fail">%s found</span>' %
-                 ProblemCountText(problems.error_count, problems.warning_count))
+      if self.ErrorCount() + self.WarningCount() == 1:
+        summary = ('<span class="fail">Found this problem:</span>\n%s' %
+                   self.CountTable())
+      else:
+        summary = ('<span class="fail">Found these problems:</span>\n%s' %
+                   self.CountTable())
     else:
       summary = '<span class="pass">feed validated successfully</span>'
 
@@ -186,14 +260,16 @@ class HTMLCountingProblemReporter(transitfeed.ProblemReporter):
 body {font-family: Georgia, serif; background-color: white}
 .path {color: gray}
 div.problem {max-width: 500px}
-td,th {background-color: khaki; padding: 2px; font-family:monospace}
-td.problem,th.problem {background-color: dc143c; color: white; padding: 2px; font-family:monospace}
+table.dump td,th {background-color: khaki; padding: 2px; font-family:monospace}
+table.dump td.problem,th.problem {background-color: dc143c; color: white; padding: 2px; font-family:monospace}
+table.count_outside td {vertical-align: top}
+table.count_outside {border-spacing: 0px; }
 table {border-spacing: 5px 0px; margin-top: 3px}
-h3.issueHeader {padding-left: 1em}
-span.pass {background-color: lightgreen}
-span.fail {background-color: yellow}
-.pass, .fail {font-size: 16pt; padding: 3px}
-ol,.unused {padding-left: 40pt}
+h3.issueHeader {padding-left: 0.5em}
+h4.issueHeader {padding-left: 1em}
+.pass {background-color: lightgreen}
+.fail {background-color: yellow}
+.pass, .fail {font-size: 16pt}
 .header {background-color: white; font-family: Georgia, serif; padding: 0px}
 th.header {text-align: right; font-weight: normal; color: gray}
 .footer {font-size: 10pt}
@@ -232,27 +308,25 @@ GTFS validation results for feed:<br>
 # contains some non-English characters) for the string. Therefore we decode it
 # back to its original Unicode code print.
 
+    time_unicode = (time.strftime('%B %d, %Y at %I:%M %p %Z').
+                    decode(sys.getfilesystemencoding()))
     output_suffix = """
-%s
 <div class="footer">
 Generated by <a href="http://code.google.com/p/googletransitdatafeed/wiki/FeedValidator">
 FeedValidator</a> version %s on %s.
 </div>
 </body>
-</html>""" % (self._UnusedStopSection(),
-              transitfeed.__version__,
-              time.strftime('%B %d, %Y at %I:%M %p %Z').decode(sys.getfilesystemencoding()))
+</html>""" % (transitfeed.__version__, time_unicode)
 
     f.write(transitfeed.EncodeUnicode(output_prefix))
-    if self._error_output:
-      f.write('<h3 class="issueHeader">Errors:</h3><ol>')
-      f.writelines(self._error_output)
-      f.write('</ol>')
-    if self._warning_output:
-      f.write('<a name="warnings">'
-              '<h3 class="issueHeader">Warnings:</h3></a><ol>')
-      f.writelines(self._warning_output)
-      f.write('</ol>')
+    if self._type_to_name_to_errorset[TYPE_ERROR]:
+      f.write('<h3 class="issueHeader">Errors:</h3>')
+      self.FormatType(f, "Error",
+                      self._type_to_name_to_errorset[TYPE_ERROR].items())
+    if self._type_to_name_to_errorset[TYPE_WARNING]:
+      f.write('<h3 class="issueHeader">Warnings:</h3>')
+      self.FormatType(f, "Warning",
+                      self._type_to_name_to_errorset[TYPE_WARNING].items())
     f.write(transitfeed.EncodeUnicode(output_suffix))
 
 def main():
@@ -275,8 +349,14 @@ def main():
                     dest='check_duplicate_trips', action='store_true',
                     help='Check for duplicate trips which go through the same '
                     'stops with same service and start times')
+  parser.add_option('-l', '--limit_per_type',
+                    dest='limit_per_type', action='store', type='int',
+                    help='Maximum number of errors and warnings to keep of '
+                    'each type')
+               
   parser.set_defaults(manual_entry=True, output='validation-results.html',
-                      memory_db=False, check_duplicate_trips=False)
+                      memory_db=False, check_duplicate_trips=False,
+                      limit_per_type=5)
   (options, args) = parser.parse_args()
   manual_entry = options.manual_entry
   if not len(args) == 1:
@@ -291,7 +371,7 @@ def main():
 
   feed = feed.strip('"')
   print 'validating %s' % feed
-  problems = HTMLCountingProblemReporter()
+  problems = HTMLCountingProblemReporter(options.limit_per_type)
   loader = transitfeed.Loader(feed, problems=problems, extra_validation=True,
                               memory_db=options.memory_db,
                               check_duplicate_trips=\
@@ -304,8 +384,7 @@ def main():
 
   exit_code = 0
   if problems.HasIssues():
-    print 'ERROR: %s found' % ProblemCountText(problems.error_count,
-                                               problems.warning_count)
+    print 'ERROR: %s found' % problems.FormatCount()
     exit_code = 1
   else:
     print 'feed validated successfully'

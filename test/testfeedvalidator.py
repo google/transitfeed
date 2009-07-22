@@ -43,8 +43,19 @@ class FullTests(util.TempDirTestCaseBase):
     self.assertTrue(re.search(r'ERROR', out))
     self.assertFalse(re.search(r'feed validated successfully', out))
     htmlout = open('validation-results.html').read()
-    self.assertTrue(re.search(r'Invalid value FUR_CREEK_RES', htmlout))
+    self.assertTrue(re.search(r'Invalid value BEATTY_AIRPORT', htmlout))
     self.assertFalse(re.search(r'feed validated successfully', htmlout))
+    self.assertFalse(os.path.exists('validation-crash.txt'))
+
+  def testLimitedErrors(self):
+    (out, err) = self.CheckCallWithPath(
+        [self.GetPath('feedvalidator.py'), '-l', '2', '-n',
+         self.GetPath('test', 'data', 'missing_stops')],
+        expected_retcode=1)
+    self.assertTrue(re.search(r'ERROR', out))
+    self.assertFalse(re.search(r'feed validated successfully', out))
+    htmlout = open('validation-results.html').read()
+    self.assertEquals(2, len(re.findall(r'class="problem">stop_id<', htmlout)))
     self.assertFalse(os.path.exists('validation-crash.txt'))
 
   def testBadDateFormat(self):
