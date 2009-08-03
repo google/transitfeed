@@ -2849,11 +2849,47 @@ class DuplicateTripTestCase(ValidationTestCase):
                       stop_sequence=0, shape_dist_traveled=0)
     
     schedule.Validate(self.problems)
-    e = self.problems.PopException('OtherProblem')
+    e = self.problems.PopException('DuplicateTrip')
     self.assertTrue(e.FormatProblem().find('t1 of route') != -1)
     self.assertTrue(e.FormatProblem().find('t2 of route') != -1)
     self.problems.AssertNoMoreExceptions()
-        
+
+
+class StopBelongsToBothSubwayAndBusTestCase(ValidationTestCase):
+  def runTest(self):
+    schedule = transitfeed.Schedule(self.problems)
+
+    schedule.AddAgency("Demo Agency", "http://example.com", 
+                        "America/Los_Angeles")
+    route1 = schedule.AddRoute(short_name="route1", long_name="route_1", 
+                               route_type=3)
+    route2 = schedule.AddRoute(short_name="route2", long_name="route_2", 
+                               route_type=1)
+    
+    service = schedule.GetDefaultServicePeriod()
+    service.SetDateHasService("20070101")
+    
+    trip1 = route1.AddTrip(schedule, "trip1", service, "t1")
+    trip2 = route2.AddTrip(schedule, "trip2", service, "t2")
+    
+    stop1 = schedule.AddStop(36.425288, -117.133162, "stop1")
+    stop2 = schedule.AddStop(36.424288, -117.133142, "stop2")
+    stop3 = schedule.AddStop(36.423288, -117.134142, "stop3")
+    
+    trip1.AddStopTime(stop1, arrival_time="5:11:00", departure_time="5:12:00")
+    trip1.AddStopTime(stop2, arrival_time="5:21:00", departure_time="5:22:00")
+    
+    trip2.AddStopTime(stop1, arrival_time="6:11:00", departure_time="6:12:00")
+    trip2.AddStopTime(stop3, arrival_time="6:21:00", departure_time="6:22:00")
+    
+    schedule.Validate(self.problems)
+    e = self.problems.PopException("StopWithMultipleRouteTypes")
+    self.assertTrue(e.FormatProblem().find("Stop stop1") != -1)
+    self.assertTrue(e.FormatProblem().find("subway (ID=1)") != -1)
+    self.assertTrue(e.FormatProblem().find("bus line (ID=0)") != -1)
+    self.problems.AssertNoMoreExceptions()
+
+
 class TripReplaceStopTimeObjectTestCase(unittest.TestCase):
   def runTest(self):
     schedule = transitfeed.Schedule()

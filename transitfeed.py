@@ -196,6 +196,21 @@ class ProblemReporterBase:
                        context2=self._context, type=TYPE_WARNING)
     self._Report(e)
 
+  def StopWithMultipleRouteTypes(self, stop_name, stop_id, route_id1, route_id2,
+                                 context=None):
+    e = StopWithMultipleRouteTypes(stop_name=stop_name, stop_id=stop_id, 
+                                   route_id1=route_id1, route_id2=route_id2, 
+                                   context=context, context2=self._context, 
+                                   type=TYPE_WARNING)
+    self._Report(e)
+
+  def DuplicateTrip(self, trip_id1, route_id1, trip_id2, route_id2, 
+                    context=None):
+    e = DuplicateTrip(trip_id1=trip_id1, route_id1=route_id1, trip_id2=trip_id2,
+                      route_id2=route_id2, context=context,
+                      context2=self._context, type=TYPE_WARNING)
+    self._Report(e) 
+
   def OtherProblem(self, description, context=None, type=TYPE_ERROR):
     e = OtherProblem(description=description,
                     context=context, context2=self._context, type=type)
@@ -383,6 +398,15 @@ class ExpirationDate(ExceptionWithContext):
 class InvalidLineEnd(ExceptionWithContext):
   ERROR_TEXT = "Each line must end with CR LF or LF except for the last line " \
                "of the file. This line ends with \"%(bad_line_end)s\"."
+               
+class StopWithMultipleRouteTypes(ExceptionWithContext):
+  ERROR_TEXT = "Stop %(stop_name)s (ID=%(stop_id)s) belongs to both " \
+               "subway (ID=%(route_id1)s) and bus line (ID=%(route_id2)s)."
+
+class DuplicateTrip(ExceptionWithContext):
+  ERROR_TEXT = "Trip %(trip_id1)s of route %(route_id1)s might be duplicated " \
+               "with trip %(trip_id2)s of route %(route_id2)s. They go " \
+               "through the same stops with same service."
 
 class OtherProblem(ExceptionWithContext):
   ERROR_TEXT = '%(description)s'
@@ -3222,29 +3246,46 @@ class Schedule:
       else:
         route_names[name] = route
 
-    # Check duplicate trips which go through the same stops with same
-    # service and start times.
+    stop_types = {} # a dict mapping stop_id to [route_id, route_type, is_match]
+    trips = {} # a dict mapping tuple to (route_id, trip_id)
+    for trip in sorted(self.trips.values()):
+      if trip.route_id not in self.routes:
+        continue
+      route_type = self.GetRoute(trip.route_id).route_type
+      arrival_times = []
+      stop_ids = []      
+      for index, st in enumerate(trip.GetStopTimes(problems)):
+        stop_id = st.stop.stop_id
+        arrival_times.append(st.arrival_time)
+        stop_ids.append(stop_id)
+        # Check a stop if which belongs to both subway and bus.
+        if (route_type == Route._ROUTE_TYPE_NAMES['Subway'] or 
+            route_type == Route._ROUTE_TYPE_NAMES['Bus']):  
+          if stop_id not in stop_types:
+            stop_types[stop_id] = [trip.route_id, route_type, 0]
+          elif (stop_types[stop_id][1] != route_type and 
+                stop_types[stop_id][2] == 0):
+            stop_types[stop_id][2] = 1
+            if stop_types[stop_id][1] == Route._ROUTE_TYPE_NAMES['Subway']:
+              subway_route_id = stop_types[stop_id][0]
+              bus_route_id = trip.route_id
+            else:
+              subway_route_id = trip.route_id
+              bus_route_id = stop_types[stop_id][0]
+            problems.StopWithMultipleRouteTypes(st.stop.stop_name, stop_id, 
+                                                subway_route_id, bus_route_id) 
 
-    if self._check_duplicate_trips:
-      trips = {}
-      for trip in self.trips.values():
-        stop_ids = []
-        stop_times = []
-        for index, st in enumerate(trip.GetStopTimes(problems)):
-          stop_times.append(st.arrival_time)
-          stop_ids.append(st.stop.stop_id)
-        if not stop_ids or not stop_times:
+      # Check duplicate trips which go through the same stops with same
+      # service and start times.
+      if self._check_duplicate_trips:
+        if not stop_ids or not arrival_times:
           continue
-        key = (trip.service_id, min(stop_times), str(stop_ids))
+        key = (trip.service_id, min(arrival_times), str(stop_ids))
         if key not in trips:
-          trips[key] = [trip.route_id, trip.trip_id]
+          trips[key] = (trip.route_id, trip.trip_id)
         else:
-          problems.OtherProblem('Trip %s of route %s might be duplicated '
-                                'with trip %s of route %s. They go through '
-                                'the same stops with same service. '
-                                % (trips[key][1], trips[key][0],
-                                trip.trip_id, trip.route_id),
-                                type=TYPE_WARNING)
+          problems.DuplicateTrip(trips[key][1], trips[key][0], trip.trip_id, 
+                                 trip.route_id)
 
     # Check that routes' agency IDs are valid, if set
     for route in self.routes.values():
