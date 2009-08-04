@@ -70,7 +70,6 @@ import zipfile
 OUTPUT_ENCODING = 'utf-8'
 MAX_DISTANCE_FROM_STOP_TO_SHAPE = 1000
 
-
 __version__ = '1.2.1'
 
 
@@ -194,6 +193,13 @@ class ProblemReporterBase:
     """bad_line_end is a human readable string."""
     e = InvalidLineEnd(bad_line_end=bad_line_end, context=context,
                        context2=self._context, type=TYPE_WARNING)
+    self._Report(e)
+
+  def TooFastTravel(self, trip_id, prev_stop, next_stop, dist, time, speed,
+                    type=TYPE_ERROR):
+    e = TooFastTravel(trip_id=trip_id, prev_stop=prev_stop,
+                      next_stop=next_stop, time=time, dist=dist, speed=speed,
+                      context=None, context2=self._context, type=type)
     self._Report(e)
 
   def StopWithMultipleRouteTypes(self, stop_name, stop_id, route_id1, route_id2,
@@ -402,6 +408,18 @@ class InvalidLineEnd(ExceptionWithContext):
 class StopWithMultipleRouteTypes(ExceptionWithContext):
   ERROR_TEXT = "Stop %(stop_name)s (ID=%(stop_id)s) belongs to both " \
                "subway (ID=%(route_id1)s) and bus line (ID=%(route_id2)s)."
+
+class TooFastTravel(ExceptionWithContext):
+  def FormatProblem(self, d=None):
+    if not d:
+      d = self.GetDictToFormat()
+    if not d['speed']:
+      return "High speed travel detected in trip %(trip_id)s: %(prev_stop)s" \
+                " to %(next_stop)s. %(dist)d meters in %(time)d seconds." % d
+    else:
+      return "High speed travel detected in trip %(trip_id)s: %(prev_stop)s" \
+                " to %(next_stop)s. %(dist)d meters in %(time)d seconds." \
+                " (%(speed)f km/h)." % d
 
 class DuplicateTrip(ExceptionWithContext):
   ERROR_TEXT = "Trip %(trip_id1)s of route %(route_id1)s might be duplicated " \
@@ -833,17 +851,19 @@ class Route(GenericGTFSObject):
   _FIELD_NAMES = _REQUIRED_FIELD_NAMES + [
     'agency_id', 'route_desc', 'route_url', 'route_color', 'route_text_color'
     ]
-  _ROUTE_TYPE_NAMES = {
-    'Tram': 0,
-    'Subway': 1,
-    'Rail': 2,
-    'Bus': 3,
-    'Ferry': 4,
-    'Cable Car': 5,
-    'Gondola': 6,
-    'Funicular': 7
+  _ROUTE_TYPES = {
+    0: {'name':'Tram', 'max_speed':50},
+    1: {'name':'Subway', 'max_speed':150},
+    2: {'name':'Rail', 'max_speed':300},
+    3: {'name':'Bus', 'max_speed':100},
+    4: {'name':'Ferry', 'max_speed':80},
+    5: {'name':'Cable Car', 'max_speed':50},
+    6: {'name':'Gondola', 'max_speed':50},
+    7: {'name':'Funicular', 'max_speed':50},
     }
-  _ROUTE_TYPE_IDS = set(_ROUTE_TYPE_NAMES.values())
+  # Create a reverse lookup dict of route type names to route types.
+  _ROUTE_TYPE_IDS = set(_ROUTE_TYPES.keys())
+  _ROUTE_TYPE_NAMES = dict((v['name'], k) for k, v in _ROUTE_TYPES.items())
   _TABLE_NAME = 'routes'
 
   def __init__(self, short_name=None, long_name=None, route_type=None,
@@ -1682,10 +1702,23 @@ class Trip(GenericGTFSObject):
       # for each time point is after the departure time of the previous.
       stoptimes.sort(key=lambda x: x.stop_sequence)
       prev_departure = 0
+      prev_stop = None
+      try:
+        route_type = self._schedule.GetRoute(self.route_id).route_type
+        max_speed = Route._ROUTE_TYPES[route_type]['max_speed']
+      except KeyError, e:
+        # If route_type cannot be found, assume it is 0 (Tram) for checking
+        # speeds between stops.
+        route_type = 0
+        max_speed = 30
       for timepoint in stoptimes:
         if timepoint.arrival_secs is not None:
+          self._CheckSpeed(prev_stop, timepoint.stop, prev_departure,
+                           timepoint.arrival_secs, max_speed, problems)
+
           if timepoint.arrival_secs >= prev_departure:
             prev_departure = timepoint.departure_secs
+            prev_stop = timepoint.stop
           else:
             problems.OtherProblem('Timetravel detected! Arrival time '
                                   'is before previous departure '
@@ -1734,6 +1767,48 @@ class Trip(GenericGTFSObject):
                                 '%s and %s' %
                                 (self._HeadwayOutputTuple(headway),
                                  self._HeadwayOutputTuple(other)))
+
+  def _CheckSpeed(self, prev_stop, next_stop, depart_time,
+                  arrive_time, max_speed, problems):
+    # Checks that the speed between two stops is not faster than max_speed
+    if prev_stop != None:
+      try:
+        time_between_stops = arrive_time - depart_time
+      except TypeError:
+        return
+
+      try:
+        dist_between_stops = \
+          ApproximateDistanceBetweenStops(next_stop, prev_stop)
+      except TypeError, e:
+          return
+      # speed problems for distances < 1km are a warning,
+      # otherwise they are errors
+      if dist_between_stops < 1000:
+        problem_type = TYPE_WARNING
+      else:
+        problem_type = TYPE_ERROR
+
+      if time_between_stops == 0:
+        problems.TooFastTravel(self.trip_id,
+                               prev_stop.stop_name,
+                               next_stop.stop_name,
+                               dist_between_stops,
+                               time_between_stops,
+                               speed=None,
+                               type=problem_type)
+        return
+      # This needs floating point division for precision.
+      speed_between_stops = ((float(dist_between_stops) / 1000) /
+                                (float(time_between_stops) / 3600))
+      if speed_between_stops > max_speed:
+        problems.TooFastTravel(self.trip_id,
+                               prev_stop.stop_name,
+                               next_stop.stop_name,
+                               dist_between_stops,
+                               time_between_stops,
+                               speed_between_stops,
+                               type=problem_type)
 
 # TODO: move these into a separate file
 class ISO4217(object):

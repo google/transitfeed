@@ -1058,6 +1058,63 @@ class StopTimeValidationTestCase(ValidationTestCase):
     transitfeed.StopTime(self.problems, stop)
     self.problems.AssertNoMoreExceptions()
 
+class TravelSpeedTestCase(ValidationTestCase):
+  def runTest(self):
+    schedule = transitfeed.Schedule(problem_reporter=self.problems)
+    schedule.NewDefaultAgency(agency_name="Test Agency",
+                              agency_url="http://example.com",
+                              agency_timezone="America/Los_Angeles")
+    route = schedule.AddRoute(short_name="54C", long_name="Polish Hill", route_type=3)
+
+    service_period = schedule.GetDefaultServicePeriod()
+    service_period.SetDateHasService("20070101")
+
+    trip = route.AddTrip(schedule, 'via Polish Hill')
+
+    stop1 = schedule.AddStop(36.425288, -117.133162, "Demo Stop 1")
+    stop2 = schedule.AddStop(36.440466, -117.132463, "Demo Stop 2")
+    stop3 = schedule.AddStop(36.425999, -117.133999, "Demo Stop 3")
+
+    trip.AddStopTime(stop1, stop_time="12:00:00")
+    trip.AddStopTime(stop2, stop_time="12:01:00")
+    trip.AddStopTime(stop3, stop_time="12:02:00")
+    trip.AddStopTime(stop1, stop_time="12:02:00")
+
+    trip.Validate(self.problems)
+    e = self.problems.PopException('TooFastTravel')
+    self.assertTrue(e.FormatProblem().find('High speed travel detected') != -1)
+    self.assertTrue(e.FormatProblem().find('Stop 1 to Demo Stop 2') != -1)
+    self.assertTrue(e.FormatProblem().find('1690 meters in 60 seconds') != -1)
+    self.assertTrue(e.FormatProblem().find('(101.445967 km/h)') != -1)
+    self.assertEqual(e.type, transitfeed.TYPE_ERROR)
+    e = self.problems.PopException('TooFastTravel')
+    self.assertTrue(e.FormatProblem().find('High speed travel detected') != -1)
+    self.assertTrue(e.FormatProblem().find('Stop 3 to Demo Stop 1') != -1)
+    self.assertTrue(e.FormatProblem().find('109 meters in 0 seconds') != -1)
+    self.assertEqual(e.type, transitfeed.TYPE_WARNING)
+    self.problems.AssertNoMoreExceptions()
+
+    # Run test without a route_type
+    route.route_type = None
+    trip.Validate(self.problems)
+    e = self.problems.PopException('TooFastTravel')
+    self.assertTrue(e.FormatProblem().find('High speed travel detected') != -1)
+    self.assertTrue(e.FormatProblem().find('Stop 1 to Demo Stop 2') != -1)
+    self.assertTrue(e.FormatProblem().find('1690 meters in 60 seconds') != -1)
+    self.assertTrue(e.FormatProblem().find('(101.445967 km/h)') != -1)
+    self.assertEqual(e.type, transitfeed.TYPE_ERROR)
+    e = self.problems.PopException('TooFastTravel')
+    self.assertTrue(e.FormatProblem().find('High speed travel detected') != -1)
+    self.assertTrue(e.FormatProblem().find('Stop 2 to Demo Stop 3') != -1)
+    self.assertTrue(e.FormatProblem().find('1616 meters in 60 seconds') != -1)
+    self.assertTrue(e.FormatProblem().find('(96.979408 km/h)') != -1)
+    self.assertEqual(e.type, transitfeed.TYPE_ERROR)
+    e = self.problems.PopException('TooFastTravel')
+    self.assertTrue(e.FormatProblem().find('High speed travel detected') != -1)
+    self.assertTrue(e.FormatProblem().find('Stop 3 to Demo Stop 1') != -1)
+    self.assertTrue(e.FormatProblem().find('109 meters in 0 seconds') != -1)
+    self.assertEqual(e.type, transitfeed.TYPE_WARNING)
+    self.problems.AssertNoMoreExceptions()
 
 class MemoryZipTestCase(unittest.TestCase):
   def setUp(self):
@@ -1574,7 +1631,7 @@ class StopsNearEachOther(MemoryZipTestCase):
         "stop_id,stop_name,stop_lat,stop_lon\n"
         "BEATTY_AIRPORT,Airport,48.20000,140\n"
         "BULLFROG,Bullfrog,48.20001,140\n"
-        "STAGECOACH,Stagecoach Hotel,36.915682,-116.751677\n")
+        "STAGECOACH,Stagecoach Hotel,48.20016,140\n")
     schedule = self.loader.Load()
     e = self.problems.PopException('OtherProblem')
     self.assertTrue(e.FormatProblem().find("1.11m apart") != -1)
@@ -1586,7 +1643,7 @@ class StopsNearEachOther(MemoryZipTestCase):
         "stop_id,stop_name,stop_lat,stop_lon\n"
         "BEATTY_AIRPORT,Airport,48.20000,140\n"
         "BULLFROG,Bullfrog,48.20002,140\n"
-        "STAGECOACH,Stagecoach Hotel,36.915682,-116.751677\n")
+        "STAGECOACH,Stagecoach Hotel,48.20016,140\n")
     schedule = self.loader.Load()
     # Stops are 2.2m apart
     self.problems.AssertNoMoreExceptions()
@@ -1597,7 +1654,7 @@ class StopsNearEachOther(MemoryZipTestCase):
         "stop_id,stop_name,stop_lat,stop_lon\n"
         "BEATTY_AIRPORT,Airport,48.2,140\n"
         "BULLFROG,Bullfrog,48.2,140\n"
-        "STAGECOACH,Stagecoach Hotel,36.915682,-116.751677\n")
+        "STAGECOACH,Stagecoach Hotel,48.20016,140\n")
     schedule = self.loader.Load()
     e = self.problems.PopException('OtherProblem')
     self.assertTrue(e.FormatProblem().find("0.00m apart") != -1)
@@ -1611,7 +1668,7 @@ class StopsNearEachOther(MemoryZipTestCase):
         "BULLFROG,Bullfrog,48.20003,140,,BULLFROG_STATION\n"
         "BEATTY_AIRPORT_STATION,Airport,48.20001,140,1,\n"
         "BULLFROG_STATION,Bullfrog,48.20002,140,1,\n"
-        "STAGECOACH,Stagecoach Hotel,36.915682,-116.751677,,\n")
+        "STAGECOACH,Stagecoach Hotel,48.20016,140,,\n")
     schedule = self.loader.Load()
     e = self.problems.PopException('OtherProblem')
     self.assertTrue(e.FormatProblem().find("1.11m apart") != -1)
@@ -1625,7 +1682,7 @@ class StopsNearEachOther(MemoryZipTestCase):
         "BEATTY_AIRPORT,Airport,48.20000,140,,\n"
         "BULLFROG,Bullfrog,48.20005,140,,\n"
         "BULLFROG_STATION,Bullfrog,48.20006,140,1,\n"
-        "STAGECOACH,Stagecoach Hotel,36.915682,-116.751677,,\n")
+        "STAGECOACH,Stagecoach Hotel,48.20016,140,,\n")
     schedule = self.loader.Load()
     e = self.problems.PopException('OtherProblem')
     fmt = e.FormatProblem()
@@ -3518,10 +3575,10 @@ class ScheduleBuilderTestCase(unittest.TestCase):
 
     trip.AddStopTime(stop=stop1, arrival_secs=3600*8, departure_secs=3600*8)
     trip.AddStopTime(stop=stop2)
-    trip.AddStopTime(stop=stop3, arrival_secs=3600*8 + 60*15,
-                     departure_secs=3600*8 + 60*15)
-    trip.AddStopTime(stop=stop4, arrival_time="8:25:00",
-                     departure_secs=3600*8 + 60*26, stop_headsign="Last stop",
+    trip.AddStopTime(stop=stop3, arrival_secs=3600*8 + 60*60,
+                     departure_secs=3600*8 + 60*60)
+    trip.AddStopTime(stop=stop4, arrival_time="9:13:00",
+                     departure_secs=3600*8 + 60*103, stop_headsign="Last stop",
                      pickup_type=1, drop_off_type=3)
 
     schedule.Validate()
