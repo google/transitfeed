@@ -1495,8 +1495,8 @@ class StopHierarchyTestCase(MemoryZipTestCase):
         "stop_id,stop_name,stop_lat,stop_lon,location_type,parent_station\n"
         "BEATTY_AIRPORT,Airport,36.868446,-116.784582,,STATION\n"
         "STATION,Airport,36.868446,-116.784582,1,STATION2\n"
-        "STATION2,Airport 2,40.868446,-116.784582,1,\n"
-        "BULLFROG,Bullfrog,36.88108,-116.81797,,STATION2\n"
+        "STATION2,Airport 2,36.868000,-116.784000,1,\n"
+        "BULLFROG,Bullfrog,36.868088,-116.784797,,STATION2\n"
         "STAGECOACH,Stagecoach Hotel,36.915682,-116.751677,,\n")
     schedule = self.loader.Load()
     e = self.problems.PopException("InvalidValue")
@@ -1536,7 +1536,26 @@ class StopHierarchyTestCase(MemoryZipTestCase):
         "The parent_station of stop \"Airport\"") != -1)
     self.problems.AssertNoMoreExceptions()
 
-
+  def testStopTooFarFromParentStation(self):
+    self.zip.writestr(
+        "stops.txt",
+        "stop_id,stop_name,stop_lat,stop_lon,location_type,parent_station\n"
+        "BULLFROG_ST,Bullfrog,36.880,-116.817,1,\n"   # Parent station of all.
+        "BEATTY_AIRPORT,Airport,36.880,-116.816,,BULLFROG_ST\n"   # ~ 90m far
+        "BULLFROG,Bullfrog,36.881,-116.818,,BULLFROG_ST\n"        # ~ 150m far
+        "STAGECOACH,Stagecoach,36.915,-116.751,,BULLFROG_ST\n")   # > 3km far
+    schedule = self.loader.Load()
+    e = self.problems.PopException("StopTooFarFromParentStation")
+    self.assertEqual(1, e.type)  # Warning
+    self.assertTrue(e.FormatProblem().find(
+        "Bullfrog (ID BULLFROG) is too far from its parent"
+        " station Bullfrog (ID BULLFROG_ST)") != -1)
+    e = self.problems.PopException("StopTooFarFromParentStation")
+    self.assertEqual(0, e.type)  # Error
+    self.assertTrue(e.FormatProblem().find(
+        "Stagecoach (ID STAGECOACH) is too far from its parent"
+        " station Bullfrog (ID BULLFROG_ST)") != -1)
+    self.problems.AssertNoMoreExceptions()
 
   #Uncomment once validation is implemented
   #def testStationWithoutReference(self):

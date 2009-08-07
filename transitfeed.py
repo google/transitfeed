@@ -69,6 +69,8 @@ import zipfile
 
 OUTPUT_ENCODING = 'utf-8'
 MAX_DISTANCE_FROM_STOP_TO_SHAPE = 1000
+MAX_DISTANCE_BETWEEN_STOP_AND_PARENT_STATION_WARNING = 100.0
+MAX_DISTANCE_BETWEEN_STOP_AND_PARENT_STATION_ERROR = 1000.0
 
 __version__ = '1.2.1'
 
@@ -182,6 +184,16 @@ class ProblemReporterBase:
   def UsedStation(self, stop_id, stop_name, context=None):
     e = UsedStation(stop_id=stop_id, stop_name=stop_name,
                     context=context, context2=self._context, type=TYPE_ERROR)
+    self._Report(e)
+
+  def StopTooFarFromParentStation(self, stop_id, stop_name, parent_stop_id,
+                                  parent_stop_name, distance,
+                                  type=TYPE_WARNING, context=None):
+    e = StopTooFarFromParentStation(
+        stop_id=stop_id, stop_name=stop_name,
+        parent_stop_id=parent_stop_id,
+        parent_stop_name=parent_stop_name, distance=distance,
+        context=context, context2=self._context, type=type)
     self._Report(e)
 
   def ExpirationDate(self, expiration, context=None):
@@ -389,6 +401,11 @@ class UsedStation(ExceptionWithContext):
   ERROR_TEXT = "%(stop_name)s (ID %(stop_id)s) has location_type=1 " \
                "(station) so it should not appear in stop_times"
 
+class StopTooFarFromParentStation(ExceptionWithContext):
+  ERROR_TEXT = "%(stop_name)s (ID %(stop_id)s) is too far from its" \
+               " parent station %(parent_stop_name)s (ID %(parent_stop_id)s)" \
+               " : %(distance)s meters."
+
 class ExpirationDate(ExceptionWithContext):
   def FormatProblem(self, d=None):
     if not d:
@@ -404,7 +421,7 @@ class ExpirationDate(ExceptionWithContext):
 class InvalidLineEnd(ExceptionWithContext):
   ERROR_TEXT = "Each line must end with CR LF or LF except for the last line " \
                "of the file. This line ends with \"%(bad_line_end)s\"."
-               
+
 class StopWithMultipleRouteTypes(ExceptionWithContext):
   ERROR_TEXT = "Stop %(stop_name)s (ID=%(stop_id)s) belongs to both " \
                "subway (ID=%(route_id1)s) and bus line (ID=%(route_id2)s)."
@@ -3212,7 +3229,8 @@ class Schedule:
     # TODO: Check Trip fields against valid values
 
     # Check for stops that aren't referenced by any trips and broken
-    # parent_station references.
+    # parent_station references. Also check that the parent station isn't too
+    # far from its child stops.
     for stop in self.stops.values():
       if validate_children:
         stop.Validate(problems)
@@ -3240,9 +3258,20 @@ class Schedule:
                                 "have location_type=1 in stops.txt" %
                                 (EncodeUnicode(stop.parent_station),
                                  EncodeUnicode(stop.stop_id)))
+        else:
+          parent_station = self.stops[stop.parent_station]
+          distance = ApproximateDistanceBetweenStops(stop, parent_station)
+          if distance > MAX_DISTANCE_BETWEEN_STOP_AND_PARENT_STATION_ERROR:
+            problems.StopTooFarFromParentStation(
+                stop.stop_id, stop.stop_name, parent_station.stop_id,
+                parent_station.stop_name, distance, TYPE_ERROR)
+          elif distance > MAX_DISTANCE_BETWEEN_STOP_AND_PARENT_STATION_WARNING:
+            problems.StopTooFarFromParentStation(
+                stop.stop_id, stop.stop_name, parent_station.stop_id,
+                parent_station.stop_name, distance, TYPE_WARNING)
 
-    #TODO: check that every station is used and within 1km of stops that are
-    # part of it. Then uncomment testStationWithoutReference.
+    #TODO: check that every station is used.
+    # Then uncomment testStationWithoutReference.
 
     # Check for stops that might represent the same location (specifically,
     # stops that are less that 2 meters apart) First filter out stops without a
