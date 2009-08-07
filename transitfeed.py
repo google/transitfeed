@@ -1799,12 +1799,6 @@ class Trip(GenericGTFSObject):
           ApproximateDistanceBetweenStops(next_stop, prev_stop)
       except TypeError, e:
           return
-      # speed problems for distances < 1km are a warning,
-      # otherwise they are errors
-      if dist_between_stops < 1000:
-        problem_type = TYPE_WARNING
-      else:
-        problem_type = TYPE_ERROR
 
       if time_between_stops == 0:
         problems.TooFastTravel(self.trip_id,
@@ -1813,7 +1807,7 @@ class Trip(GenericGTFSObject):
                                dist_between_stops,
                                time_between_stops,
                                speed=None,
-                               type=problem_type)
+                               type=TYPE_WARNING)
         return
       # This needs floating point division for precision.
       speed_between_stops = ((float(dist_between_stops) / 1000) /
@@ -1825,7 +1819,7 @@ class Trip(GenericGTFSObject):
                                dist_between_stops,
                                time_between_stops,
                                speed_between_stops,
-                               type=problem_type)
+                               type=TYPE_WARNING)
 
 # TODO: move these into a separate file
 class ISO4217(object):
