@@ -17,6 +17,7 @@
 # Unit tests for the transitfeed module.
 
 import datetime
+from datetime import date
 import dircache
 import os.path
 import re
@@ -2446,6 +2447,60 @@ class ServicePeriodTestCase(unittest.TestCase):
     period_empty = transitfeed.ServicePeriod()
     self.assertFalse(period_empty.IsActiveOn('20071231'))
     self.assertEquals(period_empty.ActiveDates(), [])
+
+
+class GetServicePeriodsActiveEachDateTestCase(unittest.TestCase):
+  def testEmpty(self):
+    schedule = transitfeed.Schedule()
+    self.assertEquals(
+        [],
+        schedule.GetServicePeriodsActiveEachDate(date(2009, 1, 1),
+                                                 date(2009, 1, 1)))
+    self.assertEquals(
+        [(date(2008, 12, 31), []), (date(2009, 1, 1), [])],
+        schedule.GetServicePeriodsActiveEachDate(date(2008, 12, 31),
+                                                 date(2009, 1, 2)))
+  def testOneService(self):
+    schedule = transitfeed.Schedule()
+    sp1 = transitfeed.ServicePeriod()
+    sp1.service_id = "sp1"
+    sp1.SetDateHasService("20090101")
+    sp1.SetDateHasService("20090102")
+    schedule.AddServicePeriodObject(sp1)
+    self.assertEquals(
+        [],
+        schedule.GetServicePeriodsActiveEachDate(date(2009, 1, 1),
+                                                 date(2009, 1, 1)))
+    self.assertEquals(
+        [(date(2008, 12, 31), []), (date(2009, 1, 1), [sp1])],
+        schedule.GetServicePeriodsActiveEachDate(date(2008, 12, 31),
+                                                 date(2009, 1, 2)))
+
+  def testTwoService(self):
+    schedule = transitfeed.Schedule()
+    sp1 = transitfeed.ServicePeriod()
+    sp1.service_id = "sp1"
+    sp1.SetDateHasService("20081231")
+    sp1.SetDateHasService("20090101")
+
+    schedule.AddServicePeriodObject(sp1)
+    sp2 = transitfeed.ServicePeriod()
+    sp2.service_id = "sp2"
+    sp2.SetStartDate("20081201")
+    sp2.SetEndDate("20081231")
+    sp2.SetWeekendService()
+    sp2.SetWeekdayService()
+    schedule.AddServicePeriodObject(sp2)
+    self.assertEquals(
+        [],
+        schedule.GetServicePeriodsActiveEachDate(date(2009, 1, 1),
+                                                 date(2009, 1, 1)))
+    date_services = schedule.GetServicePeriodsActiveEachDate(date(2008, 12, 31),
+                                                             date(2009, 1, 2))
+    self.assertEquals(
+        [date(2008, 12, 31), date(2009, 1, 1)], [d for d, _ in date_services])
+    self.assertEquals(set([sp1, sp2]), set(date_services[0][1]))
+    self.assertEquals([sp1], date_services[1][1])
 
 
 class TripMemoryZipTestCase(MemoryZipTestCase):

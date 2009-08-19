@@ -28,6 +28,7 @@
 #                         write html output to FILE
 
 import codecs
+import datetime
 from collections import defaultdict
 import optparse
 import os
@@ -63,6 +64,103 @@ def ProblemCountText(error_count, warning_count):
     results.append(PrettyNumberWord(warning_count, 'warning'))
 
   return ' and '.join(results)
+
+
+def GenerateDateTripsDeparturesList(schedule):
+  """Return a list of (date object, number of trips, number of departures).
+
+  The list contains dates from today until 60 days from today, trancated to
+  the range of dates included by schedule. transitfeed.py generates a warning
+  for feeds that expire with 60 days.
+
+  Args:
+    schedule: a Schedule object
+
+  Returns:
+    a list of (date object, number of trips, number of departures) tuples
+  """
+  service_id_to_trips = defaultdict(lambda: 0)
+  service_id_to_departures = defaultdict(lambda: 0)
+  for trip in schedule.GetTripList():
+    headway_start_times = trip.GetHeadwayStartTimes()
+    if headway_start_times:
+      trip_runs = len(headway_start_times)
+    else:
+      trip_runs = 1
+
+    service_id_to_trips[trip.service_id] += trip_runs
+    service_id_to_departures[trip.service_id] += (
+        (trip.GetCountStopTimes() - 1) * trip_runs)
+
+  today = datetime.date.today()
+  date_end = today + datetime.timedelta(days=60)
+  date_services = schedule.GetServicePeriodsActiveEachDate(today, date_end)
+  date_trips = []
+  earliest_with_trips = None  # Index of first entry in date_trips with trips
+  latest_with_trips = None  # Index of last entry in date_trips with trips
+  for date, services in date_services:
+    day_trips = sum(service_id_to_trips[s.service_id] for s in services)
+    day_departures = sum(
+        service_id_to_departures[s.service_id] for s in services)
+    if day_trips > 0:
+      latest_with_trips = len(date_trips)
+      if earliest_with_trips is None:
+        earliest_with_trips = len(date_trips)
+    date_trips.append((date, day_trips, day_departures))
+    
+  if latest_with_trips is None:
+    return []
+  else:
+    return date_trips[earliest_with_trips:latest_with_trips + 1]
+
+
+def CalendarSummary(schedule):
+  date_trips_departures = GenerateDateTripsDeparturesList(schedule)
+  if not date_trips_departures:
+    return {}
+  
+  # Check that the dates which will be shown in summary agree with these
+  # calculations. Failure implies a bug which should be fixed. It isn't good
+  # for users to discover assertion failures but means it will likely be fixed.
+  start_date, end_date = schedule.GetDateRange()
+  if start_date and end_date:
+    assert start_date <= date_trips_departures[0][0].strftime("%Y%m%d")
+    assert end_date >= date_trips_departures[-1][0].strftime("%Y%m%d")
+  
+  # Generate a map from int number of trips in a day to a list of date objects
+  # with that many trips. The list of dates is sorted.
+  trips_dates = defaultdict(lambda: [])
+  trips = 0
+  for date, day_trips, day_departures in date_trips_departures:
+    trips += day_trips
+    trips_dates[day_trips].append(date)
+  mean_trips = trips / len(date_trips_departures)
+  max_trips = max(trips_dates.keys())
+  min_trips = min(trips_dates.keys())
+  
+  calendar_summary = {}
+  calendar_summary['mean_trips'] = mean_trips
+  calendar_summary['max_trips'] = max_trips
+  calendar_summary['max_trips_dates'] = FormatDateList(trips_dates[max_trips])
+  calendar_summary['min_trips'] = min_trips
+  calendar_summary['min_trips_dates'] = FormatDateList(trips_dates[min_trips])
+  calendar_summary['date_trips_departures'] = date_trips_departures
+  calendar_summary['date_summary_range'] = "%s to %s" % (
+      date_trips_departures[0][0].strftime("%a %b %d"),
+      date_trips_departures[-1][0].strftime("%a %b %d"))
+  
+  return calendar_summary
+
+
+def FormatDateList(dates):
+  if not dates:
+    return "0 service dates"
+
+  formatted = [d.strftime("%a %b %d") for d in dates[0:3]]
+  if len(dates) > 3:
+    formatted.append("...")
+  return "%s (%s)" % (PrettyNumberWord(len(dates), "service date"),
+                      ", ".join(formatted))
 
 
 class ErrorSet(object):
@@ -251,6 +349,18 @@ class HTMLCountingProblemReporter(transitfeed.ProblemReporter):
       formatted_end = FormatDate(end)
       dates = "%s to %s" % (formatted_start, formatted_end)
 
+    calendar_summary = CalendarSummary(schedule)
+    if calendar_summary:
+      calendar_summary_html = """<br>
+During the upcoming service dates %(date_summary_range)s:
+<table>
+<tr><th class="header">Average trips per date:</th><td class="header">%(mean_trips)s</td></tr>
+<tr><th class="header">Most trips on a date:</th><td class="header">%(max_trips)s, on %(max_trips_dates)s</td></tr>
+<tr><th class="header">Least trips on a date:</th><td class="header">%(min_trips)s, on %(min_trips_dates)s</td></tr>
+</table>""" % calendar_summary
+    else:
+      calendar_summary_html = ""
+
     output_prefix = """
 <html>
 <head>
@@ -287,18 +397,20 @@ GTFS validation results for feed:<br>
 <tr><th class="header">Shapes:</th><td class="header">%(shapes)s</td></tr>
 <tr><th class="header">Effective:</th><td class="header">%(dates)s</td></tr>
 </table>
+%(calendar_summary)s
 <br>
-%(summary)s
+%(problem_summary)s
 <br><br>
 """ % { "feed_file": feed_path[1],
-            "feed_dir": feed_path[0],
-            "agencies": agencies,
-            "routes": len(schedule.GetRouteList()),
-            "stops": len(schedule.GetStopList()),
-            "trips": len(schedule.GetTripList()),
-            "shapes": len(schedule.GetShapeList()),
-            "dates": dates,
-            "summary": summary }
+        "feed_dir": feed_path[0],
+        "agencies": agencies,
+        "routes": len(schedule.GetRouteList()),
+        "stops": len(schedule.GetStopList()),
+        "trips": len(schedule.GetTripList()),
+        "shapes": len(schedule.GetShapeList()),
+        "dates": dates,
+        "problem_summary": summary,
+        "calendar_summary": calendar_summary_html}
 
 # In output_suffix string
 # time.strftime() returns a regular local time string (not a Unicode one) with

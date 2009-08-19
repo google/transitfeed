@@ -2486,7 +2486,6 @@ class ServicePeriod(object):
     Returns:
       True iff this service is active on date.
     """
-    date_obj = DateStringToDateObject(date)
     if date in self.date_exceptions:
       if self.date_exceptions[date] == 1:
         return True
@@ -2494,6 +2493,7 @@ class ServicePeriod(object):
         return False
     if (self.start_date and self.end_date and self.start_date <= date and
         date <= self.end_date):
+      date_obj = DateStringToDateObject(date)
       return self.day_of_week[date_obj.weekday()]
     return False
 
@@ -2829,6 +2829,33 @@ class Schedule:
       return (None, None)
 
     return (min(starts), max(ends))
+
+  def GetServicePeriodsActiveEachDate(self, date_start, date_end):
+    """Return a list of tuples (date, [period1, period2, ...]).
+
+    For each date in the range [date_start, date_end) make list of each
+    ServicePeriod object which is active.
+
+    Args:
+      date_start: The first date in the list, a date object
+      date_end: The first date after the list, a date object
+
+    Returns:
+      A list of tuples. Each tuple contains a date object and a list of zero or
+      more ServicePeriod objects.
+    """
+    date_it = date_start
+    one_day = datetime.timedelta(days=1)
+    date_service_period_list = []
+    while date_it < date_end:
+      periods_today = []
+      for service in self.GetServicePeriodList():
+        if service.IsActiveOn(date_it.strftime("%Y%m%d")):
+          periods_today.append(service)
+      date_service_period_list.append((date_it, periods_today))
+      date_it += one_day
+    return date_service_period_list
+
 
   def AddStop(self, lat, lng, name):
     """Add a stop to this schedule.
