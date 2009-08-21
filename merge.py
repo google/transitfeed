@@ -45,6 +45,7 @@ import datetime
 import optparse
 import os
 import re
+import sys
 import time
 import transitfeed
 import webbrowser
@@ -1687,6 +1688,12 @@ Merges <feed_input_a> and <feed_input_b> into a new GTFS file <feed_output.zip>.
                          'It is faster but uses more RAM.')
   parser.set_defaults(memory_db=False)
   options, args = parser.parse_args()
+  
+  if len(args) != 3:
+    print >>sys.stderr, parser.format_help()
+    print >>sys.stderr, ('\n\nYou did not provide all required command '
+                         'line arguments.\n\n')
+    sys.exit(2)
 
   old_feed_path = os.path.abspath(args[0])
   new_feed_path = os.path.abspath(args[1])
@@ -1736,7 +1743,6 @@ if __name__ == '__main__':
     raise
   except:
     import inspect
-    import sys
     import traceback
 
     # Save trace and exception now. These calls look at the most recently

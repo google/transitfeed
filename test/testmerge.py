@@ -1340,8 +1340,8 @@ class TestHTMLProblemReporter(unittest.TestCase):
     self.assert_(html.endswith('</html>'))
 
 
-class crash_handler(util.TempDirTestCaseBase):
-  def runTest(self):
+class MergeInSubprocessTestCase(util.TempDirTestCaseBase):
+  def testCrashHandler(self):
     (out, err) = self.CheckCallWithPath(
         [self.GetPath('merge.py'), '--no_browser',
          'IWantMy-merge-crash.txt', 'file2', 'fileout.zip'],
@@ -1350,6 +1350,14 @@ class crash_handler(util.TempDirTestCaseBase):
     crashout = open('merge-crash.txt').read()
     self.assertTrue(re.search(r'For testing the merge crash handler',
                               crashout), crashout)
+
+  def testMergeBadCommandLine(self):
+    (out, err) = self.CheckCallWithPath(
+        [self.GetPath('merge.py'), '--no_browser'],
+        expected_retcode=2)
+    self.assertFalse(out)
+    self.assertTrue(err.find('command line arguments') != -1)
+
 
 if __name__ == '__main__':
   unittest.main()
