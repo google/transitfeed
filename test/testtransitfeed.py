@@ -3237,9 +3237,8 @@ class AddStopTimeParametersTestCase(unittest.TestCase):
 
 class ExpirationDateTestCase(unittest.TestCase):
   def runTest(self):
-    schedule = transitfeed.Schedule(
-        problem_reporter=transitfeed.ExceptionProblemReporter(
-            raise_warnings=True))
+    problems = RecordingProblemReporter(self)
+    schedule = transitfeed.Schedule(problem_reporter=problems)
 
     now = time.mktime(time.localtime())
     seconds_per_day = 60 * 60 * 24
@@ -3251,27 +3250,77 @@ class ExpirationDateTestCase(unittest.TestCase):
     service_period = schedule.GetDefaultServicePeriod()
     service_period.SetWeekdayService(True)
     service_period.SetStartDate("20070101")
-    service_period.SetEndDate(time.strftime(date_format, two_months_from_now))
 
+    service_period.SetEndDate(time.strftime(date_format, two_months_from_now))
     schedule.Validate()  # should have no problems
+    problems.AssertNoMoreExceptions()
 
     service_period.SetEndDate(time.strftime(date_format, two_weeks_from_now))
-
-    try:
-      schedule.Validate()
-      self.fail('ExpirationDate exception expected')
-    except transitfeed.ExpirationDate, e:
-      # raises exception if not found
-      e.FormatProblem().index('will soon expire')
+    schedule.Validate()
+    e = problems.PopException('ExpirationDate')
+    self.assertTrue(e.FormatProblem().index('will soon expire'))
+    problems.AssertNoMoreExceptions()
 
     service_period.SetEndDate(time.strftime(date_format, two_weeks_ago))
+    schedule.Validate()
+    e = problems.PopException('ExpirationDate')
+    self.assertTrue(e.FormatProblem().index('expired'))
+    problems.AssertNoMoreExceptions()
 
-    try:
-      schedule.Validate()
-      self.fail('ExpirationDate exception expected')
-    except transitfeed.ExpirationDate, e:
-      # raises exception if not found
-      e.FormatProblem().index('expired')
+
+class FutureServiceStartDateTestCase(unittest.TestCase):
+  def runTest(self):
+    problems = RecordingProblemReporter(self)
+    schedule = transitfeed.Schedule(problem_reporter=problems)
+
+    today = datetime.date.today()
+    yesterday = today - datetime.timedelta(days=1)
+    tomorrow = today + datetime.timedelta(days=1)
+    two_months_from_today = today + datetime.timedelta(days=60)
+
+    service_period = schedule.GetDefaultServicePeriod()
+    service_period.SetWeekdayService(True)
+    service_period.SetWeekendService(True)
+    service_period.SetEndDate(two_months_from_today.strftime("%Y%m%d"))
+
+    service_period.SetStartDate(yesterday.strftime("%Y%m%d"))
+    schedule.Validate()
+    problems.AssertNoMoreExceptions()
+
+    service_period.SetStartDate(today.strftime("%Y%m%d"))
+    schedule.Validate()
+    problems.AssertNoMoreExceptions()
+
+    service_period.SetStartDate(tomorrow.strftime("%Y%m%d"))
+    schedule.Validate()
+    problems.PopException('FutureService')
+    problems.AssertNoMoreExceptions()
+ 
+
+class CalendarTxtIntegrationTestCase(MemoryZipTestCase):
+  def testBadEndDateFormat(self):
+    # A badly formatted end_date used to generate an InvalidValue report from
+    # Schedule.Validate and ServicePeriod.Validate. Test for the bug.
+    self.zip.writestr(
+        "calendar.txt",
+        "service_id,monday,tuesday,wednesday,thursday,friday,saturday,sunday,"
+        "start_date,end_date\n"
+        "FULLW,1,1,1,1,1,1,1,20070101,20101232\n"
+        "WE,0,0,0,0,0,1,1,20070101,20101231\n")
+    schedule = self.loader.Load()
+    e = self.problems.PopInvalidValue('end_date')
+    self.problems.AssertNoMoreExceptions()
+
+  def testBadStartDateFormat(self):
+    self.zip.writestr(
+        "calendar.txt",
+        "service_id,monday,tuesday,wednesday,thursday,friday,saturday,sunday,"
+        "start_date,end_date\n"
+        "FULLW,1,1,1,1,1,1,1,200701xx,20101231\n"
+        "WE,0,0,0,0,0,1,1,20070101,20101231\n")
+    schedule = self.loader.Load()
+    e = self.problems.PopInvalidValue('start_date')
+    self.problems.AssertNoMoreExceptions()
 
 
 class DuplicateTripIDValidationTestCase(unittest.TestCase):

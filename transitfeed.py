@@ -201,6 +201,11 @@ class ProblemReporterBase:
                        context2=self._context, type=TYPE_WARNING)
     self._Report(e)
 
+  def FutureService(self, start_date, context=None):
+    e = FutureService(start_date=start_date, context=context,
+                      context2=self._context, type=TYPE_WARNING)
+    self._Report(e)
+
   def InvalidLineEnd(self, bad_line_end, context=None):
     """bad_line_end is a human readable string."""
     e = InvalidLineEnd(bad_line_end=bad_line_end, context=context,
@@ -417,6 +422,16 @@ class ExpirationDate(ExceptionWithContext):
       return "This feed expired on %s" % formatted_date
     else:
       return "This feed will soon expire, on %s" % formatted_date
+
+class FutureService(ExceptionWithContext):
+  def FormatProblem(self, d=None):
+    if not d:
+      d = self.GetDictToFormat()
+    formatted_date = time.strftime("%B %d, %Y", time.localtime(d['start_date']))
+    return ("The earliest service date in this feed is in the future, on %s. "
+            "Published feeds must always include the current date." %
+            formatted_date)
+
 
 class InvalidLineEnd(ExceptionWithContext):
   ERROR_TEXT = "Each line must end with CR LF or LF except for the last line " \
@@ -3234,18 +3249,22 @@ class Schedule:
       problems = self.problem_reporter
 
     (start_date, end_date) = self.GetDateRange()
-    if not end_date:
+    if not end_date or not start_date:
       problems.OtherProblem('This feed has no effective service dates!',
                             type=TYPE_WARNING)
     else:
       try:
         expiration = time.mktime(time.strptime(end_date, "%Y%m%d"))
+        start_date_time = time.mktime(time.strptime(start_date, "%Y%m%d"))
         now = time.mktime(time.localtime())
         warning_cutoff = now + 60 * 60 * 24 * 30  # one month from expiration
         if expiration < warning_cutoff:
           problems.ExpirationDate(expiration)
+        if start_date_time > now:
+          problems.FutureService(start_date_time)
       except ValueError:
-        problems.InvalidValue('end_date', end_date)
+        # Format of start_date and end_date checked in class ServicePeriod
+        pass
 
     # TODO: Check Trip fields against valid values
 
