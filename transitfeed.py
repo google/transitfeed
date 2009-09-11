@@ -242,10 +242,10 @@ class ProblemReporterBase:
 class ProblemReporter(ProblemReporterBase):
   """This is a basic problem reporter that just prints to console."""
   def _Report(self, e):
-    print EncodeUnicode(self._LineWrap(e.FormatProblem(), 78))
     context = e.FormatContext()
     if context:
       print context
+    print EncodeUnicode(self._LineWrap(e.FormatProblem(), 78))
 
   @staticmethod
   def _LineWrap(text, width):

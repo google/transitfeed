@@ -31,6 +31,7 @@ from StringIO import StringIO
 import zipfile
 import zlib
 
+import util
 
 def DataPath(path):
   here = os.path.dirname(__file__)
@@ -658,14 +659,9 @@ class ColorLuminanceTestCase(unittest.TestCase):
     pass
 
 INVALID_VALUE = Exception()
-class ValidationTestCase(unittest.TestCase):
+class ValidationTestCase(util.TestCaseAsserts):
   def setUp(self):
     self.problems = RecordingProblemReporter(self, ("ExpirationDate",))
-
-  def assertMatchesRegex(self, regex, string):
-    """Assert that regex is found in string."""
-    if not re.search(regex, string):
-      self.fail("string %r did not match regex %r" % (string, regex))
 
   def ExpectNoProblems(self, object):
     self.problems.AssertNoMoreExceptions()

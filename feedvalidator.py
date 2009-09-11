@@ -163,6 +163,31 @@ def FormatDateList(dates):
                       ", ".join(formatted))
 
 
+class CountingConsoleProblemReporter(transitfeed.ProblemReporter):
+  def __init__(self):
+    transitfeed.ProblemReporter.__init__(self)
+    self._error_count = 0
+    self._warning_count = 0
+
+  def _Report(self, e):
+    transitfeed.ProblemReporter._Report(self, e)
+    if e.IsError():
+      self._error_count += 1
+    else:
+      self._warning_count += 1
+
+  def ErrorCount(self):
+    return self._error_count
+
+  def WarningCount(self):
+    return self._warning_count
+
+  def FormatCount(self):
+    return ProblemCountText(self.ErrorCount(), self.WarningCount())
+
+  def HasIssues(self):
+    return self.ErrorCount() or self.WarningCount()
+
 class ErrorSet(object):
   """A collection error exceptions of one type with bounded size."""
   def __init__(self, set_size_bound):
@@ -208,9 +233,6 @@ class HTMLCountingProblemReporter(transitfeed.ProblemReporter):
       f: file object open for writing
       level_name: string such as "Error" or "Warning"
       class_errorsets: sequence of tuples (class name, ErrorSet object)
-
-    Returns:
-      None
     """
     class_errorsets.sort()
     output = []
@@ -256,8 +278,12 @@ class HTMLCountingProblemReporter(transitfeed.ProblemReporter):
     output.append('<div class="problem">%s</div>' %
                   transitfeed.EncodeUnicode(problem_text))
     try:
-      output.append('in line %d of <code>%s</code><br>\n' %
-                    (e.row_num, e.file_name))
+      if hasattr(e, 'row_num'):
+        line_str = 'line %d of ' % e.row_num
+      else:
+        line_str = ''
+      output.append('in %s<code>%s</code><br>\n' %
+                    (line_str, e.file_name))
       row = e.row
       headers = e.headers
       column_name = e.column_name
@@ -313,9 +339,9 @@ class HTMLCountingProblemReporter(transitfeed.ProblemReporter):
     output.append('</table>')
     return ''.join(output)
 
-  def WriteOutput(self, feed_location, f, schedule, problems):
+  def WriteOutput(self, feed_location, f, schedule):
     """Write the html output to f."""
-    if problems.HasIssues():
+    if self.HasIssues():
       if self.ErrorCount() + self.WarningCount() == 1:
         summary = ('<span class="fail">Found this problem:</span>\n%s' %
                    self.CountTable())
@@ -441,6 +467,74 @@ FeedValidator</a> version %s on %s.
                       self._type_to_name_to_errorset[TYPE_WARNING].items())
     f.write(transitfeed.EncodeUnicode(output_suffix))
 
+
+def RunValidationOutputToFilename(feed, options, output_filename):
+  """Validate feed, save HTML at output_filename and return an exit code."""
+  try:
+    output_file = open(output_filename, 'w')
+    exit_code = RunValidationOutputToFile(feed, options, output_file)
+    output_file.close()
+  except IOError, e:
+    print 'Error while writing %s: %s' % (output_filename, e)
+    output_filename = None
+    exit_code = 2
+
+  if options.manual_entry and output_filename:
+    webbrowser.open('file://%s' % os.path.abspath(output_filename))
+
+  return exit_code
+
+
+def RunValidationOutputToFile(feed, options, output_file):
+  """Validate feed, write HTML to output_file and return an exit code."""
+  problems = HTMLCountingProblemReporter(options.limit_per_type)
+  schedule, exit_code = RunValidation(feed, options, problems)
+  if isinstance(feed, basestring):
+    feed_location = feed
+  else:
+    feed_location = getattr(feed, 'name', repr(feed))
+  problems.WriteOutput(feed_location, output_file, schedule)
+  return exit_code
+
+
+def RunValidationOutputToConsole(feed, options):
+  """Validate feed, print reports and return an exit code."""
+  problems = CountingConsoleProblemReporter()
+  _, exit_code = RunValidation(feed, options, problems)
+  return exit_code
+
+
+def RunValidation(feed, options, problems):
+  """Validate feed, returning the loaded Schedule and exit code.
+
+  Args:
+    feed: GTFS file, either path of the file as a string or a file object
+    options: options object returned by optparse
+    problems: transitfeed.ProblemReporter instance
+
+  Returns:
+    a transitfeed.Schedule object and exit code.
+    exit code is 1 if problems are found and 0 if the Schedule is problem free
+  """
+  print 'validating %s' % feed
+  loader = transitfeed.Loader(feed, problems=problems, extra_validation=True,
+                              memory_db=options.memory_db,
+                              check_duplicate_trips=\
+                              options.check_duplicate_trips)
+  schedule = loader.Load()
+
+  if feed == 'IWantMyvalidation-crash.txt':
+    # See test/testfeedvalidator.py
+    raise Exception('For testing the feed validator crash handler.')
+
+  if problems.HasIssues():
+    print 'ERROR: %s found' % problems.FormatCount()
+    return schedule, 1
+  else:
+    print 'feed validated successfully'
+    return schedule, 0
+
+
 def main():
   parser = optparse.OptionParser(usage='usage: %prog [options] feed_filename',
                                  version='%prog '+transitfeed.__version__)
@@ -449,7 +543,8 @@ def main():
                     help='do not prompt for feed location or load output in '
                     'browser')
   parser.add_option('-o', '--output', dest='output', metavar='FILE',
-                    help='write html output to FILE')
+                    help='write html output to FILE or --output=CONSOLE to '
+                    'print all errors and warnings to the command console')
   parser.add_option('-p', '--performance', action='store_true',
                     dest='performance',
                     help='output memory and time performance (Availability: '
@@ -470,9 +565,8 @@ def main():
                       memory_db=False, check_duplicate_trips=False,
                       limit_per_type=5)
   (options, args) = parser.parse_args()
-  manual_entry = options.manual_entry
   if not len(args) == 1:
-    if manual_entry:
+    if options.manual_entry:
       feed = raw_input('Enter Feed Location: ')
     else:
       print >>sys.stderr, parser.format_help()
@@ -482,82 +576,55 @@ def main():
     feed = args[0]
 
   feed = feed.strip('"')
-  print 'validating %s' % feed
-  problems = HTMLCountingProblemReporter(options.limit_per_type)
-  loader = transitfeed.Loader(feed, problems=problems, extra_validation=True,
-                              memory_db=options.memory_db,
-                              check_duplicate_trips=\
-                              options.check_duplicate_trips)
-  schedule = loader.Load()
 
-  if feed == 'IWantMyvalidation-crash.txt':
-    # See test/testfeedvalidator.py
-    raise Exception('For testing the feed validator crash handler.')
-
-  exit_code = 0
-  if problems.HasIssues():
-    print 'ERROR: %s found' % problems.FormatCount()
-    exit_code = 1
+  if options.output.upper() == "CONSOLE":
+    return RunValidationOutputToConsole(feed, options)
   else:
-    print 'feed validated successfully'
-
-  output_filename = options.output
-  try:
-    output_file = open(output_filename, 'w')
-    problems.WriteOutput(os.path.abspath(feed), output_file, schedule, problems)
-    output_file.close()
-  except IOError, e:
-    print 'Error while writing %s: %s' % (output_filename, e)
-    output_filename = None
-    exit_code = 2
-
-  if manual_entry and output_filename:
-    webbrowser.open('file://%s' % os.path.abspath(output_filename))
-
-  if options.performance:
-    # Only available on Unix, http://docs.python.org/lib/module-resource.html
-    import resource
-    print "Time: %d seconds" % (
-        resource.getrusage(resource.RUSAGE_SELF).ru_utime +
-        resource.getrusage(resource.RUSAGE_SELF).ru_stime)
-
-    # http://aspn.activestate.com/ASPN/Cookbook/Python/Recipe/286222
-    # http://aspn.activestate.com/ASPN/Cookbook/ "The recipes are freely
-    # available for review and use."
-    def _VmB(VmKey):
-      """Return size from proc status in bytes."""
-      _proc_status = '/proc/%d/status' % os.getpid()
-      _scale = {'kB': 1024.0, 'mB': 1024.0*1024.0,
-                'KB': 1024.0, 'MB': 1024.0*1024.0}
-
-       # get pseudo file  /proc/<pid>/status
-      try:
-          t = open(_proc_status)
-          v = t.read()
-          t.close()
-      except:
-          raise Exception("no proc file %s" % _proc_status)
-          return 0  # non-Linux?
-       # get VmKey line e.g. 'VmRSS:  9999  kB\n ...'
-      i = v.index(VmKey)
-      v = v[i:].split(None, 3)  # whitespace
-      if len(v) < 3:
-          raise Exception("%s" % v)
-          return 0  # invalid format?
-       # convert Vm value to bytes
-      return int(float(v[1]) * _scale[v[2]])
-
-    # I ran this on over a hundred GTFS files, comparing VmSize to VmRSS
-    # (resident set size). The difference was always under 2% or 3MB.
-    print "Virtual Memory Size: %d bytes" % _VmB('VmSize:')
-
-  return exit_code
+    return RunValidationOutputToFilename(feed, options, options.output)
 
 
 def ProfileMain():
   import cProfile
   import pstats
   cProfile.run('exit_code = main()', 'validate-stats')
+
+  # Only available on Unix, http://docs.python.org/lib/module-resource.html
+  import resource
+  print "Time: %d seconds" % (
+      resource.getrusage(resource.RUSAGE_SELF).ru_utime +
+      resource.getrusage(resource.RUSAGE_SELF).ru_stime)
+
+  # http://aspn.activestate.com/ASPN/Cookbook/Python/Recipe/286222
+  # http://aspn.activestate.com/ASPN/Cookbook/ "The recipes are freely
+  # available for review and use."
+  def _VmB(VmKey):
+    """Return size from proc status in bytes."""
+    _proc_status = '/proc/%d/status' % os.getpid()
+    _scale = {'kB': 1024.0, 'mB': 1024.0*1024.0,
+              'KB': 1024.0, 'MB': 1024.0*1024.0}
+
+     # get pseudo file  /proc/<pid>/status
+    try:
+        t = open(_proc_status)
+        v = t.read()
+        t.close()
+    except:
+        raise Exception("no proc file %s" % _proc_status)
+        return 0  # non-Linux?
+     # get VmKey line e.g. 'VmRSS:  9999  kB\n ...'
+    i = v.index(VmKey)
+    v = v[i:].split(None, 3)  # whitespace
+    if len(v) < 3:
+        raise Exception("%s" % v)
+        return 0  # invalid format?
+     # convert Vm value to bytes
+    return int(float(v[1]) * _scale[v[2]])
+
+  # I ran this on over a hundred GTFS files, comparing VmSize to VmRSS
+  # (resident set size). The difference was always under 2% or 3MB.
+  print "Virtual Memory Size: %d bytes" % _VmB('VmSize:')
+
+  # Output report of where CPU time was spent.
   p = pstats.Stats('validate-stats')
   p.strip_dirs()
   p.sort_stats('cumulative').print_stats(30)

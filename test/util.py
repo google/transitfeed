@@ -50,7 +50,15 @@ def check_call(cmd, expected_retcode=0, **kwargs):
         (cmd, retcode, out, err))
   return (out, err)
 
-class TempDirTestCaseBase(unittest.TestCase):
+
+class TestCaseAsserts(unittest.TestCase):
+  def assertMatchesRegex(self, regex, string):
+    """Assert that regex is found in string."""
+    if not re.search(regex, string):
+      self.fail("string %r did not match regex %r" % (string, regex))
+
+
+class TempDirTestCaseBase(TestCaseAsserts):
   """Make a temporary directory the current directory before running the test
   and remove it after the test.
   """

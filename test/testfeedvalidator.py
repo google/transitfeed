@@ -17,10 +17,13 @@
 # Smoke tests feed validator. Make sure it runs and returns the right things
 # for a valid feed and a feed with errors.
 
+import feedvalidator
 import os.path
 import re
+import StringIO
 import unittest
 import util
+import zipfile
 
 
 class FullTests(util.TempDirTestCaseBase):
@@ -35,6 +38,15 @@ class FullTests(util.TempDirTestCaseBase):
     self.assertFalse(re.search(r'ERROR', htmlout))
     self.assertFalse(os.path.exists('validation-crash.txt'))
 
+  def testGoodFeedConsoleOutput(self):
+    (out, err) = self.CheckCallWithPath(
+        [self.GetPath('feedvalidator.py'), '-n', '--output=CONSOLE',
+         self.GetPath('test', 'data', 'good_feed')])
+    self.assertTrue(re.search(r'feed validated successfully', out))
+    self.assertFalse(re.search(r'ERROR', out))
+    self.assertFalse(os.path.exists('validation-results.html'))
+    self.assertFalse(os.path.exists('validation-crash.txt'))
+
   def testMissingStops(self):
     (out, err) = self.CheckCallWithPath(
         [self.GetPath('feedvalidator.py'), '-n',
@@ -45,6 +57,17 @@ class FullTests(util.TempDirTestCaseBase):
     htmlout = open('validation-results.html').read()
     self.assertTrue(re.search(r'Invalid value BEATTY_AIRPORT', htmlout))
     self.assertFalse(re.search(r'feed validated successfully', htmlout))
+    self.assertFalse(os.path.exists('validation-crash.txt'))
+
+  def testMissingStopsConsoleOutput(self):
+    (out, err) = self.CheckCallWithPath(
+        [self.GetPath('feedvalidator.py'), '-n', '-o', 'console',
+         self.GetPath('test', 'data', 'missing_stops')],
+        expected_retcode=1)
+    self.assertTrue(re.search(r'ERROR', out))
+    self.assertFalse(re.search(r'feed validated successfully', out))
+    self.assertTrue(re.search(r'Invalid value BEATTY_AIRPORT', out))
+    self.assertFalse(os.path.exists('validation-results.html'))
     self.assertFalse(os.path.exists('validation-crash.txt'))
 
   def testLimitedErrors(self):
@@ -108,6 +131,34 @@ class FullTests(util.TempDirTestCaseBase):
     crashout = open('validation-crash.txt').read()
     self.assertTrue(re.search(r'For testing the feed validator crash handler',
                               crashout))
+
+
+class MockOptions:
+  """Pretend to be an optparse options object suitable for testing."""
+  def __init__(self):
+    self.limit_per_type = 5
+    self.memory_db = True
+    self.check_duplicate_trips = True
+    self.output = 'fake-filename.zip'
+    self.manual_entry = False
+
+
+class FeedValidatorTestCase(util.TempDirTestCaseBase):
+  def testBadEolContext(self):
+    """Make sure the filename is included in the report of a bad eol."""
+    zipfile_mem = StringIO.StringIO(open(
+        self.GetPath('test', 'data', 'good_feed.zip')).read())
+    zip = zipfile.ZipFile(zipfile_mem, 'a')
+    routes_txt = zip.read('routes.txt')
+    # routes_txt_modified is invalid because the first line ends with \r\n.
+    routes_txt_modified = routes_txt.replace('\n', '\r\n', 1)
+    self.assertNotEquals(routes_txt_modified, routes_txt)
+    zip.writestr('routes.txt', routes_txt_modified)
+    zip.close()
+    options = MockOptions()
+    output_file = StringIO.StringIO()
+    feedvalidator.RunValidationOutputToFile(zipfile_mem, options, output_file)
+    self.assertMatchesRegex("routes.txt", output_file.getvalue())
 
 
 if __name__ == '__main__':
