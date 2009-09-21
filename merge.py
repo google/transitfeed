@@ -332,6 +332,35 @@ Generated using transitfeed version %s on %s.
     output_file.write(transitfeed.EncodeUnicode(html_footer))
 
 
+class ConsoleWarningRaiseErrorProblemReporter(transitfeed.ProblemReporterBase):
+  """Problem reporter to use when loading feeds for merge."""
+
+  def _Report(self, e):
+    if e.IsError():
+      raise e
+    else:
+      print transitfeed.EncodeUnicode(e.FormatProblem())
+      context = e.FormatContext()
+      if context:
+        print context
+
+
+def LoadWithoutErrors(path, memory_db):
+  """"Return a Schedule object loaded from path; sys.exit for any error."""
+  loading_problem_handler = ConsoleWarningRaiseErrorProblemReporter()
+  try:
+    schedule = transitfeed.Loader(path,
+                                  memory_db=memory_db,
+                                  problems=loading_problem_handler).Load()
+  except transitfeed.ExceptionWithContext, e:
+    print >>sys.stderr, (
+        "\n\nFeeds to merge must load without any errors.\n"
+        "While loading %s the following error was found:\n%s\n%s\n" %
+        (path, e.FormatContext(), transitfeed.EncodeUnicode(e.FormatProblem())))
+    sys.exit(1)
+  return schedule
+
+
 class DataSetMerger(object):
   """A DataSetMerger is in charge of merging a set of entities.
 
@@ -1703,10 +1732,8 @@ Merges <feed_input_a> and <feed_input_b> into a new GTFS file <feed_output.zip>.
     # See test/testmerge.py
     raise Exception('For testing the merge crash handler.')
 
-  a_schedule = transitfeed.Loader(old_feed_path,
-                                  memory_db=options.memory_db).Load()
-  b_schedule = transitfeed.Loader(new_feed_path,
-                                  memory_db=options.memory_db).Load()
+  a_schedule = LoadWithoutErrors(old_feed_path, options.memory_db)
+  b_schedule = LoadWithoutErrors(new_feed_path, options.memory_db)
   merged_schedule = transitfeed.Schedule(memory_db=options.memory_db)
   problem_reporter = HTMLProblemReporter()
   feed_merger = FeedMerger(a_schedule, b_schedule, merged_schedule,

@@ -21,11 +21,13 @@ __author__ = 'timothy.stranex@gmail.com (Timothy Stranex)'
 
 
 import merge
+import os.path
 import re
 import StringIO
 import transitfeed
 import unittest
 import util
+import zipfile
 
 
 def CheckAttribs(a, b, attrs, assertEquals):
@@ -1341,6 +1343,17 @@ class TestHTMLProblemReporter(unittest.TestCase):
 
 
 class MergeInSubprocessTestCase(util.TempDirTestCaseBase):
+  def CopyAndModifyTestData(self, zip_path, modify_file, old, new):
+    """Return path of zip_path copy with old replaced by new in modify_file."""
+    zipfile_mem = StringIO.StringIO(open(zip_path).read())
+    new_zip_path = os.path.join(self.tempdirpath, "modified.zip")
+    zip = zipfile.ZipFile(zipfile_mem, 'a')
+    modified_contents = zip.read(modify_file).replace(old, new)
+    zip.writestr(modify_file, modified_contents)
+    zip.close()
+    open(new_zip_path, 'w').write(zipfile_mem.getvalue())
+    return new_zip_path
+
   def testCrashHandler(self):
     (out, err) = self.CheckCallWithPath(
         [self.GetPath('merge.py'), '--no_browser',
@@ -1357,6 +1370,33 @@ class MergeInSubprocessTestCase(util.TempDirTestCaseBase):
         expected_retcode=2)
     self.assertFalse(out)
     self.assertTrue(err.find('command line arguments') != -1)
+
+  def testMergeWithWarnings(self):
+    # Make a copy of good_feed.zip which is not active until 20110101. This
+    # avoids adding another test/data file. good_feed.zip needs to remain error
+    # free so it can't start in the future.
+    future_good_feed = self.CopyAndModifyTestData(
+        self.GetPath('test/data/good_feed.zip'), 'calendar.txt',
+        '20070101', '20110101')
+    (out, err) = self.CheckCallWithPath(
+        [self.GetPath('merge.py'), '--no_browser',
+         self.GetPath('test/data/unused_stop'),
+         future_good_feed,
+         os.path.join(self.tempdirpath, 'merged-warnings.zip')],
+        expected_retcode=0)
+
+  def testMergeWithErrors(self):
+    # Make a copy of good_feed.zip which is not active until 20110101. This
+    # avoids adding another test/data file. good_feed.zip needs to remain error
+    # free so it can't start in the future.
+    future_good_feed = self.CopyAndModifyTestData(
+        self.GetPath('test/data/good_feed.zip'), 'calendar.txt',
+        '20070101', '20110101')
+    (out, err) = self.CheckCallWithPath(
+        [self.GetPath('merge.py'), '--no_browser',
+         self.GetPath('test/data/unused_stop'),
+         future_good_feed],
+        expected_retcode=2)
 
 
 if __name__ == '__main__':
