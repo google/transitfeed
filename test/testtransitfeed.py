@@ -1052,6 +1052,8 @@ class StopTimeValidationTestCase(ValidationTestCase):
         departure_time="1:05:00")
     transitfeed.StopTime(self.problems, stop, arrival_time="24:59:00",
         departure_time="25:05:00")
+    transitfeed.StopTime(self.problems, stop, arrival_time="101:01:00",
+        departure_time="101:21:00")
     transitfeed.StopTime(self.problems, stop)
     self.problems.AssertNoMoreExceptions()
 
