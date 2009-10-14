@@ -34,11 +34,15 @@ import optparse
 import os
 import os.path
 import re
+import socket
+import sys
 import time
 import transitfeed
 from transitfeed import TYPE_ERROR, TYPE_WARNING
-import sys
+from urllib2 import Request, urlopen, HTTPError, URLError
 import webbrowser
+
+SVN_TAG_URL = 'http://googletransitdatafeed.googlecode.com/svn/tags/'
 
 
 def MaybePluralizeWord(count, word):
@@ -161,6 +165,14 @@ def FormatDateList(dates):
     formatted.append("...")
   return "%s (%s)" % (PrettyNumberWord(len(dates), "service date"),
                       ", ".join(formatted))
+
+
+def MaxVersion(versions):
+  versions = filter(None, versions)
+  versions.sort(lambda x,y: -cmp([int(item) for item in x.split('.')],
+                                 [int(item) for item in y.split('.')]))
+  if len(versions) > 0:
+    return versions[0]
 
 
 class CountingConsoleProblemReporter(transitfeed.ProblemReporter):
@@ -339,7 +351,7 @@ class HTMLCountingProblemReporter(transitfeed.ProblemReporter):
     output.append('</table>')
     return ''.join(output)
 
-  def WriteOutput(self, feed_location, f, schedule):
+  def WriteOutput(self, feed_location, f, schedule, other_problems):
     """Write the html output to f."""
     if self.HasIssues():
       if self.ErrorCount() + self.WarningCount() == 1:
@@ -350,6 +362,9 @@ class HTMLCountingProblemReporter(transitfeed.ProblemReporter):
                    self.CountTable())
     else:
       summary = '<span class="pass">feed validated successfully</span>'
+    if other_problems is not None:
+      summary = ('<span class="fail">\n%s</span><br><br>' % 
+                 other_problems) + summary 
 
     basename = os.path.basename(feed_location)
     feed_path = (feed_location[:feed_location.rfind(basename)], basename)
@@ -493,7 +508,9 @@ def RunValidationOutputToFile(feed, options, output_file):
     feed_location = feed
   else:
     feed_location = getattr(feed, 'name', repr(feed))
-  problems.WriteOutput(feed_location, output_file, schedule)
+  other_problems_string = CheckVersion(latest_version=options.latest_version)
+  problems.WriteOutput(feed_location, output_file, schedule, 
+                       other_problems_string)
   return exit_code
 
 
@@ -501,6 +518,9 @@ def RunValidationOutputToConsole(feed, options):
   """Validate feed, print reports and return an exit code."""
   problems = CountingConsoleProblemReporter()
   _, exit_code = RunValidation(feed, options, problems)
+  other_problems_string = CheckVersion(latest_version=options.latest_version)
+  if other_problems_string:
+    print other_problems_string
   return exit_code
 
 
@@ -535,6 +555,41 @@ def RunValidation(feed, options, problems):
     return schedule, 0
 
 
+def CheckVersion(latest_version=''):
+  """ 
+  Check there is newer version of this project.
+  
+  Codes are based on http://www.voidspace.org.uk/python/articles/urllib2.shtml
+  Already got permission from the copyright holder.
+  """
+  current_version = transitfeed.__version__
+  if not latest_version:
+    timeout = 20
+    socket.setdefaulttimeout(timeout)
+    request = Request(SVN_TAG_URL)
+
+    try:
+      response = urlopen(request)
+      content = response.read()
+      versions = re.findall(r'>transitfeed-([\d\.]+)\/<\/a>', content)
+      latest_version = MaxVersion(versions)
+      
+    except HTTPError, e:
+      return('The server couldn\'t fulfill the request. Error code: %s.' 
+             % e.code)
+    except URLError, e:
+      return('We failed to reach transitfeed server. Reason: %s.' % e.reason)
+
+  if not latest_version:
+    return('We had trouble parsing the contents of %s.' % SVN_TAG_URL)
+
+  newest_version = MaxVersion([latest_version, current_version])
+  if current_version != newest_version:
+    return('A new version %s of transitfeed is available. Please visit '
+           'http://code.google.com/p/googletransitdatafeed and download.' 
+           % newest_version)   
+
+
 def main():
   parser = optparse.OptionParser(usage='usage: %prog [options] feed_filename',
                                  version='%prog '+transitfeed.__version__)
@@ -560,10 +615,15 @@ def main():
                     dest='limit_per_type', action='store', type='int',
                     help='Maximum number of errors and warnings to keep of '
                     'each type')
+  parser.add_option('--latest_version', dest='latest_version', 
+                    action='store', 
+                    help='a version number such as 1.2.1 or None to get the '
+                    'latest version from code.google.com. Output a warning if '
+                    'transitfeed.py is older than this version.')
                
   parser.set_defaults(manual_entry=True, output='validation-results.html',
                       memory_db=False, check_duplicate_trips=False,
-                      limit_per_type=5)
+                      limit_per_type=5, latest_version='')
   (options, args) = parser.parse_args()
   if not len(args) == 1:
     if options.manual_entry:
