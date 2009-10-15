@@ -503,12 +503,12 @@ def RunValidationOutputToFilename(feed, options, output_filename):
 def RunValidationOutputToFile(feed, options, output_file):
   """Validate feed, write HTML to output_file and return an exit code."""
   problems = HTMLCountingProblemReporter(options.limit_per_type)
-  schedule, exit_code = RunValidation(feed, options, problems)
+  schedule, exit_code, other_problems_string = RunValidation(feed, options,
+                                                             problems)
   if isinstance(feed, basestring):
     feed_location = feed
   else:
     feed_location = getattr(feed, 'name', repr(feed))
-  other_problems_string = CheckVersion(latest_version=options.latest_version)
   problems.WriteOutput(feed_location, output_file, schedule, 
                        other_problems_string)
   return exit_code
@@ -517,10 +517,7 @@ def RunValidationOutputToFile(feed, options, output_file):
 def RunValidationOutputToConsole(feed, options):
   """Validate feed, print reports and return an exit code."""
   problems = CountingConsoleProblemReporter()
-  _, exit_code = RunValidation(feed, options, problems)
-  other_problems_string = CheckVersion(latest_version=options.latest_version)
-  if other_problems_string:
-    print other_problems_string
+  _, exit_code, _ = RunValidation(feed, options, problems)
   return exit_code
 
 
@@ -533,9 +530,12 @@ def RunValidation(feed, options, problems):
     problems: transitfeed.ProblemReporter instance
 
   Returns:
-    a transitfeed.Schedule object and exit code.
-    exit code is 1 if problems are found and 0 if the Schedule is problem free
+    a transitfeed.Schedule object, exit code and plain text string of other
+    problems
+    Exit code is 1 if problems are found and 0 if the Schedule is problem free.
+    plain text string is '' if no other problems are found.
   """
+  other_problems_string = CheckVersion(latest_version=options.latest_version)
   print 'validating %s' % feed
   loader = transitfeed.Loader(feed, problems=problems, extra_validation=True,
                               memory_db=options.memory_db,
@@ -547,12 +547,15 @@ def RunValidation(feed, options, problems):
     # See test/testfeedvalidator.py
     raise Exception('For testing the feed validator crash handler.')
 
+  if other_problems_string:
+    print other_problems_string
+
   if problems.HasIssues():
     print 'ERROR: %s found' % problems.FormatCount()
-    return schedule, 1
+    return schedule, 1, other_problems_string
   else:
     print 'feed validated successfully'
-    return schedule, 0
+    return schedule, 0, other_problems_string
 
 
 def CheckVersion(latest_version=''):

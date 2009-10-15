@@ -145,6 +145,7 @@ class FullTests(util.TempDirTestCaseBase):
         [self.GetPath('feedvalidator.py'), '-n', '--latest_version', 
          '100.100.100', self.GetPath('test', 'data', 'good_feed')])
     self.assertTrue(re.search(r'feed validated successfully', out))
+    self.assertTrue(re.search(r'A new version 100.100.100', out))
     htmlout = open('validation-results.html').read()
     self.assertTrue(re.search(r'A new version 100.100.100', htmlout))
     self.assertFalse(re.search(r'ERROR', htmlout))
