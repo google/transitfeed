@@ -177,7 +177,7 @@ class FeedValidatorTestCase(util.TempDirTestCaseBase):
   def testBadEolContext(self):
     """Make sure the filename is included in the report of a bad eol."""
     zipfile_mem = StringIO.StringIO(open(
-        self.GetPath('test', 'data', 'good_feed.zip')).read())
+        self.GetPath('test', 'data', 'good_feed.zip'), 'rb').read())
     zip = zipfile.ZipFile(zipfile_mem, 'a')
     routes_txt = zip.read('routes.txt')
     # routes_txt_modified is invalid because the first line ends with \r\n.

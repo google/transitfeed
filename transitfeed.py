@@ -3913,7 +3913,7 @@ class Loader:
         return None
     else:
       try:
-        data_file = open(os.path.join(self._path, file_name), 'r')
+        data_file = open(os.path.join(self._path, file_name), 'rb')
         results = data_file.read()
       except IOError:  # file not found
         self._problems.MissingFile(file_name)

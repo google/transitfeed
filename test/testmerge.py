@@ -1345,13 +1345,13 @@ class TestHTMLProblemReporter(unittest.TestCase):
 class MergeInSubprocessTestCase(util.TempDirTestCaseBase):
   def CopyAndModifyTestData(self, zip_path, modify_file, old, new):
     """Return path of zip_path copy with old replaced by new in modify_file."""
-    zipfile_mem = StringIO.StringIO(open(zip_path).read())
+    zipfile_mem = StringIO.StringIO(open(zip_path, 'rb').read())
     new_zip_path = os.path.join(self.tempdirpath, "modified.zip")
     zip = zipfile.ZipFile(zipfile_mem, 'a')
     modified_contents = zip.read(modify_file).replace(old, new)
     zip.writestr(modify_file, modified_contents)
     zip.close()
-    open(new_zip_path, 'w').write(zipfile_mem.getvalue())
+    open(new_zip_path, 'wb').write(zipfile_mem.getvalue())
     return new_zip_path
 
   def testCrashHandler(self):
