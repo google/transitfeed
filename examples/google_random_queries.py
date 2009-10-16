@@ -100,7 +100,7 @@ def LatLngsToGoogleUrl(source, destination, dt):
   params = {"saddr": FormatLatLng(source),
             "daddr": FormatLatLng(destination),
             "time": dt.strftime("%I:%M%p"),
-            "date": dt.strftime("%m/%d/%Y"),
+            "date": dt.strftime("%Y-%m-%d"),
             "dirflg": "r",
             "ie": "UTF8",
             "oe": "UTF8"}
