@@ -3212,6 +3212,21 @@ class OnlyCalendarDatesTestCase(LoadTestCase):
     self.problems.AssertNoMoreExceptions()
 
 
+class DuplicateServiceIdDateWarningTestCase(MemoryZipTestCase):
+  def runTest(self):
+    # Two lines with the same value of service_id and date.
+    # Test for the warning.
+    self.zip.writestr(
+        'calendar_dates.txt',
+        'service_id,date,exception_type\n'
+        'FULLW,20100604,1\n'
+        'FULLW,20100604,2\n')
+    schedule = self.loader.Load()
+    e = self.problems.PopException('DuplicateID')
+    self.assertEquals('(service_id, date)', e.column_name)
+    self.assertEquals('(FULLW, 20100604)', e.value)
+
+
 class AddStopTimeParametersTestCase(unittest.TestCase):
   def runTest(self):
     problem_reporter = TestFailureProblemReporter(self)

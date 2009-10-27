@@ -171,9 +171,13 @@ class ProblemReporterBase:
                      context=context, context2=self._context, type=type)
     self._Report(e)
 
-  def DuplicateID(self, column_name, value, context=None):
-    e = DuplicateID(column_name=column_name, value=value,
-                    context=context, context2=self._context)
+  def DuplicateID(self, column_names, values, context=None, type=TYPE_ERROR):
+    if isinstance(column_names, tuple):
+      column_names = '(' + ', '.join(column_names) + ')'
+    if isinstance(values, tuple):
+      values = '(' + ', '.join(values) + ')'
+    e = DuplicateID(column_name=column_names, value=values,
+                    context=context, context2=self._context, type=type)
     self._Report(e)
 
   def UnusedStop(self, stop_id, stop_name, context=None):
@@ -2448,7 +2452,11 @@ class ServicePeriod(object):
     result.sort()  # helps with __eq__
     return result
 
-  def SetDateHasService(self, date, has_service=True):
+  def SetDateHasService(self, date, has_service=True, problems=None):
+    if date in self.date_exceptions and problems:
+      problems.DuplicateID(('service_id', 'date'),
+                           (self.service_id, date),
+                           type=TYPE_WARNING)
     self.date_exceptions[date] = has_service and 1 or 2
 
   def ResetDateToNormalService(self, date):
@@ -3975,14 +3983,15 @@ class Loader:
                             ServicePeriod._FIELD_NAMES,
                             ServicePeriod._FIELD_NAMES_REQUIRED):
         context = (file_name, row_num, row, cols)
+        self._problems.SetFileContext(*context)
 
         period = ServicePeriod(field_list=row)
 
         if period.service_id in periods:
           self._problems.DuplicateID('service_id', period.service_id)
-          continue
-
-        periods[period.service_id] = (period, context)
+        else:
+          periods[period.service_id] = (period, context)
+        self._problems.ClearContext()
 
     # process calendar_dates.txt
     if self._HasFile(file_name_dates):
@@ -3991,6 +4000,7 @@ class Loader:
       for (row, row_num, cols) in self._ReadCSV(file_name_dates,
                                                 fields, fields):
         context = (file_name_dates, row_num, row, cols)
+        self._problems.SetFileContext(*context)
 
         service_id = row[0]
 
@@ -4003,11 +4013,12 @@ class Loader:
 
         exception_type = row[2]
         if exception_type == u'1':
-          period.SetDateHasService(row[1], True)
+          period.SetDateHasService(row[1], True, self._problems)
         elif exception_type == u'2':
-          period.SetDateHasService(row[1], False)
+          period.SetDateHasService(row[1], False, self._problems)
         else:
           self._problems.InvalidValue('exception_type', exception_type)
+        self._problems.ClearContext()
 
     # Now insert the periods into the schedule object, so that they're
     # validated with both calendar and calendar_dates info present
