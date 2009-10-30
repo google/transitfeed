@@ -29,6 +29,7 @@ import re
 import string
 import sys
 import transitfeed
+import util
 import xml.dom.minidom as minidom
 import zipfile
 
@@ -114,20 +115,103 @@ class KmlParser(object):
       ret.append((float(coords[0]), float(coords[1])))
     return ret
 
+
 def main():
-  if len(sys.argv) < 3:
-    print "ERROR: Not enough arguments"
-    print "Usage: " + sys.argv[0] + " <kml file name> <output feed file name>"
-    sys.exit(1)
+  usage = \
+"""%prog <input.kml> <output GTFS.zip>
+
+Reads KML file <input.kml> and creates GTFS file <output GTFS.zip> with
+placemarks in the KML represented as stops.
+"""
+
+  parser = util.OptionParserLongError(
+      usage=usage, version='%prog '+transitfeed.__version__)
+  (options, args) = parser.parse_args()
+  if len(args) != 2:
+    parser.error('You did not provide all required command line arguments.')
+
+  if args[0] == 'IWantMyCrash':
+    raise Exception('For testCrashHandler')
 
   parser = KmlParser()
   feed = transitfeed.Schedule()
   feed.save_all_stops = True
-  parser.Parse(sys.argv[1], feed)
-  feed.WriteGoogleTransitFeed(sys.argv[2])
+  parser.Parse(args[0], feed)
+  feed.WriteGoogleTransitFeed(args[1])
 
   print "Done."
 
-if __name__ == '__main__':
-  main()
 
+if __name__ == '__main__':
+  try:
+    exit_code = main()
+    sys.exit(exit_code)
+  except (SystemExit, KeyboardInterrupt):
+    raise
+  except:
+    import inspect
+    import sys
+    import traceback
+
+    # Save trace and exception now. These calls look at the most recently
+    # raised exception. The code that makes the report might trigger other
+    # exceptions.
+    original_trace = inspect.trace(3)[1:]
+    formatted_exception = traceback.format_exception_only(*(sys.exc_info()[:2]))
+
+    apology = """Yikes, the program threw an unexpected exception!
+
+Hopefully a complete report has been saved to transitfeedcrash.txt,
+though if you are seeing this message we've already disappointed you once
+today. Please include the report in a new issue at
+http://code.google.com/p/googletransitdatafeed/issues/entry
+or an email to googletransitdatafeed@googlegroups.com. Sorry!
+
+"""
+    dashes = '%s\n' % ('-' * 60)
+    dump = []
+    dump.append(apology)
+    dump.append(dashes)
+    try:
+      dump.append("transitfeed version %s\n\n" % transitfeed.__version__)
+    except NameError:
+      # Oh well, guess we won't put the version in the report
+      pass
+
+    for (frame_obj, filename, line_num, fun_name, context_lines,
+         context_index) in original_trace:
+      dump.append('File "%s", line %d, in %s\n' % (filename, line_num,
+                                                   fun_name))
+      if context_lines:
+        for (i, line) in enumerate(context_lines):
+          if i == context_index:
+            dump.append(' --> %s' % line)
+          else:
+            dump.append('     %s' % line)
+      for local_name, local_val in frame_obj.f_locals.items():
+        try:
+          truncated_val = str(local_val)[0:500]
+        except Exception, e:
+          dump.append('    Exception in str(%s): %s' % (local_name, e))
+        else:
+          if len(truncated_val) >= 500:
+            truncated_val = '%s...' % truncated_val[0:499]
+          dump.append('    %s = %s\n' % (local_name, truncated_val))
+      dump.append('\n')
+
+    dump.append(''.join(formatted_exception))
+
+    open('transitfeedcrash.txt', 'w').write(''.join(dump))
+
+    print ''.join(dump)
+    print
+    print dashes
+    print apology
+
+    if '-n' not in sys.argv and '--noprompt' not in sys.argv:
+      try:
+        raw_input('Press enter to continue')
+      except EOFError:
+        # Ignore stdin being closed. This happens during some tests.
+        pass
+    sys.exit(127)

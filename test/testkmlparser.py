@@ -18,37 +18,32 @@
 
 import kmlparser
 import os.path
+import shutil
+from StringIO import StringIO
 import transitfeed
 import unittest
+import util
 
 
-def DataPath(path):
-  here = os.path.dirname(__file__)
-  return os.path.join(here, 'data', path)
-
-
-class TestStopsParsing(unittest.TestCase):
-  def setUp(self):
-    self.feed = transitfeed.Schedule()
-
+class TestStopsParsing(util.GetPathTestCase):
   def testSingleStop(self):
-    kmlFile = DataPath('one_stop.kml')
-    kmlparser.KmlParser().Parse(kmlFile, self.feed)
-    stops = self.feed.GetStopList()
+    feed = transitfeed.Schedule()
+    kmlFile = self.GetTestDataPath('one_stop.kml')
+    kmlparser.KmlParser().Parse(kmlFile, feed)
+    stops = feed.GetStopList()
     self.assertEqual(1, len(stops))
     stop = stops[0]
     self.assertEqual(u'Stop Name', stop.stop_name)
     self.assertAlmostEqual(-93.239037, stop.stop_lon)
     self.assertAlmostEqual(44.854164, stop.stop_lat)
-
-class TestShapesParsing(unittest.TestCase):
-  def setUp(self):
-    self.feed = transitfeed.Schedule()
+    write_output = StringIO()
+    feed.WriteGoogleTransitFeed(write_output)
 
   def testSingleShape(self):
-    kmlFile = DataPath('one_line.kml')
-    kmlparser.KmlParser().Parse(kmlFile, self.feed)
-    shapes = self.feed.GetShapeList()
+    feed = transitfeed.Schedule()
+    kmlFile = self.GetTestDataPath('one_line.kml')
+    kmlparser.KmlParser().Parse(kmlFile, feed)
+    shapes = feed.GetShapeList()
     self.assertEqual(1, len(shapes))
     shape = shapes[0]
     self.assertEqual(3, len(shape.points))
@@ -58,6 +53,35 @@ class TestShapesParsing(unittest.TestCase):
     self.assertAlmostEqual(-93.238708, shape.points[1][1])
     self.assertAlmostEqual(44.852638, shape.points[2][0])
     self.assertAlmostEqual(-93.237923, shape.points[2][1])
+    write_output = StringIO()
+    feed.WriteGoogleTransitFeed(write_output)
+
+
+class FullTests(util.TempDirTestCaseBase):
+  def testNormalRun(self):
+    shutil.copyfile(self.GetTestDataPath('one_stop.kml'), 'one_stop.kml')
+    (out, err) = self.CheckCallWithPath(
+        [self.GetPath('kmlparser.py'), 'one_stop.kml', 'one_stop.zip'])
+    # There will be lots of problems, but ignore them
+    problems = util.RecordingProblemReporter(self)
+    schedule = transitfeed.Loader('one_stop.zip', problems=problems).Load()
+    self.assertEquals(len(schedule.GetStopList()), 1)
+    self.assertFalse(os.path.exists('transitfeedcrash.txt'))
+
+  def testCommandLineError(self):
+    (out, err) = self.CheckCallWithPath([self.GetPath('kmlparser.py')],
+                                        expected_retcode=2)
+    self.assertMatchesRegex(r'did not provide .+ arguments', err)
+    self.assertMatchesRegex(r'Usage:', err)
+    self.assertFalse(os.path.exists('transitfeedcrash.txt'))
+
+  def testCrashHandler(self):
+    (out, err) = self.CheckCallWithPath(
+        [self.GetPath('kmlparser.py'), 'IWantMyCrash', 'output.zip'],
+        stdin_str="\n", expected_retcode=127)
+    self.assertMatchesRegex(r'Yikes', out)
+    crashout = open('transitfeedcrash.txt').read()
+    self.assertMatchesRegex(r'For testCrashHandler', crashout)
 
 
 if __name__ == '__main__':

@@ -24,14 +24,14 @@ import re
 import sys
 import tempfile
 import time
-import traceback
 import transitfeed
 import unittest
+import util
+from util import RecordingProblemReporter
 from StringIO import StringIO
 import zipfile
 import zlib
 
-import util
 
 def DataPath(path):
   here = os.path.dirname(__file__)
@@ -73,65 +73,6 @@ class TestFailureProblemReporter(transitfeed.ProblemReporter):
       return
     self.test_case.fail(
         "%s: %s\n%s" % (exception_class, formatted_problem, formatted_context))
-
-
-class RecordingProblemReporter(transitfeed.ProblemReporterBase):
-  """Save all problems for later inspection.
-
-  Args:
-    test_case: a unittest.TestCase object on which to report problems
-    ignore_types: sequence of string type names that will be ignored by the
-    ProblemReporter"""
-  def __init__(self, test_case, ignore_types=None):
-    transitfeed.ProblemReporterBase.__init__(self)
-    self.exceptions = []
-    self._test_case = test_case
-    self._ignore_types = ignore_types or set()
-
-  def _Report(self, e):
-    # Ensure that these don't crash
-    e.FormatProblem()
-    e.FormatContext()
-    if e.__class__.__name__ in self._ignore_types:
-      return
-    # Keep the 7 nearest stack frames. This should be enough to identify
-    # the code path that created the exception while trimming off most of the
-    # large test framework's stack.
-    traceback_list = traceback.format_list(traceback.extract_stack()[-7:-1])
-    self.exceptions.append((e, ''.join(traceback_list)))
-
-  def PopException(self, type_name):
-    """Return the first exception, which must be a type_name."""
-    e = self.exceptions.pop(0)
-    e_name = e[0].__class__.__name__
-    self._test_case.assertEqual(e_name, type_name,
-                                "%s != %s\n%s" %
-                                (e_name, type_name, self.FormatException(*e)))
-    return e[0]
-
-  def FormatException(self, exce, tb):
-    return ("%s\nwith gtfs file context %s\nand traceback\n%s" %
-            (exce.FormatProblem(), exce.FormatContext(), tb))
-
-  def AssertNoMoreExceptions(self):
-    exceptions_as_text = []
-    for e, tb in self.exceptions:
-      exceptions_as_text.append(self.FormatException(e, tb))
-    self._test_case.assertFalse(self.exceptions, "\n".join(exceptions_as_text))
-
-  def PopInvalidValue(self, column_name, file_name=None):
-    e = self.PopException("InvalidValue")
-    self._test_case.assertEquals(column_name, e.column_name)
-    if file_name:
-      self._test_case.assertEquals(file_name, e.file_name)
-    return e
-
-  def PopMissingValue(self, column_name, file_name=None):
-    e = self.PopException("MissingValue")
-    self._test_case.assertEquals(column_name, e.column_name)
-    if file_name:
-      self._test_case.assertEquals(file_name, e.file_name)
-    return e
 
 
 class UnrecognizedColumnRecorder(RecordingProblemReporter):

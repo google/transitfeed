@@ -942,7 +942,9 @@ class Route(GenericGTFSObject):
     schedule.AddTripObject(trip)
     return trip
 
-  def AddTripObject(self, trip):
+  def _AddTripObject(self, trip):
+    # Only class Schedule may call this. Users of the API should call
+    # Route.AddTrip or schedule.AddTripObject.
     self._trips.append(trip)
 
   def __getattr__(self, name):
@@ -3007,7 +3009,7 @@ class Schedule:
         problem_reporter = self.problem_reporter
       trip.Validate(problem_reporter, validate_children=False)
     try:
-      self.routes[trip.route_id].AddTripObject(trip)
+      self.routes[trip.route_id]._AddTripObject(trip)
     except KeyError:
       # Invalid route_id was reported in the Trip.Validate call above
       pass
@@ -3130,13 +3132,14 @@ class Schedule:
     # Compression type given when adding each file
     archive = zipfile.ZipFile(file, 'w')
 
-    agency_string = StringIO.StringIO()
-    writer = CsvUnicodeWriter(agency_string)
-    columns = self.GetTableColumns('agency')
-    writer.writerow(columns)
-    for a in self._agencies.values():
-      writer.writerow([EncodeUnicode(a[c]) for c in columns])
-    self._WriteArchiveString(archive, 'agency.txt', agency_string)
+    if 'agency' in self._table_columns:
+      agency_string = StringIO.StringIO()
+      writer = CsvUnicodeWriter(agency_string)
+      columns = self.GetTableColumns('agency')
+      writer.writerow(columns)
+      for a in self._agencies.values():
+        writer.writerow([EncodeUnicode(a[c]) for c in columns])
+      self._WriteArchiveString(archive, 'agency.txt', agency_string)
 
     calendar_dates_string = StringIO.StringIO()
     writer = CsvUnicodeWriter(calendar_dates_string)
@@ -3164,30 +3167,32 @@ class Schedule:
     if has_data or not wrote_calendar_dates:
       self._WriteArchiveString(archive, 'calendar.txt', calendar_string)
 
-    stop_string = StringIO.StringIO()
-    writer = CsvUnicodeWriter(stop_string)
-    columns = self.GetTableColumns('stops')
-    writer.writerow(columns)
-    for s in self.stops.values():
-      writer.writerow([EncodeUnicode(s[c]) for c in columns])
-    self._WriteArchiveString(archive, 'stops.txt', stop_string)
+    if 'stops' in self._table_columns:
+      stop_string = StringIO.StringIO()
+      writer = CsvUnicodeWriter(stop_string)
+      columns = self.GetTableColumns('stops')
+      writer.writerow(columns)
+      for s in self.stops.values():
+        writer.writerow([EncodeUnicode(s[c]) for c in columns])
+      self._WriteArchiveString(archive, 'stops.txt', stop_string)
 
-    route_string = StringIO.StringIO()
-    writer = CsvUnicodeWriter(route_string)
-    columns = self.GetTableColumns('routes')
-    writer.writerow(columns)
-    for r in self.routes.values():
-      writer.writerow([EncodeUnicode(r[c]) for c in columns])
-    self._WriteArchiveString(archive, 'routes.txt', route_string)
+    if 'routes' in self._table_columns:
+      route_string = StringIO.StringIO()
+      writer = CsvUnicodeWriter(route_string)
+      columns = self.GetTableColumns('routes')
+      writer.writerow(columns)
+      for r in self.routes.values():
+        writer.writerow([EncodeUnicode(r[c]) for c in columns])
+      self._WriteArchiveString(archive, 'routes.txt', route_string)
 
-    # write trips.txt
-    trips_string = StringIO.StringIO()
-    writer = CsvUnicodeWriter(trips_string)
-    columns = self.GetTableColumns('trips')
-    writer.writerow(columns)
-    for t in self.trips.values():
-      writer.writerow([EncodeUnicode(t[c]) for c in columns])
-    self._WriteArchiveString(archive, 'trips.txt', trips_string)
+    if 'trips' in self._table_columns:
+      trips_string = StringIO.StringIO()
+      writer = CsvUnicodeWriter(trips_string)
+      columns = self.GetTableColumns('trips')
+      writer.writerow(columns)
+      for t in self.trips.values():
+        writer.writerow([EncodeUnicode(t[c]) for c in columns])
+      self._WriteArchiveString(archive, 'trips.txt', trips_string)
 
     # write frequencies.txt (if applicable)
     headway_rows = []
