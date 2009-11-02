@@ -1056,7 +1056,7 @@ class TravelSpeedTestCase(ValidationTestCase):
     self.assertEqual(e.type, transitfeed.TYPE_WARNING)
     self.problems.AssertNoMoreExceptions()
 
-class MemoryZipTestCase(unittest.TestCase):
+class MemoryZipTestCase(util.TestCaseAsserts):
   def setUp(self):
     self.problems = RecordingProblemReporter(self, ("ExpirationDate",))
     self.zipfile = StringIO()
@@ -1468,12 +1468,15 @@ class StopHierarchyTestCase(MemoryZipTestCase):
         "STAGECOACH,Stagecoach Hotel,36.915682,-116.751677,,\n")
     schedule = self.loader.Load()
     e = self.problems.PopException("OtherProblem")
-    self.assertTrue(e.FormatProblem().find(
-        "The parent_station of stop \"Bullfrog\"") != -1)
+    self.assertMatchesRegex(
+        "The parent_station of stop \"Bullfrog\"", e.FormatProblem())
     e = self.problems.PopException("OtherProblem")
+    self.assertMatchesRegex("BEATTY_AIRPORT", e.FormatProblem())
+    self.assertMatchesRegex("BULLFROG", e.FormatProblem())
+    self.assertMatchesRegex("are 0.00m apart", e.FormatProblem())
     e = self.problems.PopException("OtherProblem")
-    self.assertTrue(e.FormatProblem().find(
-        "The parent_station of stop \"Airport\"") != -1)
+    self.assertMatchesRegex(
+        "The parent_station of stop \"Airport\"", e.FormatProblem())
     self.problems.AssertNoMoreExceptions()
 
   def testStopTooFarFromParentStation(self):

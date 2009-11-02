@@ -191,6 +191,32 @@ class FeedValidatorTestCase(util.TempDirTestCaseBase):
     self.assertMatchesRegex("routes.txt", output_file.getvalue())
 
 
+class LimitPerTypeProblemReporterTestCase(unittest.TestCase):
+  def assertProblemsAttribute(self, problem_type, class_name, attribute_name,
+                              expected):
+    """Join the value of each exception's attribute_name in order."""
+    problem_attribute_list = []
+    for e in self.problems.ProblemList(problem_type, class_name).problems:
+      problem_attribute_list.append(getattr(e, attribute_name))
+    self.assertEquals(expected, " ".join(problem_attribute_list))
+
+  def testLimitOtherProblems(self):
+    """The first N of each type should be kept."""
+    self.problems = feedvalidator.LimitPerTypeProblemReporter(2)
+    self.problems.OtherProblem("e1", type=transitfeed.TYPE_ERROR)
+    self.problems.OtherProblem("w1", type=transitfeed.TYPE_WARNING)
+    self.problems.OtherProblem("e2", type=transitfeed.TYPE_ERROR)
+    self.problems.OtherProblem("e3", type=transitfeed.TYPE_ERROR)
+    self.problems.OtherProblem("w2", type=transitfeed.TYPE_WARNING)
+    self.assertEquals(2, self.problems.WarningCount())
+    self.assertEquals(3, self.problems.ErrorCount())
+    
+    self.assertProblemsAttribute(transitfeed.TYPE_ERROR,  "OtherProblem",
+        "description", "e1 e2")
+    self.assertProblemsAttribute(transitfeed.TYPE_WARNING,  "OtherProblem",
+        "description", "w1 w2")
+    
+
 class CheckVersionTestCase(util.TempDirTestCaseBase):
   def setUp(self):
     self.mock = MockURLOpen()

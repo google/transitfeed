@@ -200,82 +200,104 @@ class CountingConsoleProblemReporter(transitfeed.ProblemReporter):
   def HasIssues(self):
     return self.ErrorCount() or self.WarningCount()
 
-class ErrorSet(object):
-  """A collection error exceptions of one type with bounded size."""
-  def __init__(self, set_size_bound):
+
+class BoundedProblemList(object):
+  """A list of one type of ExceptionWithContext objects with bounded size."""
+  def __init__(self, size_bound):
     self._count = 0
     self._exceptions = []
-    self._set_size_bound = set_size_bound
+    self._size_bound = size_bound
 
-  def Add(self, error):
+  def Add(self, e):
     self._count += 1
-    if self._count <= self._set_size_bound:
-      self._exceptions.append(error)
+    if self._count <= self._size_bound:
+      self._exceptions.append(e)
 
   def _GetDroppedCount(self):
     return max(self._count - len(self._exceptions), 0)
 
+  def __repr__(self):
+    return "<BoundedProblemList %s>" % repr(self._exceptions)
+
   count = property(lambda s: s._count)
   dropped_count = property(_GetDroppedCount)
-  errors = property(lambda s: s._exceptions)
+  problems = property(lambda s: s._exceptions)
 
 
-class HTMLCountingProblemReporter(transitfeed.ProblemReporter):
+class LimitPerTypeProblemReporter(transitfeed.ProblemReporter):
   def __init__(self, limit_per_type):
     transitfeed.ProblemReporter.__init__(self)
-    self.unused_stops = []  # [(stop_id, stop_name)...]
 
-    # {TYPE_WARNING: {"ClassName": ErrorSet()}}
-    self._type_to_name_to_errorset = {
-      TYPE_WARNING: defaultdict(lambda: ErrorSet(limit_per_type)),
-      TYPE_ERROR: defaultdict(lambda: ErrorSet(limit_per_type))
+    # {TYPE_WARNING: {"ClassName": BoundedProblemList()}}
+    self._type_to_name_to_problist = {
+      TYPE_WARNING: defaultdict(lambda: BoundedProblemList(limit_per_type)),
+      TYPE_ERROR: defaultdict(lambda: BoundedProblemList(limit_per_type))
     }
 
   def HasIssues(self):
-    return (self._type_to_name_to_errorset[TYPE_ERROR] or
-            self._type_to_name_to_errorset[TYPE_WARNING])
+    return (self._type_to_name_to_problist[TYPE_ERROR] or
+            self._type_to_name_to_problist[TYPE_WARNING])
 
   def _Report(self, e):
-    self._type_to_name_to_errorset[e.GetType()][e.__class__.__name__].Add(e)
+    self._type_to_name_to_problist[e.GetType()][e.__class__.__name__].Add(e)
 
-  def FormatType(self, f, level_name, class_errorsets):
+  def ErrorCount(self):
+    error_sets = self._type_to_name_to_problist[TYPE_ERROR].values()
+    return sum(map(lambda v: v.count, error_sets))
+
+  def WarningCount(self):
+    warning_sets = self._type_to_name_to_problist[TYPE_WARNING].values()
+    return sum(map(lambda v: v.count, warning_sets))
+
+  def ProblemList(self, problem_type, class_name):
+    """Return the BoundedProblemList object for given type and class."""
+    return self._type_to_name_to_problist[problem_type][class_name]
+
+  def ProblemListMap(self, problem_type):
+    """Return the map from class name to BoundedProblemList object."""
+    return self._type_to_name_to_problist[problem_type]
+
+
+class HTMLCountingProblemReporter(LimitPerTypeProblemReporter):
+  def FormatType(self, f, level_name, class_problist):
     """Write the HTML dumping all problems of one type.
 
     Args:
       f: file object open for writing
       level_name: string such as "Error" or "Warning"
-      class_errorsets: sequence of tuples (class name, ErrorSet object)
+      class_problist: sequence of tuples (class name,
+          BoundedProblemList object)
     """
-    class_errorsets.sort()
+    class_problist.sort()
     output = []
-    for classname, errorset in class_errorsets:
+    for classname, problist in class_problist:
       output.append('<h4 class="issueHeader"><a name="%s%s">%s</a></h4><ul>\n' %
                     (level_name, classname, UnCamelCase(classname)))
-      for e in errorset.errors:
+      for e in problist.problems:
         self.FormatException(e, output)
-      if errorset.dropped_count:
+      if problist.dropped_count:
         output.append('<li>and %d more of this type.' %
-                      (errorset.dropped_count))
+                      (problist.dropped_count))
       output.append('</ul>\n')
     f.write(''.join(output))
 
-  def FormatTypeSummaryTable(self, level_name, name_to_errorset):
-    """Return an HTML table listing the number of errors by class name.
+  def FormatTypeSummaryTable(self, level_name, name_to_problist):
+    """Return an HTML table listing the number of problems by class name.
 
     Args:
       level_name: string such as "Error" or "Warning"
-      name_to_errorset: dict mapping class name to an ErrorSet object
+      name_to_problist: dict mapping class name to an BoundedProblemList object
 
     Returns:
       HTML in a string
     """
     output = []
     output.append('<table>')
-    for classname in sorted(name_to_errorset.keys()):
-      errorset = name_to_errorset[classname]
-      human_name = MaybePluralizeWord(errorset.count, UnCamelCase(classname))
+    for classname in sorted(name_to_problist.keys()):
+      problist = name_to_problist[classname]
+      human_name = MaybePluralizeWord(problist.count, UnCamelCase(classname))
       output.append('<tr><td>%d</td><td><a href="#%s%s">%s</a></td></tr>\n' %
-                    (errorset.count, level_name, classname, human_name))
+                    (problist.count, level_name, classname, human_name))
     output.append('</table>\n')
     return ''.join(output)
 
@@ -316,14 +338,6 @@ class HTMLCountingProblemReporter(transitfeed.ProblemReporter):
       pass  # Hope this was getting an attribute from e ;-)
     output.append('<br></li>\n')
 
-  def ErrorCount(self):
-    error_sets = self._type_to_name_to_errorset[TYPE_ERROR].values()
-    return sum(map(lambda v: v.count, error_sets))
-
-  def WarningCount(self):
-    warning_sets = self._type_to_name_to_errorset[TYPE_WARNING].values()
-    return sum(map(lambda v: v.count, warning_sets))
-
   def FormatCount(self):
     return ProblemCountText(self.ErrorCount(), self.WarningCount())
 
@@ -331,22 +345,22 @@ class HTMLCountingProblemReporter(transitfeed.ProblemReporter):
     output = []
     output.append('<table class="count_outside">\n')
     output.append('<tr>')
-    if self._type_to_name_to_errorset[TYPE_ERROR]:
+    if self.ProblemListMap(TYPE_ERROR):
       output.append('<td><span class="fail">%s</span></td>' %
                     PrettyNumberWord(self.ErrorCount(), "error"))
-    if self._type_to_name_to_errorset[TYPE_WARNING]:
+    if self.ProblemListMap(TYPE_WARNING):
       output.append('<td><span class="fail">%s</span></td>' %
                     PrettyNumberWord(self.WarningCount(), "warning"))
     output.append('</tr>\n<tr>')
-    if self._type_to_name_to_errorset[TYPE_ERROR]:
+    if self.ProblemListMap(TYPE_ERROR):
       output.append('<td>\n')
       output.append(self.FormatTypeSummaryTable("Error",
-                    self._type_to_name_to_errorset[TYPE_ERROR]))
+                    self.ProblemListMap(TYPE_ERROR)))
       output.append('</td>\n')
-    if self._type_to_name_to_errorset[TYPE_WARNING]:
+    if self.ProblemListMap(TYPE_WARNING):
       output.append('<td>\n')
       output.append(self.FormatTypeSummaryTable("Warning",
-                    self._type_to_name_to_errorset[TYPE_WARNING]))
+                    self.ProblemListMap(TYPE_WARNING)))
       output.append('</td>\n')
     output.append('</table>')
     return ''.join(output)
@@ -472,14 +486,14 @@ FeedValidator</a> version %s on %s.
 </html>""" % (transitfeed.__version__, time_unicode)
 
     f.write(transitfeed.EncodeUnicode(output_prefix))
-    if self._type_to_name_to_errorset[TYPE_ERROR]:
+    if self.ProblemListMap(TYPE_ERROR):
       f.write('<h3 class="issueHeader">Errors:</h3>')
       self.FormatType(f, "Error",
-                      self._type_to_name_to_errorset[TYPE_ERROR].items())
-    if self._type_to_name_to_errorset[TYPE_WARNING]:
+                      self.ProblemListMap(TYPE_ERROR).items())
+    if self.ProblemListMap(TYPE_WARNING):
       f.write('<h3 class="issueHeader">Warnings:</h3>')
       self.FormatType(f, "Warning",
-                      self._type_to_name_to_errorset[TYPE_WARNING].items())
+                      self.ProblemListMap(TYPE_WARNING).items())
     f.write(transitfeed.EncodeUnicode(output_suffix))
 
 
