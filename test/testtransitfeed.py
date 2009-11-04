@@ -998,63 +998,129 @@ class StopTimeValidationTestCase(ValidationTestCase):
     transitfeed.StopTime(self.problems, stop)
     self.problems.AssertNoMoreExceptions()
 
-class TravelSpeedTestCase(ValidationTestCase):
-  def runTest(self):
-    schedule = transitfeed.Schedule(problem_reporter=self.problems)
-    schedule.NewDefaultAgency(agency_name="Test Agency",
-                              agency_url="http://example.com",
-                              agency_timezone="America/Los_Angeles")
-    route = schedule.AddRoute(short_name="54C", long_name="Polish Hill", route_type=3)
-
-    service_period = schedule.GetDefaultServicePeriod()
+class TooFastTravelTestCase(ValidationTestCase):
+  def setUp(self):
+    ValidationTestCase.setUp(self)
+    self.schedule = transitfeed.Schedule(problem_reporter=self.problems)
+    self.schedule.NewDefaultAgency(agency_name="Test Agency",
+                                   agency_url="http://example.com",
+                                   agency_timezone="America/Los_Angeles")
+    self.route = self.schedule.AddRoute(short_name="54C",
+                                        long_name="Polish Hill", route_type=3)
+    service_period = self.schedule.GetDefaultServicePeriod()
     service_period.SetDateHasService("20070101")
+    self.trip = self.route.AddTrip(self.schedule, 'via Polish Hill')
 
-    trip = route.AddTrip(schedule, 'via Polish Hill')
+  def AddStopDistanceTime(self, dist_time_list):
+    # latitude where each 0.01 degrees longitude is 1km
+    magic_lat = 26.062468289
+    stop = self.schedule.AddStop(magic_lat, 0, "Demo Stop 0")
+    time = 0
+    self.trip.AddStopTime(stop, arrival_secs=time, departure_secs=time)
+    for i, (dist_delta, time_delta) in enumerate(dist_time_list):
+      stop = self.schedule.AddStop(
+          magic_lat, stop.stop_lon + dist_delta * 0.00001,
+          "Demo Stop %d" % (i + 1))
+      time += time_delta
+      self.trip.AddStopTime(stop, arrival_secs=time, departure_secs=time)
 
-    stop1 = schedule.AddStop(36.425288, -117.133162, "Demo Stop 1")
-    stop2 = schedule.AddStop(36.440466, -117.132463, "Demo Stop 2")
-    stop3 = schedule.AddStop(36.425999, -117.133999, "Demo Stop 3")
+  def testMovingTooFast(self):
+    self.AddStopDistanceTime([(1691, 60),
+                              (1616, 60)])
 
-    trip.AddStopTime(stop1, stop_time="12:00:00")
-    trip.AddStopTime(stop2, stop_time="12:01:00")
-    trip.AddStopTime(stop3, stop_time="12:02:00")
-    trip.AddStopTime(stop1, stop_time="12:02:00")
-
-    trip.Validate(self.problems)
+    self.trip.Validate(self.problems)
     e = self.problems.PopException('TooFastTravel')
-    self.assertTrue(e.FormatProblem().find('High speed travel detected') != -1)
-    self.assertTrue(e.FormatProblem().find('Stop 1 to Demo Stop 2') != -1)
-    self.assertTrue(e.FormatProblem().find('1690 meters in 60 seconds') != -1)
-    self.assertTrue(e.FormatProblem().find('(101.445967 km/h)') != -1)
+    self.assertMatchesRegex(r'High speed travel detected', e.FormatProblem())
+    self.assertMatchesRegex(r'Stop 0 to Demo Stop 1', e.FormatProblem())
+    self.assertMatchesRegex(r'1691 meters in 60 seconds', e.FormatProblem())
+    self.assertMatchesRegex(r'\(101 km/h\)', e.FormatProblem())
+    self.assertEqual(e.type, transitfeed.TYPE_WARNING)
+    self.problems.AssertNoMoreExceptions()
+
+    self.route.route_type = 4  # Ferry with max_speed 80
+    self.trip.Validate(self.problems)
+    e = self.problems.PopException('TooFastTravel')
+    self.assertMatchesRegex(r'High speed travel detected', e.FormatProblem())
+    self.assertMatchesRegex(r'Stop 0 to Demo Stop 1', e.FormatProblem())
+    self.assertMatchesRegex(r'1691 meters in 60 seconds', e.FormatProblem())
+    self.assertMatchesRegex(r'\(101 km/h\)', e.FormatProblem())
     self.assertEqual(e.type, transitfeed.TYPE_WARNING)
     e = self.problems.PopException('TooFastTravel')
-    self.assertTrue(e.FormatProblem().find('High speed travel detected') != -1)
-    self.assertTrue(e.FormatProblem().find('Stop 3 to Demo Stop 1') != -1)
-    self.assertTrue(e.FormatProblem().find('109 meters in 0 seconds') != -1)
+    self.assertMatchesRegex(r'High speed travel detected', e.FormatProblem())
+    self.assertMatchesRegex(r'Stop 1 to Demo Stop 2', e.FormatProblem())
+    self.assertMatchesRegex(r'1616 meters in 60 seconds', e.FormatProblem())
+    self.assertMatchesRegex(r'97 km/h', e.FormatProblem())
     self.assertEqual(e.type, transitfeed.TYPE_WARNING)
     self.problems.AssertNoMoreExceptions()
 
     # Run test without a route_type
-    route.route_type = None
-    trip.Validate(self.problems)
+    self.route.route_type = None
+    self.trip.Validate(self.problems)
     e = self.problems.PopException('TooFastTravel')
-    self.assertTrue(e.FormatProblem().find('High speed travel detected') != -1)
-    self.assertTrue(e.FormatProblem().find('Stop 1 to Demo Stop 2') != -1)
-    self.assertTrue(e.FormatProblem().find('1690 meters in 60 seconds') != -1)
-    self.assertTrue(e.FormatProblem().find('(101.445967 km/h)') != -1)
-    self.assertEqual(e.type, transitfeed.TYPE_WARNING)
-    e = self.problems.PopException('TooFastTravel')
-    self.assertTrue(e.FormatProblem().find('High speed travel detected') != -1)
-    self.assertTrue(e.FormatProblem().find('Stop 2 to Demo Stop 3') != -1)
-    self.assertTrue(e.FormatProblem().find('1616 meters in 60 seconds') != -1)
-    self.assertTrue(e.FormatProblem().find('(96.979408 km/h)') != -1)
-    self.assertEqual(e.type, transitfeed.TYPE_WARNING)
-    e = self.problems.PopException('TooFastTravel')
-    self.assertTrue(e.FormatProblem().find('High speed travel detected') != -1)
-    self.assertTrue(e.FormatProblem().find('Stop 3 to Demo Stop 1') != -1)
-    self.assertTrue(e.FormatProblem().find('109 meters in 0 seconds') != -1)
+    self.assertMatchesRegex(r'High speed travel detected', e.FormatProblem())
+    self.assertMatchesRegex(r'Stop 0 to Demo Stop 1', e.FormatProblem())
+    self.assertMatchesRegex(r'1691 meters in 60 seconds', e.FormatProblem())
+    self.assertMatchesRegex(r'101 km/h', e.FormatProblem())
     self.assertEqual(e.type, transitfeed.TYPE_WARNING)
     self.problems.AssertNoMoreExceptions()
+
+  def testNoTimeDelta(self):
+    # See comments where TooFastTravel is called in transitfeed.py to
+    # understand why was added.
+    # Movement more than max_speed in 1 minute with no time change is a warning.
+    self.AddStopDistanceTime([(1616, 0),
+                              (1000, 120),
+                              (1691, 0)])
+
+    self.trip.Validate(self.problems)
+    e = self.problems.PopException('TooFastTravel')
+    self.assertMatchesRegex('High speed travel detected', e.FormatProblem())
+    self.assertMatchesRegex('Stop 2 to Demo Stop 3', e.FormatProblem())
+    self.assertMatchesRegex('1691 meters in 0 seconds', e.FormatProblem())
+    self.assertEqual(e.type, transitfeed.TYPE_WARNING)
+    self.problems.AssertNoMoreExceptions()
+
+    self.route.route_type = 4  # Ferry with max_speed 80
+    self.trip.Validate(self.problems)
+    self.assertEqual(e.type, transitfeed.TYPE_WARNING)
+    e = self.problems.PopException('TooFastTravel')
+    self.assertMatchesRegex('High speed travel detected', e.FormatProblem())
+    self.assertMatchesRegex('Stop 0 to Demo Stop 1', e.FormatProblem())
+    self.assertMatchesRegex('1616 meters in 0 seconds', e.FormatProblem())
+    self.assertEqual(e.type, transitfeed.TYPE_WARNING)
+    e = self.problems.PopException('TooFastTravel')
+    self.assertMatchesRegex('High speed travel detected', e.FormatProblem())
+    self.assertMatchesRegex('Stop 2 to Demo Stop 3', e.FormatProblem())
+    self.assertMatchesRegex('1691 meters in 0 seconds', e.FormatProblem())
+    self.assertEqual(e.type, transitfeed.TYPE_WARNING)
+    self.problems.AssertNoMoreExceptions()
+
+    # Run test without a route_type
+    self.route.route_type = None
+    self.trip.Validate(self.problems)
+    e = self.problems.PopException('TooFastTravel')
+    self.assertMatchesRegex('High speed travel detected', e.FormatProblem())
+    self.assertMatchesRegex('Stop 2 to Demo Stop 3', e.FormatProblem())
+    self.assertMatchesRegex('1691 meters in 0 seconds', e.FormatProblem())
+    self.assertEqual(e.type, transitfeed.TYPE_WARNING)
+    self.problems.AssertNoMoreExceptions()
+
+  def testNoTimeDeltaNotRounded(self):
+    # See comments where TooFastTravel is called in transitfeed.py to
+    # understand why was added.
+    # Any movement with no time change and times not rounded to the nearest
+    # minute causes a warning.
+    self.AddStopDistanceTime([(500, 62),
+                              (10, 0)])
+
+    self.trip.Validate(self.problems)
+    e = self.problems.PopException('TooFastTravel')
+    self.assertMatchesRegex('High speed travel detected', e.FormatProblem())
+    self.assertMatchesRegex('Stop 1 to Demo Stop 2', e.FormatProblem())
+    self.assertMatchesRegex('10 meters in 0 seconds', e.FormatProblem())
+    self.assertEqual(e.type, transitfeed.TYPE_WARNING)
+    self.problems.AssertNoMoreExceptions()
+
 
 class MemoryZipTestCase(util.TestCaseAsserts):
   def setUp(self):

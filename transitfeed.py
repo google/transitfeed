@@ -451,11 +451,11 @@ class TooFastTravel(ExceptionWithContext):
       d = self.GetDictToFormat()
     if not d['speed']:
       return "High speed travel detected in trip %(trip_id)s: %(prev_stop)s" \
-                " to %(next_stop)s. %(dist)d meters in %(time)d seconds." % d
+                " to %(next_stop)s. %(dist).0f meters in %(time)d seconds." % d
     else:
       return "High speed travel detected in trip %(trip_id)s: %(prev_stop)s" \
-                " to %(next_stop)s. %(dist)d meters in %(time)d seconds." \
-                " (%(speed)f km/h)." % d
+             " to %(next_stop)s. %(dist).0f meters in %(time)d seconds." \
+             " (%(speed).0f km/h)." % d
 
 class DuplicateTrip(ExceptionWithContext):
   ERROR_TEXT = "Trip %(trip_id1)s of route %(route_id1)s might be duplicated " \
@@ -888,7 +888,7 @@ class Route(GenericGTFSObject):
     'agency_id', 'route_desc', 'route_url', 'route_color', 'route_text_color'
     ]
   _ROUTE_TYPES = {
-    0: {'name':'Tram', 'max_speed':50},
+    0: {'name':'Tram', 'max_speed':100},
     1: {'name':'Subway', 'max_speed':150},
     2: {'name':'Rail', 'max_speed':300},
     3: {'name':'Bus', 'max_speed':100},
@@ -1747,8 +1747,7 @@ class Trip(GenericGTFSObject):
       except KeyError, e:
         # If route_type cannot be found, assume it is 0 (Tram) for checking
         # speeds between stops.
-        route_type = 0
-        max_speed = 30
+        max_speed = Route._ROUTE_TYPES[0]['max_speed']
       for timepoint in stoptimes:
         if timepoint.arrival_secs is not None:
           self._CheckSpeed(prev_stop, timepoint.stop, prev_departure,
@@ -1822,13 +1821,21 @@ class Trip(GenericGTFSObject):
           return
 
       if time_between_stops == 0:
-        problems.TooFastTravel(self.trip_id,
-                               prev_stop.stop_name,
-                               next_stop.stop_name,
-                               dist_between_stops,
-                               time_between_stops,
-                               speed=None,
-                               type=TYPE_WARNING)
+        # HASTUS makes it hard to output GTFS with times to the nearest second;
+        # it rounds times to the nearest minute. Therefore stop_times at the
+        # same time ending in :00 are fairly common. These times off by no more
+        # than 30 have not caused a problem. See
+        # http://code.google.com/p/googletransitdatafeed/issues/detail?id=193
+        # Show a warning if times are not rounded to the nearest minute or
+        # distance is more than max_speed for one minute.
+        if depart_time % 60 != 0 or dist_between_stops / 1000 * 60 > max_speed:
+          problems.TooFastTravel(self.trip_id,
+                                 prev_stop.stop_name,
+                                 next_stop.stop_name,
+                                 dist_between_stops,
+                                 time_between_stops,
+                                 speed=None,
+                                 type=TYPE_WARNING)
         return
       # This needs floating point division for precision.
       speed_between_stops = ((float(dist_between_stops) / 1000) /
