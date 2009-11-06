@@ -2929,10 +2929,10 @@ class TripAddStopTimeObjectTestCase(ValidationTestCase):
 
 class DuplicateTripTestCase(ValidationTestCase):
   def runTest(self):
-    
+
     schedule = transitfeed.Schedule(self.problems)
     schedule._check_duplicate_trips = True;
-    
+
     agency = transitfeed.Agency('Demo agency', 'http://google.com',
                                 'America/Los_Angeles', 'agency1')
     schedule.AddAgencyObject(agency)
@@ -2944,7 +2944,7 @@ class DuplicateTripTestCase(ValidationTestCase):
     schedule.AddRouteObject(route1)
     route2 = transitfeed.Route('Route2', 'route 2', 3, 'route_2', 'agency1')
     schedule.AddRouteObject(route2)
-    
+
     trip1 = transitfeed.Trip()
     trip1.route_id = 'route_1'
     trip1.trip_id = 't1'
@@ -2960,7 +2960,7 @@ class DuplicateTripTestCase(ValidationTestCase):
     trip2.direction_id =  '0'
     trip2.service_id = service.service_id
     schedule.AddTripObject(trip2)
-    
+
     trip3 = transitfeed.Trip()
     trip3.route_id = 'route_1'
     trip3.trip_id = 't3'
@@ -2986,7 +2986,7 @@ class DuplicateTripTestCase(ValidationTestCase):
                       stop_sequence=1, shape_dist_traveled=1)
     trip3.AddStopTime(stop2, arrival_time="6:15:00", departure_time="6:16:00",
                       stop_sequence=0, shape_dist_traveled=0)
-    
+
     schedule.Validate(self.problems)
     e = self.problems.PopException('DuplicateTrip')
     self.assertTrue(e.FormatProblem().find('t1 of route') != -1)
@@ -2998,29 +2998,29 @@ class StopBelongsToBothSubwayAndBusTestCase(ValidationTestCase):
   def runTest(self):
     schedule = transitfeed.Schedule(self.problems)
 
-    schedule.AddAgency("Demo Agency", "http://example.com", 
+    schedule.AddAgency("Demo Agency", "http://example.com",
                         "America/Los_Angeles")
-    route1 = schedule.AddRoute(short_name="route1", long_name="route_1", 
+    route1 = schedule.AddRoute(short_name="route1", long_name="route_1",
                                route_type=3)
-    route2 = schedule.AddRoute(short_name="route2", long_name="route_2", 
+    route2 = schedule.AddRoute(short_name="route2", long_name="route_2",
                                route_type=1)
-    
+
     service = schedule.GetDefaultServicePeriod()
     service.SetDateHasService("20070101")
-    
+
     trip1 = route1.AddTrip(schedule, "trip1", service, "t1")
     trip2 = route2.AddTrip(schedule, "trip2", service, "t2")
-    
+
     stop1 = schedule.AddStop(36.425288, -117.133162, "stop1")
     stop2 = schedule.AddStop(36.424288, -117.133142, "stop2")
     stop3 = schedule.AddStop(36.423288, -117.134142, "stop3")
-    
+
     trip1.AddStopTime(stop1, arrival_time="5:11:00", departure_time="5:12:00")
     trip1.AddStopTime(stop2, arrival_time="5:21:00", departure_time="5:22:00")
-    
+
     trip2.AddStopTime(stop1, arrival_time="6:11:00", departure_time="6:12:00")
     trip2.AddStopTime(stop3, arrival_time="6:21:00", departure_time="6:22:00")
-    
+
     schedule.Validate(self.problems)
     e = self.problems.PopException("StopWithMultipleRouteTypes")
     self.assertTrue(e.FormatProblem().find("Stop stop1") != -1)
@@ -3213,7 +3213,7 @@ class UnusedStopAgencyTestCase(LoadTestCase):
     self.assertEqual("Bogus Stop (Demo)", e.stop_name)
     self.assertEqual("BOGUS", e.stop_id)
     self.problems.AssertNoMoreExceptions()
-    
+
 
 
 class OnlyCalendarDatesTestCase(LoadTestCase):
@@ -3318,7 +3318,7 @@ class FutureServiceStartDateTestCase(unittest.TestCase):
     schedule.Validate()
     problems.PopException('FutureService')
     problems.AssertNoMoreExceptions()
- 
+
 
 class CalendarTxtIntegrationTestCase(MemoryZipTestCase):
   def testBadEndDateFormat(self):
@@ -4201,7 +4201,7 @@ class GetTripTimeTestCase(unittest.TestCase):
     self.trip1.AddStopTime(self.stop2, schedule=schedule)
     self.trip1.AddStopTime(self.stop3, schedule=schedule)
     # loop back to stop2 to test that interpolated stops work ok even when
-    # a stop between timepoints is further from the timepoint than the 
+    # a stop between timepoints is further from the timepoint than the
     # preceding
     self.trip1.AddStopTime(self.stop2, schedule=schedule)
     self.trip1.AddStopTime(self.stop4, schedule=schedule, departure_secs=400, arrival_secs=400)

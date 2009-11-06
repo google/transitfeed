@@ -44,7 +44,7 @@ for tz_name in pytz.all_timezones:
 
   for tran, inf in zip(tzinfo._utc_transition_times, tzinfo._transition_info):
     if tran < datetime.datetime(2009, 6, 1) or tran > datetime.datetime(2010, 9, 1):
-      # avoid bunch of 'date value out of range' due to tran values such as 0001-01-01 00:00:00 
+      # avoid bunch of 'date value out of range' due to tran values such as 0001-01-01 00:00:00
       # also avoids some transitions which are close to noon but ancient history for our purposes.
       continue
 

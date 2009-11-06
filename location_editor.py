@@ -41,7 +41,7 @@ class LocationEditorRequestHandler(schedule_viewer.ScheduleRequestHandler):
             lat + 'x' + lon
     print msg
     return msg
-  
+
   def handle_json_GET_savedata(self, params):
     schedule = self.server.schedule
     if not self.server.feed_path:

@@ -225,18 +225,18 @@ class ProblemReporterBase:
 
   def StopWithMultipleRouteTypes(self, stop_name, stop_id, route_id1, route_id2,
                                  context=None):
-    e = StopWithMultipleRouteTypes(stop_name=stop_name, stop_id=stop_id, 
-                                   route_id1=route_id1, route_id2=route_id2, 
-                                   context=context, context2=self._context, 
+    e = StopWithMultipleRouteTypes(stop_name=stop_name, stop_id=stop_id,
+                                   route_id1=route_id1, route_id2=route_id2,
+                                   context=context, context2=self._context,
                                    type=TYPE_WARNING)
     self._Report(e)
 
-  def DuplicateTrip(self, trip_id1, route_id1, trip_id2, route_id2, 
+  def DuplicateTrip(self, trip_id1, route_id1, trip_id2, route_id2,
                     context=None):
     e = DuplicateTrip(trip_id1=trip_id1, route_id1=route_id1, trip_id2=trip_id2,
                       route_id2=route_id2, context=context,
                       context2=self._context, type=TYPE_WARNING)
-    self._Report(e) 
+    self._Report(e)
 
   def OtherProblem(self, description, context=None, type=TYPE_ERROR):
     e = OtherProblem(description=description,
@@ -2915,7 +2915,7 @@ class Schedule:
     assert stop._schedule is None
     if not problem_reporter:
       problem_reporter = self.problem_reporter
-    
+
     if not stop.stop_id:
       return
 
@@ -3417,17 +3417,17 @@ class Schedule:
         continue
       route_type = self.GetRoute(trip.route_id).route_type
       arrival_times = []
-      stop_ids = []      
+      stop_ids = []
       for index, st in enumerate(trip.GetStopTimes(problems)):
         stop_id = st.stop.stop_id
         arrival_times.append(st.arrival_time)
         stop_ids.append(stop_id)
         # Check a stop if which belongs to both subway and bus.
-        if (route_type == Route._ROUTE_TYPE_NAMES['Subway'] or 
-            route_type == Route._ROUTE_TYPE_NAMES['Bus']):  
+        if (route_type == Route._ROUTE_TYPE_NAMES['Subway'] or
+            route_type == Route._ROUTE_TYPE_NAMES['Bus']):
           if stop_id not in stop_types:
             stop_types[stop_id] = [trip.route_id, route_type, 0]
-          elif (stop_types[stop_id][1] != route_type and 
+          elif (stop_types[stop_id][1] != route_type and
                 stop_types[stop_id][2] == 0):
             stop_types[stop_id][2] = 1
             if stop_types[stop_id][1] == Route._ROUTE_TYPE_NAMES['Subway']:
@@ -3436,8 +3436,8 @@ class Schedule:
             else:
               subway_route_id = trip.route_id
               bus_route_id = stop_types[stop_id][0]
-            problems.StopWithMultipleRouteTypes(st.stop.stop_name, stop_id, 
-                                                subway_route_id, bus_route_id) 
+            problems.StopWithMultipleRouteTypes(st.stop.stop_name, stop_id,
+                                                subway_route_id, bus_route_id)
 
       # Check duplicate trips which go through the same stops with same
       # service and start times.
@@ -3448,7 +3448,7 @@ class Schedule:
         if key not in trips:
           trips[key] = (trip.route_id, trip.trip_id)
         else:
-          problems.DuplicateTrip(trips[key][1], trips[key][0], trip.trip_id, 
+          problems.DuplicateTrip(trips[key][1], trips[key][0], trip.trip_id,
                                  trip.route_id)
 
     # Check that routes' agency IDs are valid, if set

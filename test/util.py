@@ -189,5 +189,3 @@ class RecordingProblemReporter(transitfeed.ProblemReporterBase):
     if file_name:
       self._test_case.assertEquals(file_name, e.file_name)
     return e
-
-

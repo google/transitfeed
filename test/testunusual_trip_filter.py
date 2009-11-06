@@ -30,13 +30,13 @@ class UnusualTripFilterTestCase(util.TempDirTestCaseBase):
     """Test if filtering works properly."""
     expected_values = {
         'CITY1':0, 'CITY2':0, 'CITY3':0, 'CITY4' :0, 'CITY5' :0, 'CITY6' :0,
-        'CITY7':0, 'CITY8':0, 'CITY9':0, 'CITY10':0, 'CITY11':1, 'CITY12':1, 
+        'CITY7':0, 'CITY8':0, 'CITY9':0, 'CITY10':0, 'CITY11':1, 'CITY12':1,
         }
     filter = unusual_trip_filter.UnusualTripFilter(0.1, quiet=True)
     input = self.GetPath('test', 'data', 'filter_unusual_trips')
     loader = transitfeed.Loader(input, extra_validation=True)
     schedule = loader.Load()
-    filter.filter(schedule)   
+    filter.filter(schedule)
     for trip_id, expected_trip_type in expected_values.items():
       actual_trip_type = schedule.trips[trip_id]['trip_type']
       try:

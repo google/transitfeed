@@ -15,8 +15,8 @@
 # limitations under the License.
 
 # An example script that demonstrates converting a proprietary format to a
-# Google Transit Feed Specification file. 
-# 
+# Google Transit Feed Specification file.
+#
 # You can load table.txt, the example input, in Excel. It contains three
 # sections:
 # 1) A list of global options, starting with a line containing the word

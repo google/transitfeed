@@ -22,6 +22,6 @@ import sys
 class OptionParserLongError(optparse.OptionParser):
   """OptionParser subclass that includes list of options above error message."""
   def error(self, msg):
-    print >>sys.stderr, self.format_help()                
+    print >>sys.stderr, self.format_help()
     print >>sys.stderr, '\n\n%s: error: %s\n\n' % (self.get_prog_name(), msg)
     sys.exit(2)

@@ -533,7 +533,7 @@ class KMLWriter(object):
     Returns:
       The Folder ElementTree.Element instance or None.
     """
-    
+
     folder_name = shape.shape_id + ' Shape Points'
     folder = self._CreateFolder(shapes_folder, folder_name, visible=False)
     for (index, (lat, lon, dist)) in enumerate(shape.points):

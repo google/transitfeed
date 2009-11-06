@@ -32,7 +32,7 @@ import zipfile
 class FullTests(util.TempDirTestCaseBase):
   def testGoodFeed(self):
     (out, err) = self.CheckCallWithPath(
-        [self.GetPath('feedvalidator.py'), '-n', '--latest_version', 
+        [self.GetPath('feedvalidator.py'), '-n', '--latest_version',
          transitfeed.__version__, self.GetPath('test', 'data', 'good_feed')])
     self.assertTrue(re.search(r'feed validated successfully', out))
     self.assertFalse(re.search(r'ERROR', out))
@@ -43,7 +43,7 @@ class FullTests(util.TempDirTestCaseBase):
 
   def testGoodFeedConsoleOutput(self):
     (out, err) = self.CheckCallWithPath(
-        [self.GetPath('feedvalidator.py'), '-n', '--latest_version', 
+        [self.GetPath('feedvalidator.py'), '-n', '--latest_version',
          transitfeed.__version__,
          '--output=CONSOLE', self.GetPath('test', 'data', 'good_feed')])
     self.assertTrue(re.search(r'feed validated successfully', out))
@@ -53,7 +53,7 @@ class FullTests(util.TempDirTestCaseBase):
 
   def testMissingStops(self):
     (out, err) = self.CheckCallWithPath(
-        [self.GetPath('feedvalidator.py'), '-n', '--latest_version', 
+        [self.GetPath('feedvalidator.py'), '-n', '--latest_version',
          transitfeed.__version__,
          self.GetPath('test', 'data', 'missing_stops')],
         expected_retcode=1)
@@ -90,8 +90,8 @@ class FullTests(util.TempDirTestCaseBase):
 
   def testBadDateFormat(self):
     (out, err) = self.CheckCallWithPath(
-        [self.GetPath('feedvalidator.py'), '-n', '--latest_version', 
-         transitfeed.__version__, 
+        [self.GetPath('feedvalidator.py'), '-n', '--latest_version',
+         transitfeed.__version__,
          self.GetPath('test', 'data', 'bad_date_format')],
         expected_retcode=1)
     self.assertTrue(re.search(r'ERROR', out))
@@ -104,7 +104,7 @@ class FullTests(util.TempDirTestCaseBase):
 
   def testBadUtf8(self):
     (out, err) = self.CheckCallWithPath(
-        [self.GetPath('feedvalidator.py'), '-n', '--latest_version', 
+        [self.GetPath('feedvalidator.py'), '-n', '--latest_version',
          transitfeed.__version__, self.GetPath('test', 'data', 'bad_utf8')],
         expected_retcode=1)
     self.assertTrue(re.search(r'ERROR', out))
@@ -116,14 +116,14 @@ class FullTests(util.TempDirTestCaseBase):
 
   def testFileNotFound(self):
     (out, err) = self.CheckCallWithPath(
-        [self.GetPath('feedvalidator.py'), '-n', '--latest_version', 
+        [self.GetPath('feedvalidator.py'), '-n', '--latest_version',
          transitfeed.__version__, 'file-not-found.zip'],
         expected_retcode=1)
     self.assertFalse(os.path.exists('validation-crash.txt'))
 
   def testBadOutputPath(self):
     (out, err) = self.CheckCallWithPath(
-        [self.GetPath('feedvalidator.py'), '-n', '--latest_version', 
+        [self.GetPath('feedvalidator.py'), '-n', '--latest_version',
          transitfeed.__version__, '-o', 'path/does/not/exist.html',
          self.GetPath('test', 'data', 'good_feed')],
         expected_retcode=2)
@@ -131,7 +131,7 @@ class FullTests(util.TempDirTestCaseBase):
 
   def testCrashHandler(self):
     (out, err) = self.CheckCallWithPath(
-        [self.GetPath('feedvalidator.py'), '-n', '--latest_version', 
+        [self.GetPath('feedvalidator.py'), '-n', '--latest_version',
          transitfeed.__version__, 'IWantMyvalidation-crash.txt'],
         expected_retcode=127)
     self.assertTrue(re.search(r'Yikes', out))
@@ -142,7 +142,7 @@ class FullTests(util.TempDirTestCaseBase):
 
   def testCheckVersionIsRun(self):
     (out, err) = self.CheckCallWithPath(
-        [self.GetPath('feedvalidator.py'), '-n', '--latest_version', 
+        [self.GetPath('feedvalidator.py'), '-n', '--latest_version',
          '100.100.100', self.GetPath('test', 'data', 'good_feed')])
     self.assertTrue(re.search(r'feed validated successfully', out))
     self.assertTrue(re.search(r'A new version 100.100.100', out))
@@ -150,7 +150,7 @@ class FullTests(util.TempDirTestCaseBase):
     self.assertTrue(re.search(r'A new version 100.100.100', htmlout))
     self.assertFalse(re.search(r'ERROR', htmlout))
     self.assertFalse(os.path.exists('validation-crash.txt'))
-    
+
   def testCheckVersionIsRunConsoleOutput(self):
     (out, err) = self.CheckCallWithPath(
         [self.GetPath('feedvalidator.py'), '-n', '-o', 'console',
@@ -210,12 +210,12 @@ class LimitPerTypeProblemReporterTestCase(unittest.TestCase):
     self.problems.OtherProblem("w2", type=transitfeed.TYPE_WARNING)
     self.assertEquals(2, self.problems.WarningCount())
     self.assertEquals(3, self.problems.ErrorCount())
-    
+
     self.assertProblemsAttribute(transitfeed.TYPE_ERROR,  "OtherProblem",
         "description", "e1 e2")
     self.assertProblemsAttribute(transitfeed.TYPE_WARNING,  "OtherProblem",
         "description", "w1 w2")
-    
+
 
 class CheckVersionTestCase(util.TempDirTestCaseBase):
   def setUp(self):
@@ -228,7 +228,7 @@ class CheckVersionTestCase(util.TempDirTestCaseBase):
   def testAssignedDifferentVersion(self):
     problems = feedvalidator.CheckVersion('100.100.100')
     self.assertTrue(re.search(r'A new version 100.100.100', problems))
-  
+
   def testAssignedSameVersion(self):
     problems = feedvalidator.CheckVersion(transitfeed.__version__)
     self.assertEquals(problems, None)

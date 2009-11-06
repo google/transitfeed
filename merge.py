@@ -1717,7 +1717,7 @@ Merges <feed_input_a> and <feed_input_b> into a new GTFS file <feed_output.zip>.
                          'It is faster but uses more RAM.')
   parser.set_defaults(memory_db=False)
   options, args = parser.parse_args()
-  
+
   if len(args) != 3:
     print >>sys.stderr, parser.format_help()
     print >>sys.stderr, ('\n\nYou did not provide all required command '

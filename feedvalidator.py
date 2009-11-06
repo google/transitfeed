@@ -111,7 +111,7 @@ def GenerateDateTripsDeparturesList(schedule):
       if earliest_with_trips is None:
         earliest_with_trips = len(date_trips)
     date_trips.append((date, day_trips, day_departures))
-    
+
   if latest_with_trips is None:
     return []
   else:
@@ -122,7 +122,7 @@ def CalendarSummary(schedule):
   date_trips_departures = GenerateDateTripsDeparturesList(schedule)
   if not date_trips_departures:
     return {}
-  
+
   # Check that the dates which will be shown in summary agree with these
   # calculations. Failure implies a bug which should be fixed. It isn't good
   # for users to discover assertion failures but means it will likely be fixed.
@@ -130,7 +130,7 @@ def CalendarSummary(schedule):
   if start_date and end_date:
     assert start_date <= date_trips_departures[0][0].strftime("%Y%m%d")
     assert end_date >= date_trips_departures[-1][0].strftime("%Y%m%d")
-  
+
   # Generate a map from int number of trips in a day to a list of date objects
   # with that many trips. The list of dates is sorted.
   trips_dates = defaultdict(lambda: [])
@@ -141,7 +141,7 @@ def CalendarSummary(schedule):
   mean_trips = trips / len(date_trips_departures)
   max_trips = max(trips_dates.keys())
   min_trips = min(trips_dates.keys())
-  
+
   calendar_summary = {}
   calendar_summary['mean_trips'] = mean_trips
   calendar_summary['max_trips'] = max_trips
@@ -152,7 +152,7 @@ def CalendarSummary(schedule):
   calendar_summary['date_summary_range'] = "%s to %s" % (
       date_trips_departures[0][0].strftime("%a %b %d"),
       date_trips_departures[-1][0].strftime("%a %b %d"))
-  
+
   return calendar_summary
 
 
@@ -377,8 +377,8 @@ class HTMLCountingProblemReporter(LimitPerTypeProblemReporter):
     else:
       summary = '<span class="pass">feed validated successfully</span>'
     if other_problems is not None:
-      summary = ('<span class="fail">\n%s</span><br><br>' % 
-                 other_problems) + summary 
+      summary = ('<span class="fail">\n%s</span><br><br>' %
+                 other_problems) + summary
 
     basename = os.path.basename(feed_location)
     feed_path = (feed_location[:feed_location.rfind(basename)], basename)
@@ -523,7 +523,7 @@ def RunValidationOutputToFile(feed, options, output_file):
     feed_location = feed
   else:
     feed_location = getattr(feed, 'name', repr(feed))
-  problems.WriteOutput(feed_location, output_file, schedule, 
+  problems.WriteOutput(feed_location, output_file, schedule,
                        other_problems_string)
   return exit_code
 
@@ -573,9 +573,9 @@ def RunValidation(feed, options, problems):
 
 
 def CheckVersion(latest_version=''):
-  """ 
+  """
   Check there is newer version of this project.
-  
+
   Codes are based on http://www.voidspace.org.uk/python/articles/urllib2.shtml
   Already got permission from the copyright holder.
   """
@@ -590,9 +590,9 @@ def CheckVersion(latest_version=''):
       content = response.read()
       versions = re.findall(r'>transitfeed-([\d\.]+)\/<\/a>', content)
       latest_version = MaxVersion(versions)
-      
+
     except HTTPError, e:
-      return('The server couldn\'t fulfill the request. Error code: %s.' 
+      return('The server couldn\'t fulfill the request. Error code: %s.'
              % e.code)
     except URLError, e:
       return('We failed to reach transitfeed server. Reason: %s.' % e.reason)
@@ -603,8 +603,8 @@ def CheckVersion(latest_version=''):
   newest_version = MaxVersion([latest_version, current_version])
   if current_version != newest_version:
     return('A new version %s of transitfeed is available. Please visit '
-           'http://code.google.com/p/googletransitdatafeed and download.' 
-           % newest_version)   
+           'http://code.google.com/p/googletransitdatafeed and download.'
+           % newest_version)
 
 
 def main():
@@ -632,12 +632,12 @@ def main():
                     dest='limit_per_type', action='store', type='int',
                     help='Maximum number of errors and warnings to keep of '
                     'each type')
-  parser.add_option('--latest_version', dest='latest_version', 
-                    action='store', 
+  parser.add_option('--latest_version', dest='latest_version',
+                    action='store',
                     help='a version number such as 1.2.1 or None to get the '
                     'latest version from code.google.com. Output a warning if '
                     'transitfeed.py is older than this version.')
-               
+
   parser.set_defaults(manual_entry=True, output='validation-results.html',
                       memory_db=False, check_duplicate_trips=False,
                       limit_per_type=5, latest_version='')

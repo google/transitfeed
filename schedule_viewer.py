@@ -162,7 +162,7 @@ class ScheduleRequestHandler(BaseHTTPServer.BaseHTTPRequestHandler):
   def handle_GET_home(self):
     schedule = self.server.schedule
     (min_lat, min_lon, max_lat, max_lon) = schedule.GetStopBoundingBox()
-    forbid_editing = ('true', 'false')[self.AllowEditMode()] 
+    forbid_editing = ('true', 'false')[self.AllowEditMode()]
 
     agency = ', '.join(a.agency_name for a in schedule.GetAgencyList()).encode('utf-8')
 

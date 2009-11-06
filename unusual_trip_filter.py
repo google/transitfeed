@@ -34,13 +34,13 @@ import sys
 
 class UnusualTripFilter(object):
   """Class filtering trips going on unusual paths.
-  
+
   Those are usually trips going to/from depot or changing to another route
   in the middle. Sets the 'trip_type' attribute of the trips.txt dataset
   so that non-standard trips are marked as special (value 1)
   instead of regular (default value 0).
   """
-  
+
   def __init__ (self, threshold=0.1, force=False, quiet=False, route_type=None):
     self._threshold = threshold
     self._quiet = quiet
@@ -72,11 +72,11 @@ class UnusualTripFilter(object):
                     ratio))
           for trip in pattern:
             trip.trip_type = 1 # special
-            self.info("\t\tsetting trip_type of trip %s as special" % 
+            self.info("\t\tsetting trip_type of trip %s as special" %
                       trip.trip_id)
       else:
         self.info("\t%d trips on route %s with headsign '%s' recognized "
-                  "as %s (ratio %f)" % 
+                  "as %s (ratio %f)" %
                   (len(pattern),
                    route['route_short_name'],
                    pattern[0]['trip_headsign'],
@@ -84,16 +84,16 @@ class UnusualTripFilter(object):
                    ratio))
         for trip in pattern:
           trip.trip_type = ('0','1')[ratio < self._threshold]
-          self.info("\t\tsetting trip_type of trip %s as %s" % 
+          self.info("\t\tsetting trip_type of trip %s as %s" %
                     (trip.trip_id,
                      ('regular', 'unusual')[ratio < self._threshold]))
-  
+
   def filter(self, dataset):
     """Mark unusual trips for all the routes in the dataset."""
     self.info('Going to filter infrequent routes in the dataset')
     for route in dataset.routes.values():
       self.filter_line(route)
-  
+
   def info(self, text):
     if not self._quiet:
       print text.encode("utf-8")
@@ -107,7 +107,7 @@ def main():
   parser.add_option('-m', '--memory_db', dest='memory_db', action='store_true',
          help='Force use of in-memory sqlite db.')
   parser.add_option('-t', '--threshold', default=0.1,
-         dest='threshold', type='float', 
+         dest='threshold', type='float',
          help='Frequency threshold for considering pattern as non-regular.')
   parser.add_option('-r', '--route_type', default=None,
          dest='route_type', type='string',
@@ -120,7 +120,7 @@ def main():
   parser.add_option('-q', '--quiet', dest='quiet',
          default=False, action='store_true',
          help='Suppress information output.')
-  
+
   (options, args) = parser.parse_args()
   if len(args) < 1:
     print >>sys.stderr, parser.format_help()
