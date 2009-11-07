@@ -26,17 +26,35 @@ based on zic.c or zdump.c in tzcode2009k.tar.gz but this seemed much easier.
 import pytz
 import datetime
 
-def show_tran(distance_from_noon, tz_name, tran, inf):
+def hour_dist(h1, h2):
+  abs_dist = abs((h1 % 24) - (h2 % 24))
+  if abs_dist > 12:
+    return 24 - abs_dist
+  else:
+    return abs_dist
+
+
+def hour_avg(h1, h2):
+  h1 = h1 % 24
+  h2 = h2 % 24
+  diff = abs(h1 - h2)
+  if diff <=12:
+    return (h1 + h2) / 2.0
+  else:
+    ((24 - diff) / 2.0 + max(h1, h2)) % 24
+
+
+def show_tran(dist, tz_name, tran, inf):
   tzinfo = pytz.timezone(tz_name)
   closest_tran_utc = pytz.utc.localize(tran)
   before = closest_tran_utc + datetime.timedelta(seconds=-1)
   after = closest_tran_utc + datetime.timedelta(seconds=1)
-  print "from %s to %s %s" % (before.astimezone(tzinfo),
-                              after.astimezone(tzinfo), tz_name)
+  print "%d from %s to %s %s" % (dist, before.astimezone(tzinfo),
+                                 after.astimezone(tzinfo), tz_name)
 
 from_noon = []
 from_midnight = []
-for tz_name in pytz.all_timezones:
+for tz_name in pytz.common_timezones:
   tzinfo = pytz.timezone(tz_name)
   # pytz.UTC is a defined as a class and overwritten with an object
   if isinstance(tzinfo, (pytz.tzinfo.StaticTzInfo, pytz.UTC.__class__)):
@@ -44,17 +62,25 @@ for tz_name in pytz.all_timezones:
 
   for tran, inf in zip(tzinfo._utc_transition_times, tzinfo._transition_info):
     if tran < datetime.datetime(2009, 6, 1) or tran > datetime.datetime(2010, 9, 1):
-      # avoid bunch of 'date value out of range' due to tran values such as 0001-01-01 00:00:00
+      # avoid bunch of 'date value out of range' due to tran values such as 0001-01-01 00:00:00 
       # also avoids some transitions which are close to noon but ancient history for our purposes.
       continue
 
     # tran is UTC time of transition
-    # inf is (utcoffset, dstoffset, tzname) of transition. if tran + utcoffset is near noon we have trouble
+    # inf is (utcoffset, dstoffset, tzname) of transition.
     try:
-      local_tran_hour = (tran + inf[0]).time().hour
-      distance_from_noon = abs(abs(local_tran_hour % 24) - 12)
+      closest_tran_utc = pytz.utc.localize(tran)
+      before = closest_tran_utc + datetime.timedelta(seconds=-1)
+      after = closest_tran_utc + datetime.timedelta(seconds=1)
+
+      tran_beforelocal = before.astimezone(tzinfo) + datetime.timedelta(seconds=1)
+      tran_afterlocal = after.astimezone(tzinfo) + datetime.timedelta(seconds=-1)
+
+      average = hour_avg(tran_beforelocal.hour, tran_afterlocal.hour)
+
+      distance_from_noon = hour_dist(average, 12)
       from_noon.append((distance_from_noon, tz_name, tran, inf))
-      distance_from_midnight = abs(abs((local_tran_hour + 12) % 24) - 12)
+      distance_from_midnight = hour_dist(average, 0)
       from_midnight.append((distance_from_midnight, tz_name, tran, inf))
     except Exception, e:
        print "Trouble with %s %s %s: %s" % (tz_name, tran, inf, e)
