@@ -502,16 +502,19 @@ def IsValidColor(color):
   return not re.match('^[0-9a-fA-F]{6}$', color) == None
 
 
-# Compute Luminance of a RGB color. Output ranges from 0 to 255*7 = 1785
-# The formula used here is a compromise between on-paper and on-screen
 def ColorLuminance(color):
-  """Returns the luminance = (2*R+4*G+B) of a RGB color.
-  We assume that the color is in the correct format,
-  i.e. that IsValidColor( ) returned true"""
+  """Compute the brightness of an sRGB color using the formula from
+  http://www.w3.org/TR/2000/WD-AERT-20000426#color-contrast.
+
+  Args:
+    color: a string of six hex digits in the format verified by IsValidColor().
+
+  Returns:
+    A floating-point number between 0.0 (black) and 255.0 (white). """
   r = int(color[0:2], 16)
   g = int(color[2:4], 16)
   b = int(color[4:6], 16)
-  return 4*g + 2*r + b
+  return (299*r + 587*g + 114*b) / 1000.0
 
 
 def IsEmpty(value):
@@ -1031,8 +1034,8 @@ class Route(GenericGTFSObject):
     if self.route_url and not IsValidURL(self.route_url):
       problems.InvalidValue('route_url', self.route_url)
 
-    txt_lum = 0      # black (default)
-    bg_lum = 255 * 7 # white (default)
+    txt_lum = ColorLuminance('000000')  # black (default)
+    bg_lum = ColorLuminance('ffffff')   # white (default)
     if self.route_color:
       if IsValidColor(self.route_color):
         bg_lum  = ColorLuminance(self.route_color)
@@ -1050,7 +1053,11 @@ class Route(GenericGTFSObject):
                               'description, which consists of 6 hexadecimal '
                               'characters representing the RGB values. '
                               'Example: 44AA06')
-    if(abs(txt_lum - bg_lum) < 510):
+    if abs(txt_lum - bg_lum) < 510/7.:
+      # http://www.w3.org/TR/2000/WD-AERT-20000426#color-contrast recommends
+      # a threshold of 125, but that is for normal text and too harsh for
+      # big colored logos like line names, so we keep the original threshold
+      # from r541 (but note that weight has shifted between RGB components).
       problems.InvalidValue('route_color', self.route_color,
                             'The route_text_color and route_color should '
                             'be set to contrasting colors, as they are used '

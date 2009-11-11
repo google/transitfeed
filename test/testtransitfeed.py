@@ -589,15 +589,20 @@ class ColorLuminanceTestCase(unittest.TestCase):
   def runTest(self):
     self.assertEqual(transitfeed.ColorLuminance('000000'), 0,
         "ColorLuminance('000000') should be zero")
-    self.assertEqual(transitfeed.ColorLuminance('FFFFFF'), 255*7,
-        "ColorLuminance('FFFFFF') should be 255*7 = 1785")
-    RGBmsg = "ColorLuminance('RRGGBB') should be 2*<Red>+4*<Green>+<Blue>"
-    self.assertEqual(transitfeed.ColorLuminance('800000'), 2*128, RGBmsg)
-    self.assertEqual(transitfeed.ColorLuminance('008000'), 4*128, RGBmsg)
-    self.assertEqual(transitfeed.ColorLuminance('000080'), 1*128, RGBmsg)
-    self.assertEqual(transitfeed.ColorLuminance('1171B3'), 17*2 + 113*4 + 179*1,
-        RGBmsg)
-    pass
+    self.assertEqual(transitfeed.ColorLuminance('FFFFFF'), 255,
+        "ColorLuminance('FFFFFF') should be 255")
+    RGBmsg = ("ColorLuminance('RRGGBB') should be "
+              "0.299*<Red> + 0.587*<Green> + 0.114*<Blue>")
+    decimal_places_tested = 8
+    self.assertAlmostEqual(transitfeed.ColorLuminance('640000'), 29.9,
+                           decimal_places_tested, RGBmsg)
+    self.assertAlmostEqual(transitfeed.ColorLuminance('006400'), 58.7,
+                     decimal_places_tested, RGBmsg)
+    self.assertAlmostEqual(transitfeed.ColorLuminance('000064'), 11.4,
+                     decimal_places_tested, RGBmsg)
+    self.assertAlmostEqual(transitfeed.ColorLuminance('1171B3'),
+                     0.299*17 + 0.587*113 + 0.114*179,
+                     decimal_places_tested, RGBmsg)
 
 INVALID_VALUE = Exception()
 class ValidationTestCase(util.TestCaseAsserts):
