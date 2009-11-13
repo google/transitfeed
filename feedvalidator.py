@@ -27,6 +27,7 @@
 #   -o FILE, --output=FILE
 #                         write html output to FILE
 
+import bisect
 import codecs
 import datetime
 from collections import defaultdict
@@ -210,11 +211,22 @@ class BoundedProblemList(object):
 
   def Add(self, e):
     self._count += 1
-    if self._count <= self._size_bound:
-      self._exceptions.append(e)
+    try:
+      bisect.insort(self._exceptions, e)
+    except TypeError:
+      # The base class ExceptionWithContext raises this exception in __cmp__
+      # to signal that an object is not comparable. Instead of keeping the most
+      # significant issue keep the first reported.
+      if self._count <= self._size_bound:
+        self._exceptions.append(e)
+    else:
+      # self._exceptions is in order. Drop the least significant if the list is
+      # now too long.
+      if self._count > self._size_bound:
+        del self._exceptions[-1]
 
   def _GetDroppedCount(self):
-    return max(self._count - len(self._exceptions), 0)
+    return self._count - len(self._exceptions)
 
   def __repr__(self):
     return "<BoundedProblemList %s>" % repr(self._exceptions)

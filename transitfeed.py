@@ -200,6 +200,41 @@ class ProblemReporterBase:
         context=context, context2=self._context, type=type)
     self._Report(e)
 
+  def StopsTooClose(self, stop_name_a, stop_id_a, stop_name_b, stop_id_b,
+                    distance, type=TYPE_WARNING, context=None):
+    e = StopsTooClose(
+        stop_name_a=stop_name_a, stop_id_a=stop_id_a, stop_name_b=stop_name_b,
+        stop_id_b=stop_id_b, distance=distance, context=context,
+        context2=self._context, type=type)
+    self._Report(e)
+
+  def StationsTooClose(self, stop_name_a, stop_id_a, stop_name_b, stop_id_b,
+                       distance, type=TYPE_WARNING, context=None):
+    e = StationsTooClose(
+        stop_name_a=stop_name_a, stop_id_a=stop_id_a, stop_name_b=stop_name_b,
+        stop_id_b=stop_id_b, distance=distance, context=context,
+        context2=self._context, type=type)
+    self._Report(e)
+
+  def DifferentStationTooClose(self, stop_name, stop_id,
+                               station_stop_name, station_stop_id,
+                               distance, type=TYPE_WARNING, context=None):
+    e = DifferentStationTooClose(
+        stop_name=stop_name, stop_id=stop_id,
+        station_stop_name=station_stop_name, station_stop_id=station_stop_id,
+        distance=distance, context=context, context2=self._context, type=type)
+    self._Report(e)
+
+  def StopTooFarFromShapeWithDistTraveled(self, trip_id, stop_name, stop_id,
+                                          shape_dist_traveled, shape_id,
+                                          distance, max_distance,
+                                          type=TYPE_WARNING):
+    e = StopTooFarFromShapeWithDistTraveled(
+        trip_id=trip_id, stop_name=stop_name, stop_id=stop_id,
+        shape_dist_traveled=shape_dist_traveled, shape_id=shape_id,
+        distance=distance, max_distance=max_distance, type=type)
+    self._Report(e)
+
   def ExpirationDate(self, expiration, context=None):
     e = ExpirationDate(expiration=expiration, context=context,
                        context2=self._context, type=TYPE_WARNING)
@@ -356,6 +391,25 @@ class ExceptionWithContext(Exception):
       text += " column %s" % self.column_name
     return text
 
+  def __cmp__(self, y):
+    """Return an int <0/0/>0 when self is more/same/less significant than y.
+
+    Subclasses should define this if exceptions should be listed in something
+    other than the order they are reported.
+
+    Args:
+      y: object to compare to self
+
+    Returns:
+      An int which is negative if self is more significant than y, 0 if they
+      are similar significance and positive if self is less significant than
+      y. Returning a float won't work.
+
+    Raises:
+      TypeError by default, meaning objects of the type can not be compared.
+    """
+    raise TypeError("__cmp__ not defined")
+
 
 class MissingFile(ExceptionWithContext):
   ERROR_TEXT = "File %(file_name)s is not found"
@@ -411,9 +465,49 @@ class UsedStation(ExceptionWithContext):
                "(station) so it should not appear in stop_times"
 
 class StopTooFarFromParentStation(ExceptionWithContext):
-  ERROR_TEXT = "%(stop_name)s (ID %(stop_id)s) is too far from its" \
-               " parent station %(parent_stop_name)s (ID %(parent_stop_id)s)" \
-               " : %(distance)s meters."
+  ERROR_TEXT = (
+      "%(stop_name)s (ID %(stop_id)s) is too far from its parent station "
+      "%(parent_stop_name)s (ID %(parent_stop_id)s) : %(distance).2f meters.")
+  def __cmp__(self, y):
+    # Sort in decreasing order because more distance is more significant.
+    return cmp(y.distance, self.distance)
+
+class StopsTooClose(ExceptionWithContext):
+  ERROR_TEXT = (
+      "The stops \"%(stop_name_a)s\" (ID %(stop_id_a)s) and \"%(stop_name_b)s\""
+      " (ID %(stop_id_b)s) are %(distance)0.2fm apart and probably represent "
+      "the same location.")
+  def __cmp__(self, y):
+    # Sort in increasing order because less distance is more significant.
+    return cmp(self.distance, y.distance)
+
+class StationsTooClose(ExceptionWithContext):
+  ERROR_TEXT = (
+      "The stations \"%(stop_name_a)s\" (ID %(stop_id_a)s) and "
+      "\"%(stop_name_b)s\" (ID %(stop_id_b)s) are %(distance)0.2fm apart and "
+      "probably represent the same location.")
+  def __cmp__(self, y):
+    # Sort in increasing order because less distance is more significant.
+    return cmp(self.distance, y.distance)
+
+class DifferentStationTooClose(ExceptionWithContext):
+  ERROR_TEXT = (
+      "The parent_station of stop \"%(stop_name)s\" (ID %(stop_id)s) is not "
+      "station \"%(station_stop_name)s\" (ID %(station_stop_id)s) but they are "
+      "only %(distance)0.2fm apart.")
+  def __cmp__(self, y):
+    # Sort in increasing order because less distance is more significant.
+    return cmp(self.distance, y.distance)
+
+class StopTooFarFromShapeWithDistTraveled(ExceptionWithContext):
+  ERROR_TEXT = (
+      "For trip %(trip_id)s the stop \"%(stop_name)s\" (ID %(stop_id)s) is "
+      "%(distance).0f meters away from the corresponding point "
+      "(shape_dist_traveled: %(shape_dist_traveled)f) on shape %(shape_id)s. "
+      "It should be closer than %(max_distance).0f meters.")
+  def __cmp__(self, y):
+    # Sort in decreasing order because more distance is more significant.
+    return cmp(y.distance, self.distance)
 
 class ExpirationDate(ExceptionWithContext):
   def FormatProblem(self, d=None):
@@ -456,6 +550,10 @@ class TooFastTravel(ExceptionWithContext):
       return "High speed travel detected in trip %(trip_id)s: %(prev_stop)s" \
              " to %(next_stop)s. %(dist).0f meters in %(time)d seconds." \
              " (%(speed).0f km/h)." % d
+  def __cmp__(self, y):
+    # Sort in decreasing order because more distance is more significant. We
+    # can't sort by speed because not all TooFastTravel objects have a speed.
+    return cmp(y.dist, self.dist)
 
 class DuplicateTrip(ExceptionWithContext):
   ERROR_TEXT = "Trip %(trip_id1)s of route %(route_id1)s might be duplicated " \
@@ -1795,13 +1893,9 @@ class Trip(GenericGTFSObject):
               distance = ApproximateDistance(stop.stop_lat, stop.stop_lon,
                                              pt[0], pt[1])
               if distance > MAX_DISTANCE_FROM_STOP_TO_SHAPE:
-                problems.OtherProblem(
-                    'For trip %s the stop %s (id: %s) is %.0f meters away from '
-                    'the corresponding point (shape_dist_traveled: %f) on '
-                    'shape %s. It should be closer than %.0f meters.' %
-                    (self.trip_id, stop.stop_name, stop.stop_id, distance,
-                     pt[2], self.shape_id, MAX_DISTANCE_FROM_STOP_TO_SHAPE),
-                    type=TYPE_WARNING)
+                problems.StopTooFarFromShapeWithDistTraveled(
+                    self.trip_id, stop.stop_name, stop.stop_id, pt[2],
+                    self.shape_id, distance, MAX_DISTANCE_FROM_STOP_TO_SHAPE)
 
     # O(n^2), but we don't anticipate many headway periods per trip
     for headway_index, headway in enumerate(self._headways[0:-1]):
@@ -3358,21 +3452,16 @@ class Schedule:
         if distance < 2:
           other_stop = sorted_stops[index]
           if stop.location_type == 0 and other_stop.location_type == 0:
-            problems.OtherProblem(
-                'The stops "%s" (ID "%s") and "%s" (ID "%s") are %0.2fm apart '
-                'and probably represent the same location.' %
-                (EncodeUnicode(stop.stop_name),
-                 EncodeUnicode(stop.stop_id),
-                 EncodeUnicode(other_stop.stop_name),
-                 EncodeUnicode(other_stop.stop_id), distance),
-                type=TYPE_WARNING)
+            problems.StopsTooClose(
+                EncodeUnicode(stop.stop_name),
+                EncodeUnicode(stop.stop_id),
+                EncodeUnicode(other_stop.stop_name),
+                EncodeUnicode(other_stop.stop_id), distance)
           elif stop.location_type == 1 and other_stop.location_type == 1:
-            problems.OtherProblem(
-                'The stations "%s" (ID "%s") and "%s" (ID "%s") are %0.2fm '
-                'apart and probably represent the same location.' %
-                (EncodeUnicode(stop.stop_name), EncodeUnicode(stop.stop_id),
-                 EncodeUnicode(other_stop.stop_name),
-                 EncodeUnicode(other_stop.stop_id), distance), type=TYPE_WARNING)
+            problems.StationsTooClose(
+                EncodeUnicode(stop.stop_name), EncodeUnicode(stop.stop_id),
+                EncodeUnicode(other_stop.stop_name),
+                EncodeUnicode(other_stop.stop_id), distance)
           elif (stop.location_type in (0, 1) and
                 other_stop.location_type  in (0, 1)):
             if stop.location_type == 0 and other_stop.location_type == 1:
@@ -3382,14 +3471,11 @@ class Schedule:
               this_stop = other_stop
               this_station = stop
             if this_stop.parent_station != this_station.stop_id:
-              problems.OtherProblem(
-                  'The parent_station of stop "%s" (ID "%s") is not '
-                  'station "%s" (ID "%s") but they are only %0.2fm apart.' %
-                  (EncodeUnicode(this_stop.stop_name),
-                   EncodeUnicode(this_stop.stop_id),
-                   EncodeUnicode(this_station.stop_name),
-                   EncodeUnicode(this_station.stop_id), distance),
-                  type=TYPE_WARNING)
+              problems.DifferentStationTooClose(
+                  EncodeUnicode(this_stop.stop_name),
+                  EncodeUnicode(this_stop.stop_id),
+                  EncodeUnicode(this_station.stop_name),
+                  EncodeUnicode(this_station.stop_id), distance)
         index += 1
 
     # Check for multiple routes using same short + long name

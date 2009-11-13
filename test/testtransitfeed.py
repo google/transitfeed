@@ -1538,14 +1538,14 @@ class StopHierarchyTestCase(MemoryZipTestCase):
         "BULLFROG_ST,Bullfrog,36.868446,-116.784582,1,\n"
         "STAGECOACH,Stagecoach Hotel,36.915682,-116.751677,,\n")
     schedule = self.loader.Load()
-    e = self.problems.PopException("OtherProblem")
+    e = self.problems.PopException("DifferentStationTooClose")
     self.assertMatchesRegex(
         "The parent_station of stop \"Bullfrog\"", e.FormatProblem())
-    e = self.problems.PopException("OtherProblem")
+    e = self.problems.PopException("StopsTooClose")
     self.assertMatchesRegex("BEATTY_AIRPORT", e.FormatProblem())
     self.assertMatchesRegex("BULLFROG", e.FormatProblem())
     self.assertMatchesRegex("are 0.00m apart", e.FormatProblem())
-    e = self.problems.PopException("OtherProblem")
+    e = self.problems.PopException("DifferentStationTooClose")
     self.assertMatchesRegex(
         "The parent_station of stop \"Airport\"", e.FormatProblem())
     self.problems.AssertNoMoreExceptions()
@@ -1666,7 +1666,7 @@ class StopsNearEachOther(MemoryZipTestCase):
         "BULLFROG,Bullfrog,48.20001,140\n"
         "STAGECOACH,Stagecoach Hotel,48.20016,140\n")
     schedule = self.loader.Load()
-    e = self.problems.PopException('OtherProblem')
+    e = self.problems.PopException('StopsTooClose')
     self.assertTrue(e.FormatProblem().find("1.11m apart") != -1)
     self.problems.AssertNoMoreExceptions()
 
@@ -1689,7 +1689,7 @@ class StopsNearEachOther(MemoryZipTestCase):
         "BULLFROG,Bullfrog,48.2,140\n"
         "STAGECOACH,Stagecoach Hotel,48.20016,140\n")
     schedule = self.loader.Load()
-    e = self.problems.PopException('OtherProblem')
+    e = self.problems.PopException('StopsTooClose')
     self.assertTrue(e.FormatProblem().find("0.00m apart") != -1)
     self.problems.AssertNoMoreExceptions()
 
@@ -1703,7 +1703,7 @@ class StopsNearEachOther(MemoryZipTestCase):
         "BULLFROG_STATION,Bullfrog,48.20002,140,1,\n"
         "STAGECOACH,Stagecoach Hotel,48.20016,140,,\n")
     schedule = self.loader.Load()
-    e = self.problems.PopException('OtherProblem')
+    e = self.problems.PopException('StationsTooClose')
     self.assertTrue(e.FormatProblem().find("1.11m apart") != -1)
     self.assertTrue(e.FormatProblem().find("BEATTY_AIRPORT_STATION") != -1)
     self.problems.AssertNoMoreExceptions()
@@ -1717,7 +1717,7 @@ class StopsNearEachOther(MemoryZipTestCase):
         "BULLFROG_STATION,Bullfrog,48.20006,140,1,\n"
         "STAGECOACH,Stagecoach Hotel,48.20016,140,,\n")
     schedule = self.loader.Load()
-    e = self.problems.PopException('OtherProblem')
+    e = self.problems.PopException('DifferentStationTooClose')
     fmt = e.FormatProblem()
     self.assertTrue(re.search(
       r"parent_station of.*BULLFROG.*station.*BULLFROG_STATION.* 1.11m apart",
@@ -2889,7 +2889,7 @@ class StopMatchWithShapeTestCase(ValidationTestCase):
                      stop_sequence=1, shape_dist_traveled=1)
 
     schedule.Validate(self.problems)
-    e = self.problems.PopException('OtherProblem')
+    e = self.problems.PopException('StopTooFarFromShapeWithDistTraveled')
     self.assertTrue(e.FormatProblem().find('Demo Stop 2') != -1)
     self.assertTrue(e.FormatProblem().find('1344 meters away') != -1)
     self.problems.AssertNoMoreExceptions()
@@ -3444,7 +3444,9 @@ class DuplicateStopValidationTestCase(ValidationTestCase):
     stop4.stop_lon = 32.268936
     schedule.AddStopObject(stop4)
     trip.AddStopTime(stop4, arrival_time="12:15:00", departure_time="12:15:00")
-    self.ExpectOtherProblem(schedule)
+    schedule.Validate()
+    e = self.problems.PopException('StopsTooClose')
+    self.problems.AssertNoMoreExceptions()
 
 
 class TempFileTestCaseBase(unittest.TestCase):

@@ -211,11 +211,84 @@ class LimitPerTypeProblemReporterTestCase(unittest.TestCase):
     self.assertEquals(2, self.problems.WarningCount())
     self.assertEquals(3, self.problems.ErrorCount())
 
+    # These are BoundedProblemList objects
+    warning_bounded_list = self.problems.ProblemList(
+        transitfeed.TYPE_WARNING, "OtherProblem")
+    error_bounded_list = self.problems.ProblemList(
+        transitfeed.TYPE_ERROR, "OtherProblem")
+   
+    self.assertEquals(2, warning_bounded_list.count)
+    self.assertEquals(3, error_bounded_list.count)
+
+    self.assertEquals(0, warning_bounded_list.dropped_count)
+    self.assertEquals(1, error_bounded_list.dropped_count)
+
     self.assertProblemsAttribute(transitfeed.TYPE_ERROR,  "OtherProblem",
         "description", "e1 e2")
     self.assertProblemsAttribute(transitfeed.TYPE_WARNING,  "OtherProblem",
         "description", "w1 w2")
 
+  def testKeepUnsorted(self):
+    """An imperfect test that insort triggers ExceptionWithContext.__cmp__."""
+    # If ExceptionWithContext.__cmp__ doesn't trigger TypeError in
+    # bisect.insort then the default comparison of object id will be used. The
+    # id values tend to be given out in order of creation so call
+    # problems._Report with objects in a different order. This test should
+    # break if ExceptionWithContext.__cmp__ is removed or changed to return 0
+    # or cmp(id(self), id(y)).
+    exceptions = []
+    for i in range(20):
+      exceptions.append(transitfeed.OtherProblem(description="e%i" % i))
+    exceptions = exceptions[10:] + exceptions[:10]
+    self.problems = feedvalidator.LimitPerTypeProblemReporter(3)
+    for e in exceptions:
+      self.problems._Report(e)
+
+    self.assertEquals(0, self.problems.WarningCount())
+    self.assertEquals(20, self.problems.ErrorCount())
+
+    bounded_list = self.problems.ProblemList(
+        transitfeed.TYPE_ERROR, "OtherProblem")
+    self.assertEquals(20, bounded_list.count)
+    self.assertEquals(17, bounded_list.dropped_count)
+    self.assertProblemsAttribute(transitfeed.TYPE_ERROR,  "OtherProblem",
+        "description", "e10 e11 e12")
+
+  def testLimitSortedTooFastTravel(self):
+    """Sort by decreasing distance, keeping the N greatest."""
+    self.problems = feedvalidator.LimitPerTypeProblemReporter(3)
+    self.problems.TooFastTravel("t1", "prev stop", "next stop", 11230.4, 5,
+        None)
+    self.problems.TooFastTravel("t2", "prev stop", "next stop", 1120.4, 5, None)
+    self.problems.TooFastTravel("t3", "prev stop", "next stop", 1130.4, 5, None)
+    self.problems.TooFastTravel("t4", "prev stop", "next stop", 1230.4, 5, None)
+    self.assertEquals(0, self.problems.WarningCount())
+    self.assertEquals(4, self.problems.ErrorCount())
+    self.assertProblemsAttribute(transitfeed.TYPE_ERROR, "TooFastTravel",
+        "trip_id", "t1 t4 t3")
+
+  def testLimitSortedStopTooFarFromParentStation(self):
+    """Sort by decreasing distance, keeping the N greatest."""
+    self.problems = feedvalidator.LimitPerTypeProblemReporter(3)
+    for i, distance in enumerate((1000, 3002.0, 1500, 2434.1, 5023.21)):
+      self.problems.StopTooFarFromParentStation(
+          "s%d" % i, "S %d" % i, "p%d" % i, "P %d" % i, distance)
+    self.assertEquals(5, self.problems.WarningCount())
+    self.assertEquals(0, self.problems.ErrorCount())
+    self.assertProblemsAttribute(transitfeed.TYPE_WARNING,
+        "StopTooFarFromParentStation", "stop_id", "s4 s1 s3")
+
+  def testLimitSortedStopsTooClose(self):
+    """Sort by increasing distance, keeping the N closest."""
+    self.problems = feedvalidator.LimitPerTypeProblemReporter(3)
+    for i, distance in enumerate((4.0, 3.0, 2.5, 2.2, 1.0, 0.0)):
+      self.problems.StopsTooClose(
+          "Sa %d" % i, "sa%d" % i, "Sb %d" % i, "sb%d" % i, distance)
+    self.assertEquals(6, self.problems.WarningCount())
+    self.assertEquals(0, self.problems.ErrorCount())
+    self.assertProblemsAttribute(transitfeed.TYPE_WARNING,
+        "StopsTooClose", "stop_id_a", "sa5 sa4 sa3")
+    
 
 class CheckVersionTestCase(util.TempDirTestCaseBase):
   def setUp(self):
