@@ -14,18 +14,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Validates a Google Transit Feed Specification feed.
-#
-#
-# usage: feedvalidator.py [options] feed_filename
-#
-# options:
-#   --version             show program's version number and exit
-#   -h, --help            show this help message and exit
-#   -n, --noprompt        do not prompt for feed location or load output in
-#                         browser
-#   -o FILE, --output=FILE
-#                         write html output to FILE
+
+"""Validates a GTFS file.
+
+For usage information run feedvalidator.py --help
+"""
 
 import bisect
 import codecs
@@ -41,6 +34,7 @@ import time
 import transitfeed
 from transitfeed import TYPE_ERROR, TYPE_WARNING
 from urllib2 import Request, urlopen, HTTPError, URLError
+import util
 import webbrowser
 
 SVN_TAG_URL = 'http://googletransitdatafeed.googlecode.com/svn/tags/'
@@ -509,6 +503,14 @@ FeedValidator</a> version %s on %s.
     f.write(transitfeed.EncodeUnicode(output_suffix))
 
 
+def RunValidationOutputFromOptions(feed, options):
+  """Validate feed, output results per options and return an exit code."""
+  if options.output.upper() == "CONSOLE":
+    return RunValidationOutputToConsole(feed, options)
+  else:
+    return RunValidationOutputToFilename(feed, options, options.output)
+
+
 def RunValidationOutputToFilename(feed, options, output_filename):
   """Validate feed, save HTML at output_filename and return an exit code."""
   try:
@@ -620,8 +622,21 @@ def CheckVersion(latest_version=''):
 
 
 def main():
-  parser = optparse.OptionParser(usage='usage: %prog [options] feed_filename',
-                                 version='%prog '+transitfeed.__version__)
+  usage = \
+'''%prog [options] [<input GTFS.zip>]
+
+Validates GTFS file (or directory) <input GTFS.zip> and writes a HTML
+report of the results to validation-results.html.
+
+If <input GTFS.zip> is ommited the filename is read from the console. Dragging
+a file into the console may enter the filename.
+
+For more information see
+http://code.google.com/p/googletransitdatafeed/wiki/FeedValidator
+'''
+
+  parser = util.OptionParserLongError(
+      usage=usage, version='%prog '+transitfeed.__version__)
   parser.add_option('-n', '--noprompt', action='store_false',
                     dest='manual_entry',
                     help='do not prompt for feed location or load output in '
@@ -654,28 +669,31 @@ def main():
                       memory_db=False, check_duplicate_trips=False,
                       limit_per_type=5, latest_version='')
   (options, args) = parser.parse_args()
+
   if not len(args) == 1:
     if options.manual_entry:
       feed = raw_input('Enter Feed Location: ')
     else:
-      print >>sys.stderr, parser.format_help()
-      print >>sys.stderr, '\n\nYou must provide the path of a single feed\n\n'
-      sys.exit(2)
+      parser.error('You must provide the path of a single feed')
   else:
     feed = args[0]
 
   feed = feed.strip('"')
 
-  if options.output.upper() == "CONSOLE":
-    return RunValidationOutputToConsole(feed, options)
+  if options.performance:
+    return ProfileRunValidationOutputFromOptions(feed, options)
   else:
-    return RunValidationOutputToFilename(feed, options, options.output)
+    return RunValidationOutputFromOptions(feed, options)
 
 
-def ProfileMain():
+def ProfileRunValidationOutputFromOptions(feed, options):
+  """Run RunValidationOutputFromOptions, print profile and return exit code."""
   import cProfile
   import pstats
-  cProfile.run('exit_code = main()', 'validate-stats')
+  # runctx will modify a dict, but not locals(). We need a way to get rv back.
+  locals_for_exec = locals()
+  cProfile.runctx('rv = RunValidationOutputFromOptions(feed, options)',
+                  globals(), locals_for_exec, 'validate-stats')
 
   # Only available on Unix, http://docs.python.org/lib/module-resource.html
   import resource
@@ -718,78 +736,8 @@ def ProfileMain():
   p.strip_dirs()
   p.sort_stats('cumulative').print_stats(30)
   p.sort_stats('cumulative').print_callers(30)
-  return exit_code
+  return locals_for_exec['rv']
 
 
 if __name__ == '__main__':
-  try:
-    if '-p' in sys.argv or '--performance' in sys.argv:
-      exit_code = ProfileMain()
-    else:
-      exit_code = main()
-    sys.exit(exit_code)
-  except (SystemExit, KeyboardInterrupt):
-    raise
-  except:
-    import inspect
-    import sys
-    import traceback
-
-    # Save trace and exception now. These calls look at the most recently
-    # raised exception. The code that makes the report might trigger other
-    # exceptions.
-    original_trace = inspect.trace(3)[1:]
-    formatted_exception = traceback.format_exception_only(*(sys.exc_info()[:2]))
-
-    apology = """Yikes, the validator threw an unexpected exception!
-
-Hopefully a complete report has been saved to validation-crash.txt,
-though if you are seeing this message we've already disappointed you once
-today. Please include the report in a new issue at
-http://code.google.com/p/googletransitdatafeed/issues/entry
-or an email to tom.brown.code@gmail.com. Sorry!
-
-"""
-    dashes = '%s\n' % ('-' * 60)
-    dump = []
-    dump.append(apology)
-    dump.append(dashes)
-    try:
-      dump.append("transitfeed version %s\n\n" % transitfeed.__version__)
-    except NameError:
-      # Oh well, guess we won't put the version in the report
-      pass
-
-    for (frame_obj, filename, line_num, fun_name, context_lines,
-         context_index) in original_trace:
-      dump.append('File "%s", line %d, in %s\n' % (filename, line_num,
-                                                   fun_name))
-      if context_lines:
-        for (i, line) in enumerate(context_lines):
-          if i == context_index:
-            dump.append(' --> %s' % line)
-          else:
-            dump.append('     %s' % line)
-      for local_name, local_val in frame_obj.f_locals.items():
-        try:
-          truncated_val = str(local_val)[0:500]
-        except Exception, e:
-          dump.append('    Exception in str(%s): %s' % (local_name, e))
-        else:
-          if len(truncated_val) >= 500:
-            truncated_val = '%s...' % truncated_val[0:499]
-          dump.append('    %s = %s\n' % (local_name, truncated_val))
-      dump.append('\n')
-
-    dump.append(''.join(formatted_exception))
-
-    open('validation-crash.txt', 'w').write(''.join(dump))
-
-    print ''.join(dump)
-    print
-    print dashes
-    print apology
-
-    if '-n' not in sys.argv and '--noprompt' not in sys.argv:
-      raw_input('Press enter to continue')
-    sys.exit(127)
+  util.RunWithCrashHandler(main)

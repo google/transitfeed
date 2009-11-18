@@ -1357,19 +1357,19 @@ class MergeInSubprocessTestCase(util.TempDirTestCaseBase):
   def testCrashHandler(self):
     (out, err) = self.CheckCallWithPath(
         [self.GetPath('merge.py'), '--no_browser',
-         'IWantMy-merge-crash.txt', 'file2', 'fileout.zip'],
+         'IWantMyCrash', 'file2', 'fileout.zip'],
         expected_retcode=127)
-    self.assertTrue(re.search(r'Yikes', out))
-    crashout = open('merge-crash.txt').read()
-    self.assertTrue(re.search(r'For testing the merge crash handler',
-                              crashout), crashout)
+    self.assertMatchesRegex(r'Yikes', out)
+    crashout = open('transitfeedcrash.txt').read()
+    self.assertMatchesRegex(r'For testing the merge crash handler', crashout)
 
   def testMergeBadCommandLine(self):
     (out, err) = self.CheckCallWithPath(
         [self.GetPath('merge.py'), '--no_browser'],
         expected_retcode=2)
     self.assertFalse(out)
-    self.assertTrue(err.find('command line arguments') != -1)
+    self.assertMatchesRegex(r'command line arguments', err)
+    self.assertFalse(os.path.exists('transitfeedcrash.txt'))
 
   def testMergeWithWarnings(self):
     # Make a copy of good_feed.zip which is not active until 20110101. This

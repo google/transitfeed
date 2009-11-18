@@ -24,13 +24,13 @@ __author__ = 'chris.harrelson.code@gmail.com (Chris Harrelson)'
 import csv
 import glob
 import ogr
-from optparse import OptionParser
 import os
 import shutil
 import sys
 import tempfile
 import transitfeed
 import transitshapelib
+import util
 import zipfile
 
 
@@ -148,7 +148,13 @@ def ValidateArgs(options_parser, options, args):
 
 
 def DefineOptions():
-  options_parser = OptionParser()
+  usage = \
+"""%prog [options] --source_gtfs=<input GTFS.zip> --dest_gtfs=<output GTFS.zip>\
+ <input.shp> [<input.shp>...]
+
+Try to match shapes in one or more SHP files to trips in a GTFS file."""
+  options_parser = util.OptionParserLongError(
+      usage=usage, version='%prog '+transitfeed.__version__)
   options_parser.add_option("--print_columns",
                             action="store_true",
                             default=False,
@@ -185,6 +191,7 @@ def DefineOptions():
                             dest="verbosity",
                             help="Verbosity level. Higher is more verbose")
   return options_parser
+
 
 def main(key_cols):
   print 'Parsing shapefile(s)...'

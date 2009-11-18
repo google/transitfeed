@@ -14,19 +14,18 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# An example application that uses the transitfeed module.
-#
-# You must provide a Google Maps API key.
-#
-# Usage:
-# schedule_viewer.py --key `cat key` --port 8765 --feed_filename feed.zip
+"""
+An example application that uses the transitfeed module.
+
+You must provide a Google Maps API key.
+"""
+
 
 import BaseHTTPServer, sys, urlparse
 import bisect
 from gtfsscheduleviewer.marey_graph import MareyGraph
 import gtfsscheduleviewer
 import mimetypes
-from optparse import OptionParser
 import os.path
 import re
 import signal
@@ -34,6 +33,7 @@ import simplejson
 import socket
 import time
 import transitfeed
+import util
 import urllib
 
 
@@ -455,8 +455,16 @@ def GetDefaultKeyFilePath():
 
 
 def main(RequestHandlerClass = ScheduleRequestHandler):
-  parser = OptionParser(usage='usage: %prog [options] feed_filename',
-                        version='%prog '+transitfeed.__version__)
+  usage = \
+'''%prog [options] [<input GTFS.zip>]
+
+Runs a webserver that lets you explore a <input GTFS.zip> in your browser.
+
+If <input GTFS.zip> is omited the filename is read from the console. Dragging
+a file into the console may enter the filename.
+'''
+  parser = util.OptionParserLongError(
+      usage=usage, version='%prog '+transitfeed.__version__)
   parser.add_option('--feed_filename', '--feed', dest='feed_filename',
                     help='file name of feed to load')
   parser.add_option('--key', dest='key',
@@ -509,6 +517,7 @@ def main(RequestHandlerClass = ScheduleRequestHandler):
   print ("To view, point your browser at http://localhost:%d/" %
          (server.server_port))
   server.serve_forever()
+
 
 if __name__ == '__main__':
   main()

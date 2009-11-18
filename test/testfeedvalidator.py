@@ -39,7 +39,7 @@ class FullTests(util.TempDirTestCaseBase):
     htmlout = open('validation-results.html').read()
     self.assertTrue(re.search(r'feed validated successfully', htmlout))
     self.assertFalse(re.search(r'ERROR', htmlout))
-    self.assertFalse(os.path.exists('validation-crash.txt'))
+    self.assertFalse(os.path.exists('transitfeedcrash.txt'))
 
   def testGoodFeedConsoleOutput(self):
     (out, err) = self.CheckCallWithPath(
@@ -49,7 +49,7 @@ class FullTests(util.TempDirTestCaseBase):
     self.assertTrue(re.search(r'feed validated successfully', out))
     self.assertFalse(re.search(r'ERROR', out))
     self.assertFalse(os.path.exists('validation-results.html'))
-    self.assertFalse(os.path.exists('validation-crash.txt'))
+    self.assertFalse(os.path.exists('transitfeedcrash.txt'))
 
   def testMissingStops(self):
     (out, err) = self.CheckCallWithPath(
@@ -62,7 +62,7 @@ class FullTests(util.TempDirTestCaseBase):
     htmlout = open('validation-results.html').read()
     self.assertTrue(re.search(r'Invalid value BEATTY_AIRPORT', htmlout))
     self.assertFalse(re.search(r'feed validated successfully', htmlout))
-    self.assertFalse(os.path.exists('validation-crash.txt'))
+    self.assertFalse(os.path.exists('transitfeedcrash.txt'))
 
   def testMissingStopsConsoleOutput(self):
     (out, err) = self.CheckCallWithPath(
@@ -74,7 +74,7 @@ class FullTests(util.TempDirTestCaseBase):
     self.assertFalse(re.search(r'feed validated successfully', out))
     self.assertTrue(re.search(r'Invalid value BEATTY_AIRPORT', out))
     self.assertFalse(os.path.exists('validation-results.html'))
-    self.assertFalse(os.path.exists('validation-crash.txt'))
+    self.assertFalse(os.path.exists('transitfeedcrash.txt'))
 
   def testLimitedErrors(self):
     (out, err) = self.CheckCallWithPath(
@@ -86,7 +86,7 @@ class FullTests(util.TempDirTestCaseBase):
     self.assertFalse(re.search(r'feed validated successfully', out))
     htmlout = open('validation-results.html').read()
     self.assertEquals(2, len(re.findall(r'class="problem">stop_id<', htmlout)))
-    self.assertFalse(os.path.exists('validation-crash.txt'))
+    self.assertFalse(os.path.exists('transitfeedcrash.txt'))
 
   def testBadDateFormat(self):
     (out, err) = self.CheckCallWithPath(
@@ -100,7 +100,7 @@ class FullTests(util.TempDirTestCaseBase):
     self.assertTrue(re.search(r'in field <code>start_date', htmlout))
     self.assertTrue(re.search(r'in field <code>date', htmlout))
     self.assertFalse(re.search(r'feed validated successfully', htmlout))
-    self.assertFalse(os.path.exists('validation-crash.txt'))
+    self.assertFalse(os.path.exists('transitfeedcrash.txt'))
 
   def testBadUtf8(self):
     (out, err) = self.CheckCallWithPath(
@@ -112,14 +112,14 @@ class FullTests(util.TempDirTestCaseBase):
     htmlout = open('validation-results.html').read()
     self.assertTrue(re.search(r'Unicode error', htmlout))
     self.assertFalse(re.search(r'feed validated successfully', htmlout))
-    self.assertFalse(os.path.exists('validation-crash.txt'))
+    self.assertFalse(os.path.exists('transitfeedcrash.txt'))
 
   def testFileNotFound(self):
     (out, err) = self.CheckCallWithPath(
         [self.GetPath('feedvalidator.py'), '-n', '--latest_version',
          transitfeed.__version__, 'file-not-found.zip'],
         expected_retcode=1)
-    self.assertFalse(os.path.exists('validation-crash.txt'))
+    self.assertFalse(os.path.exists('transitfeedcrash.txt'))
 
   def testBadOutputPath(self):
     (out, err) = self.CheckCallWithPath(
@@ -127,7 +127,7 @@ class FullTests(util.TempDirTestCaseBase):
          transitfeed.__version__, '-o', 'path/does/not/exist.html',
          self.GetPath('test', 'data', 'good_feed')],
         expected_retcode=2)
-    self.assertFalse(os.path.exists('validation-crash.txt'))
+    self.assertFalse(os.path.exists('transitfeedcrash.txt'))
 
   def testCrashHandler(self):
     (out, err) = self.CheckCallWithPath(
@@ -136,7 +136,7 @@ class FullTests(util.TempDirTestCaseBase):
         expected_retcode=127)
     self.assertTrue(re.search(r'Yikes', out))
     self.assertFalse(re.search(r'feed validated successfully', out))
-    crashout = open('validation-crash.txt').read()
+    crashout = open('transitfeedcrash.txt').read()
     self.assertTrue(re.search(r'For testing the feed validator crash handler',
                               crashout))
 
@@ -149,7 +149,7 @@ class FullTests(util.TempDirTestCaseBase):
     htmlout = open('validation-results.html').read()
     self.assertTrue(re.search(r'A new version 100.100.100', htmlout))
     self.assertFalse(re.search(r'ERROR', htmlout))
-    self.assertFalse(os.path.exists('validation-crash.txt'))
+    self.assertFalse(os.path.exists('transitfeedcrash.txt'))
 
   def testCheckVersionIsRunConsoleOutput(self):
     (out, err) = self.CheckCallWithPath(
@@ -159,7 +159,16 @@ class FullTests(util.TempDirTestCaseBase):
     self.assertTrue(re.search(r'feed validated successfully', out))
     self.assertTrue(re.search(r'A new version 100.100.100', out))
     self.assertFalse(os.path.exists('validation-results.html'))
-    self.assertFalse(os.path.exists('validation-crash.txt'))
+    self.assertFalse(os.path.exists('transitfeedcrash.txt'))
+
+  def testUsage(self):
+    (out, err) = self.CheckCallWithPath(
+        [self.GetPath('feedvalidator.py'), '--invalid_opt'], expected_retcode=2)
+    self.assertMatchesRegex(r'Usage: feedvalidator.py \[options\]', err)
+    self.assertMatchesRegex(r'wiki/FeedValidator', err)
+    self.assertMatchesRegex(r'--output', err)  # output includes all usage info
+    self.assertFalse(os.path.exists('transitfeedcrash.txt'))
+    self.assertFalse(os.path.exists('validation-results.html'))
 
 
 class MockOptions:

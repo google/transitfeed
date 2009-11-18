@@ -18,18 +18,18 @@
 Filters out trips which are not on the defualt routes and
   set their trip_typeattribute accordingly.
 
-Run with 'unusual_trip_filter.py --help' for options help.
+For usage information run unusual_trip_filter.py --help
 """
 
 __author__ = 'Jiri Semecky <jiri.semecky@gmail.com>'
 
 import codecs
-import optparse
 import os
 import os.path
+import sys
 import time
 import transitfeed
-import sys
+import util
 
 
 class UnusualTripFilter(object):
@@ -100,8 +100,15 @@ class UnusualTripFilter(object):
 
 
 def main():
-  parser = optparse.OptionParser(usage='usage: %prog [options] <feed_filename>',
-                                 version='%prog '+transitfeed.__version__)
+  usage = \
+'''%prog [options] <GTFS.zip>
+
+Filters out trips which do not follow the most common stop sequences and
+sets their trip_type attribute accordingly. <GTFS.zip> is overwritten with
+the modifed GTFS file unless the --output option is used.
+'''
+  parser = util.OptionParserLongError(
+      usage=usage, version='%prog '+transitfeed.__version__)
   parser.add_option('-o', '--output', dest='output', metavar='FILE',
          help='Name of the output GTFS file (writing to input feed if omitted).')
   parser.add_option('-m', '--memory_db', dest='memory_db', action='store_true',
@@ -122,11 +129,8 @@ def main():
          help='Suppress information output.')
 
   (options, args) = parser.parse_args()
-  if len(args) < 1:
-    print >>sys.stderr, parser.format_help()
-    print >>sys.stderr, ('\nYou must provide the path '
-                         'of a single feed or specify the pipe mode')
-    sys.exit(1)
+  if len(args) != 1:
+    parser.error('You must provide the path of a single feed.')
 
   filter = UnusualTripFilter(float(options.threshold),
                              force=options.override_trip_type,
@@ -149,4 +153,4 @@ def main():
 
 
 if __name__ == '__main__':
-    main()
+  util.RunWithCrashHandler(main)

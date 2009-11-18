@@ -23,6 +23,7 @@ import unittest
 import kmlparser
 import kmlwriter
 import transitfeed
+import util
 
 try:
   import xml.etree.ElementTree as ET  # python 2.5
@@ -362,6 +363,30 @@ class TestShapePointsKML(unittest.TestCase):
     self.assertEquals(len(placemarks), 4)
     for placemark in placemarks:
       self.assert_(placemark.find('Point') is not None)
+
+
+class FullTests(util.TempDirTestCaseBase):
+  def testNormalRun(self):
+    (out, err) = self.CheckCallWithPath(
+        [self.GetPath('kmlwriter.py'), self.GetTestDataPath('good_feed.zip'),
+         'good_feed.kml'])
+    self.assertFalse(os.path.exists('transitfeedcrash.txt'))
+    self.assertTrue(os.path.exists('good_feed.kml'))
+
+  def testCommandLineError(self):
+    (out, err) = self.CheckCallWithPath(
+        [self.GetPath('kmlwriter.py'), '--bad_flag'], expected_retcode=2)
+    self.assertMatchesRegex(r'no such option.*--bad_flag', err)
+    self.assertMatchesRegex(r'--showtrips', err)
+    self.assertFalse(os.path.exists('transitfeedcrash.txt'))
+
+  def testCrashHandler(self):
+    (out, err) = self.CheckCallWithPath(
+        [self.GetPath('kmlwriter.py'), 'IWantMyCrash', 'output.zip'],
+        stdin_str="\n", expected_retcode=127)
+    self.assertMatchesRegex(r'Yikes', out)
+    crashout = open('transitfeedcrash.txt').read()
+    self.assertMatchesRegex(r'For testCrashHandler', crashout)
 
 
 if __name__ == '__main__':

@@ -48,6 +48,7 @@ import re
 import sys
 import time
 import transitfeed
+import util
 import webbrowser
 
 
@@ -1680,14 +1681,14 @@ class FeedMerger(object):
 def main():
   """Run the merge driver program."""
   usage = \
-"""usage: %prog [options] <feed_input_a> <feed_input_b> <feed_output.zip>
+"""%prog [options] <input GTFS a.zip> <input GTFS b.zip> <output GTFS.zip>
 
-Merges <feed_input_a> and <feed_input_b> into a new GTFS file <feed_output.zip>.
-<feed_input_a> and <feed_input_b> must be the path of a GTFS directory or zip.
+Merges <input GTFS a.zip> and <input GTFS b.zip> into a new GTFS file
+<output GTFS.zip>.
 """
 
-  parser = optparse.OptionParser(usage=usage,
-                                 version='%prog '+transitfeed.__version__)
+  parser = util.OptionParserLongError(
+      usage=usage, version='%prog '+transitfeed.__version__)
   parser.add_option('--cutoff_date',
                     dest='cutoff_date',
                     default=None,
@@ -1716,19 +1717,16 @@ Merges <feed_input_a> and <feed_input_b> into a new GTFS file <feed_output.zip>.
                     help='Use in-memory sqlite db instead of a temporary file. '
                          'It is faster but uses more RAM.')
   parser.set_defaults(memory_db=False)
-  options, args = parser.parse_args()
+  (options, args) = parser.parse_args()
 
   if len(args) != 3:
-    print >>sys.stderr, parser.format_help()
-    print >>sys.stderr, ('\n\nYou did not provide all required command '
-                         'line arguments.\n\n')
-    sys.exit(2)
+    parser.error('You did not provide all required command line arguments.')
 
   old_feed_path = os.path.abspath(args[0])
   new_feed_path = os.path.abspath(args[1])
   merged_feed_path = os.path.abspath(args[2])
 
-  if old_feed_path.find("IWantMy-merge-crash.txt") != -1:
+  if old_feed_path.find("IWantMyCrash") != -1:
     # See test/testmerge.py
     raise Exception('For testing the merge crash handler.')
 
@@ -1764,66 +1762,4 @@ Merges <feed_input_a> and <feed_input_b> into a new GTFS file <feed_output.zip>.
 
 
 if __name__ == '__main__':
-  try:
-    main()
-  except (SystemExit, KeyboardInterrupt):
-    raise
-  except:
-    import inspect
-    import traceback
-
-    # Save trace and exception now. These calls look at the most recently
-    # raised exception. The code that makes the report might trigger other
-    # exceptions.
-    original_trace = inspect.trace(3)[1:]
-    formatted_exception = traceback.format_exception_only(*(sys.exc_info()[:2]))
-
-    apology = """Yikes, the merger threw an unexpected exception!
-
-Hopefully a complete report has been saved to merge-crash.txt,
-though if you are seeing this message we've already disappointed you once
-today. Please include the report in a new issue at
-http://code.google.com/p/googletransitdatafeed/issues/entry
-or an email to tom.brown.code@gmail.com. Sorry!
-
-"""
-    dashes = '%s\n' % ('-' * 60)
-    dump = []
-    dump.append(apology)
-    dump.append(dashes)
-    try:
-      dump.append("transitfeed version %s\n\n" % transitfeed.__version__)
-    except NameError:
-      # Oh well, guess we won't put the version in the report
-      pass
-
-    for (frame_obj, filename, line_num, fun_name, context_lines,
-         context_index) in original_trace:
-      dump.append('File "%s", line %d, in %s\n' % (filename, line_num,
-                                                   fun_name))
-      if context_lines:
-        for (i, line) in enumerate(context_lines):
-          if i == context_index:
-            dump.append(' --> %s' % line)
-          else:
-            dump.append('     %s' % line)
-      for local_name, local_val in frame_obj.f_locals.items():
-        try:
-          truncated_val = str(local_val)[0:500]
-        except Exception, e:
-          dump.append('    Exception in str(%s): %s' % (local_name, e))
-        else:
-          if len(truncated_val) >= 500:
-            truncated_val = '%s...' % truncated_val[0:499]
-          dump.append('    %s = %s\n' % (local_name, truncated_val))
-      dump.append('\n')
-
-    dump.append(''.join(formatted_exception))
-
-    open('merge-crash.txt', 'w').write(''.join(dump))
-
-    print ''.join(dump)
-    print
-    print dashes
-    print apology
-    sys.exit(127)
+  util.RunWithCrashHandler(main)

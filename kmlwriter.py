@@ -16,8 +16,7 @@
 
 """A module for writing GTFS feeds out into Google Earth KML format.
 
-Command-line usage:
-python kmlwriter.py [options] <input GTFS filename> [<output KML filename>]
+For usage information run kmlwriter.py --help
 
 If no output filename is specified, the output file will be given the same
 name as the feed file (with ".kml" appended) and will be placed in the same
@@ -78,6 +77,7 @@ import optparse
 import os.path
 import sys
 import transitfeed
+import util
 
 
 class KMLWriter(object):
@@ -582,15 +582,21 @@ class KMLWriter(object):
 
 
 def main():
-  usage = ('Usage: python kmlwriter.py [options] <input GTFS filename> '
-           '[<output KML filename>]')
-  parser = optparse.OptionParser(usage=usage,
-                                 version='%prog '+transitfeed.__version__)
+  usage = \
+'''%prog [options] <input GTFS.zip> [<output.kml>]
+
+Reads GTFS file or directory <input GTFS.zip> and creates a KML file
+<output.kml> that contains the geographical features of the input. If
+<output.kml> is omitted a default filename is picked based on
+<input GTFS.zip>. By default the KML contains all stops and shapes.
+'''
+
+  parser = util.OptionParserLongError(
+      usage=usage, version='%prog '+transitfeed.__version__)
   parser.add_option('-t', '--showtrips', action='store_true',
                     dest='show_trips',
                     help='include the individual trips for each route')
   parser.add_option('-a', '--altitude_per_sec', action='store', type='float',
-                    default=1.0,
                     dest='altitude_per_sec',
                     help='if greater than 0 trips are drawn with time axis '
                     'set to this many meters high for each second of time')
@@ -603,11 +609,15 @@ def main():
   parser.add_option('-p', '--display_shape_points', action='store_true',
                     dest='shape_points',
                     help='shows the actual points along shapes')
+
+  parser.set_defaults(altitude_per_sec=1.0)
   options, args = parser.parse_args()
 
   if len(args) < 1:
-    print usage
-    sys.exit(1)
+    parser.error('You must provide the path of an input GTFS file.')
+
+  if args[0] == 'IWantMyCrash':
+    raise Exception('For testCrashHandler')
 
   input_path = args[0]
   if len(args) >= 2:
@@ -634,4 +644,4 @@ def main():
 
 
 if __name__ == '__main__':
-  main()
+  util.RunWithCrashHandler(main)
