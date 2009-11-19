@@ -189,3 +189,11 @@ class RecordingProblemReporter(transitfeed.ProblemReporterBase):
     if file_name:
       self._test_case.assertEquals(file_name, e.file_name)
     return e
+
+  def PopDuplicateColumn(self, file_name, header, count):
+    e = self.PopException("DuplicateColumn")
+    self._test_case.assertEquals(file_name, e.file_name)
+    self._test_case.assertEquals(header, e.header)
+    self._test_case.assertEquals(count, e.count)
+    return e
+

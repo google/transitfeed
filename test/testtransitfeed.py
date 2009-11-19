@@ -1378,6 +1378,53 @@ class CsvDictTestCase(unittest.TestCase):
     self.assertTrue(e.FormatProblem().find("missing cells") != -1)
     self.problems.AssertNoMoreExceptions()
 
+  def testDetectsDuplicateHeaders(self):
+    self.zip.writestr(
+        "transfers.txt",
+        "from_stop_id,from_stop_id,to_stop_id,transfer_type,min_transfer_time,"
+        "min_transfer_time,min_transfer_time,min_transfer_time,unknown,"
+        "unknown\n"
+        "BEATTY_AIRPORT,BEATTY_AIRPORT,BULLFROG,3,,2,,,,\n"
+        "BULLFROG,BULLFROG,BEATTY_AIRPORT,2,1200,1,,,,\n")
+
+    list(self.loader._ReadCsvDict("transfers.txt",
+                                  transitfeed.Transfer._FIELD_NAMES,
+                                  transitfeed.Transfer._REQUIRED_FIELD_NAMES))
+
+    self.problems.PopDuplicateColumn("transfers.txt","min_transfer_time",4)
+    self.problems.PopDuplicateColumn("transfers.txt","from_stop_id",2)
+    self.problems.PopDuplicateColumn("transfers.txt","unknown",2)
+    e = self.problems.PopException("UnrecognizedColumn")
+    self.assertEquals("unknown", e.column_name)
+    self.problems.AssertNoMoreExceptions()
+
+
+class ReadCsvTestCase(unittest.TestCase):
+  def setUp(self):
+    self.problems = RecordingProblemReporter(self)
+    self.zip = zipfile.ZipFile(StringIO(), 'a')
+    self.loader = transitfeed.Loader(
+        problems=self.problems,
+        zip=self.zip)
+
+  def testDetectsDuplicateHeaders(self):
+    self.zip.writestr(
+        "calendar.txt",
+        "service_id,monday,tuesday,wednesday,thursday,friday,saturday,sunday,"
+        "start_date,end_date,end_date,end_date,tuesday,unknown,unknown\n"
+        "FULLW,1,1,1,1,1,1,1,20070101,20101231,,,,,\n")
+
+    list(self.loader._ReadCSV("calendar.txt",
+                              transitfeed.ServicePeriod._FIELD_NAMES,
+                              transitfeed.ServicePeriod._FIELD_NAMES_REQUIRED))
+
+    self.problems.PopDuplicateColumn("calendar.txt","end_date",3)
+    self.problems.PopDuplicateColumn("calendar.txt","unknown",2)
+    self.problems.PopDuplicateColumn("calendar.txt","tuesday",2)
+    e = self.problems.PopException("UnrecognizedColumn")
+    self.assertEquals("unknown", e.column_name)
+    self.problems.AssertNoMoreExceptions()
+
 
 class BasicMemoryZipTestCase(MemoryZipTestCase):
   def runTest(self):

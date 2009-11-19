@@ -46,6 +46,7 @@ Stop object which has attributes such as stop_lat and stop_name.
 import bisect
 import cStringIO as StringIO
 import codecs
+from collections import defaultdict
 import csv
 import datetime
 import logging
@@ -158,6 +159,16 @@ class ProblemReporterBase:
   def CsvSyntax(self, description=None, context=None, type=TYPE_ERROR):
     e = CsvSyntax(description=description, context=context,
                   context2=self._context, type=type)
+    self._Report(e)
+
+  def DuplicateColumn(self, file_name, header, count, type=TYPE_ERROR, 
+                      context=None):
+    e = DuplicateColumn(file_name=file_name,
+                        header=header,
+                        count=count,
+                        type=type,
+                        context=context,
+                        context2=self._context)
     self._Report(e)
 
   def MissingValue(self, column_name, reason=None, context=None):
@@ -447,6 +458,9 @@ class UnrecognizedColumn(ExceptionWithContext):
 
 class CsvSyntax(ExceptionWithContext):
   ERROR_TEXT = '%(description)s'
+
+class DuplicateColumn(ExceptionWithContext):
+  ERROR_TEXT = 'Column %(header)s appears %(count)i times in file %(file_name)s'
 
 class MissingValue(ExceptionWithContext):
   ERROR_TEXT = 'Missing value for column %(column_name)s'
@@ -3834,6 +3848,7 @@ class Loader:
     reader = csv.reader(eol_checker, skipinitialspace=True)
 
     raw_header = reader.next()
+    header_occurrences = defaultdict(lambda: 0)
     header = []
     valid_columns = []  # Index into raw_header and raw_row
     for i, h in enumerate(raw_header):
@@ -3854,6 +3869,14 @@ class Loader:
             type=TYPE_WARNING)
       header.append(h_stripped)
       valid_columns.append(i)
+      header_occurrences[h_stripped] += 1
+
+    for name, count in header_occurrences.items():
+      if count > 1:
+        self._problems.DuplicateColumn(
+            header=name,
+            file_name=file_name,
+            count=count)
 
     self._schedule._table_columns[table_name] = header
 
@@ -3946,6 +3969,16 @@ class Loader:
 
     header = reader.next()
     header = map(lambda x: x.strip(), header)  # trim any whitespace
+    header_occurrences = defaultdict(lambda: 0)
+    for column_header in header:
+      header_occurrences[column_header] += 1
+
+    for name, count in header_occurrences.items():
+      if count > 1:
+        self._problems.DuplicateColumn(
+            header=name,
+            file_name=file_name,
+            count=count)
 
     # check for unrecognized columns, which are often misspellings
     unknown_cols = set(header).difference(set(cols))
