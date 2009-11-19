@@ -65,56 +65,11 @@ def ProblemCountText(error_count, warning_count):
   return ' and '.join(results)
 
 
-def GenerateDateTripsDeparturesList(schedule):
-  """Return a list of (date object, number of trips, number of departures).
-
-  The list contains dates from today until 60 days from today, trancated to
-  the range of dates included by schedule. transitfeed.py generates a warning
-  for feeds that expire with 60 days.
-
-  Args:
-    schedule: a Schedule object
-
-  Returns:
-    a list of (date object, number of trips, number of departures) tuples
-  """
-  service_id_to_trips = defaultdict(lambda: 0)
-  service_id_to_departures = defaultdict(lambda: 0)
-  for trip in schedule.GetTripList():
-    headway_start_times = trip.GetHeadwayStartTimes()
-    if headway_start_times:
-      trip_runs = len(headway_start_times)
-    else:
-      trip_runs = 1
-
-    service_id_to_trips[trip.service_id] += trip_runs
-    service_id_to_departures[trip.service_id] += (
-        (trip.GetCountStopTimes() - 1) * trip_runs)
-
-  today = datetime.date.today()
-  date_end = today + datetime.timedelta(days=60)
-  date_services = schedule.GetServicePeriodsActiveEachDate(today, date_end)
-  date_trips = []
-  earliest_with_trips = None  # Index of first entry in date_trips with trips
-  latest_with_trips = None  # Index of last entry in date_trips with trips
-  for date, services in date_services:
-    day_trips = sum(service_id_to_trips[s.service_id] for s in services)
-    day_departures = sum(
-        service_id_to_departures[s.service_id] for s in services)
-    if day_trips > 0:
-      latest_with_trips = len(date_trips)
-      if earliest_with_trips is None:
-        earliest_with_trips = len(date_trips)
-    date_trips.append((date, day_trips, day_departures))
-
-  if latest_with_trips is None:
-    return []
-  else:
-    return date_trips[earliest_with_trips:latest_with_trips + 1]
-
-
 def CalendarSummary(schedule):
-  date_trips_departures = GenerateDateTripsDeparturesList(schedule)
+  today = datetime.date.today()
+  end_date = today + datetime.timedelta(days=60)
+  date_trips_departures = schedule.GenerateDateTripsDeparturesList(today,
+                                                                   end_date)
   if not date_trips_departures:
     return {}
 
@@ -565,12 +520,13 @@ def RunValidation(feed, options, problems):
   """
   other_problems_string = CheckVersion(latest_version=options.latest_version)
   print 'validating %s' % feed
-  loader = transitfeed.Loader(feed, problems=problems, extra_validation=True,
+  loader = transitfeed.Loader(feed, problems=problems, extra_validation=False,
                               memory_db=options.memory_db,
                               check_duplicate_trips=\
                               options.check_duplicate_trips)
   schedule = loader.Load()
-
+  schedule.Validate(service_gap_interval=options.service_gap_interval)
+  
   if feed == 'IWantMyvalidation-crash.txt':
     # See test/testfeedvalidator.py
     raise Exception('For testing the feed validator crash handler.')
@@ -664,10 +620,19 @@ http://code.google.com/p/googletransitdatafeed/wiki/FeedValidator
                     help='a version number such as 1.2.1 or None to get the '
                     'latest version from code.google.com. Output a warning if '
                     'transitfeed.py is older than this version.')
+  parser.add_option('--service_gap_interval', 
+                    dest='service_gap_interval',
+                    action='store',
+                    type='int',
+                    help='the number of consecutive days to search for with no '
+                    'scheduled service. For each interval with no service '
+                    'having this number of days or more a warning will be '
+                    'issued')
 
   parser.set_defaults(manual_entry=True, output='validation-results.html',
                       memory_db=False, check_duplicate_trips=False,
-                      limit_per_type=5, latest_version='')
+                      limit_per_type=5, latest_version='',
+                      service_gap_interval=13)
   (options, args) = parser.parse_args()
 
   if not len(args) == 1:

@@ -4465,5 +4465,138 @@ class GetHeadwayTimesTestCase(unittest.TestCase):
           if name not in ('arrival_secs', 'departure_secs'):
             self.assertEqual(getattr(st, name), getattr(st_clone, name))
 
+
+class ServiceGapsTestCase(MemoryZipTestCase):
+
+  def setUp(self):
+    super(ServiceGapsTestCase, self).setUp()
+    self.zip.writestr("calendar.txt",
+                      "service_id,monday,tuesday,wednesday,thursday,friday,"
+                      "saturday,sunday,start_date,end_date\n"
+                      "FULLW,1,1,1,1,1,1,1,20090601,20090610\n"
+                      "WE,0,0,0,0,0,1,1,20090718,20101231\n")
+    self.zip.writestr("calendar_dates.txt",
+                      "service_id,date,exception_type\n"
+                      "WE,20090815,2\n"
+                      "WE,20090816,2\n"
+                      "WE,20090822,2\n"
+                      # The following two lines are a 12-day service gap.
+                      # Shouldn't issue a warning
+                      "WE,20090829,2\n"
+                      "WE,20090830,2\n"
+                      "WE,20100102,2\n"
+                      "WE,20100103,2\n"
+                      "WE,20100109,2\n"
+                      "WE,20100110,2\n"
+                      "WE,20100612,2\n"
+                      "WE,20100613,2\n"
+                      "WE,20100619,2\n"
+                      "WE,20100620,2\n")
+    self.zip.writestr("trips.txt",
+                      "route_id,service_id,trip_id\n"
+                      "AB,WE,AB1\n"
+                      "AB,FULLW,AB2\n")
+    self.zip.writestr(
+        "stop_times.txt",
+        "trip_id,arrival_time,departure_time,stop_id,stop_sequence\n"
+        "AB1,10:00:00,10:00:00,BEATTY_AIRPORT,1\n"
+        "AB1,10:20:00,10:20:00,BULLFROG,2\n"
+        "AB2,10:25:00,10:25:00,STAGECOACH,1\n"
+        "AB2,10:55:00,10:55:00,BULLFROG,2\n")
+    loader = transitfeed.Loader(
+        problems=self.problems,
+        extra_validation=False,
+        zip=self.zip)
+    self.schedule = loader.Load()
+    
+  # If there is a service gap starting before today, and today has no service,
+  # it should be found - even if tomorrow there is service
+  def testServiceGapBeforeTodayIsDiscovered(self):
+    self.schedule.Validate(today=date(2009, 7, 17),
+                           service_gap_interval=13)
+    exception = self.problems.PopException("TooManyDaysWithoutService")
+    self.assertEquals(date(2009, 7, 5), 
+                      exception.first_day_without_service)
+    self.assertEquals(date(2009, 7, 17),
+                      exception.last_day_without_service)
+
+    self.AssertCommonExceptions(date(2010, 6, 25))
+
+  # If today has service past service gaps should not appear
+  def testNoServiceGapBeforeTodayIfTodayHasService(self):
+    self.schedule.Validate(today=date(2009, 7, 18),
+                           service_gap_interval=13)
+
+    self.AssertCommonExceptions(date(2010, 6, 25))
+
+  # If the feed starts today NO previous service gap should be found
+  # even if today does not have service
+  def testNoServiceGapBeforeTodayIfTheFeedStartsToday(self):
+    self.schedule.Validate(today=date(2009, 06, 01),
+                           service_gap_interval=13)
+
+    # This service gap is the one between FULLW and WE
+    exception = self.problems.PopException("TooManyDaysWithoutService")
+    self.assertEquals(date(2009, 6, 11), 
+                      exception.first_day_without_service)
+    self.assertEquals(date(2009, 7, 17),
+                      exception.last_day_without_service)
+    # The one-year period ends before the June 2010 gap, so that last
+    # service gap should _not_ be found
+    self.AssertCommonExceptions(None)
+
+  # If there is a gap at the end of the one-year period we should find it
+  def testGapAtTheEndOfTheOneYearPeriodIsDiscovered(self):
+    self.schedule.Validate(today=date(2009, 06, 22),
+                           service_gap_interval=13)
+
+    # This service gap is the one between FULLW and WE
+    exception = self.problems.PopException("TooManyDaysWithoutService")
+    self.assertEquals(date(2009, 6, 11), 
+                      exception.first_day_without_service)
+    self.assertEquals(date(2009, 7, 17),
+                      exception.last_day_without_service)
+
+    self.AssertCommonExceptions(date(2010, 6, 21))
+
+  # If we are right in the middle of a big service gap it should be
+  # report as starting on "today - 12 days" and lasting until
+  # service resumes 
+  def testCurrentServiceGapIsDiscovered(self):
+    self.schedule.Validate(today=date(2009, 6, 30),
+                           service_gap_interval=13)
+    exception = self.problems.PopException("TooManyDaysWithoutService")
+    self.assertEquals(date(2009, 6, 18), 
+                      exception.first_day_without_service)
+    self.assertEquals(date(2009, 7, 17),
+                      exception.last_day_without_service)
+
+    self.AssertCommonExceptions(date(2010, 6, 25))    
+
+  # Asserts the service gaps that appear towards the end of the calendar
+  # and which are common to all the tests
+  def AssertCommonExceptions(self, last_exception_date):
+    exception = self.problems.PopException("TooManyDaysWithoutService")
+    self.assertEquals(date(2009, 8, 10), 
+                      exception.first_day_without_service)
+    self.assertEquals(date(2009, 8, 22),
+                      exception.last_day_without_service)
+
+    exception = self.problems.PopException("TooManyDaysWithoutService")
+    self.assertEquals(date(2009, 12, 28),
+                      exception.first_day_without_service)
+    self.assertEquals(date(2010, 1, 15),
+                      exception.last_day_without_service)
+
+    if last_exception_date is not None:
+      exception = self.problems.PopException("TooManyDaysWithoutService")
+      self.assertEquals(date(2010, 6, 7),
+                        exception.first_day_without_service)
+      self.assertEquals(last_exception_date,
+                        exception.last_day_without_service)
+
+    self.problems.AssertNoMoreExceptions()
+
+    
 if __name__ == '__main__':
   unittest.main()

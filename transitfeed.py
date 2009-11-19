@@ -289,6 +289,21 @@ class ProblemReporterBase:
                     context=context, context2=self._context, type=type)
     self._Report(e)
 
+  def TooManyDaysWithoutService(self,
+                                first_day_without_service,
+                                last_day_without_service,
+                                consecutive_days_without_service,
+                                context=None, 
+                                type=TYPE_WARNING):
+    e = TooManyDaysWithoutService(
+        first_day_without_service=first_day_without_service,
+        last_day_without_service=last_day_without_service,
+        consecutive_days_without_service=consecutive_days_without_service,
+        context=context,
+        context2=self._context,
+        type=type)
+    self._Report(e)
+
 class ProblemReporter(ProblemReporterBase):
   """This is a basic problem reporter that just prints to console."""
   def _Report(self, e):
@@ -486,6 +501,7 @@ class StopTooFarFromParentStation(ExceptionWithContext):
     # Sort in decreasing order because more distance is more significant.
     return cmp(y.distance, self.distance)
 
+
 class StopsTooClose(ExceptionWithContext):
   ERROR_TEXT = (
       "The stops \"%(stop_name_a)s\" (ID %(stop_id_a)s) and \"%(stop_name_b)s\""
@@ -522,6 +538,14 @@ class StopTooFarFromShapeWithDistTraveled(ExceptionWithContext):
   def __cmp__(self, y):
     # Sort in decreasing order because more distance is more significant.
     return cmp(y.distance, self.distance)
+
+
+class TooManyDaysWithoutService(ExceptionWithContext):
+  ERROR_TEXT = "There are %(consecutive_days_without_service)i consecutive"\
+               " days, from %(first_day_without_service)s to" \
+               " %(last_day_without_service)s, without any scheduled service." \
+               " Please ensure this is intentional."
+
 
 class ExpirationDate(ExceptionWithContext):
   def FormatProblem(self, d=None):
@@ -3377,9 +3401,133 @@ class Schedule:
 
     archive.close()
 
-  def Validate(self, problems=None, validate_children=True):
+  def GenerateDateTripsDeparturesList(self, date_start, date_end):
+    """Return a list of (date object, number of trips, number of departures).
+
+    The list is generated for dates in the range [date_start, date_end).
+
+    Args:
+      date_start: The first date in the list, a date object
+      date_end: The first date after the list, a date object
+
+    Returns:
+      a list of (date object, number of trips, number of departures) tuples
+    """
+    
+    service_id_to_trips = defaultdict(lambda: 0)
+    service_id_to_departures = defaultdict(lambda: 0)
+    for trip in self.GetTripList():
+      headway_start_times = trip.GetHeadwayStartTimes()
+      if headway_start_times:
+        trip_runs = len(headway_start_times)
+      else:
+        trip_runs = 1
+
+      service_id_to_trips[trip.service_id] += trip_runs
+      service_id_to_departures[trip.service_id] += (
+          (trip.GetCountStopTimes() - 1) * trip_runs)
+
+    date_services = self.GetServicePeriodsActiveEachDate(date_start, date_end)
+    date_trips = []
+
+    for date, services in date_services:
+      day_trips = sum(service_id_to_trips[s.service_id] for s in services)
+      day_departures = sum(
+          service_id_to_departures[s.service_id] for s in services)
+      date_trips.append((date, day_trips, day_departures))
+    return date_trips
+
+  def ValidateFeedStartAndExpirationDates(self, 
+                                          problems, 
+                                          first_date, 
+                                          last_date, 
+                                          today):
+    """Validate the start and expiration dates of the feed.
+       Issue a warning if it only starts in the future, or if
+       it expires within 60 days.
+
+    Args:
+      problems: The problem reporter object
+      first_date: A date object representing the first day the feed is active
+      last_date: A date object representing the last day the feed is active
+      today: A date object representing the date the validation is being run on
+
+    Returns:
+      None
+    """
+    warning_cutoff = today + datetime.timedelta(days=60)
+    if last_date < warning_cutoff:
+        problems.ExpirationDate(time.mktime(last_date.timetuple()))
+
+    if first_date > today:
+      problems.FutureService(time.mktime(first_date.timetuple()))
+
+  def ValidateServiceGaps(self,
+                          problems,
+                          validation_start_date,
+                          validation_end_date,
+                          service_gap_interval):
+    """Validate consecutive dates without service in the feed.
+       Issue a warning if it finds service gaps of at least 
+       "service_gap_interval" consecutive days in the date range
+       [validation_start_date, last_service_date)
+
+    Args:
+      problems: The problem reporter object
+      validation_start_date: A date object representing the date from which the
+                             validation should take place
+      validation_end_date: A date object representing the first day the feed is 
+                        active
+      service_gap_interval: An integer indicating how many consecutive days the 
+                            service gaps need to have for a warning to be issued
+
+    Returns:
+      None
+    """
+    if service_gap_interval is None:
+      return
+
+    departures = self.GenerateDateTripsDeparturesList(validation_start_date,
+                                                      validation_end_date)
+
+    # The first day without service of the _current_ gap
+    first_day_without_service = validation_start_date
+    # The last day without service of the _current_ gap
+    last_day_without_service = validation_start_date
+    
+    consecutive_days_without_service = 0
+
+    for day_date, day_trips, _ in departures:
+      if day_trips == 0:
+        if consecutive_days_without_service == 0:
+            first_day_without_service = day_date
+        consecutive_days_without_service += 1
+        last_day_without_service = day_date
+      else:
+        if consecutive_days_without_service >= service_gap_interval:
+            problems.TooManyDaysWithoutService(first_day_without_service, 
+                                               last_day_without_service, 
+                                               consecutive_days_without_service)
+
+        consecutive_days_without_service = 0
+    
+    # We have to check if there is a gap at the end of the specified date range
+    if consecutive_days_without_service >= service_gap_interval:
+      problems.TooManyDaysWithoutService(first_day_without_service, 
+                                         last_day_without_service, 
+                                         consecutive_days_without_service)
+
+  def Validate(self,
+               problems=None,
+               validate_children=True,
+               today=None,
+               service_gap_interval=None):
     """Validates various holistic aspects of the schedule
        (mostly interrelationships between the various data sets)."""
+
+    if today is None:
+      today = datetime.date.today()
+
     if not problems:
       problems = self.problem_reporter
 
@@ -3388,18 +3536,42 @@ class Schedule:
       problems.OtherProblem('This feed has no effective service dates!',
                             type=TYPE_WARNING)
     else:
-      try:
-        expiration = time.mktime(time.strptime(end_date, "%Y%m%d"))
-        start_date_time = time.mktime(time.strptime(start_date, "%Y%m%d"))
-        now = time.mktime(time.localtime())
-        warning_cutoff = now + 60 * 60 * 24 * 30  # one month from expiration
-        if expiration < warning_cutoff:
-          problems.ExpirationDate(expiration)
-        if start_date_time > now:
-          problems.FutureService(start_date_time)
-      except ValueError:
-        # Format of start_date and end_date checked in class ServicePeriod
-        pass
+        try:
+          last_service_day = datetime.datetime.strptime(
+                                 end_date, "%Y%m%d").date()
+          first_service_day = datetime.datetime.strptime(
+                                  start_date, "%Y%m%d").date()
+
+        except ValueError:
+          # Format of start_date and end_date checked in class ServicePeriod
+          pass
+
+        else:
+          
+          self.ValidateFeedStartAndExpirationDates(problems,
+                                                   first_service_day,
+                                                   last_service_day,
+                                                   today)
+
+          # We start checking for service gaps a bit in the past if the
+          # feed was active then. See
+          # http://code.google.com/p/googletransitdatafeed/issues/detail?id=188
+          #
+          # We subtract 1 from service_gap_interval so that if today has
+          # service no warning is issued.
+          #
+          # Service gaps are searched for only up to one year from today
+          if service_gap_interval is not None:
+            service_gap_timedelta = datetime.timedelta(
+                                        days=service_gap_interval - 1)
+            one_year = datetime.timedelta(days=365)
+            self.ValidateServiceGaps(
+                problems,
+                max(first_service_day,
+                    today - service_gap_timedelta),
+                min(last_service_day,
+                    today + one_year),
+                service_gap_interval)
 
     # TODO: Check Trip fields against valid values
 

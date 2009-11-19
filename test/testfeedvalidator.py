@@ -180,6 +180,7 @@ class MockOptions:
     self.latest_version = transitfeed.__version__
     self.output = 'fake-filename.zip'
     self.manual_entry = False
+    self.service_gap_interval = None
 
 
 class FeedValidatorTestCase(util.TempDirTestCaseBase):
