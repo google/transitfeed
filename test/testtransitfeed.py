@@ -2360,13 +2360,16 @@ class ServicePeriodValidationTestCase(ValidationTestCase):
     repr(period)  # shouldn't crash
     period.Validate(self.problems)
 
-    # missing start_date
-    period.start_date = None
+    # missing start_date. If one of start_date or end_date is None then
+    # ServicePeriod.Validate assumes the required column is missing and already
+    # generated an error. Instead set it to an empty string, such as when the
+    # csv cell is empty. See also comment in ServicePeriod.Validate.
+    period.start_date = ''
     self.ExpectMissingValue(period, 'start_date')
     period.start_date = '20070101'
 
     # missing end_date
-    period.end_date = None
+    period.end_date = ''
     self.ExpectMissingValue(period, 'end_date')
     period.end_date = '20071231'
 
@@ -3395,6 +3398,53 @@ class CalendarTxtIntegrationTestCase(MemoryZipTestCase):
         "WE,0,0,0,0,0,1,1,20070101,20101231\n")
     schedule = self.loader.Load()
     e = self.problems.PopInvalidValue('start_date')
+    self.problems.AssertNoMoreExceptions()
+
+  def testNoStartDateAndEndDate(self):
+    """Regression test for calendar.txt with empty start_date and end_date.
+
+    See http://code.google.com/p/googletransitdatafeed/issues/detail?id=41
+    """
+    self.zip.writestr(
+        "calendar.txt",
+        "service_id,monday,tuesday,wednesday,thursday,friday,saturday,sunday,"
+        "start_date,end_date\n"
+        "FULLW,1,1,1,1,1,1,1,    ,\t\n"
+        "WE,0,0,0,0,0,1,1,20070101,20101231\n")
+    schedule = self.loader.Load()
+    e = self.problems.PopException("MissingValue")
+    self.assertEquals(2, e.row_num)
+    self.assertEquals("start_date", e.column_name)
+    e = self.problems.PopException("MissingValue")
+    self.assertEquals(2, e.row_num)
+    self.assertEquals("end_date", e.column_name)
+    self.problems.AssertNoMoreExceptions()
+
+  def testNoStartDateAndBadEndDate(self):
+    self.zip.writestr(
+        "calendar.txt",
+        "service_id,monday,tuesday,wednesday,thursday,friday,saturday,sunday,"
+        "start_date,end_date\n"
+        "FULLW,1,1,1,1,1,1,1,,abc\n"
+        "WE,0,0,0,0,0,1,1,20070101,20101231\n")
+    schedule = self.loader.Load()
+    e = self.problems.PopException("MissingValue")
+    self.assertEquals(2, e.row_num)
+    self.assertEquals("start_date", e.column_name)
+    e = self.problems.PopInvalidValue("end_date")
+    self.assertEquals(2, e.row_num)
+    self.problems.AssertNoMoreExceptions()
+
+  def testMissingEndDateColumn(self):
+    self.zip.writestr(
+        "calendar.txt",
+        "service_id,monday,tuesday,wednesday,thursday,friday,saturday,sunday,"
+        "start_date\n"
+        "FULLW,1,1,1,1,1,1,1,20070101\n"
+        "WE,0,0,0,0,0,1,1,20070101\n")
+    schedule = self.loader.Load()
+    e = self.problems.PopException("MissingColumn")
+    self.assertEquals("end_date", e.column_name)
     self.problems.AssertNoMoreExceptions()
 
 

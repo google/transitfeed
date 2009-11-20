@@ -2721,19 +2721,30 @@ class ServicePeriod(object):
   def Validate(self, problems=default_problem_reporter):
     if IsEmpty(self.service_id):
       problems.MissingValue('service_id')
+    # self.start_date/self.end_date is None in 3 cases:
+    # ServicePeriod created by loader and
+    #   1a) self.service_id wasn't in calendar.txt
+    #   1b) calendar.txt didn't have a start_date/end_date column
+    # ServicePeriod created directly and
+    #   2) start_date/end_date wasn't set
+    # In case 1a no problem is reported. In case 1b the missing required column
+    # generates an error in _ReadCSV so this method should not report another
+    # problem. There is no way to tell the difference between cases 1b and 2
+    # so case 2 is ignored because making the feedvalidator pretty is more
+    # important than perfect validation when an API users makes a mistake.
     start_date = None
-    if not IsEmpty(self.start_date):
-      if IsEmpty(self.end_date):
-        problems.MissingValue('end_date')
-      if self._IsValidDate(self.start_date):
+    if self.start_date is not None:
+      if IsEmpty(self.start_date):
+        problems.MissingValue('start_date')
+      elif self._IsValidDate(self.start_date):
         start_date = self.start_date
       else:
         problems.InvalidValue('start_date', self.start_date)
     end_date = None
-    if not IsEmpty(self.end_date):
-      if IsEmpty(self.start_date):
-        problems.MissingValue('start_date')
-      if self._IsValidDate(self.end_date):
+    if self.end_date is not None:
+      if IsEmpty(self.end_date):
+        problems.MissingValue('end_date')
+      elif self._IsValidDate(self.end_date):
         end_date = self.end_date
       else:
         problems.InvalidValue('end_date', self.end_date)
