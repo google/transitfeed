@@ -2648,11 +2648,17 @@ class ServicePeriod(object):
     suffice so you won't need to call this method."""
     self.service_id = service_id
 
-  def IsActiveOn(self, date):
+  def IsActiveOn(self, date, date_object=None):
     """Test if this service period is active on a date.
 
     Args:
       date: a string of form "YYYYMMDD"
+      date_object: a date object representing the same date as date.
+                   This parameter is optional, and present only for performance
+                   reasons.
+                   If the caller constructs the date string from a date object
+                   that date object can be passed directly, thus avoiding the 
+                   costly conversion from string to date object.
 
     Returns:
       True iff this service is active on date.
@@ -2664,8 +2670,9 @@ class ServicePeriod(object):
         return False
     if (self.start_date and self.end_date and self.start_date <= date and
         date <= self.end_date):
-      date_obj = DateStringToDateObject(date)
-      return self.day_of_week[date_obj.weekday()]
+      if date_object is None:
+        date_object = DateStringToDateObject(date)
+      return self.day_of_week[date_object.weekday()]
     return False
 
   def ActiveDates(self):
@@ -2679,7 +2686,7 @@ class ServicePeriod(object):
     delta = datetime.timedelta(days=1)
     while date_it <= date_end:
       date_it_string = date_it.strftime("%Y%m%d")
-      if self.IsActiveOn(date_it_string):
+      if self.IsActiveOn(date_it_string, date_it):
         dates.append(date_it_string)
       date_it = date_it + delta
     return dates
@@ -3031,8 +3038,9 @@ class Schedule:
     date_service_period_list = []
     while date_it < date_end:
       periods_today = []
+      date_it_string = date_it.strftime("%Y%m%d")
       for service in self.GetServicePeriodList():
-        if service.IsActiveOn(date_it.strftime("%Y%m%d")):
+        if service.IsActiveOn(date_it_string, date_it):
           periods_today.append(service)
       date_service_period_list.append((date_it, periods_today))
       date_it += one_day

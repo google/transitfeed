@@ -2470,17 +2470,28 @@ class ServicePeriodTestCase(unittest.TestCase):
     #  23 24 25 26 27 28 29
     #  30 31
 
-    # Smoke test with both parameter types
-    self.assertFalse(period.IsActiveOn('20071225'))
-    self.assertTrue(period.IsActiveOn('20071226'))
+    # Some tests have named arguments and others do not to ensure that any
+    # (possibly unwanted) changes to the API get caught
 
-    # calendar_date exceptions within range
+    # calendar_date exceptions near start date
+    self.assertFalse(period.IsActiveOn(date='20071225'))
+    self.assertFalse(period.IsActiveOn(date='20071225',
+                                       date_object=date(2007, 12, 25)))
+    self.assertTrue(period.IsActiveOn(date='20071226'))
+    self.assertTrue(period.IsActiveOn(date='20071226',
+                                      date_object=date(2007, 12, 26)))
+
+    # calendar_date exceptions near end date
     self.assertTrue(period.IsActiveOn('20071230'))
+    self.assertTrue(period.IsActiveOn('20071230', date(2007, 12, 30)))
     self.assertFalse(period.IsActiveOn('20071231'))
+    self.assertFalse(period.IsActiveOn('20071231', date(2007, 12, 31)))
 
     # date just outside range, both weekday and an exception
     self.assertFalse(period.IsActiveOn('20080101'))
+    self.assertFalse(period.IsActiveOn('20080101', date(2008, 1, 1)))
     self.assertTrue(period.IsActiveOn('20080102'))
+    self.assertTrue(period.IsActiveOn('20080102', date(2008, 1, 2)))
 
     self.assertEquals(period.ActiveDates(),
                       ['20071226', '20071227', '20071228', '20071230',
@@ -2492,23 +2503,31 @@ class ServicePeriodTestCase(unittest.TestCase):
     period_dates.SetDateHasService('20071230', True)
     period_dates.SetDateHasService('20071231', False)
 
-    self.assertFalse(period_dates.IsActiveOn('20071229'))
+    self.assertFalse(period_dates.IsActiveOn(date='20071229'))
+    self.assertFalse(period_dates.IsActiveOn(date='20071229',
+                                             date_object=date(2007, 12, 29)))
     self.assertTrue(period_dates.IsActiveOn('20071230'))
+    self.assertTrue(period_dates.IsActiveOn('20071230', date(2007, 12, 30)))
     self.assertFalse(period_dates.IsActiveOn('20071231'))
+    self.assertFalse(period_dates.IsActiveOn('20071231', date(2007, 12, 31)))
     self.assertEquals(period_dates.ActiveDates(), ['20071230'])
 
     # Test with an invalid ServicePeriod; one of start_date, end_date is set
     period_no_end = transitfeed.ServicePeriod()
     period_no_end.start_date = '20071226'
-    self.assertFalse(period_no_end.IsActiveOn('20071231'))
+    self.assertFalse(period_no_end.IsActiveOn(date='20071231'))
+    self.assertFalse(period_no_end.IsActiveOn(date='20071231',
+                                              date_object=date(2007, 12, 31)))
     self.assertEquals(period_no_end.ActiveDates(), [])
     period_no_start = transitfeed.ServicePeriod()
     period_no_start.end_date = '20071230'
     self.assertFalse(period_no_start.IsActiveOn('20071229'))
+    self.assertFalse(period_no_start.IsActiveOn('20071229', date(2007, 12, 29)))
     self.assertEquals(period_no_start.ActiveDates(), [])
 
     period_empty = transitfeed.ServicePeriod()
     self.assertFalse(period_empty.IsActiveOn('20071231'))
+    self.assertFalse(period_empty.IsActiveOn('20071231', date(2007, 12, 31)))
     self.assertEquals(period_empty.ActiveDates(), [])
 
 
