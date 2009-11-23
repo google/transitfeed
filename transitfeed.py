@@ -1884,6 +1884,7 @@ class Trip(GenericGTFSObject):
       stoptimes.sort(key=lambda x: x.stop_sequence)
       prev_departure = 0
       prev_stop = None
+      prev_distance = None
       try:
         route_type = self._schedule.GetRoute(self.route_id).route_type
         max_speed = Route._ROUTE_TYPES[route_type]['max_speed']
@@ -1892,6 +1893,19 @@ class Trip(GenericGTFSObject):
         # speeds between stops.
         max_speed = Route._ROUTE_TYPES[0]['max_speed']
       for timepoint in stoptimes:
+        # Distance should be a nonnegative float number, so it should be 
+        # always larger than None.
+        distance = timepoint.shape_dist_traveled
+        if distance is not None:
+          if distance > prev_distance and distance >= 0:
+            prev_distance = distance
+          else:
+            problems.InvalidValue('stoptimes.shape_dist_traveled', distance,
+                'For the trip %s the stop %s has shape_dist_travled=%f, '
+                'which should be larger than the previous ones. In this '
+                'case, the previous distance was %s.' % 
+                (self.trip_id, timepoint.stop_id, distance, prev_distance))   
+
         if timepoint.arrival_secs is not None:
           self._CheckSpeed(prev_stop, timepoint.stop, prev_departure,
                            timepoint.arrival_secs, max_speed, problems)
@@ -2243,7 +2257,8 @@ class Shape(object):
                                 'Each subsequent point in a shape should '
                                 'have a distance value that\'s at least as '
                                 'large as the previous ones.  In this case, '
-                                'the previous distance was %f.' % distance)
+                                'the previous distance was %f.' % 
+                                self.max_distance)
           return
         else:
           self.max_distance = distance

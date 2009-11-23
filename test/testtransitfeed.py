@@ -2135,11 +2135,15 @@ class ShapeValidationTestCase(ValidationTestCase):
     self.ExpectFailedAdd(shape, 0, 0, 6, 'shape_pt_lat', 0)
 
     # distance decreasing is bad, but staying the same is OK
-    self.ExpectFailedAdd(shape, 36.905019, -116.763206, 4,
-                         'shape_dist_traveled', 4)
-    shape.AddPoint(36.905019, -116.763206, 5, self.problems)
-    repr(shape)  # shouldn't crash
+    shape.AddPoint(36.905019, -116.763206, 4, self.problems)
+    e = self.problems.PopException('InvalidValue')
+    self.assertMatchesRegex('Each subsequent point', e.FormatProblem())
+    self.assertMatchesRegex('distance was 5.000000.', e.FormatProblem())
     self.problems.AssertNoMoreExceptions()
+
+    shape.AddPoint(36.925019, -116.764206, 5, self.problems)
+    self.problems.AssertNoMoreExceptions()
+
 
 class FareValidationTestCase(ValidationTestCase):
   def runTest(self):
@@ -2920,6 +2924,20 @@ class ShapeDistTraveledOfStopTimeValidationTestCase(ValidationTestCase):
     e = self.problems.PopException('OtherProblem')
     self.assertTrue(e.FormatProblem().find('shape_dist_traveled=2') != -1)
     self.problems.AssertNoMoreExceptions()
+    
+    # the distance should be increasing
+    shape.AddPoint(36.421288, -117.133132, 2)
+    stop = transitfeed.Stop(36.421288, -117.133122, "Demo Stop 4", "STOP4")
+    schedule.AddStopObject(stop)
+    trip.AddStopTime(stop, arrival_time="5:29:00", departure_time="5:29:00",
+                     stop_sequence=3, shape_dist_traveled=1.7)
+    self.problems.AssertNoMoreExceptions()
+    schedule.Validate(self.problems)
+    e = self.problems.PopException('InvalidValue')
+    self.assertMatchesRegex('stop STOP4 has', e.FormatProblem())
+    self.assertMatchesRegex('shape_dist_travled=1.700000', e.FormatProblem())
+    self.assertMatchesRegex('distance was 2.0.', e.FormatProblem())
+    self.problems.AssertNoMoreExceptions()
 
 
 class StopMatchWithShapeTestCase(ValidationTestCase):
@@ -3059,7 +3077,7 @@ class DuplicateTripTestCase(ValidationTestCase):
     trip2.AddStopTime(stop2, arrival_time="5:25:00", departure_time="5:26:00",
                       stop_sequence=1, shape_dist_traveled=1)
     trip3.AddStopTime(stop2, arrival_time="6:15:00", departure_time="6:16:00",
-                      stop_sequence=0, shape_dist_traveled=0)
+                      stop_sequence=1, shape_dist_traveled=1)
 
     schedule.Validate(self.problems)
     e = self.problems.PopException('DuplicateTrip')
