@@ -33,7 +33,7 @@ import simplejson
 import socket
 import time
 import transitfeed
-import util
+from transitfeed import util
 import urllib
 
 

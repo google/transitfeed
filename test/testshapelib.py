@@ -14,16 +14,16 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Tests for transitshapelib.py"""
+"""Tests for transitfeed.shapelib.py"""
 
 __author__ = 'chris.harrelson.code@gmail.com (Chris Harrelson)'
 
 import math
-import transitshapelib
-from transitshapelib import Point
-from transitshapelib import Poly
-from transitshapelib import PolyCollection
-from transitshapelib import PolyGraph
+from transitfeed import shapelib
+from transitfeed.shapelib import Point
+from transitfeed.shapelib import Poly
+from transitfeed.shapelib import PolyCollection
+from transitfeed.shapelib import PolyGraph
 import unittest
 
 
@@ -135,7 +135,7 @@ class TestClosestPoint(ShapeLibTestBase):
     a = Point(1, 0, 0)
     b = Point(0, 1, 0)
 
-    closest = transitshapelib.GetClosestPoint(x, a, b)
+    closest = shapelib.GetClosestPoint(x, a, b)
     self.assertApproxEq(0.707106781187, closest.x)
     self.assertApproxEq(0.707106781187, closest.y)
     self.assertApproxEq(0.0, closest.z)

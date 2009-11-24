@@ -16,6 +16,13 @@
 
 """Easy interface for handling a Google Transit Feed file.
 
+Do not import this module directly. Thanks to __init__.py you should do
+something like:
+
+  import transitfeed
+  schedule = transitfeed.Schedule()
+  ...
+
 This module is a library to help you create, read and write Google
 Transit Feed files. Refer to the feed specification, available at
 http://code.google.com/transit/spec/transit_feed_specification.htm, for a

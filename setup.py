@@ -38,12 +38,16 @@ except ImportError, e:
 
 # py2exe doesn't automatically include pytz dependency because it is optional
 options = {'py2exe': {'packages': ['pytz']}}
-scripts = ['feedvalidator.py', 'schedule_viewer.py',
-           'kmlparser.py', 'kmlwriter.py', 'merge.py']
+scripts_for_py2exe = ['feedvalidator.py', 'schedule_viewer.py', 'kmlparser.py',
+                      'kmlwriter.py', 'merge.py', 'unusual_trip_filter.py']
+# On Nov 23, 2009 Tom Brown said: I'm not confident that we can include a
+# working copy of this script in the py2exe distribution because it depends on
+# ogr. I do want it included in the source tar.gz.
+scripts_for_source_only = ['shape_importer.py']
 kwargs = {}
 
 if has_py2exe:
-  kwargs['console'] = scripts
+  kwargs['console'] = scripts_for_py2exe
   # py2exe seems to ignore package_data and not add marey_graph. This makes it
   # work.
   kwargs['data_files'] = \
@@ -66,13 +70,12 @@ setup(
         'the start of a KML importer and exporter.',
     platforms='OS Independent',
     license='Apache License, Version 2.0',
-    packages=['gtfsscheduleviewer'],
-    py_modules=['transitfeed'],
+    packages=['gtfsscheduleviewer', 'transitfeed'],
     # Also need to list package_data contents in MANIFEST.in for it to be
     # included in sdist. See "[Distutils] package_data not used by sdist
     # command" Feb 2, 2007
     package_data={'gtfsscheduleviewer': ['files/*']},
-    scripts=scripts,
+    scripts=scripts_for_py2exe + scripts_for_source_only,
     zip_safe=False,
     classifiers=[
         'Development Status :: 4 - Beta',

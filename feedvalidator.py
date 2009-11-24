@@ -34,7 +34,7 @@ import time
 import transitfeed
 from transitfeed import TYPE_ERROR, TYPE_WARNING
 from urllib2 import Request, urlopen, HTTPError, URLError
-import util
+from transitfeed import util
 import webbrowser
 
 SVN_TAG_URL = 'http://googletransitdatafeed.googlecode.com/svn/tags/'

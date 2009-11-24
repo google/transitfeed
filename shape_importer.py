@@ -29,8 +29,8 @@ import shutil
 import sys
 import tempfile
 import transitfeed
-import transitshapelib
-import util
+from transitfeed import shapelib
+from transitfeed import util
 import zipfile
 
 
@@ -75,10 +75,10 @@ def AddShapefile(shapefile, graph, key_cols):
     else:
       shape_id = '%s-%d' % (shapefile, i)
 
-    poly = transitshapelib.Poly(name=shape_id)
+    poly = shapelib.Poly(name=shape_id)
     for j in range(0, geometry.GetPointCount()):
       (lat, lng) = (round(geometry.GetY(j), 15), round(geometry.GetX(j), 15))
-      poly.AddPoint(transitshapelib.Point.FromLatLng(lat, lng))
+      poly.AddPoint(shapelib.Point.FromLatLng(lat, lng))
     graph.AddPoly(poly)
 
   return graph
@@ -132,11 +132,11 @@ def AddExtraShapes(extra_shapes_txt, graph):
 
 
 # Note: this method lives here to avoid cross-dependencies between
-# transitshapelib and transitfeed.
+# shapelib and transitfeed.
 def ShapeToPoly(shape):
-  poly = transitshapelib.Poly(name=shape.shape_id)
+  poly = shapelib.Poly(name=shape.shape_id)
   for lat, lng, distance in shape.points:
-    point = transitshapelib.Point.FromLatLng(round(lat, 15), round(lng, 15))
+    point = shapelib.Point.FromLatLng(round(lat, 15), round(lng, 15))
     poly.AddPoint(point)
   return poly
 
@@ -195,7 +195,7 @@ Try to match shapes in one or more SHP files to trips in a GTFS file."""
 
 def main(key_cols):
   print 'Parsing shapefile(s)...'
-  graph = transitshapelib.PolyGraph()
+  graph = shapelib.PolyGraph()
   for arg in args:
     print '  ' + arg
     AddShapefile(arg, graph, key_cols)
@@ -218,7 +218,7 @@ def main(key_cols):
       pattern_count += 1
       pattern = trips[0].GetPattern()
 
-      poly_points = [transitshapelib.Point.FromLatLng(p.stop_lat, p.stop_lon)
+      poly_points = [shapelib.Point.FromLatLng(p.stop_lat, p.stop_lon)
                      for p in pattern]
       if verbosity >= 2:
         print "\npattern %d, %d points:" % (pattern_id, len(poly_points))
@@ -243,14 +243,14 @@ def main(key_cols):
         else:
           matches = []
 
-      pattern_poly = transitshapelib.Poly(poly_points)
+      pattern_poly = shapelib.Poly(poly_points)
       shape_match = GetMatchingShape(pattern_poly, trips[0],
                                      matches, options.max_distance,
                                      verbosity=verbosity)
       if shape_match:
         shape_count += 1
         # Rename shape for readability.
-        shape_match = transitshapelib.Poly(points=shape_match.GetPoints(),
+        shape_match = shapelib.Poly(points=shape_match.GetPoints(),
                                            name="shape_%d" % shape_count)
         for trip in trips:
           try:
