@@ -3578,10 +3578,10 @@ class Schedule:
                             type=TYPE_WARNING)
     else:
         try:
-          last_service_day = datetime.datetime.strptime(
-                                 end_date, "%Y%m%d").date()
-          first_service_day = datetime.datetime.strptime(
-                                  start_date, "%Y%m%d").date()
+          last_service_day = datetime.datetime(
+              *(time.strptime(end_date, "%Y%m%d")[0:6])).date()
+          first_service_day = datetime.datetime(
+              *(time.strptime(start_date, "%Y%m%d")[0:6])).date()
 
         except ValueError:
           # Format of start_date and end_date checked in class ServicePeriod
