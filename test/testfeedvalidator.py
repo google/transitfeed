@@ -164,7 +164,7 @@ class FullTests(util.TempDirTestCaseBase):
   def testUsage(self):
     (out, err) = self.CheckCallWithPath(
         [self.GetPath('feedvalidator.py'), '--invalid_opt'], expected_retcode=2)
-    self.assertMatchesRegex(r'Usage: feedvalidator.py \[options\]', err)
+    self.assertMatchesRegex(r'[Uu]sage: feedvalidator.py \[options\]', err)
     self.assertMatchesRegex(r'wiki/FeedValidator', err)
     self.assertMatchesRegex(r'--output', err)  # output includes all usage info
     self.assertFalse(os.path.exists('transitfeedcrash.txt'))
