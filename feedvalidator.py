@@ -67,19 +67,33 @@ def ProblemCountText(error_count, warning_count):
 
 def CalendarSummary(schedule):
   today = datetime.date.today()
-  end_date = today + datetime.timedelta(days=60)
-  date_trips_departures = schedule.GenerateDateTripsDeparturesList(today,
-                                                                   end_date)
+  summary_end_date = today + datetime.timedelta(days=60)
+  start_date, end_date = schedule.GetDateRange()
+
+  if not start_date or not end_date:
+    return {}
+  
+  try:
+    start_date_object = transitfeed.DateStringToDateObject(start_date)
+    end_date_object = transitfeed.DateStringToDateObject(end_date)
+  except ValueError:
+    return {}
+
+  # Get the list of trips only during the period the feed is active.
+  # As such we have to check if it starts in the future and/or if
+  # if it ends in less than 60 days.
+  date_trips_departures = schedule.GenerateDateTripsDeparturesList(
+                              max(today, start_date_object),
+                              min(summary_end_date, end_date_object))
+
   if not date_trips_departures:
     return {}
 
   # Check that the dates which will be shown in summary agree with these
   # calculations. Failure implies a bug which should be fixed. It isn't good
   # for users to discover assertion failures but means it will likely be fixed.
-  start_date, end_date = schedule.GetDateRange()
-  if start_date and end_date:
-    assert start_date <= date_trips_departures[0][0].strftime("%Y%m%d")
-    assert end_date >= date_trips_departures[-1][0].strftime("%Y%m%d")
+  assert start_date <= date_trips_departures[0][0].strftime("%Y%m%d")
+  assert end_date >= date_trips_departures[-1][0].strftime("%Y%m%d")
 
   # Generate a map from int number of trips in a day to a list of date objects
   # with that many trips. The list of dates is sorted.

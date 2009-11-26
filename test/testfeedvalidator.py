@@ -17,6 +17,7 @@
 # Smoke tests feed validator. Make sure it runs and returns the right things
 # for a valid feed and a feed with errors.
 
+import datetime
 import feedvalidator
 import os.path
 import re
@@ -169,6 +170,76 @@ class FullTests(util.TempDirTestCaseBase):
     self.assertMatchesRegex(r'--output', err)  # output includes all usage info
     self.assertFalse(os.path.exists('transitfeedcrash.txt'))
     self.assertFalse(os.path.exists('validation-results.html'))
+
+
+# Regression tests to ensure that CalendarSummary works properly
+# even when the feed starts in the future or expires in less than
+# 60 days
+# See http://code.google.com/p/googletransitdatafeed/issues/detail?id=204
+class CalendarSummaryTestCase(unittest.TestCase):
+  
+  # Test feeds starting in the future
+  def testFutureFeedDoesNotCrashCalendarSummary(self):
+      today = datetime.date.today()
+      start_date = today + datetime.timedelta(days=20)
+      end_date = today + datetime.timedelta(days=80)
+      
+      schedule = transitfeed.Schedule()
+      service_period = schedule.GetDefaultServicePeriod()
+
+      service_period.SetStartDate(start_date.strftime("%Y%m%d"))
+      service_period.SetEndDate(end_date.strftime("%Y%m%d"))
+      service_period.SetWeekdayService(True)
+      
+      result = feedvalidator.CalendarSummary(schedule)
+      
+      self.assertEquals(0, result['max_trips'])
+      self.assertEquals(0, result['min_trips'])
+      self.assertTrue(re.search("40 service dates", result['max_trips_dates']))
+
+  # Test feeds ending in less than 60 days
+  def testShortFeedDoesNotCrashCalendarSummary(self):
+      start_date = datetime.date.today()
+      end_date = start_date + datetime.timedelta(days=15)
+
+      schedule = transitfeed.Schedule()
+      service_period = schedule.GetDefaultServicePeriod()
+
+      service_period.SetStartDate(start_date.strftime("%Y%m%d"))
+      service_period.SetEndDate(end_date.strftime("%Y%m%d"))
+      service_period.SetWeekdayService(True)
+
+      result = feedvalidator.CalendarSummary(schedule)
+
+      self.assertEquals(0, result['max_trips'])
+      self.assertEquals(0, result['min_trips'])
+      self.assertTrue(re.search("15 service dates", result['max_trips_dates']))
+
+  # Test feeds starting in the future *and* ending in less than 60 days
+  def testFutureAndShortFeedDoesNotCrashCalendarSummary(self):
+      today = datetime.date.today()
+      start_date = today + datetime.timedelta(days=2)
+      end_date = today + datetime.timedelta(days=3)
+      
+      schedule = transitfeed.Schedule()
+      service_period = schedule.GetDefaultServicePeriod()
+
+      service_period.SetStartDate(start_date.strftime("%Y%m%d"))
+      service_period.SetEndDate(end_date.strftime("%Y%m%d"))
+      service_period.SetWeekdayService(True)
+      
+      result = feedvalidator.CalendarSummary(schedule)
+      
+      self.assertEquals(0, result['max_trips'])
+      self.assertEquals(0, result['min_trips'])
+      self.assertTrue(re.search("1 service date", result['max_trips_dates']))
+
+  # Test feeds without service days
+  def testFeedWithNoDaysDoesNotCrashCalendarSummary(self):
+      schedule = transitfeed.Schedule()
+      result = feedvalidator.CalendarSummary(schedule)
+
+      self.assertEquals({}, result)
 
 
 class MockOptions:
