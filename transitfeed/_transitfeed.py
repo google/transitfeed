@@ -1907,11 +1907,16 @@ class Trip(GenericGTFSObject):
           if distance > prev_distance and distance >= 0:
             prev_distance = distance
           else:
+            if distance == prev_distance:
+              type = TYPE_WARNING
+            else:
+              type = TYPE_ERROR
             problems.InvalidValue('stoptimes.shape_dist_traveled', distance,
-                'For the trip %s the stop %s has shape_dist_travled=%f, '
-                'which should be larger than the previous ones. In this '
-                'case, the previous distance was %s.' % 
-                (self.trip_id, timepoint.stop_id, distance, prev_distance))   
+                  'For the trip %s the stop %s has shape_dist_traveled=%s, '
+                  'which should be larger than the previous ones. In this '
+                  'case, the previous distance was %s.' % 
+                  (self.trip_id, timepoint.stop_id, distance, prev_distance),
+                  type=type)
 
         if timepoint.arrival_secs is not None:
           self._CheckSpeed(prev_stop, timepoint.stop, prev_departure,

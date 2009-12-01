@@ -2924,19 +2924,34 @@ class ShapeDistTraveledOfStopTimeValidationTestCase(ValidationTestCase):
     e = self.problems.PopException('OtherProblem')
     self.assertTrue(e.FormatProblem().find('shape_dist_traveled=2') != -1)
     self.problems.AssertNoMoreExceptions()
-    
-    # the distance should be increasing
+
+    # Error if the distance decreases.
     shape.AddPoint(36.421288, -117.133132, 2)
     stop = transitfeed.Stop(36.421288, -117.133122, "Demo Stop 4", "STOP4")
     schedule.AddStopObject(stop)
-    trip.AddStopTime(stop, arrival_time="5:29:00", departure_time="5:29:00",
-                     stop_sequence=3, shape_dist_traveled=1.7)
+    stoptime = transitfeed.StopTime(self.problems, stop,
+                                    arrival_time="5:29:00", 
+                                    departure_time="5:29:00",stop_sequence=3, 
+                                    shape_dist_traveled=1.7)
+    trip.AddStopTimeObject(stoptime, schedule=schedule)
     self.problems.AssertNoMoreExceptions()
     schedule.Validate(self.problems)
     e = self.problems.PopException('InvalidValue')
     self.assertMatchesRegex('stop STOP4 has', e.FormatProblem())
-    self.assertMatchesRegex('shape_dist_travled=1.700000', e.FormatProblem())
+    self.assertMatchesRegex('shape_dist_traveled=1.7', e.FormatProblem())
     self.assertMatchesRegex('distance was 2.0.', e.FormatProblem())
+    self.assertEqual(e.type, transitfeed.TYPE_ERROR)
+    self.problems.AssertNoMoreExceptions()
+
+    # Warning if distance remains the same between two stop_times 
+    stoptime.shape_dist_traveled = 2.0
+    trip.ReplaceStopTimeObject(stoptime, schedule=schedule)
+    schedule.Validate(self.problems)
+    e = self.problems.PopException('InvalidValue')
+    self.assertMatchesRegex('stop STOP4 has', e.FormatProblem())
+    self.assertMatchesRegex('shape_dist_traveled=2.0', e.FormatProblem())
+    self.assertMatchesRegex('distance was 2.0.', e.FormatProblem())
+    self.assertEqual(e.type, transitfeed.TYPE_WARNING)
     self.problems.AssertNoMoreExceptions()
 
 
