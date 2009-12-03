@@ -23,7 +23,7 @@ For usage information run feedvalidator.py --help
 import bisect
 import codecs
 import datetime
-from collections import defaultdict
+from transitfeed.util import defaultdict
 import optparse
 import os
 import os.path

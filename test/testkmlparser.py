@@ -72,7 +72,7 @@ class FullTests(util.TempDirTestCaseBase):
     (out, err) = self.CheckCallWithPath([self.GetPath('kmlparser.py')],
                                         expected_retcode=2)
     self.assertMatchesRegex(r'did not provide .+ arguments', err)
-    self.assertMatchesRegex(r'Usage:', err)
+    self.assertMatchesRegex(r'[Uu]sage:', err)
     self.assertFalse(os.path.exists('transitfeedcrash.txt'))
 
   def testCrashHandler(self):

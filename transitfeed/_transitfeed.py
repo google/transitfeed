@@ -53,7 +53,7 @@ Stop object which has attributes such as stop_lat and stop_name.
 import bisect
 import cStringIO as StringIO
 import codecs
-from collections import defaultdict
+from transitfeed.util import defaultdict
 import csv
 import datetime
 import logging

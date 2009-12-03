@@ -99,3 +99,64 @@ or an email to the public group googletransitdatafeed@googlegroups.com. Sorry!
       # Ignore stdin being closed. This happens during some tests.
       pass
     sys.exit(127)
+
+
+# Pick one of two defaultdict implementations. A native version was added to
+# the collections library in python 2.5. If that is not available use Jason's
+# pure python recipe. He gave us permission to distribute it.
+
+# On Mon, Nov 30, 2009 at 07:27, jason kirtland <jek at discorporate.us> wrote:
+# >
+# > Hi Tom, sure thing!  It's not easy to find on the cookbook site, but the
+# > recipe is under the Python license.
+# >
+# > Cheers,
+# > Jason
+# >
+# > On Thu, Nov 26, 2009 at 3:03 PM, Tom Brown <tom.brown.code@gmail.com> wrote:
+# >
+# >> I would like to include http://code.activestate.com/recipes/523034/ in
+# >> http://code.google.com/p/googletransitdatafeed/wiki/TransitFeedDistribution
+# >> which is distributed under the Apache License, Version 2.0 with Copyright
+# >> Google. May we include your code with a comment in the source pointing at
+# >> the original URL?  Thanks, Tom Brown
+
+try:
+  # Try the native implementation first
+  from collections import defaultdict
+except:
+  # Fallback for python2.4, which didn't include collections.defaultdict
+  class defaultdict(dict):
+    def __init__(self, default_factory=None, *a, **kw):
+      if (default_factory is not None and
+        not hasattr(default_factory, '__call__')):
+        raise TypeError('first argument must be callable')
+      dict.__init__(self, *a, **kw)
+      self.default_factory = default_factory
+    def __getitem__(self, key):
+      try:
+        return dict.__getitem__(self, key)
+      except KeyError:
+        return self.__missing__(key)
+    def __missing__(self, key):
+      if self.default_factory is None:
+        raise KeyError(key)
+      self[key] = value = self.default_factory()
+      return value
+    def __reduce__(self):
+      if self.default_factory is None:
+        args = tuple()
+      else:
+        args = self.default_factory,
+      return type(self), args, None, None, self.items()
+    def copy(self):
+      return self.__copy__()
+    def __copy__(self):
+      return type(self)(self.default_factory, self)
+    def __deepcopy__(self, memo):
+      import copy
+      return type(self)(self.default_factory,
+                        copy.deepcopy(self.items()))
+    def __repr__(self):
+      return 'defaultdict(%s, %s)' % (self.default_factory,
+                                      dict.__repr__(self))
