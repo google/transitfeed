@@ -3074,23 +3074,23 @@ class Schedule:
     return date_service_period_list
 
 
-  def AddStop(self, lat, lng, name):
+  def AddStop(self, lat, lng, name, stop_id=None):
     """Add a stop to this schedule.
-
-    A new stop_id is created for this stop. Do not use this method unless all
-    stops in this Schedule are created with it. See source for details.
 
     Args:
       lat: Latitude of the stop as a float or string
       lng: Longitude of the stop as a float or string
       name: Name of the stop, which will appear in the feed
+      stop_id: stop_id of the stop or None, in which case a unique id is picked
 
     Returns:
       A new Stop object
     """
-    # TODO: stop_id isn't guarenteed to be unique and conflicts are not
-    # handled. Please fix.
-    stop_id = unicode(len(self.stops))
+    if stop_id is None:
+      new_stop_id = len(self.stops)
+      while unicode(new_stop_id) in self.stops:
+        new_stop_id += 1
+      stop_id = unicode(new_stop_id)
     stop = Stop(stop_id=stop_id, lat=lat, lng=lng, name=name)
     self.AddStopObject(stop)
     return stop

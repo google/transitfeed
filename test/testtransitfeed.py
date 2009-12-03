@@ -3814,8 +3814,10 @@ class AddHeadwayPeriodValidationTestCase(ValidationTestCase):
     self.ExpectInvalidValue("12:00:00", "06:00:00", 1200, "end_time", 21600)
 
 
-class MinimalUtf8Builder(TempFileTestCaseBase):
-  def runTest(self):
+class ScheduleBuilderTestCase(TempFileTestCaseBase):
+  """Tests for using a Schedule object to build a GTFS file."""
+
+  def testBuildFeedWithUtf8Names(self):
     problems = TestFailureProblemReporter(self)
     schedule = transitfeed.Schedule(problem_reporter=problems)
     schedule.AddAgency("\xc8\x8b Fly Agency", "http://iflyagency.com",
@@ -3840,11 +3842,17 @@ class MinimalUtf8Builder(TempFileTestCaseBase):
     read_schedule = \
         transitfeed.Loader(self.tempfilepath, problems=problems,
                            extra_validation=True).Load()
+    self.assertEquals(u'\u020b Fly Agency',
+                      read_schedule.GetDefaultAgency().agency_name)
+    self.assertEquals(u'\u03b2',
+                      read_schedule.GetRoute(route.route_id).route_short_name)
+    self.assertEquals(u'to remote \u020b station',
+                      read_schedule.GetTrip(trip.trip_id).trip_headsign)
 
-
-class ScheduleBuilderTestCase(unittest.TestCase):
-  def runTest(self):
-    schedule = transitfeed.Schedule()
+  def testBuildSimpleFeed(self):
+    """Make a very simple feed using the Schedule class."""
+    problems = TestFailureProblemReporter(self)
+    schedule = transitfeed.Schedule(problem_reporter=problems)
 
     schedule.AddAgency("Test Agency", "http://example.com",
                        "America/Los_Angeles")
@@ -3884,9 +3892,26 @@ class ScheduleBuilderTestCase(unittest.TestCase):
                      pickup_type=1, drop_off_type=3)
 
     schedule.Validate()
-    self.assertEqual(4, len(trip.GetTimeStops()))
-    self.assertEqual(1, len(schedule.GetRouteList()))
-    self.assertEqual(4, len(schedule.GetStopList()))
+    schedule.WriteGoogleTransitFeed(self.tempfilepath)
+    read_schedule = \
+        transitfeed.Loader(self.tempfilepath, problems=problems,
+                           extra_validation=True).Load()
+    self.assertEqual(4, len(read_schedule.GetTrip(trip_id).GetTimeStops()))
+    self.assertEqual(1, len(read_schedule.GetRouteList()))
+    self.assertEqual(4, len(read_schedule.GetStopList()))
+
+  def testStopIdConflict(self):
+    problems = TestFailureProblemReporter(self)
+    schedule = transitfeed.Schedule(problem_reporter=problems)
+    schedule.AddStop(lat=3, lng=4.1, name="stop1", stop_id="1")
+    schedule.AddStop(lat=3, lng=4.0, name="stop0", stop_id="0")
+    schedule.AddStop(lat=3, lng=4.2, name="stop2")
+    schedule.AddStop(lat=3, lng=4.2, name="stop4", stop_id="4")
+    # AddStop will try to use stop_id=4 first but it is taken
+    schedule.AddStop(lat=3, lng=4.2, name="stop5")
+    self.assertEqual(5, len(schedule.GetStopList()))
+    for s in schedule.GetStopList():
+      self.assertEqual(s.stop_name, "stop%s" % s.stop_id)
 
 
 class WriteSampleFeedTestCase(TempFileTestCaseBase):
