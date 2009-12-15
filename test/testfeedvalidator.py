@@ -176,7 +176,7 @@ class FullTests(util.TempDirTestCaseBase):
 # even when the feed starts in the future or expires in less than
 # 60 days
 # See http://code.google.com/p/googletransitdatafeed/issues/detail?id=204
-class CalendarSummaryTestCase(unittest.TestCase):
+class CalendarSummaryTestCase(util.TestCase):
   
   # Test feeds starting in the future
   def testFutureFeedDoesNotCrashCalendarSummary(self):
@@ -272,7 +272,7 @@ class FeedValidatorTestCase(util.TempDirTestCaseBase):
     self.assertMatchesRegex("routes.txt", output_file.getvalue())
 
 
-class LimitPerTypeProblemReporterTestCase(unittest.TestCase):
+class LimitPerTypeProblemReporterTestCase(util.TestCase):
   def assertProblemsAttribute(self, problem_type, class_name, attribute_name,
                               expected):
     """Join the value of each exception's attribute_name in order."""

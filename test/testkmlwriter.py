@@ -58,7 +58,7 @@ def _ElementToString(root):
   return output.getvalue()
 
 
-class TestKMLStopsRoundtrip(unittest.TestCase):
+class TestKMLStopsRoundtrip(util.TestCase):
   """Checks to see whether all stops are preserved when going to and from KML.
   """
 
@@ -84,7 +84,7 @@ class TestKMLStopsRoundtrip(unittest.TestCase):
     self.assertEqual(stops1, stops2)
 
 
-class TestKMLGeneratorMethods(unittest.TestCase):
+class TestKMLGeneratorMethods(util.TestCase):
   """Tests the various KML element creation methods of KMLWriter."""
 
   def setUp(self):
@@ -166,7 +166,7 @@ class TestKMLGeneratorMethods(unittest.TestCase):
                      '</LineString>' % (1.0, 1.0, 4.0, 2.0, 9.0, 3.0))
 
 
-class TestRouteKML(unittest.TestCase):
+class TestRouteKML(util.TestCase):
   """Tests the routes folder KML generation methods of KMLWriter."""
 
   def setUp(self):
@@ -305,7 +305,7 @@ class TestRouteKML(unittest.TestCase):
     self.assertEquals(len(route_folders), 1)
 
 
-class TestShapesKML(unittest.TestCase):
+class TestShapesKML(util.TestCase):
   """Tests the shapes folder KML generation methods of KMLWriter."""
 
   def setUp(self):
@@ -326,7 +326,7 @@ class TestShapesKML(unittest.TestCase):
       self.assert_(placemark.find('LineString') is not None)
 
 
-class TestStopsKML(unittest.TestCase):
+class TestStopsKML(util.TestCase):
   """Tests the stops folder KML generation methods of KMLWriter."""
 
   def setUp(self):
@@ -345,7 +345,7 @@ class TestStopsKML(unittest.TestCase):
     self.assertEquals(len(placemarks), len(self.feed.GetStopList()))
 
 
-class TestShapePointsKML(unittest.TestCase):
+class TestShapePointsKML(util.TestCase):
   """Tests the shape points folder KML generation methods of KMLWriter."""
 
   def setUp(self):

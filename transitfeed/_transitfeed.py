@@ -668,7 +668,8 @@ def FindUniqueId(dic):
   """Return a string not used as a key in the dictionary dic"""
   name = str(len(dic))
   while name in dic:
-    name = str(random.randint(1, 999999999))
+    # Use bigger numbers so it is obvious when an id is picked randomly.
+    name = str(random.randint(1000000, 999999999))
   return name
 
 
@@ -1070,17 +1071,26 @@ class Route(GenericGTFSObject):
         field_dict['agency_id'] = agency_id
     self.__dict__.update(field_dict)
 
-  def AddTrip(self, schedule, headsign, service_period=None, trip_id=None):
-    """ Adds a trip to this route.
+  def AddTrip(self, schedule=None, headsign=None, service_period=None,
+              trip_id=None):
+    """Add a trip to this route.
 
     Args:
+      schedule: a Schedule object which will hold the new trip or None to use
+        the schedule of this route.
       headsign: headsign of the trip as a string
+      service_period: a ServicePeriod object or None to use
+        schedule.GetDefaultServicePeriod()
+      trip_id: optional trip_id for the new trip
 
     Returns:
       a new Trip object
     """
+    if schedule is None:
+      assert self._schedule is not None
+      schedule = self._schedule
     if trip_id is None:
-      trip_id = unicode(len(schedule.trips))
+      trip_id = FindUniqueId(schedule.trips)
     if service_period is None:
       service_period = schedule.GetDefaultServicePeriod()
     trip = Trip(route=self, headsign=headsign, service_period=service_period,
@@ -1509,7 +1519,7 @@ class Trip(GenericGTFSObject):
     if schedule is None:
       schedule = self._schedule
     if schedule is None:
-      warnings.warn("No longer supported. _schedule attribute is  used to get "
+      warnings.warn("No longer supported. _schedule attribute is used to get "
                     "stop_times table", DeprecationWarning)
     if problems is None:
       problems = schedule.problem_reporter
@@ -2844,7 +2854,7 @@ class Schedule:
   """Represents a Schedule, a collection of stops, routes, trips and
   an agency.  This is the main class for this module."""
 
-  def __init__(self, problem_reporter=default_problem_reporter,
+  def __init__(self, problem_reporter=None,
                memory_db=True, check_duplicate_trips=False):
     # Map from table name to list of columns present in this schedule
     self._table_columns = {}
@@ -2860,7 +2870,10 @@ class Schedule:
     self._transfers = []  # list of transfers
     self._default_service_period = None
     self._default_agency = None
-    self.problem_reporter = problem_reporter
+    if problem_reporter is None:
+      self.problem_reporter = default_problem_reporter
+    else:
+      self.problem_reporter = problem_reporter
     self._check_duplicate_trips = check_duplicate_trips
     self.ConnectDb(memory_db)
 
@@ -3087,10 +3100,7 @@ class Schedule:
       A new Stop object
     """
     if stop_id is None:
-      new_stop_id = len(self.stops)
-      while unicode(new_stop_id) in self.stops:
-        new_stop_id += 1
-      stop_id = unicode(new_stop_id)
+      stop_id = FindUniqueId(self.stops)
     stop = Stop(stop_id=stop_id, lat=lat, lng=lng, name=name)
     self.AddStopObject(stop)
     return stop
@@ -3117,17 +3127,19 @@ class Schedule:
   def GetStopList(self):
     return self.stops.values()
 
-  def AddRoute(self, short_name, long_name, route_type):
+  def AddRoute(self, short_name, long_name, route_type, route_id=None):
     """Add a route to this schedule.
 
     Args:
       short_name: Short name of the route, such as "71L"
       long_name: Full name of the route, such as "NW 21st Ave/St Helens Rd"
       route_type: A type such as "Tram", "Subway" or "Bus"
+      route_id: id of the route or None, in which case a unique id is picked
     Returns:
       A new Route object
     """
-    route_id = unicode(len(self.routes))
+    if route_id is None:
+      route_id = FindUniqueId(self.routes)
     route = Route(short_name=short_name, long_name=long_name,
                   route_type=route_type, route_id=route_id)
     route.agency_id = self.GetDefaultAgency().agency_id

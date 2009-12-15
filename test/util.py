@@ -54,17 +54,24 @@ def check_call(cmd, expected_retcode=0, stdin_str="", **kwargs):
   return (out, err)
 
 
-class TestCaseAsserts(unittest.TestCase):
+class TestCase(unittest.TestCase):
+  """Base of every TestCase class in this project.
+
+  This adds some methods that perhaps should be in unittest.TestCase.
+  """
+  # Note from Tom, Dec 9 2009: Be careful about adding setUp or tearDown
+  # because they will be run a few hundred times.
+
   def assertMatchesRegex(self, regex, string):
     """Assert that regex is found in string."""
     if not re.search(regex, string):
       self.fail("string %r did not match regex %r" % (string, regex))
 
 
-class GetPathTestCase(TestCaseAsserts):
+class GetPathTestCase(TestCase):
   """TestCase with method to get paths to files in the distribution."""
   def setUp(self):
-    TestCaseAsserts.setUp(self)
+    super(GetPathTestCase, self).setUp()
     self._origcwd = os.getcwd()
 
   def GetExamplePath(self, name):
@@ -171,10 +178,24 @@ class RecordingProblemReporter(transitfeed.ProblemReporterBase):
             (exce.FormatProblem(), exce.FormatContext(), tb))
 
   def AssertNoMoreExceptions(self):
+    """Check that no unexpected problems were reported.
+
+    Every test that uses a RecordingProblemReporter should end with a call to
+    this method. If setUp creates a RecordingProblemReporter it is good for
+    tearDown to double check that the exceptions list was emptied.
+    """
     exceptions_as_text = []
     for e, tb in self.exceptions:
       exceptions_as_text.append(self.FormatException(e, tb))
-    self._test_case.assertFalse(self.exceptions, "\n".join(exceptions_as_text))
+    # If the assertFalse below fails the test will abort and tearDown is
+    # called. Some tearDown methods assert that self.exceptions is empty as
+    # protection against a test that doesn't end with AssertNoMoreExceptions
+    # and has exceptions remaining in the RecordingProblemReporter. It would
+    # be nice to trigger a normal test failure in tearDown but the idea was
+    # rejected (http://bugs.python.org/issue5531).
+    self.exceptions = []
+    self._test_case.assertFalse(exceptions_as_text,
+                                "\n".join(exceptions_as_text))
 
   def PopInvalidValue(self, column_name, file_name=None):
     e = self.PopException("InvalidValue")
