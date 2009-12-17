@@ -2898,6 +2898,8 @@ class Schedule:
     return self._table_columns[table]
 
   def __del__(self):
+    self._connection.cursor().close()
+    self._connection.close()
     if hasattr(self, '_temp_db_filename'):
       os.remove(self._temp_db_filename)
 
