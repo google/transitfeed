@@ -2258,8 +2258,9 @@ class FareValidationTestCase(ValidationTestCase):
     fare.transfer_duration = 7200
     self.problems.AssertNoMoreExceptions()
 
-class TransferValidationTestCase(ValidationTestCase):
-  def runTest(self):
+
+class TransferObjectTestCase(ValidationTestCase):
+  def testValidation(self):
     # Totally bogus data shouldn't cause a crash
     transfer = transitfeed.Transfer(field_dict={"ignored": "foo"})
     self.assertEquals(0, transfer.transfer_type)
@@ -2386,6 +2387,32 @@ class TransferValidationTestCase(ValidationTestCase):
     transfer.to_stop_id = stop1.stop_id
     schedule.AddTransferObject(transfer)
     self.assertRaises(AssertionError, schedule.AddTransferObject, transfer)
+
+  def testCustomAttribute(self):
+    """Add unknown attributes to a Transfer and make sure they are saved."""
+    transfer = transitfeed.Transfer()
+    transfer.attr1 = "foo1"
+    schedule = self.SimpleSchedule()
+    transfer.to_stop_id = "stop1"
+    transfer.from_stop_id = "stop1"
+    schedule.AddTransferObject(transfer)
+    transfer.attr2 = "foo2"
+    
+    saved_schedule_file = StringIO()
+    schedule.WriteGoogleTransitFeed(saved_schedule_file)
+    self.problems.AssertNoMoreExceptions()
+
+    load_problems = TestFailureProblemReporter(
+        self, ("ExpirationDate", "UnrecognizedColumn"))
+    loaded_schedule = transitfeed.Loader(saved_schedule_file,
+                                         problems=load_problems,
+                                         extra_validation=True).Load()
+    transfers = loaded_schedule.GetTransferList()
+    self.assertEquals(1, len(transfers))
+    self.assertEquals("foo1", transfers[0].attr1)
+    self.assertEquals("foo1", transfers[0]["attr1"])
+    self.assertEquals("foo2", transfers[0].attr2)
+    self.assertEquals("foo2", transfers[0]["attr2"])
 
 
 class ServicePeriodValidationTestCase(ValidationTestCase):

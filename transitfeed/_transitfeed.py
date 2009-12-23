@@ -2465,17 +2465,15 @@ class Agency(GenericGTFSObject):
     return not found_problem
 
 
-class Transfer(object):
+class Transfer(GenericGTFSObject):
   """Represents a transfer in a schedule"""
   _REQUIRED_FIELD_NAMES = ['from_stop_id', 'to_stop_id', 'transfer_type']
   _FIELD_NAMES = _REQUIRED_FIELD_NAMES + ['min_transfer_time']
+  _TABLE_NAME = 'transfers'
 
   def __init__(self, schedule=None, from_stop_id=None, to_stop_id=None, transfer_type=None,
                min_transfer_time=None, field_dict=None):
-    if schedule is not None:
-      self._schedule = weakref.proxy(schedule)  # See weakref comment at top
-    else:
-      self._schedule = None
+    self._schedule = None
     if field_dict:
       self.__dict__.update(field_dict)
     else:
@@ -2500,27 +2498,11 @@ class Transfer(object):
         pass
     else:
       self.min_transfer_time = None
-
-  def GetFieldValuesTuple(self):
-    return [getattr(self, fn) for fn in Transfer._FIELD_NAMES]
-
-  def __getitem__(self, name):
-    return getattr(self, name)
-
-  def __eq__(self, other):
-    if not other:
-      return False
-
-    if id(self) == id(other):
-      return True
-
-    return self.GetFieldValuesTuple() == other.GetFieldValuesTuple()
-
-  def __ne__(self, other):
-    return not self.__eq__(other)
-
-  def __repr__(self):
-    return "<Transfer %s>" % self.__dict__
+    if schedule is not None:
+      # Note from Tom, Nov 25, 2009: Maybe calling __init__ with a schedule
+      # should output a DeprecationWarning. A schedule factory probably won't
+      # use it and other GenericGTFSObject subclasses don't support it.
+      schedule.AddTransferObject(self)
 
   def Validate(self, problems=default_problem_reporter):
     if IsEmpty(self.from_stop_id):
@@ -3268,13 +3250,11 @@ class Schedule:
                                     'of the IDs defined in the '
                                     'fare attributes.)')
 
-  def AddTransferObject(self, transfer, problem_reporter=None):
+  def AddTransferObject(self, transfer):
     assert transfer._schedule is None, "only add Transfer to a schedule once"
-    transfer._schedule = weakref.proxy(self)  # See weakref comment at top
-    if not problem_reporter:
-      problem_reporter = self.problem_reporter
 
-    transfer.Validate(problem_reporter)
+    transfer._schedule = weakref.proxy(self)  # See weakref comment at top
+    self.AddTableColumns('transfers', transfer._ColumnNames())
     self._transfers.append(transfer)
 
   def GetTransferList(self):
@@ -3451,12 +3431,13 @@ class Schedule:
       writer.writerows(shape_rows)
       self._WriteArchiveString(archive, 'shapes.txt', shape_string)
 
-    # write transfers (if applicable)
-    if self.GetTransferList():
+    if 'transfers' in self._table_columns:
       transfer_string = StringIO.StringIO()
       writer = CsvUnicodeWriter(transfer_string)
-      writer.writerow(Transfer._FIELD_NAMES)
-      writer.writerows(f.GetFieldValuesTuple() for f in self.GetTransferList())
+      columns = self.GetTableColumns('transfers')
+      writer.writerow(columns)
+      for t in self.GetTransferList():
+        writer.writerow([EncodeUnicode(t[c]) for c in columns])
       self._WriteArchiveString(archive, 'transfers.txt', transfer_string)
 
     archive.close()
@@ -4564,7 +4545,8 @@ class Loader:
                                               Transfer._REQUIRED_FIELD_NAMES):
       self._problems.SetFileContext(file_name, row_num, row, header)
       transfer = Transfer(field_dict=d)
-      self._schedule.AddTransferObject(transfer, self._problems)
+      self._schedule.AddTransferObject(transfer)
+      transfer.Validate(self._problems)
       self._problems.ClearContext()
 
   def Load(self):
