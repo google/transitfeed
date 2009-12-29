@@ -360,9 +360,14 @@ class DivaImporter:
              'FGR_NR', 'FPL_KUERZEL', 'TAGESMERKMAL_NR', 'VB',
              'FRT_HP_AUS', 'HALTEPUNKT_NR_ZIEL', 'FAHRTART_NR']):
       if trip_type != '1':
+        print "skipping Trip ", trip_id, line, direction, \
+              dest_station_id, trip_type
         continue  # 1=normal, 2=empty, 3=from depot, 4=to depot, 5=other
       trip = Trip()
-      trip.id = trip_id
+      #The trip_id (FRT_FID) field is not unique in the vbz data, as of Dec 2009
+      # to prevent overwritingimported trips when we key them by trip.id
+      # we should make trip.id unique, by combining trip_id and line
+      trip.id = ("%s_%s") % (trip_id, line)
       trip.starttime = int(trip_starttime)
       trip.route = self.routes[line]
       dest_station = self.stations[dest_station_id]
@@ -375,6 +380,7 @@ class DivaImporter:
         service_id = u'C%s.%s' % (schedule_id, daytype_id)
       trip.service_id = service_id
       assert len(self.services[service_id]) > 0
+      assert not trip.id in self.trips
       self.trips[trip.id] = trip
 
   def Write(self, outpath):
