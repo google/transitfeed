@@ -56,6 +56,7 @@ import codecs
 from transitfeed.util import defaultdict
 import csv
 import datetime
+import itertools
 import logging
 import math
 import os
@@ -190,7 +191,7 @@ class ProblemReporterBase:
     self._Report(e)
 
   def DuplicateID(self, column_names, values, context=None, type=TYPE_ERROR):
-    if isinstance(column_names, tuple):
+    if isinstance(column_names, (tuple, list)):
       column_names = '(' + ', '.join(column_names) + ')'
     if isinstance(values, tuple):
       values = '(' + ', '.join(values) + ')'
@@ -2470,6 +2471,7 @@ class Transfer(GenericGTFSObject):
   _REQUIRED_FIELD_NAMES = ['from_stop_id', 'to_stop_id', 'transfer_type']
   _FIELD_NAMES = _REQUIRED_FIELD_NAMES + ['min_transfer_time']
   _TABLE_NAME = 'transfers'
+  _ID_COLUMNS = ['from_stop_id', 'to_stop_id']
 
   def __init__(self, schedule=None, from_stop_id=None, to_stop_id=None, transfer_type=None,
                min_transfer_time=None, field_dict=None):
@@ -2526,6 +2528,9 @@ class Transfer(GenericGTFSObject):
       if (not isinstance(self.min_transfer_time, int)) or \
           self.min_transfer_time < 0:
         problems.InvalidValue('min_transfer_time', self.min_transfer_time)
+
+  def _ID(self):
+    return tuple(self[i] for i in self._ID_COLUMNS)
 
 
 class ServicePeriod(object):
@@ -2849,7 +2854,11 @@ class Schedule:
     self.fares = {}
     self.fare_zones = {}  # represents the set of all known fare zones
     self._shapes = {}  # shape_id to Shape
-    self._transfers = []  # list of transfers
+    # A map from transfer._ID() to a list of transfers. A list is used so
+    # there can be more than one transfer with each ID. Once GTFS explicitly
+    # prohibits duplicate IDs this might be changed to a simple dict of
+    # Transfers.
+    self._transfers = defaultdict(lambda: [])
     self._default_service_period = None
     self._default_agency = None
     if problem_reporter is None:
@@ -3253,12 +3262,24 @@ class Schedule:
   def AddTransferObject(self, transfer):
     assert transfer._schedule is None, "only add Transfer to a schedule once"
 
+    transfer_id = transfer._ID()
+
+    if transfer_id in self._transfers:
+      self.problem_reporter.DuplicateID(Transfer._ID_COLUMNS,
+                                        transfer_id, type=TYPE_WARNING)
+      # Duplicates are still added, while not prohibited by GTFS.
+
     transfer._schedule = weakref.proxy(self)  # See weakref comment at top
     self.AddTableColumns('transfers', transfer._ColumnNames())
-    self._transfers.append(transfer)
+    self._transfers[transfer_id].append(transfer)
+
+  def GetTransferIter(self):
+    """Return an iterator for all Transfer objects in this schedule."""
+    return itertools.chain(*self._transfers.values())
 
   def GetTransferList(self):
-    return self._transfers
+    """Return a list containing all Transfer objects in this schedule."""
+    return list(self.GetTransferIter())
 
   def GetStop(self, id):
     return self.stops[id]
@@ -3436,7 +3457,7 @@ class Schedule:
       writer = CsvUnicodeWriter(transfer_string)
       columns = self.GetTableColumns('transfers')
       writer.writerow(columns)
-      for t in self.GetTransferList():
+      for t in self.GetTransferIter():
         writer.writerow([EncodeUnicode(t[c]) for c in columns])
       self._WriteArchiveString(archive, 'transfers.txt', transfer_string)
 

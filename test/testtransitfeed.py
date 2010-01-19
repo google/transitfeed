@@ -1145,6 +1145,13 @@ class TooFastTravelTestCase(ValidationTestCase):
 
 
 class MemoryZipTestCase(util.TestCase):
+  """Base for TestCase classes which read from an in-memory zip file.
+
+  A test that loads data from this zip file exercises almost all the code used
+  when the feedvalidator runs, but does not touch disk. Unfortunately it is very
+  difficult to add new stops to the default stops.txt because a new stop will
+  break tests in StopHierarchyTestCase and StopsNearEachOther."""
+
   def setUp(self):
     self.problems = RecordingProblemReporter(self, ("ExpirationDate",))
     self.zipfile = StringIO()
@@ -1184,11 +1191,9 @@ class MemoryZipTestCase(util.TestCase):
         extra_validation=True,
         zip=self.zip)
 
-  def appendToZip(self, file, arcname, s):
-    """Append s to the arcname in the zip stored in a file object."""
-    zip = zipfile.ZipFile(file, 'a')
+  def AppendToZip(self, arcname, s):
+    """Append string s to the file arcname in the in-memory zip."""
     zip.writestr(arcname, zip.read(arcname) + s)
-    zip.close()
 
   def DumpZipFile(self, zf):
     """Print the contents of something zipfile can open, such as a StringIO."""
@@ -2354,7 +2359,7 @@ class TransferObjectTestCase(ValidationTestCase):
     self.ExpectMissingValue(transfer, 'to_stop_id')
     transfer.to_stop_id = "S2"
 
-    # stops are presented in schedule case
+    # from_stop_id and to_stop_id are present in schedule
     schedule = transitfeed.Schedule()
     stop1 = schedule.AddStop(57.5, 30.2, "stop 1")
     stop2 = schedule.AddStop(57.5, 30.3, "stop 2")
@@ -2367,7 +2372,7 @@ class TransferObjectTestCase(ValidationTestCase):
     transfer.Validate(self.problems)
     self.problems.AssertNoMoreExceptions()
 
-    # stops are not presented in schedule case
+    # only from_stop_id is present in schedule
     schedule = transitfeed.Schedule()
     stop1 = schedule.AddStop(57.5, 30.2, "stop 1")
     transfer = transitfeed.Transfer(schedule=schedule)
@@ -2381,7 +2386,7 @@ class TransferObjectTestCase(ValidationTestCase):
     self.ExpectInvalidValue(transfer, "from_stop_id")
     self.problems.AssertNoMoreExceptions()
 
-    # Transfer can only be added to a schedule once
+    # Transfer can only be added to a schedule once because _schedule is set
     transfer = transitfeed.Transfer()
     transfer.from_stop_id = stop1.stop_id
     transfer.to_stop_id = stop1.stop_id
@@ -2413,6 +2418,79 @@ class TransferObjectTestCase(ValidationTestCase):
     self.assertEquals("foo1", transfers[0]["attr1"])
     self.assertEquals("foo2", transfers[0].attr2)
     self.assertEquals("foo2", transfers[0]["attr2"])
+
+  def testDuplicateId(self):
+    schedule = self.SimpleSchedule()
+    transfer1 = transitfeed.Transfer(from_stop_id="stop1", to_stop_id="stop2")
+    schedule.AddTransferObject(transfer1)
+    transfer2 = transitfeed.Transfer(field_dict=transfer1)
+    transfer2.transfer_type = 3
+    schedule.AddTransferObject(transfer2)
+    transfer2.Validate()
+    e = self.problems.PopException('DuplicateID')
+    self.assertEquals('(from_stop_id, to_stop_id)', e.column_name)
+    self.assertEquals('(stop1, stop2)', e.value)
+    self.assertTrue(e.IsWarning())
+    self.problems.AssertNoMoreExceptions()
+    # Check that both transfers were kept
+    self.assertEquals(transfer1, schedule.GetTransferList()[0])
+    self.assertEquals(transfer2, schedule.GetTransferList()[1])
+
+    # Adding a transfer with a different ID shouldn't cause a problem report.
+    transfer3 = transitfeed.Transfer(from_stop_id="stop1", to_stop_id="stop3")
+    schedule.AddTransferObject(transfer3)
+    self.assertEquals(3, len(schedule.GetTransferList()))
+    self.problems.AssertNoMoreExceptions()
+
+    # GetTransferIter should return all Transfers
+    transfer4 = transitfeed.Transfer(from_stop_id="stop1")
+    schedule.AddTransferObject(transfer4)
+    self.assertEquals(
+        ",stop2,stop2,stop3",
+        ",".join(sorted(t["to_stop_id"] for t in schedule.GetTransferIter())))
+    self.problems.AssertNoMoreExceptions()
+
+
+class TransferValidationTestCase(MemoryZipTestCase):
+  """Integration test for transfers."""
+  def testDuplicateTransfer(self):
+    self.zip.writestr(
+        "stops.txt", self.zip.read("stops.txt") +
+        "BEATTY_AIRPORT_HANGER,Airport Hanger,36.868178,-116.784915\n"
+        "BEATTY_AIRPORT_34,Runway 34,36.85352,-116.786316\n")
+    self.zip.writestr(
+        "trips.txt", self.zip.read("trips.txt") +
+        "AB,FULLW,AIR1\n")
+    self.zip.writestr(
+        "stop_times.txt", self.zip.read("stop_times.txt") +
+        "AIR1,7:00:00,7:00:00,BEATTY_AIRPORT_HANGER,1\n"
+        "AIR1,7:05:00,7:05:00,BEATTY_AIRPORT_34,2\n"
+        "AIR1,7:10:00,7:10:00,BEATTY_AIRPORT_HANGER,3\n")
+    self.zip.writestr(
+        "transfers.txt",
+        "from_stop_id,to_stop_id,transfer_type\n"
+        "BEATTY_AIRPORT,BEATTY_AIRPORT_HANGER,0\n"
+        "BEATTY_AIRPORT,BEATTY_AIRPORT_HANGER,3")
+    schedule = self.loader.Load()
+    e = self.problems.PopException('DuplicateID')
+    self.assertEquals('(from_stop_id, to_stop_id)', e.column_name)
+    self.assertEquals('(BEATTY_AIRPORT, BEATTY_AIRPORT_HANGER)', e.value)
+    self.assertTrue(e.IsWarning())
+    self.assertEquals('transfers.txt', e.file_name)
+    self.assertEquals(3, e.row_num)
+    self.problems.AssertNoMoreExceptions()
+
+    saved_schedule_file = StringIO()
+    schedule.WriteGoogleTransitFeed(saved_schedule_file)
+    self.problems.AssertNoMoreExceptions()
+    load_problems = TestFailureProblemReporter(
+        self, ("ExpirationDate", "DuplicateID"))
+    loaded_schedule = transitfeed.Loader(saved_schedule_file,
+                                         problems=load_problems,
+                                         extra_validation=True).Load()
+    self.assertEquals(
+        [0, 3],
+        [int(t.transfer_type) for t in loaded_schedule.GetTransferIter()])
 
 
 class ServicePeriodValidationTestCase(ValidationTestCase):
@@ -2684,7 +2762,6 @@ class TripMemoryZipTestCase(MemoryZipTestCase):
     trip2.AddStopTime(stop=schedule.GetStop("STAGECOACH"), stop_time="09:30:00")
     saved_schedule_file = StringIO()
     schedule.WriteGoogleTransitFeed(saved_schedule_file)
-    self.appendToZip(saved_schedule_file, "stop_times.txt","")
     self.problems.AssertNoMoreExceptions()
 
     self.assertLoadAndCheckExtraValues(saved_schedule_file)
