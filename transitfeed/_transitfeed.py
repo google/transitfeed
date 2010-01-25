@@ -799,6 +799,11 @@ class GenericGTFSObject(object):
   def __ne__(self, other):
     return not self.__eq__(other)
 
+  # TODO(Tom): According to
+  # http://docs.python.org/reference/datamodel.html#object.__hash__
+  # this class should set '__hash__ = None' because it defines __eq__. This
+  # can't be fixed until the merger is changed to not use a/b_merge_map.
+
   def __repr__(self):
     return "<%s %s>" % (self.__class__.__name__, sorted(self.iteritems()))
 

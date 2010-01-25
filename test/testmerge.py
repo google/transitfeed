@@ -334,14 +334,22 @@ class TestFeedMerger(util.TestCase):
     self.assertEquals(self.called, range(6))
 
   def testRegister(self):
-    self.fm.Register(1, 2, 3)
-    self.assertEquals(self.fm.a_merge_map, {1: 3})
-    self.assertEquals(self.fm.b_merge_map, {2: 3})
+    s1 = transitfeed.Stop(stop_id='1')
+    s2 = transitfeed.Stop(stop_id='2')
+    s3 = transitfeed.Stop(stop_id='3')
+    self.fm.Register(s1, s2, s3)
+    self.assertEquals(self.fm.a_merge_map, {s1: s3})
+    self.assertEquals('3', s1._migrated_entity.stop_id)
+    self.assertEquals(self.fm.b_merge_map, {s2: s3})
+    self.assertEquals('3', s2._migrated_entity.stop_id)
 
   def testRegisterNone(self):
-    self.fm.Register(None, 2, 3)
+    s2 = transitfeed.Stop(stop_id='2')
+    s3 = transitfeed.Stop(stop_id='3')
+    self.fm.Register(None, s2, s3)
     self.assertEquals(self.fm.a_merge_map, {})
-    self.assertEquals(self.fm.b_merge_map, {2: 3})
+    self.assertEquals(self.fm.b_merge_map, {s2: s3})
+    self.assertEquals('3', s2._migrated_entity.stop_id)
 
   def testGenerateId_Prefix(self):
     x = 'test'
@@ -773,8 +781,8 @@ class TestStopMerger(util.TestCase):
 
   def AssertS1ParentIsS2(self):
     """Assert that the merged s1 has parent s2."""
-    new_s1 = self.fm.GetMergedObject(self.s1)
-    new_s2 = self.fm.GetMergedObject(self.s2)
+    new_s1 = self.s1._migrated_entity
+    new_s2 = self.s2._migrated_entity
     self.assertEquals(new_s1.parent_station, new_s2.stop_id)
     self.assertEquals(new_s2.parent_station, None)
     self.assertEquals(new_s1.location_type, 0)
@@ -810,11 +818,11 @@ class TestStopMerger(util.TestCase):
     self.fm.b_schedule.AddStopObject(self.s2)
     self.fm.problem_reporter.ExpectProblemClass(merge.SameIdButNotMerged)
     self.fm.MergeSchedules()
-    self.assertNotEquals(self.fm.GetMergedObject(s3).stop_id,
-                         self.fm.GetMergedObject(self.s2).stop_id)
-    # Check that s3 got a new id
+    self.assertNotEquals(s3._migrated_entity.stop_id,
+                         self.s2._migrated_entity.stop_id)
+    # Check that s2 got a new id
     self.assertNotEquals(self.s2.stop_id,
-                         self.fm.GetMergedObject(self.s2).stop_id)
+                         self.s2._migrated_entity.stop_id)
     self.AssertS1ParentIsS2()
 
   def _AddStopsApart(self):
@@ -1286,6 +1294,107 @@ class TestFareRuleMerger(util.TestCase):
 
   def testMergeStats(self):
     self.assert_(self.fare_rule_merger.GetMergeStats() is None)
+
+
+class TestTransferMerger(util.TestCase):
+  def setUp(self):
+    a_schedule = transitfeed.Schedule()
+    b_schedule = transitfeed.Schedule()
+    merged_schedule = transitfeed.Schedule()
+    self.fm = merge.FeedMerger(a_schedule, b_schedule, merged_schedule,
+                               TestingProblemReporter())
+
+  def testStopsMerged(self):
+    stop0 = transitfeed.Stop(lat=30.0, lng=30.0, name="0", stop_id="0")
+    stop1 = transitfeed.Stop(lat=30.1, lng=30.1, name="1", stop_id="1")
+    self.fm.a_schedule.AddStopObject(transitfeed.Stop(field_dict=stop0))
+    self.fm.b_schedule.AddStopObject(transitfeed.Stop(field_dict=stop0))
+
+    self.fm.a_schedule.AddStopObject(transitfeed.Stop(field_dict=stop1))
+    self.fm.b_schedule.AddStopObject(transitfeed.Stop(field_dict=stop1))
+    self.fm.a_schedule.AddTransferObject(transitfeed.Transfer(from_stop_id="0",
+                                                              to_stop_id="1"))
+    self.fm.b_schedule.AddTransferObject(transitfeed.Transfer(from_stop_id="0",
+                                                              to_stop_id="1"))
+    self.fm.AddMerger(merge.StopMerger(self.fm))
+    self.fm.AddMerger(merge.TransferMerger(self.fm))
+    self.fm.MergeSchedules()
+    transfers = self.fm.merged_schedule.GetTransferList()
+    self.assertEquals(1, len(transfers))
+    self.assertEquals("0", transfers[0].from_stop_id)
+    self.assertEquals("1", transfers[0].to_stop_id)
+
+  def testToStopNotMerged(self):
+    """When stops aren't merged transfer is duplicated."""
+    self.fm.problem_reporter.ExpectProblemClass(merge.SameIdButNotMerged)
+    stop0 = transitfeed.Stop(lat=30.0, lng=30.0, name="0", stop_id="0")
+    stop1a = transitfeed.Stop(lat=30.1, lng=30.1, name="1a", stop_id="1")
+    stop1b = transitfeed.Stop(lat=30.1, lng=30.1, name="1b", stop_id="1")
+
+    # a_schedule and b_schedule both have a transfer with to_stop_id=1 but the
+    # stops are not merged so the transfer must be duplicated. Create a copy
+    # of the Stop objects to add to the schedules.
+    self.fm.a_schedule.AddStopObject(transitfeed.Stop(field_dict=stop0))
+    self.fm.a_schedule.AddStopObject(transitfeed.Stop(field_dict=stop1a))
+    self.fm.a_schedule.AddTransferObject(
+        transitfeed.Transfer(from_stop_id="0", to_stop_id="1"))
+    self.fm.b_schedule.AddStopObject(transitfeed.Stop(field_dict=stop0))
+    self.fm.b_schedule.AddStopObject(transitfeed.Stop(field_dict=stop1b))
+    self.fm.b_schedule.AddTransferObject(
+        transitfeed.Transfer(from_stop_id="0", to_stop_id="1"))
+    self.fm.AddMerger(merge.StopMerger(self.fm))
+    self.fm.AddMerger(merge.TransferMerger(self.fm))
+    self.fm.MergeSchedules()
+
+    transfers = self.fm.merged_schedule.GetTransferList()
+    self.assertEquals(2, len(transfers))
+    self.assertEquals("0", transfers[0].from_stop_id)
+    self.assertEquals("0", transfers[1].from_stop_id)
+    # transfers are not ordered so allow the migrated to_stop_id values to
+    # appear in either order.
+    def MergedScheduleStopName(stop_id):
+      return self.fm.merged_schedule.GetStop(stop_id).stop_name
+    if MergedScheduleStopName(transfers[0].to_stop_id) == "1a":
+      self.assertEquals("1b", MergedScheduleStopName(transfers[1].to_stop_id))
+    else:
+      self.assertEquals("1b", MergedScheduleStopName(transfers[0].to_stop_id))
+      self.assertEquals("1a", MergedScheduleStopName(transfers[1].to_stop_id))
+
+  def testFromStopNotMerged(self):
+    """When stops aren't merged transfer is duplicated."""
+    self.fm.problem_reporter.ExpectProblemClass(merge.SameIdButNotMerged)
+    stop0 = transitfeed.Stop(lat=30.0, lng=30.0, name="0", stop_id="0")
+    stop1a = transitfeed.Stop(lat=30.1, lng=30.1, name="1a", stop_id="1")
+    stop1b = transitfeed.Stop(lat=30.1, lng=30.1, name="1b", stop_id="1")
+
+    # a_schedule and b_schedule both have a transfer with from_stop_id=1 but the
+    # stops are not merged so the transfer must be duplicated. Create a copy
+    # of the Stop objects to add to the schedules.
+    self.fm.a_schedule.AddStopObject(transitfeed.Stop(field_dict=stop0))
+    self.fm.a_schedule.AddStopObject(transitfeed.Stop(field_dict=stop1a))
+    self.fm.a_schedule.AddTransferObject(
+        transitfeed.Transfer(from_stop_id="1", to_stop_id="0"))
+    self.fm.b_schedule.AddStopObject(transitfeed.Stop(field_dict=stop0))
+    self.fm.b_schedule.AddStopObject(transitfeed.Stop(field_dict=stop1b))
+    self.fm.b_schedule.AddTransferObject(
+        transitfeed.Transfer(from_stop_id="1", to_stop_id="0"))
+    self.fm.AddMerger(merge.StopMerger(self.fm))
+    self.fm.AddMerger(merge.TransferMerger(self.fm))
+    self.fm.MergeSchedules()
+
+    transfers = self.fm.merged_schedule.GetTransferList()
+    self.assertEquals(2, len(transfers))
+    self.assertEquals("0", transfers[0].to_stop_id)
+    self.assertEquals("0", transfers[1].to_stop_id)
+    # transfers are not ordered so allow the migrated from_stop_id values to
+    # appear in either order.
+    def MergedScheduleStopName(stop_id):
+      return self.fm.merged_schedule.GetStop(stop_id).stop_name
+    if MergedScheduleStopName(transfers[0].from_stop_id) == "1a":
+      self.assertEquals("1b", MergedScheduleStopName(transfers[1].from_stop_id))
+    else:
+      self.assertEquals("1b", MergedScheduleStopName(transfers[0].from_stop_id))
+      self.assertEquals("1a", MergedScheduleStopName(transfers[1].from_stop_id))
 
 
 class TestExceptionProblemReporter(util.TestCase):

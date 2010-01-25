@@ -470,10 +470,10 @@ class DataSetMerger(object):
                    self.feed_merger.a_schedule.GetDefaultAgency().agency_id)
     b_agency_id = (b_agency_id or
                    self.feed_merger.b_schedule.GetDefaultAgency().agency_id)
-    a_agency = self.feed_merger.a_merge_map[
-        self.feed_merger.a_schedule.GetAgency(a_agency_id)]
-    b_agency = self.feed_merger.b_merge_map[
-        self.feed_merger.b_schedule.GetAgency(b_agency_id)]
+    a_agency = self.feed_merger.a_schedule.GetAgency(
+        a_agency_id)._migrated_entity
+    b_agency = self.feed_merger.b_schedule.GetAgency(
+        b_agency_id)._migrated_entity
     if a_agency != b_agency:
       raise MergeError('agency must be the same')
     return a_agency.agency_id
@@ -507,8 +507,7 @@ class DataSetMerger(object):
       except MergeError, merge_error:
         raise MergeError("Attribute '%s' could not be merged: %s." % (
             attr, merge_error))
-      if migrated is not None:
-        setattr(migrated, attr, merged_attr)
+      setattr(migrated, attr, merged_attr)
     return migrated
 
   def _MergeSameId(self):
@@ -567,6 +566,47 @@ class DataSetMerger(object):
 
     self._num_not_merged_a = len(a_not_merged)
     self._num_not_merged_b = len(b_not_merged)
+    return self._num_merged
+
+  def _MergeByIdKeepNew(self):
+    """Migrate all entities, discarding duplicates from the old/a schedule.
+
+    This method migrates all entities from the new/b schedule. It then migrates
+    entities in the old schedule where there isn't already an entity with the
+    same ID.
+
+    Unlike _MergeSameId this method migrates entities to the merged schedule
+    before comparing their IDs. This allows transfers to be compared when they
+    refer to stops that had their ID updated by migration.
+
+    This method makes use of various methods like _Migrate and _Add which
+    are not implemented in the abstract DataSetMerger class. These methods
+    should be overwritten in a subclass to allow _MergeByIdKeepNew to work with
+    different entity types.
+
+    Returns:
+      The number of merged entities.
+    """
+    # Maps from migrated ID to tuple(original object, migrated object)
+    a_orig_migrated = {}
+    b_orig_migrated = {}
+
+    for orig in self._GetIter(self.feed_merger.a_schedule):
+      migrated = self._Migrate(orig, self.feed_merger.a_schedule)
+      a_orig_migrated[self._GetId(migrated)] = (orig, migrated)
+
+    for orig in self._GetIter(self.feed_merger.b_schedule):
+      migrated = self._Migrate(orig, self.feed_merger.b_schedule)
+      b_orig_migrated[self._GetId(migrated)] = (orig, migrated)
+
+    for migrated_id, (orig, migrated) in b_orig_migrated.items():
+      self._Add(None, orig, migrated)
+      self._num_not_merged_b += 1
+
+    for migrated_id, (orig, migrated) in a_orig_migrated.items():
+      if migrated_id not in b_orig_migrated:
+        self._Add(orig, None, migrated)
+        self._num_not_merged_a += 1
     return self._num_merged
 
   def _MergeDifferentId(self):
@@ -1028,8 +1068,7 @@ class RouteMerger(DataSetMerger):
     else:
       original_agency = schedule.GetDefaultAgency()
 
-    migrated_agency = self.feed_merger.GetMergedObject(original_agency)
-    migrated_route.agency_id = migrated_agency.agency_id
+    migrated_route.agency_id = original_agency._migrated_entity.agency_id
     return migrated_route
 
   def _Add(self, a, b, migrated_route):
@@ -1231,6 +1270,56 @@ class FareMerger(DataSetMerger):
         num_merged,
         len(self.feed_merger.a_schedule.GetFareList()),
         len(self.feed_merger.b_schedule.GetFareList()))
+    return True
+
+
+class TransferMerger(DataSetMerger):
+  """A DataSetMerger for transfers.
+
+  Copy every transfer from the a/old and b/new schedules into the merged
+  schedule, translating from_stop_id and to_stop_id. Where a transfer ID is
+  found in both source schedules only the one from the b/new schedule is
+  migrated.
+
+  Only one transfer is processed per ID. Duplicates within a schedule are
+  ignored."""
+
+  ENTITY_TYPE_NAME = 'transfer'
+  FILE_NAME = 'transfers.txt'
+  DATASET_NAME = 'Transfers'
+
+  def _GetIter(self, schedule):
+    return schedule.GetTransferIter()
+
+  def _GetId(self, transfer):
+    return transfer._ID()
+
+  def _Migrate(self, original_transfer, schedule):
+    # Make a copy of the original and then fix the stop_id references.
+    migrated_transfer = transitfeed.Transfer(field_dict=original_transfer)
+    if original_transfer.from_stop_id:
+      migrated_transfer.from_stop_id = schedule.GetStop(
+          original_transfer.from_stop_id)._migrated_entity.stop_id
+    if migrated_transfer.to_stop_id:
+      migrated_transfer.to_stop_id = schedule.GetStop(
+          original_transfer.to_stop_id)._migrated_entity.stop_id
+    return migrated_transfer
+
+  def _Add(self, a, b, migrated_transfer):
+    self.feed_merger.Register(a, b, migrated_transfer)
+    self.feed_merger.merged_schedule.AddTransferObject(migrated_transfer)
+
+  def MergeDataSets(self):
+    # If both schedules contain rows with equivalent from_stop_id and
+    # to_stop_id but different transfer_type or min_transfer_time only the
+    # transfer from b will be in the output.
+    self._MergeByIdKeepNew()
+    print 'Transfers merged: %d of %d, %d' % (
+        self._num_merged,
+        # http://mail.python.org/pipermail/baypiggies/2008-August/003817.html
+        # claims this is a good way to find number of items in an iterable.
+        sum(1 for _ in self.feed_merger.a_schedule.GetTransferIter()),
+        sum(1 for _ in self.feed_merger.b_schedule.GetTransferIter()))
     return True
 
 
@@ -1592,15 +1681,27 @@ class FeedMerger(object):
     it was not merged but simply migrated.
 
     The effect of a call to register is to update a_merge_map and b_merge_map
-    according to the merge.
+    according to the merge. Also the private attributes _migrated_entity of a
+    and b are set to migrated_entity.
 
     Args:
       a: The entity from the old feed or None.
       b: The entity from the new feed or None.
       migrated_entity: The migrated entity.
     """
-    if a is not None: self.a_merge_map[a] = migrated_entity
-    if b is not None: self.b_merge_map[b] = migrated_entity
+    # There are a few places where code needs to find the corresponding
+    # migrated entity of an object without knowing in which original schedule
+    # the entity started. With a_merge_map and b_merge_map both have to be
+    # checked. Use of the _migrated_entity attribute allows the migrated entity
+    # to be directly found without the schedule.  The merge maps also require
+    # that all objects be hashable. GenericGTFSObject is at the moment, but
+    # this is a bug. See comment in transitfeed.GenericGTFSObject.
+    if a is not None:
+      self.a_merge_map[a] = migrated_entity
+      a._migrated_entity = migrated_entity
+    if b is not None:
+      self.b_merge_map[b] = migrated_entity
+      b._migrated_entity = migrated_entity
 
   def AddMerger(self, merger):
     """Add a DataSetMerger to be run by Merge().
@@ -1665,17 +1766,6 @@ class FeedMerger(object):
       The merged schedule.
     """
     return self.merged_schedule
-
-  def GetMergedObject(self, original):
-    """Returns an object that represents original in the merged schedule."""
-    # TODO: I think this would be better implemented by adding a private
-    # attribute to the objects in the original feeds
-    merged = (self.a_merge_map.get(original) or
-              self.b_merge_map.get(original))
-    if merged:
-      return merged
-    else:
-      raise KeyError()
 
 
 def main():
