@@ -188,13 +188,24 @@ def ParentAndBaseName(path):
 
 
 def main():
+  usage = \
+"""%prog [options] <input GTFS.zip>
+
+Create an HTML page of random URLs for the Google Maps transit trip
+planner. The queries go between places near stops listed in a <input GTFS.zip>.
+By default 50 random URLs are saved to google_random_queries.html.
+
+For more information see
+http://code.google.com/p/googletransitdatafeed/wiki/GoogleRandomQueries
+"""
+
   parser = optparse.OptionParser(
-      usage="usage: %prog [options] feed_filename output_filename",
+      usage=usage,
       version="%prog "+transitfeed.__version__)
   parser.add_option("-l", "--limit", dest="limit", type="int",
                     help="Maximum number of URLs to generate")
-  parser.add_option('-o', '--output', dest='output', metavar='FILE',
-                    help='write html output to FILE')
+  parser.add_option("-o", "--output", dest="output", metavar="HTML_OUTPUT_PATH",
+                    help="write HTML output to HTML_OUTPUT_PATH")
   parser.set_defaults(output="google_random_queries.html", limit=50)
   (options, args) = parser.parse_args()
   if len(args) != 1:

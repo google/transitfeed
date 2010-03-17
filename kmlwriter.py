@@ -589,6 +589,9 @@ Reads GTFS file or directory <input GTFS.zip> and creates a KML file
 <output.kml> that contains the geographical features of the input. If
 <output.kml> is omitted a default filename is picked based on
 <input GTFS.zip>. By default the KML contains all stops and shapes.
+
+For more information see
+http://code.google.com/p/googletransitdatafeed/wiki/KMLWriter
 '''
 
   parser = util.OptionParserLongError(

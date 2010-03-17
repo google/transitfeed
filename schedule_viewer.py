@@ -462,6 +462,9 @@ Runs a webserver that lets you explore a <input GTFS.zip> in your browser.
 
 If <input GTFS.zip> is omited the filename is read from the console. Dragging
 a file into the console may enter the filename.
+
+For more information see
+http://code.google.com/p/googletransitdatafeed/wiki/ScheduleViewer
 '''
   parser = util.OptionParserLongError(
       usage=usage, version='%prog '+transitfeed.__version__)
