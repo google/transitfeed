@@ -146,7 +146,7 @@ class Schedule:
     self.AddAgencyObject(agency)
     return agency
 
-  def AddAgencyObject(self, agency, problem_reporter=None, validate=True):
+  def AddAgencyObject(self, agency, problem_reporter=None, validate=False):
     assert agency._schedule is None
 
     if not problem_reporter:
@@ -353,8 +353,6 @@ class Schedule:
     if not problem_reporter:
       problem_reporter = self.problem_reporter
 
-    route.Validate(problem_reporter)
-
     if route.route_id in self.routes:
       problem_reporter.DuplicateID('route_id', route.route_id)
       return
@@ -396,7 +394,7 @@ class Schedule:
   def GetShape(self, shape_id):
     return self._shapes[shape_id]
 
-  def AddTripObject(self, trip, problem_reporter=None, validate=True):
+  def AddTripObject(self, trip, problem_reporter=None, validate=False):
     if not problem_reporter:
       problem_reporter = self.problem_reporter
 
@@ -469,8 +467,10 @@ class Schedule:
                                     'of the IDs defined in the '
                                     'fare attributes.)')
 
-  def AddTransferObject(self, transfer):
+  def AddTransferObject(self, transfer, problem_reporter=None):
     assert transfer._schedule is None, "only add Transfer to a schedule once"
+    if not problem_reporter:
+      problem_reporter = self.problem_reporter
 
     transfer_id = transfer._ID()
 
@@ -791,20 +791,9 @@ class Schedule:
                                          last_day_without_service, 
                                          consecutive_days_without_service)
 
-  def Validate(self,
-               problems=None,
-               validate_children=True,
-               today=None,
-               service_gap_interval=None):
-    """Validates various holistic aspects of the schedule
-       (mostly interrelationships between the various data sets)."""
-
+  def ValidateServiceRange(self, problems, today, service_gap_interval):
     if today is None:
       today = datetime.date.today()
-
-    if not problems:
-      problems = self.problem_reporter
-
     (start_date, end_date) = self.GetDateRange()
     if not end_date or not start_date:
       problems.OtherProblem('This feed has no effective service dates!',
@@ -847,8 +836,7 @@ class Schedule:
                     today + one_year),
                 service_gap_interval)
 
-    # TODO: Check Trip fields against valid values
-
+  def ValidateStops(self, problems, validate_children):
     # Check for stops that aren't referenced by any trips and broken
     # parent_station references. Also check that the parent station isn't too
     # far from its child stops.
@@ -892,9 +880,7 @@ class Schedule:
                 parent_station.stop_name, distance, 
                 problems_module.TYPE_WARNING)
 
-    #TODO: check that every station is used.
-    # Then uncomment testStationWithoutReference.
-
+  def ValidateNearbyStops(self, problems):
     # Check for stops that might represent the same location (specifically,
     # stops that are less that 2 meters apart) First filter out stops without a
     # valid lat and lon. Then sort by latitude, then find the distance between
@@ -941,6 +927,7 @@ class Schedule:
                   util.EncodeUnicode(this_station.stop_id), distance)
         index += 1
 
+  def ValidateRouteNames(self, problems, validate_children):
     # Check for multiple routes using same short + long name
     route_names = {}
     for route in self.routes.values():
@@ -966,6 +953,7 @@ class Schedule:
       else:
         route_names[name] = route
 
+  def ValidateTrips(self, problems):
     stop_types = {} # a dict mapping stop_id to [route_id, route_type, is_match]
     trips = {} # a dict mapping tuple to (route_id, trip_id)
     for trip in sorted(self.trips.values()):
@@ -1007,6 +995,7 @@ class Schedule:
           problems.DuplicateTrip(trips[key][1], trips[key][0], trip.trip_id,
                                  trip.route_id)
 
+  def ValidateRouteAgencyId(self, problems):
     # Check that routes' agency IDs are valid, if set
     for route in self.routes.values():
       if (not util.IsEmpty(route.agency_id) and
@@ -1017,6 +1006,7 @@ class Schedule:
                               '"%s", which doesn\'t exist.' %
                               (route.route_id, route.agency_id))
 
+  def ValidateTripStopTimes(self, problems):
     # Make sure all trips have stop_times
     # We're doing this here instead of in Trip.Validate() so that
     # Trips can be validated without error during the reading of trips.txt
@@ -1041,6 +1031,7 @@ class Schedule:
         trip.GetStartTime(problems=problems)
         trip.GetEndTime(problems=problems)
 
+  def ValidateUnusedShapes(self, problems):
     # Check for unused shapes
     known_shape_ids = set(self._shapes.keys())
     used_shape_ids = set()
@@ -1052,4 +1043,27 @@ class Schedule:
                             'used by any trips: %s' %
                             ', '.join(unused_shape_ids),
                             type=problems_module.TYPE_WARNING)
+
+  def Validate(self,
+               problems=None,
+               validate_children=True,
+               today=None,
+               service_gap_interval=None):
+    """Validates various holistic aspects of the schedule
+       (mostly interrelationships between the various data sets)."""
+
+    if not problems:
+      problems = self.problem_reporter
+
+    self.ValidateServiceRange(problems, today, service_gap_interval)
+    # TODO: Check Trip fields against valid values
+    self.ValidateStops(problems, validate_children)
+    #TODO: check that every station is used.
+    # Then uncomment testStationWithoutReference.
+    self.ValidateNearbyStops(problems)
+    self.ValidateRouteNames(problems, validate_children)
+    self.ValidateTrips(problems)
+    self.ValidateRouteAgencyId(problems)
+    self.ValidateTripStopTimes(problems)
+    self.ValidateUnusedShapes(problems)
 

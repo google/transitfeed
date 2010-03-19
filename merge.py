@@ -1251,7 +1251,7 @@ class FareMerger(DataSetMerger):
 
   def _Migrate(self, original_fare, schedule, newid):
     migrated_fare = transitfeed.Fare(
-        field_list=original_fare.GetFieldValuesTuple())
+        field_dict=original_fare)
     if newid:
       migrated_fare.fare_id = self.feed_merger.GenerateId(
           original_fare.fare_id)

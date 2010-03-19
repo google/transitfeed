@@ -14,10 +14,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from genericgtfsobject import GenericGTFSObject
 from problems import default_problem_reporter
 import util
 
-class Fare(object):
+class Fare(GenericGTFSObject):
   """Represents a fare type."""
   _REQUIRED_FIELD_NAMES = ['fare_id', 'price', 'currency_type',
                            'payment_method', 'transfers']
@@ -26,15 +27,22 @@ class Fare(object):
   def __init__(self,
                fare_id=None, price=None, currency_type=None,
                payment_method=None, transfers=None, transfer_duration=None,
-               field_list=None):
-    self.rules = []
+               field_dict=None):
+    self._schedule = None
     (self.fare_id, self.price, self.currency_type, self.payment_method,
      self.transfers, self.transfer_duration) = \
      (fare_id, price, currency_type, payment_method,
       transfers, transfer_duration)
-    if field_list:
-      (self.fare_id, self.price, self.currency_type, self.payment_method,
-       self.transfers, self.transfer_duration) = field_list
+
+    if field_dict:
+      if isinstance(field_dict, Fare):
+        # Special case so that we don't need to re-parse the attributes to
+        # native types iteritems returns all attributes that don't start with _
+        for k, v in field_dict.iteritems():
+          self.__dict__[k] = v
+      else:
+        self.__dict__.update(field_dict)
+    self.rules = []
 
     try:
       self.price = float(self.price)
@@ -90,10 +98,11 @@ class Fare(object):
   def __ne__(self, other):
     return not self.__eq__(other)
 
-  def Validate(self, problems=default_problem_reporter):
+  def ValidateFareId(self, problems):
     if util.IsEmpty(self.fare_id):
       problems.MissingValue("fare_id")
 
+  def ValidatePrice(self, problems):
     if self.price == None:
       problems.MissingValue("price")
     elif not isinstance(self.price, float) and not isinstance(self.price, int):
@@ -101,22 +110,26 @@ class Fare(object):
     elif self.price < 0:
       problems.InvalidValue("price", self.price)
 
+  def ValidateCurrencyType(self, problems):
     if util.IsEmpty(self.currency_type):
       problems.MissingValue("currency_type")
     elif self.currency_type not in ISO4217.codes:
       problems.InvalidValue("currency_type", self.currency_type)
 
+  def ValidatePaymentMethod(self, problems):
     if self.payment_method == "" or self.payment_method == None:
       problems.MissingValue("payment_method")
     elif (not isinstance(self.payment_method, int) or
           self.payment_method not in range(0, 2)):
       problems.InvalidValue("payment_method", self.payment_method)
 
+  def ValidateTransfers(self, problems):
     if not ((self.transfers == None) or
             (isinstance(self.transfers, int) and
              self.transfers in range(0, 3))):
       problems.InvalidValue("transfers", self.transfers)
 
+  def ValidateTransferDuration(self, problems):
     if ((self.transfer_duration != None) and
         not isinstance(self.transfer_duration, int)):
       problems.InvalidValue("transfer_duration", self.transfer_duration)
@@ -127,6 +140,24 @@ class Fare(object):
       problems.InvalidValue("transfer_duration", self.transfer_duration,
                             "can't have a nonzero transfer_duration for "
                             "a fare that doesn't allow transfers!")
+
+  def Validate(self, problems=default_problem_reporter):
+      self.ValidateFareId(problems)
+      self.ValidatePrice(problems)
+      self.ValidateCurrencyType(problems)
+      self.ValidatePaymentMethod(problems)
+      self.ValidateTransfers(problems)
+      self.ValidateTransferDuration(problems)
+
+  def ValidateBeforeAdd(self, problems):
+    return True
+
+  def ValidateAfterAdd(self, problems):
+    return
+
+  def AddToSchedule(self, schedule=None, problems=None):
+    if schedule:
+      schedule.AddFareObject(self, problems)
 
 # TODO: move these into a separate file
 class ISO4217(object):

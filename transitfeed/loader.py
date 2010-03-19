@@ -24,6 +24,8 @@ import zipfile
 from agency import Agency
 from fare import Fare
 from farerule import FareRule
+from gtfsfactory import GtfsFactory
+from headwayperiod import HeadwayPeriod
 import problems
 from route import Route
 import schedule as schedule_module
@@ -35,22 +37,6 @@ from transfer import Transfer
 from trip import Trip
 import util
 
-# Filenames specified in GTFS spec
-KNOWN_FILENAMES = [
-  'agency.txt',
-  'stops.txt',
-  'routes.txt',
-  'trips.txt',
-  'stop_times.txt',
-  'calendar.txt',
-  'calendar_dates.txt',
-  'fare_attributes.txt',
-  'fare_rules.txt',
-  'shapes.txt',
-  'frequencies.txt',
-  'transfers.txt',
-]
-
 class Loader:
   def __init__(self,
                feed_path=None,
@@ -60,7 +46,8 @@ class Loader:
                load_stop_times=True,
                memory_db=True,
                zip=None,
-               check_duplicate_trips=False):
+               check_duplicate_trips=False,
+               gtfs_factory=None):
     """Initialize a new Loader object.
 
     Args:
@@ -79,12 +66,16 @@ class Loader:
       schedule = schedule_module.Schedule(problem_reporter=problems, 
                           memory_db=memory_db,
                           check_duplicate_trips=check_duplicate_trips)
+    if gtfs_factory is None:
+      gtfs_factory = GtfsFactory()
+
     self._extra_validation = extra_validation
     self._schedule = schedule
     self._problems = problems
     self._path = feed_path
     self._zip = zip
     self._load_stop_times = load_stop_times
+    self._gtfs_factory = gtfs_factory
 
   def _DetermineFormat(self):
     """Determines whether the feed is in a form that we understand, and
@@ -127,8 +118,9 @@ class Loader:
 
   def _CheckFileNames(self):
     filenames = self._GetFileNames()
+    known_filenames = self._gtfs_factory.GetKnownFilenames()
     for feed_file in filenames:
-      if feed_file not in KNOWN_FILENAMES:
+      if feed_file not in known_filenames:
         if not feed_file.startswith('.'):
           # Don't worry about .svn files and other hidden files
           # as this will break the tests.
@@ -402,39 +394,25 @@ class Loader:
       self._problems.EmptyFile(file_name)
     return results
 
-  def _LoadAgencies(self):
-    for (d, row_num, header, row) in self._ReadCsvDict('agency.txt',
-                                              Agency._FIELD_NAMES,
-                                              Agency._REQUIRED_FIELD_NAMES):
-      self._problems.SetFileContext('agency.txt', row_num, row, header)
-      agency = Agency(field_dict=d)
-      self._schedule.AddAgencyObject(agency, self._problems)
-      self._problems.ClearContext()
-
-  def _LoadStops(self):
-    for (d, row_num, header, row) in self._ReadCsvDict(
-                                         'stops.txt',
-                                         Stop._FIELD_NAMES,
-                                         Stop._REQUIRED_FIELD_NAMES):
-      self._problems.SetFileContext('stops.txt', row_num, row, header)
-
-      stop = Stop(field_dict=d)
-      stop.Validate(self._problems)
-      self._schedule.AddStopObject(stop, self._problems)
-
-      self._problems.ClearContext()
-
-  def _LoadRoutes(self):
-    for (d, row_num, header, row) in self._ReadCsvDict(
-                                         'routes.txt',
-                                         Route._FIELD_NAMES,
-                                         Route._REQUIRED_FIELD_NAMES):
-      self._problems.SetFileContext('routes.txt', row_num, row, header)
-
-      route = Route(field_dict=d)
-      self._schedule.AddRouteObject(route, self._problems)
-
-      self._problems.ClearContext()
+  def _LoadFeed(self):
+    loading_order = self._gtfs_factory.GetLoadingOrder()
+    for filename in loading_order:
+      if not self._gtfs_factory.IsFileRequired(filename) and \
+         not self._HasFile(filename):
+        pass # File is not required, and feed does not have it.
+      else:
+        object_class = self._gtfs_factory.GetGtfsClass(filename)
+        for (d, row_num, header, row) in self._ReadCsvDict(
+                                       filename,
+                                       object_class._FIELD_NAMES,
+                                       object_class._REQUIRED_FIELD_NAMES):
+          self._problems.SetFileContext(filename, row_num, row, header)
+          instance = object_class(field_dict=d)
+          if not instance.ValidateBeforeAdd(self._problems):
+            continue
+          instance.AddToSchedule(self._schedule, self._problems)
+          instance.ValidateAfterAdd(self._problems)
+          self._problems.ClearContext()
 
   def _LoadCalendar(self):
     file_name = 'calendar.txt'
@@ -448,6 +426,7 @@ class Loader:
 
     # process calendar.txt
     if self._HasFile(file_name):
+      calendar_class = self._gtfs_factory.GetGtfsClass(file_name)
       has_useful_contents = False
       for (row, row_num, cols) in \
               self._ReadCSV(file_name,
@@ -456,7 +435,7 @@ class Loader:
         context = (file_name, row_num, row, cols)
         self._problems.SetFileContext(*context)
 
-        period = ServicePeriod(field_list=row)
+        period = calendar_class(field_list=row)
 
         if period.service_id in periods:
           self._problems.DuplicateID('service_id', period.service_id)
@@ -466,8 +445,9 @@ class Loader:
 
     # process calendar_dates.txt
     if self._HasFile(file_name_dates):
+      calendar_dates_class = self._gtfs_factory.GetGtfsClass(file_name_dates)
       # ['service_id', 'date', 'exception_type']
-      fields = ServicePeriod._FIELD_NAMES_CALENDAR_DATES
+      fields = calendar_dates_class._FIELD_NAMES_CALENDAR_DATES
       for (row, row_num, cols) in self._ReadCSV(file_name_dates,
                                                 fields, fields):
         context = (file_name_dates, row_num, row, cols)
@@ -479,7 +459,7 @@ class Loader:
         if service_id in periods:
           period = periods[service_id][0]
         else:
-          period = ServicePeriod(service_id)
+          period = calendar_dates_class(service_id)
           periods[period.service_id] = (period, context)
 
         exception_type = row[2]
@@ -501,11 +481,12 @@ class Loader:
   def _LoadShapes(self):
     if not self._HasFile('shapes.txt'):
       return
-
+    shape_class = self._gtfs_factory.GetGtfsClass('shapes.txt')
     shapes = {}  # shape_id to tuple
-    for (row, row_num, cols) in self._ReadCSV('shapes.txt',
-                                              Shape._FIELD_NAMES,
-                                              Shape._REQUIRED_FIELD_NAMES):
+    for (row, row_num, cols) in self._ReadCSV(
+        'shapes.txt',
+        shape_class._FIELD_NAMES,
+        shape_class._REQUIRED_FIELD_NAMES):
       file_context = ('shapes.txt', row_num, row, cols)
       self._problems.SetFileContext(*file_context)
 
@@ -524,7 +505,7 @@ class Loader:
       self._problems.ClearContext()
 
     for shape_id, points in shapes.items():
-      shape = Shape(shape_id)
+      shape = shape_class(shape_id)
       points.sort()
       if points and points[0][0] < 0:
         self._problems.InvalidValue('shape_pt_sequence', points[0][0],
@@ -546,71 +527,11 @@ class Loader:
 
       self._schedule.AddShapeObject(shape, self._problems)
 
-  def _LoadTrips(self):
-    for (d, row_num, header, row) in self._ReadCsvDict(
-                                         'trips.txt',
-                                         Trip._FIELD_NAMES,
-                                         Trip._REQUIRED_FIELD_NAMES):
-      self._problems.SetFileContext('trips.txt', row_num, row, header)
-
-      trip = Trip(field_dict=d)
-      self._schedule.AddTripObject(trip, self._problems)
-
-      self._problems.ClearContext()
-
-  def _LoadFares(self):
-    if not self._HasFile('fare_attributes.txt'):
-      return
-    for (row, row_num, cols) in self._ReadCSV('fare_attributes.txt',
-                                              Fare._FIELD_NAMES,
-                                              Fare._REQUIRED_FIELD_NAMES):
-      self._problems.SetFileContext('fare_attributes.txt', row_num, row, cols)
-
-      fare = Fare(field_list=row)
-      self._schedule.AddFareObject(fare, self._problems)
-
-      self._problems.ClearContext()
-
-  def _LoadFareRules(self):
-    if not self._HasFile('fare_rules.txt'):
-      return
-    for (row, row_num, cols) in self._ReadCSV('fare_rules.txt',
-                                              FareRule._FIELD_NAMES,
-                                              FareRule._REQUIRED_FIELD_NAMES):
-      self._problems.SetFileContext('fare_rules.txt', row_num, row, cols)
-
-      rule = FareRule(field_list=row)
-      self._schedule.AddFareRuleObject(rule, self._problems)
-
-      self._problems.ClearContext()
-
-  def _LoadHeadways(self):
-    file_name = 'frequencies.txt'
-    if not self._HasFile(file_name):  # headways are an optional feature
-      return
-
-    # ['trip_id', 'start_time', 'end_time', 'headway_secs']
-    fields = Trip._FIELD_NAMES_HEADWAY
-    modified_trips = {}
-    for (row, row_num, cols) in self._ReadCSV(file_name, fields, fields):
-      self._problems.SetFileContext(file_name, row_num, row, cols)
-      (trip_id, start_time, end_time, headway_secs) = row
-      try:
-        trip = self._schedule.GetTrip(trip_id)
-        trip.AddHeadwayPeriod(start_time, end_time, headway_secs,
-                              self._problems)
-        modified_trips[trip_id] = trip
-      except KeyError:
-        self._problems.InvalidValue('trip_id', trip_id)
-      self._problems.ClearContext()
-
-    for trip in modified_trips.values():
-      trip.Validate(self._problems)
-
   def _LoadStopTimes(self):
+    stop_time_class = self._gtfs_factory.GetGtfsClass('stop_times.txt')
     for (row, row_num, cols) in self._ReadCSV('stop_times.txt',
-                                              StopTime._FIELD_NAMES,
-                                              StopTime._REQUIRED_FIELD_NAMES):
+                                      stop_time_class._FIELD_NAMES,
+                                      stop_time_class._REQUIRED_FIELD_NAMES):
       file_context = ('stop_times.txt', row_num, row, cols)
       self._problems.SetFileContext(*file_context)
 
@@ -646,7 +567,7 @@ class Loader:
       # wrap problems and a better solution is to move all validation out of
       # __init__. For now make sure Trip.GetStopTimes gets a problem reporter
       # when called from Trip.Validate.
-      stop_time = StopTime(self._problems, stop, arrival_time,
+      stop_time = stop_time_class(self._problems, stop, arrival_time,
                            departure_time, stop_headsign,
                            pickup_type, drop_off_type,
                            shape_dist_traveled, stop_sequence=sequence)
@@ -656,38 +577,18 @@ class Loader:
     # stop_times are validated in Trip.ValidateChildren, called by
     # Schedule.Validate
 
-  def _LoadTransfers(self):
-    file_name = 'transfers.txt'
-    if not self._HasFile(file_name):  # transfers are an optional feature
-      return
-    for (d, row_num, header, row) in self._ReadCsvDict(file_name,
-                                              Transfer._FIELD_NAMES,
-                                              Transfer._REQUIRED_FIELD_NAMES):
-      self._problems.SetFileContext(file_name, row_num, row, header)
-      transfer = Transfer(field_dict=d)
-      self._schedule.AddTransferObject(transfer)
-      transfer.Validate(self._problems)
-      self._problems.ClearContext()
-
   def Load(self):
     self._problems.ClearContext()
     if not self._DetermineFormat():
       return self._schedule
 
     self._CheckFileNames()
-
-    self._LoadAgencies()
-    self._LoadStops()
-    self._LoadRoutes()
     self._LoadCalendar()
     self._LoadShapes()
-    self._LoadTrips()
-    self._LoadHeadways()
+    self._LoadFeed()
+    
     if self._load_stop_times:
       self._LoadStopTimes()
-    self._LoadFares()
-    self._LoadFareRules()
-    self._LoadTransfers()
 
     if self._zip:
       self._zip.close()

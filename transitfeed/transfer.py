@@ -58,29 +58,50 @@ class Transfer(GenericGTFSObject):
       # use it and other GenericGTFSObject subclasses don't support it.
       schedule.AddTransferObject(self)
 
-  def Validate(self, problems=default_problem_reporter):
+  def ValidateFromStopId(self, problems):
     if util.IsEmpty(self.from_stop_id):
       problems.MissingValue('from_stop_id')
     elif self._schedule:
       if self.from_stop_id not in self._schedule.stops.keys():
         problems.InvalidValue('from_stop_id', self.from_stop_id)
 
+  def ValidateToStopId(self, problems):
     if util.IsEmpty(self.to_stop_id):
       problems.MissingValue('to_stop_id')
     elif self._schedule:
       if self.to_stop_id not in self._schedule.stops.keys():
         problems.InvalidValue('to_stop_id', self.to_stop_id)
 
+  def ValidateTransferType(self, problems):
     if not util.IsEmpty(self.transfer_type):
       if (not isinstance(self.transfer_type, int)) or \
           (self.transfer_type not in range(0, 4)):
         problems.InvalidValue('transfer_type', self.transfer_type)
 
+  def ValidateMinimumTransferTime(self, problems):
     if not util.IsEmpty(self.min_transfer_time):
       if (not isinstance(self.min_transfer_time, int)) or \
           self.min_transfer_time < 0:
         problems.InvalidValue('min_transfer_time', self.min_transfer_time)
 
+  def ValidateBeforeAdd(self, problems):
+    self.ValidateFromStopId(problems)
+    self.ValidateToStopId(problems)
+    self.ValidateTransferType(problems)
+    self.ValidateMinimumTransferTime(problems)
+    
+    # None of these checks are blocking
+    return True
+
+  def ValidateAfterAdd(self, problems):
+    return
+
+  def Validate(self, problems=default_problem_reporter):
+    self.ValidateBeforeAdd(problems)
+    self.ValidateAfterAdd(problems)
+
   def _ID(self):
     return tuple(self[i] for i in self._ID_COLUMNS)
 
+  def AddToSchedule(self, schedule, problems):
+    schedule.AddTransferObject(self, problems)

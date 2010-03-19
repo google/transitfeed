@@ -115,18 +115,23 @@ class Route(GenericGTFSObject):
       d.setdefault(t.pattern_id, []).append(t)
     return d
 
-  def Validate(self, problems=problems_module.default_problem_reporter):
+  def ValidateRouteIdIsPresent(self, problems):
     if util.IsEmpty(self.route_id):
       problems.MissingValue('route_id')
+
+  def ValidateRouteTypeIsPresent(self, problems):
     if util.IsEmpty(self.route_type):
       problems.MissingValue('route_type')
 
-    if util.IsEmpty(self.route_short_name) and util.IsEmpty(self.route_long_name):
+  def ValidateRouteShortAndLongNamesAreNotBlank(self, problems):
+    if util.IsEmpty(self.route_short_name) and \
+        util.IsEmpty(self.route_long_name):
       problems.InvalidValue('route_short_name',
                             self.route_short_name,
                             'Both route_short_name and '
                             'route_long name are blank.')
 
+  def ValidateRouteShortNameIsNotTooLong(self, problems):
     if self.route_short_name and len(self.route_short_name) > 6:
       problems.InvalidValue('route_short_name',
                             self.route_short_name,
@@ -138,6 +143,7 @@ class Route(GenericGTFSObject):
                             'OK to leave this field empty.',
                             type=problems_module.TYPE_WARNING)
 
+  def ValidateRouteLongNameDoesNotContainShortName(self, problems):
     if self.route_short_name and self.route_long_name:
       short_name = self.route_short_name.strip().lower()
       long_name = self.route_long_name.strip().lower()
@@ -151,6 +157,11 @@ class Route(GenericGTFSObject):
                               'fields are often displayed '
                               'side-by-side.',
                               type=problems_module.TYPE_WARNING)
+
+  def ValidateRouteShortAndLongNamesAreNotEqual(self, problems):
+    if self.route_short_name and self.route_long_name:
+      short_name = self.route_short_name.strip().lower()
+      long_name = self.route_long_name.strip().lower()
       if long_name == short_name:
         problems.InvalidValue('route_long_name',
                               self.route_long_name,
@@ -160,6 +171,8 @@ class Route(GenericGTFSObject):
                               'side-by-side.  It\'s OK to omit either the '
                               'short or long name (but not both).',
                               type=problems_module.TYPE_WARNING)
+
+  def ValidateRouteDescriptionNotTheSameAsRouteName(self, problems):
     if (self.route_desc and
         ((self.route_desc == self.route_short_name) or
          (self.route_desc == self.route_long_name))):
@@ -167,7 +180,7 @@ class Route(GenericGTFSObject):
                             self.route_desc,
                             'route_desc shouldn\'t be the same as '
                             'route_short_name or route_long_name')
-
+  def ValidateRouteTypeHasValidValue(self, problems):
     if self.route_type is not None:
       try:
         if not isinstance(self.route_type, int):
@@ -180,28 +193,38 @@ class Route(GenericGTFSObject):
                                 self.route_type,
                                 type=problems_module.TYPE_WARNING)
 
+  def ValidateRouteUrl(self, problems):
     if self.route_url and not util.IsValidURL(self.route_url):
       problems.InvalidValue('route_url', self.route_url)
 
-    txt_lum = util.ColorLuminance('000000')  # black (default)
-    bg_lum = util.ColorLuminance('ffffff')   # white (default)
+  def ValidateRouteColor(self, problems):
     if self.route_color:
-      if util.IsValidColor(self.route_color):
-        bg_lum  = util.ColorLuminance(self.route_color)
-      else:
+      if not util.IsValidColor(self.route_color):
         problems.InvalidValue('route_color', self.route_color,
                               'route_color should be a valid color description '
                               'which consists of 6 hexadecimal characters '
                               'representing the RGB values. Example: 44AA06')
+        self.route_color = None
+
+  def ValidateRouteTextColor(self, problems):
     if self.route_text_color:
-      if util.IsValidColor(self.route_text_color):
-        txt_lum = util.ColorLuminance(self.route_text_color)
-      else:
+      if not util.IsValidColor(self.route_text_color):
         problems.InvalidValue('route_text_color', self.route_text_color,
                               'route_text_color should be a valid color '
                               'description, which consists of 6 hexadecimal '
                               'characters representing the RGB values. '
                               'Example: 44AA06')
+        self.route_text_color = None
+
+  def ValidateRouteAndTextColors(self, problems):
+    if self.route_color:
+      bg_lum  = util.ColorLuminance(self.route_color)
+    else:
+      bg_lum = util.ColorLuminance('ffffff')   # white (default)
+    if self.route_text_color:
+      txt_lum = util.ColorLuminance(self.route_text_color)
+    else:
+      txt_lum = util.ColorLuminance('000000')  # black (default)
     if abs(txt_lum - bg_lum) < 510/7.:
       # http://www.w3.org/TR/2000/WD-AERT-20000426#color-contrast recommends
       # a threshold of 125, but that is for normal text and too harsh for
@@ -219,5 +242,31 @@ class Route(GenericGTFSObject):
                             'to black.  In this case, route_text_color should '
                             'be set to a lighter color like FFFFFF to ensure '
                             'a legible contrast between the two.',
-                            type=problems_module.TYPE_WARNING)
+                            type=problems_module.TYPE_WARNING)  
 
+  def ValidateBeforeAdd(self, problems):
+    self.ValidateRouteIdIsPresent(problems)
+    self.ValidateRouteTypeIsPresent(problems)
+    self.ValidateRouteShortAndLongNamesAreNotBlank(problems)
+    self.ValidateRouteShortNameIsNotTooLong(problems)
+    self.ValidateRouteLongNameDoesNotContainShortName(problems)
+    self.ValidateRouteShortAndLongNamesAreNotEqual(problems)
+    self.ValidateRouteDescriptionNotTheSameAsRouteName(problems)
+    self.ValidateRouteTypeHasValidValue(problems)
+    self.ValidateRouteUrl(problems)
+    self.ValidateRouteColor(problems)
+    self.ValidateRouteTextColor(problems)
+    self.ValidateRouteAndTextColors(problems)
+
+    # None of these checks are blocking
+    return True
+
+  def ValidateAfterAdd(self, problems):
+    return
+
+  def AddToSchedule(self, schedule, problems):
+    schedule.AddRouteObject(self, problems)
+
+  def Validate(self, problems=problems_module.default_problem_reporter):
+    self.ValidateBeforeAdd(problems)
+    self.ValidateAfterAdd(problems)

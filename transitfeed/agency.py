@@ -63,27 +63,27 @@ class Agency(GenericGTFSObject):
 
     self.__dict__.update(field_dict)
 
-  def Validate(self, problems=default_problem_reporter):
-    """Validate attribute values and this object's internal consistency.
-
-    Returns:
-      True iff all validation checks passed.
-    """
-    found_problem = False
+  def ValidateRequiredFieldNames(self, problems):
     for required in Agency._REQUIRED_FIELD_NAMES:
       if util.IsEmpty(getattr(self, required, None)):
         problems.MissingValue(required)
-        found_problem = True
+        return True
+    return False
 
+  def ValidateAgencyUrl(self, problems):
     if self.agency_url and not util.IsValidURL(self.agency_url):
       problems.InvalidValue('agency_url', self.agency_url)
-      found_problem = True
+      return True
+    return False
 
+  def ValidateAgencyLang(self, problems):
     if (not util.IsEmpty(self.agency_lang) and
         self.agency_lang.lower() not in ISO639.codes_2letter):
       problems.InvalidValue('agency_lang', self.agency_lang)
-      found_problem = True
+      return True
+    return False
 
+  def ValidateAgencyTimezone(self, problems):
     try:
       import pytz
       if self.agency_timezone not in pytz.common_timezones:
@@ -92,11 +92,34 @@ class Agency(GenericGTFSObject):
             self.agency_timezone,
             '"%s" is not a common timezone name according to pytz version %s' %
             (self.agency_timezone, pytz.VERSION))
-        found_problem = True
+        return True
     except ImportError:  # no pytz
       print ("Timezone not checked "
              "(install pytz package for timezone validation)")
+    return False
+
+  def Validate(self, problems=default_problem_reporter):
+    """Validate attribute values and this object's internal consistency.
+
+    Returns:
+      True iff all validation checks passed.
+    """
+    found_problem = False
+    found_problem = self.ValidateRequiredFieldNames(problems) or found_problem
+    found_problem = self.ValidateAgencyUrl(problems) or found_problem
+    found_problem = self.ValidateAgencyLang(problems) or found_problem
+    found_problem = self.ValidateAgencyTimezone(problems) or found_problem
+
     return not found_problem
+
+  def ValidateBeforeAdd(self, problems):
+    return True
+
+  def ValidateAfterAdd(self, problems):
+    self.Validate(problems)
+
+  def AddToSchedule(self, schedule, problems):
+    schedule.AddAgencyObject(self, problems)
 
 class ISO639(object):
   # Set of all the 2-letter ISO 639-1 language codes.

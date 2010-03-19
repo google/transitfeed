@@ -108,13 +108,18 @@ class Shape(object):
   def __repr__(self):
     return "<Shape %s>" % self.__dict__
 
-  def Validate(self, problems=problems_module.default_problem_reporter):
+  def ValidateShapeId(self, problems):
     if util.IsEmpty(self.shape_id):
       problems.MissingValue('shape_id')
 
+  def ValidateShapePoints(self, problems):
     if not self.points:
       problems.OtherProblem('The shape with shape_id "%s" contains no points.' %
                             self.shape_id, type=problems_module.TYPE_WARNING)
+
+  def Validate(self, problems=problems_module.default_problem_reporter):
+    self.ValidateShapeId(problems)
+    self.ValidateShapePoints(problems)
 
   def GetPointWithDistanceTraveled(self, shape_dist_traveled):
     """Returns a point on the shape polyline with the input shape_dist_traveled.

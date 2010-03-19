@@ -25,6 +25,7 @@ import sys
 import tempfile
 import time
 import transitfeed
+import types
 import unittest
 import util
 from util import RecordingProblemReporter
@@ -201,16 +202,16 @@ class EndOfLineCheckerTestCase(util.TestCase):
       DataPath("bad_eol.zip"), problems=self.problems, extra_validation=True)
     loader.Load()
 
-    e = self.problems.PopException("InvalidLineEnd")
-    self.assertEqual(e.file_name, "routes.txt")
-    self.assertEqual(e.row_num, 5)
-    self.assertTrue(e.FormatProblem().find(r"\r\r\n") != -1)
-
     e = self.problems.PopException("OtherProblem")
     self.assertEqual(e.file_name, "calendar.txt")
     self.assertTrue(re.search(
       r"Found 1 CR LF.* \(line 2\) and 2 LF .*\(lines 1, 3\)",
       e.FormatProblem()))
+
+    e = self.problems.PopException("InvalidLineEnd")
+    self.assertEqual(e.file_name, "routes.txt")
+    self.assertEqual(e.row_num, 5)
+    self.assertTrue(e.FormatProblem().find(r"\r\r\n") != -1)
 
     e = self.problems.PopException("OtherProblem")
     self.assertEqual(e.file_name, "trips.txt")
@@ -2839,7 +2840,7 @@ class TripValidationTestCase(ValidationTestCase):
     # schedule. The Validate calls made by self.Expect... above can't make this
     # check because trip is not in a schedule.
     trip.route_id = '054C-notfound'
-    schedule.AddTripObject(trip, self.problems)
+    schedule.AddTripObject(trip, self.problems, True)
     e = self.problems.PopException('InvalidValue')
     self.assertEqual('route_id', e.column_name)
     self.problems.AssertNoMoreExceptions()
@@ -2885,6 +2886,83 @@ class TripValidationTestCase(ValidationTestCase):
     trip.ClearHeadwayPeriods()
     self.problems.AssertNoMoreExceptions()
 
+
+class HeadwayPeriodValidationTestCase(ValidationTestCase):
+  def setUp(self):
+    ValidationTestCase.setUp(self)
+    self.schedule = self.SimpleSchedule()
+    trip = transitfeed.Trip()
+    trip.route_id = '054C'
+    trip.service_id = 'WEEK'
+    trip.trip_id = '054C-00'
+    trip.trip_headsign = 'via Polish Hill'
+    trip.direction_id = '0'
+    trip.block_id = None
+    trip.shape_id = None
+    self.schedule.AddTripObject(trip, self.problems, True)
+    self.trip = trip
+
+  def testNonOverlappingPeriods(self):
+    headway_period1 = transitfeed.HeadwayPeriod({'trip_id': '054C-00',
+                                                 'start_time': '06:00:00',
+                                                 'end_time': '12:00:00',
+                                                 'headway_secs': 600,
+                                                })
+    headway_period2 = transitfeed.HeadwayPeriod({'trip_id': '054C-00',
+                                                 'start_time': '01:00:00',
+                                                 'end_time': '02:00:00',
+                                                 'headway_secs': 1200,
+                                                })
+    headway_period3 = transitfeed.HeadwayPeriod({'trip_id': '054C-00',
+                                                 'start_time': '04:00:00',
+                                                 'end_time': '05:00:00',
+                                                 'headway_secs': 1000,
+                                                })
+    headway_period4 = transitfeed.HeadwayPeriod({'trip_id': '054C-00',
+                                                 'start_time': '12:00:00',
+                                                 'end_time': '19:00:00',
+                                                 'headway_secs': 700,
+                                                })
+
+    # expect no problems for non-overlapping periods
+    headway_period1.AddToSchedule(self.schedule, self.problems)
+    headway_period2.AddToSchedule(self.schedule, self.problems)
+    headway_period3.AddToSchedule(self.schedule, self.problems)
+    headway_period4.AddToSchedule(self.schedule, self.problems)
+    self.trip.Validate(self.problems)
+    self.problems.AssertNoMoreExceptions()
+    self.trip.ClearHeadwayPeriods()
+
+  def testOverlappingPeriods(self):
+    # overlapping headway periods
+    headway_period1 = transitfeed.HeadwayPeriod({'trip_id': '054C-00',
+                                                 'start_time': '00:00:00',
+                                                 'end_time': '12:00:00',
+                                                 'headway_secs': 600,
+                                                })
+    headway_period2 = transitfeed.HeadwayPeriod({'trip_id': '054C-00',
+                                                 'start_time': '06:00:00',
+                                                 'end_time': '18:00:00',
+                                                 'headway_secs': 1200,
+                                                })
+    headway_period1.AddToSchedule(self.schedule, self.problems)
+    headway_period2.AddToSchedule(self.schedule, self.problems)
+    self.ExpectOtherProblem(self.trip)
+    self.trip.ClearHeadwayPeriods()
+    self.problems.AssertNoMoreExceptions()
+
+  def testPeriodWithInvalidTripId(self):
+    headway_period1 = transitfeed.HeadwayPeriod({'trip_id': 'foo',
+                                                 'start_time': '00:00:00',
+                                                 'end_time': '12:00:00',
+                                                 'headway_secs': 600,
+                                                })
+    headway_period1.AddToSchedule(self.schedule, self.problems)
+    e = self.problems.PopException('InvalidValue')
+    self.assertEqual('trip_id', e.column_name)
+    self.trip.ClearHeadwayPeriods()
+
+
 class TripSequenceValidationTestCase(ValidationTestCase):
   def runTest(self):
     schedule = self.SimpleSchedule()
@@ -2918,7 +2996,8 @@ class TripServiceIDValidationTestCase(ValidationTestCase):
     trip1.trip_id = "054C_WEEK"
     self.ExpectInvalidValueInClosure(column_name="service_id",
                                      value="WEEKDAY",
-                                     c=lambda: schedule.AddTripObject(trip1))
+                                     c=lambda: schedule.AddTripObject(trip1,
+                                                            validate=True))
 
 
 class TripHasStopTimeValidationTestCase(ValidationTestCase):
@@ -4820,6 +4899,47 @@ class ServiceGapsTestCase(MemoryZipTestCase):
 
     self.problems.AssertNoMoreExceptions()
 
-    
+class TestGtfsFactory(util.TestCase):
+  def setUp(self):
+    self._factory = transitfeed.GtfsFactory()
+
+  def testIsFileRequired(self):
+    self.assertTrue(self._factory.IsFileRequired("agency.txt"))
+    self.assertTrue(self._factory.IsFileRequired("stops.txt"))
+    self.assertTrue(self._factory.IsFileRequired("routes.txt"))
+    self.assertTrue(self._factory.IsFileRequired("trips.txt"))
+    self.assertTrue(self._factory.IsFileRequired("stop_times.txt"))
+
+    # We don't have yet a way to specify that one or the other (or both
+    # simultaneously) might be provided, so we don't consider them as required
+    # for now
+    self.assertFalse(self._factory.IsFileRequired("calendar.txt"))
+    self.assertFalse(self._factory.IsFileRequired("calendar_dates.txt"))
+
+    self.assertFalse(self._factory.IsFileRequired("fare_attributes.txt"))
+    self.assertFalse(self._factory.IsFileRequired("fare_rules.txt"))
+    self.assertFalse(self._factory.IsFileRequired("shapes.txt"))
+    self.assertFalse(self._factory.IsFileRequired("frequencies.txt"))
+    self.assertFalse(self._factory.IsFileRequired("transfers.txt"))
+
+  def testFactoryReturnsClassesAndNotInstances(self):
+    for filename, class_object in self._factory.GetFilenameMapping().items():
+      class_type = type(class_object)
+      self.assertTrue(isinstance(class_object,
+                                 (types.TypeType, types.ClassType)),
+                      "The mapping from filenames to classes must return "
+                      "classes and not instances. This is not the case for " +
+                      filename)
+
+  def testLoadingOrderAndRequiredFilenamesReferenceOnlyKnownFilenames(self):
+    known_filenames = set(self._factory.GetKnownFilenames())
+    filename_mapping = set(self._factory.GetFilenameMapping().keys())
+    loading_order = set(self._factory.GetLoadingOrder())
+    required_filenames = set(self._factory._required_filenames)
+    self.assertFalse(loading_order.difference(known_filenames))
+    self.assertFalse(filename_mapping.difference(known_filenames))
+    self.assertFalse(required_filenames.difference(known_filenames))
+
+
 if __name__ == '__main__':
   unittest.main()

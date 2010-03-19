@@ -68,6 +68,8 @@ from agency import *
 from fare import *
 from farerule import *
 from genericgtfsobject import *
+from gtfsfactory import *
+from headwayperiod import *
 from loader import *
 from problems import *
 from route import *

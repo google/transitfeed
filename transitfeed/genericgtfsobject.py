@@ -25,7 +25,13 @@ class GenericGTFSObject(object):
   * define an __init__ method which sets the _schedule member to None or a
     weakref to a Schedule
   * Set the _TABLE_NAME class variable to a name such as 'stops', 'agency', ...
-  * define methods to validate objects of that type
+  * define methods to validate objects of that type:
+    * ValidateBeforeAdd, which is called before an object is added to a
+      Schedule. With the default loader the object is added to the Schedule if
+      this function returns True, and is not added if it returns False.
+    * ValidateAfterAdd, which is called after an object is added to a Schedule.
+      With the default Loader the return value, if any, is not used.
+      
   """
   def __getitem__(self, name):
     """Return a unicode or str representation of name or "" if not set."""

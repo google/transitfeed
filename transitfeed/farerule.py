@@ -14,6 +14,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from problems import default_problem_reporter
+
 class FareRule(object):
   """This class represents a rule that determines which itineraries a
   fare rule applies to."""
@@ -24,13 +26,18 @@ class FareRule(object):
 
   def __init__(self, fare_id=None, route_id=None,
                origin_id=None, destination_id=None, contains_id=None,
-               field_list=None):
+               field_dict=None):
     (self.fare_id, self.route_id, self.origin_id, self.destination_id,
      self.contains_id) = \
      (fare_id, route_id, origin_id, destination_id, contains_id)
-    if field_list:
-      (self.fare_id, self.route_id, self.origin_id, self.destination_id,
-       self.contains_id) = field_list
+    if field_dict:
+      if isinstance(field_dict, FareRule):
+        # Special case so that we don't need to re-parse the attributes to
+        # native types iteritems returns all attributes that don't start with _
+        for k, v in field_dict.iteritems():
+          self.__dict__[k] = v
+      else:
+        self.__dict__.update(field_dict)
 
     # canonicalize non-content values as None
     if not self.route_id:
@@ -60,4 +67,11 @@ class FareRule(object):
   def __ne__(self, other):
     return not self.__eq__(other)
 
-
+  def AddToSchedule(self, schedule, problems):
+    schedule.AddFareRuleObject(self)
+  
+  def ValidateBeforeAdd(self, problems):
+    return True
+  
+  def ValidateAfterAdd(self, problems):
+    return

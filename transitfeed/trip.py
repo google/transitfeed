@@ -348,6 +348,13 @@ class Trip(GenericGTFSObject):
     stoptimes = self.GetStopTimes()
     return tuple(st.stop for st in stoptimes)
 
+  def AddHeadwayPeriodObject(self, headway_period, problem_reporter):
+    if headway_period is not None:
+      self.AddHeadwayPeriod(headway_period.StartTime(), 
+                            headway_period.EndTime(), 
+                            headway_period.HeadwaySecs(), 
+                            problem_reporter)
+
   def AddHeadwayPeriod(self, start_time, end_time, headway_secs,
                        problem_reporter=problems_module.default_problem_reporter):
     """Adds a period to this trip during which the vehicle travels
@@ -439,6 +446,45 @@ class Trip(GenericGTFSObject):
     else:
       return GenericGTFSObject.__getattr__(self, name)
 
+  def ValidateRouteId(self, problems):
+    if util.IsEmpty(self.route_id):
+      problems.MissingValue('route_id')
+  
+  def ValidateServicePeriod(self, problems):
+    if 'service_period' in self.__dict__:
+      # Some tests assign to the service_period attribute. Patch up self before
+      # proceeding with validation. See also comment in Trip.__init__.
+      self.service_id = self.__dict__['service_period'].service_id
+      del self.service_period
+    if util.IsEmpty(self.service_id):
+      problems.MissingValue('service_id')
+      
+  def ValidateTripId(self, problems):
+    if util.IsEmpty(self.trip_id):
+      problems.MissingValue('trip_id')
+      
+  def ValidateDirectionId(self, problems):
+    if hasattr(self, 'direction_id') and (not util.IsEmpty(self.direction_id)) \
+        and (self.direction_id != '0') and (self.direction_id != '1'):
+      problems.InvalidValue('direction_id', self.direction_id,
+                            'direction_id must be "0" or "1"')
+
+  def ValidateShapeIdsExistInShapeList(self, problems):
+    if self._schedule:
+      if self.shape_id and self.shape_id not in self._schedule._shapes:
+        problems.InvalidValue('shape_id', self.shape_id)
+      
+  def ValidateRouteIdExistsInRouteList(self, problems):
+    if self._schedule:
+      if self.route_id and self.route_id not in self._schedule.routes:
+        problems.InvalidValue('route_id', self.route_id)
+      
+  def ValidateServiceIdExistsInServiceList(self, problems):
+    if self._schedule:
+      if (self.service_id and
+          self.service_id not in self._schedule.service_periods):
+        problems.InvalidValue('service_id', self.service_id)
+
   def Validate(self, problems, validate_children=True):
     """Validate attributes of this object.
 
@@ -451,37 +497,17 @@ class Trip(GenericGTFSObject):
       validate_children: if True and the _schedule attribute is set than call
                          ValidateChildren
     """
-    if util.IsEmpty(self.route_id):
-      problems.MissingValue('route_id')
-    if 'service_period' in self.__dict__:
-      # Some tests assign to the service_period attribute. Patch up self before
-      # proceeding with validation. See also comment in Trip.__init__.
-      self.service_id = self.__dict__['service_period'].service_id
-      del self.service_period
-    if util.IsEmpty(self.service_id):
-      problems.MissingValue('service_id')
-    if util.IsEmpty(self.trip_id):
-      problems.MissingValue('trip_id')
-    if hasattr(self, 'direction_id') and (not util.IsEmpty(self.direction_id)) \
-        and (self.direction_id != '0') and (self.direction_id != '1'):
-      problems.InvalidValue('direction_id', self.direction_id,
-                            'direction_id must be "0" or "1"')
-    if self._schedule:
-      if self.shape_id and self.shape_id not in self._schedule._shapes:
-        problems.InvalidValue('shape_id', self.shape_id)
-      if self.route_id and self.route_id not in self._schedule.routes:
-        problems.InvalidValue('route_id', self.route_id)
-      if (self.service_id and
-          self.service_id not in self._schedule.service_periods):
-        problems.InvalidValue('service_id', self.service_id)
+    self.ValidateRouteId(problems)
+    self.ValidateServicePeriod(problems)
+    self.ValidateDirectionId(problems)
+    self.ValidateTripId(problems)
+    self.ValidateShapeIdsExistInShapeList(problems)
+    self.ValidateRouteIdExistsInRouteList(problems)
+    self.ValidateServiceIdExistsInServiceList(problems)
+    if self._schedule and validate_children:
+      self.ValidateChildren(problems)
 
-      if validate_children:
-        self.ValidateChildren(problems)
-
-  def ValidateChildren(self, problems):
-    """Validate StopTimes and headways of this trip."""
-    assert self._schedule, "Trip must be in a schedule to ValidateChildren"
-    # TODO: validate distance values in stop times (if applicable)
+  def ValidateNoDuplicateStopSequences(self, problems):
     cursor = self._schedule._connection.cursor()
     cursor.execute("SELECT COUNT(stop_sequence) AS a FROM stop_times "
                    "WHERE trip_id=? GROUP BY stop_sequence HAVING a > 1",
@@ -491,7 +517,7 @@ class Trip(GenericGTFSObject):
                             'Duplicate stop_sequence in trip_id %s' %
                             self.trip_id)
 
-    stoptimes = self.GetStopTimes(problems)
+  def ValidateTripStartAndEndTimes(self, problems, stoptimes):
     if stoptimes:
       if stoptimes[0].arrival_time is None and stoptimes[0].departure_time is None:
         problems.OtherProblem(
@@ -500,9 +526,12 @@ class Trip(GenericGTFSObject):
         problems.OtherProblem(
           'No time for end of trip_id "%s""' % (self.trip_id))
 
-      # Sorts the stoptimes by sequence and then checks that the arrival time
-      # for each time point is after the departure time of the previous.
-      stoptimes.sort(key=lambda x: x.stop_sequence)
+  def ValidateStopTimesSequenceHasIncreasingTimeAndDistance(self,
+                                                            problems,
+                                                            stoptimes):
+    if stoptimes:
+      # Checks that the arrival time for each time point is after the departure 
+      # time of the previous. Assumes a stoptimes sorted by sequence
       prev_departure = 0
       prev_stop = None
       prev_distance = None
@@ -545,6 +574,10 @@ class Trip(GenericGTFSObject):
                                   'at sequence number %s in trip %s' %
                                   (timepoint.stop_sequence, self.trip_id))
 
+  def ValidateShapeDistTraveledSmallerThanMaxShapeDistance(self,
+                                                           problems, 
+                                                           stoptimes):
+    if stoptimes:
       if self.shape_id and self.shape_id in self._schedule._shapes:
         shape = self._schedule.GetShape(self.shape_id)
         max_shape_dist = shape.max_distance
@@ -560,6 +593,12 @@ class Trip(GenericGTFSObject):
                max_shape_dist, self.shape_id), 
                type=problems_module.TYPE_WARNING)
 
+  def ValidateDistanceFromStopToShape(self, problems, stoptimes):
+    if stoptimes:
+      if self.shape_id and self.shape_id in self._schedule._shapes:
+        shape = self._schedule.GetShape(self.shape_id)
+        max_shape_dist = shape.max_distance
+        st = stoptimes[-1]
         # shape_dist_traveled is valid in shape if max_shape_dist larger than
         # 0.
         if max_shape_dist > 0:
@@ -577,6 +616,7 @@ class Trip(GenericGTFSObject):
                     self.shape_id, distance,
                     problems_module.MAX_DISTANCE_FROM_STOP_TO_SHAPE)
 
+  def ValidateHeadwayPeriods(self, problems):
     # O(n^2), but we don't anticipate many headway periods per trip
     for headway_index, headway in enumerate(self._headways[0:-1]):
       for other in self._headways[headway_index + 1:]:
@@ -585,6 +625,28 @@ class Trip(GenericGTFSObject):
                                 '%s and %s' %
                                 (self._HeadwayOutputTuple(headway),
                                  self._HeadwayOutputTuple(other)))
+
+  def ValidateChildren(self, problems):
+    """Validate StopTimes and headways of this trip."""
+    assert self._schedule, "Trip must be in a schedule to ValidateChildren"
+    # TODO: validate distance values in stop times (if applicable)
+
+    self.ValidateNoDuplicateStopSequences(problems)
+    stoptimes = self.GetStopTimes(problems)
+    stoptimes.sort(key=lambda x: x.stop_sequence)
+    self.ValidateTripStartAndEndTimes(problems, stoptimes)
+    self.ValidateStopTimesSequenceHasIncreasingTimeAndDistance(problems,
+                                                               stoptimes)
+    self.ValidateShapeDistTraveledSmallerThanMaxShapeDistance(problems,
+                                                              stoptimes)
+    self.ValidateDistanceFromStopToShape(problems, stoptimes)
+    self.ValidateHeadwayPeriods(problems)
+    
+  def ValidateBeforeAdd(self, problems):
+    return True
+
+  def ValidateAfterAdd(self, problems):
+    self.Validate(problems)
 
   def _CheckSpeed(self, prev_stop, next_stop, depart_time,
                   arrive_time, max_speed, problems):
@@ -630,3 +692,5 @@ class Trip(GenericGTFSObject):
                                speed_between_stops,
                                type=problems_module.TYPE_WARNING)
 
+  def AddToSchedule(self, schedule, problems):
+    schedule.AddTripObject(self, problems)

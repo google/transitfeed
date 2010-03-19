@@ -130,63 +130,6 @@ class Stop(GenericGTFSObject):
       time_trips.append((secs, (trip, index), is_timepoint))
     return time_trips
 
-  def ParseAttributes(self, problems):
-    """Parse all attributes, calling problems as needed."""
-    # Need to use items() instead of iteritems() because _CheckAndSetAttr may
-    # modify self.__dict__
-    for name, value in vars(self).items():
-      if name[0] == "_":
-        continue
-      self._CheckAndSetAttr(name, value, problems)
-
-  def _CheckAndSetAttr(self, name, value, problems):
-    """If value is valid for attribute name store it.
-
-    If value is not valid call problems. Return a new value of the correct type
-    or None if value couldn't be converted.
-    """
-    if name == 'stop_lat':
-      try:
-        if isinstance(value, (float, int)):
-          self.stop_lat = value
-        else:
-          self.stop_lat = util.FloatStringToFloat(value)
-      except (ValueError, TypeError):
-        problems.InvalidValue('stop_lat', value)
-        del self.stop_lat
-      else:
-        if self.stop_lat > 90 or self.stop_lat < -90:
-          problems.InvalidValue('stop_lat', value)
-    elif name == 'stop_lon':
-      try:
-        if isinstance(value, (float, int)):
-          self.stop_lon = value
-        else:
-          self.stop_lon = util.FloatStringToFloat(value)
-      except (ValueError, TypeError):
-        problems.InvalidValue('stop_lon', value)
-        del self.stop_lon
-      else:
-        if self.stop_lon > 180 or self.stop_lon < -180:
-          problems.InvalidValue('stop_lon', value)
-    elif name == 'stop_url':
-      if value and not util.IsValidURL(value):
-        problems.InvalidValue('stop_url', value)
-        del self.stop_url
-    elif name == 'location_type':
-      if value == '':
-        self.location_type = 0
-      else:
-        try:
-          self.location_type = int(value)
-        except (ValueError, TypeError):
-          problems.InvalidValue('location_type', value)
-          del self.location_type
-        else:
-          if self.location_type not in (0, 1):
-            problems.InvalidValue('location_type', value,
-                                  type=problems_module.TYPE_WARNING)
-
   def __getattr__(self, name):
     """Return None or the default value if name is a known attribute.
 
@@ -201,24 +144,68 @@ class Stop(GenericGTFSObject):
     else:
       raise AttributeError(name)
 
-  def Validate(self, problems=problems_module.default_problem_reporter):
-    # First check that all required fields are present because ParseAttributes
-    # may remove invalid attributes.
+  def ValidateStopLatitude(self, problems):
+    if self.stop_lat:
+      value = self.stop_lat
+      try:
+        if not isinstance(value, (float, int)):
+          self.stop_lat = util.FloatStringToFloat(value)
+      except (ValueError, TypeError):
+        problems.InvalidValue('stop_lat', value)
+        del self.stop_lat
+      else:
+        if self.stop_lat > 90 or self.stop_lat < -90:
+          problems.InvalidValue('stop_lat', value)
+
+  def ValidateStopLongitude(self, problems):
+    if self.stop_lon:
+      value = self.stop_lon
+      try:
+        if not isinstance(value, (float, int)):
+          self.stop_lon = util.FloatStringToFloat(value)
+      except (ValueError, TypeError):
+        problems.InvalidValue('stop_lon', value)
+        del self.stop_lon
+      else:
+        if self.stop_lon > 180 or self.stop_lon < -180:
+          problems.InvalidValue('stop_lon', value)
+
+  def ValidateStopUrl(self, problems):
+      value = self.stop_url
+      if value and not util.IsValidURL(value):
+        problems.InvalidValue('stop_url', value)
+        del self.stop_url
+
+  def ValidateStopLocationType(self, problems):
+      value = self.location_type
+      if value == '':
+        self.location_type = 0
+      else:
+        try:
+          self.location_type = int(value)
+        except (ValueError, TypeError):
+          problems.InvalidValue('location_type', value)
+          del self.location_type
+        else:
+          if self.location_type not in (0, 1):
+            problems.InvalidValue('location_type', value, 
+                                  type=problems_module.TYPE_WARNING)
+
+  def ValidateStopRequiredFields(self, problems):
     for required in Stop._REQUIRED_FIELD_NAMES:
       if util.IsEmpty(getattr(self, required, None)):
         # TODO: For now I'm keeping the API stable but it would be cleaner to
         # treat whitespace stop_id as invalid, instead of missing
         problems.MissingValue(required)
 
-    # Check individual values and convert to native types
-    self.ParseAttributes(problems)
-
-    # Check that this object is consistent with itself
+  def ValidateStopNotTooCloseToOrigin(self, problems):
     if (self.stop_lat is not None and self.stop_lon is not None and
         abs(self.stop_lat) < 1.0) and (abs(self.stop_lon) < 1.0):
       problems.InvalidValue('stop_lat', self.stop_lat,
                             'Stop location too close to 0, 0',
                             type=problems_module.TYPE_WARNING)
+
+  def ValidateStopDescriptionAndNameAreDifferent(self, problems):
     if (self.stop_desc is not None and self.stop_name is not None and
         self.stop_desc and self.stop_name and
         not util.IsEmpty(self.stop_desc) and
@@ -226,7 +213,39 @@ class Stop(GenericGTFSObject):
       problems.InvalidValue('stop_desc', self.stop_desc,
                             'stop_desc should not be the same as stop_name')
 
+  def ValidateStopIsNotStationWithParent(self, problems):
     if self.parent_station and self.location_type == 1:
       problems.InvalidValue('parent_station', self.parent_station,
                             'Stop row with location_type=1 (a station) must '
                             'not have a parent_station')
+
+  def ValidateBeforeAdd(self, problems):
+    # First check that all required fields are present because ParseAttributes
+    # may remove invalid attributes.
+    self.ValidateStopRequiredFields(problems)
+
+    #If value is valid for attribute name store it.
+    #If value is not valid call problems. Return a new value of the correct type
+    #or None if value couldn't be converted.
+    self.ValidateStopLatitude(problems)
+    self.ValidateStopLongitude(problems)
+    self.ValidateStopUrl(problems)
+    self.ValidateStopLocationType(problems)
+
+    # Check that this object is consistent with itself
+    self.ValidateStopNotTooCloseToOrigin(problems)
+    self.ValidateStopDescriptionAndNameAreDifferent(problems)
+    self.ValidateStopIsNotStationWithParent(problems)
+
+    # None of these checks are blocking
+    return True
+
+  def ValidateAfterAdd(self, problems):
+    return
+
+  def Validate(self, problems=problems_module.default_problem_reporter):
+    self.ValidateBeforeAdd(problems)
+    self.ValidateAfterAdd(problems)
+
+  def AddToSchedule(self, schedule, problems):
+    schedule.AddStopObject(self, problems)

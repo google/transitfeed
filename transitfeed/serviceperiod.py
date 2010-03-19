@@ -237,9 +237,63 @@ class ServicePeriod(object):
   def __ne__(self, other):
     return not self.__eq__(other)
 
-  def Validate(self, problems=problems_module.default_problem_reporter):
+  def ValidateServiceId(self, problems):
     if util.IsEmpty(self.service_id):
       problems.MissingValue('service_id')
+
+  def ValidateStartDate(self, problems):
+    if self.start_date is not None:
+      if util.IsEmpty(self.start_date):
+        problems.MissingValue('start_date')
+        self.start_date = None
+      elif not self._IsValidDate(self.start_date):
+        problems.InvalidValue('start_date', self.start_date)
+        self.start_date = None
+
+  def ValidateEndDate(self, problems):
+    if self.end_date is not None:
+      if util.IsEmpty(self.end_date):
+        problems.MissingValue('end_date')
+        self.end_date = None
+      elif not self._IsValidDate(self.end_date):
+        problems.InvalidValue('end_date', self.end_date)
+        self.end_date = None
+
+  def ValidateEndDateAfterStartDate(self, problems):
+    if self.start_date and self.end_date and self.end_date < self.start_date:
+      problems.InvalidValue('end_date', self.end_date,
+                            'end_date of %s is earlier than '
+                            'start_date of "%s"' %
+                            (self.end_date, self.start_date))
+
+  def ValidateDaysOfWeek(self, problems):
+    if self.original_day_values:
+      index = 0
+      for value in self.original_day_values:
+        column_name = self._DAYS_OF_WEEK[index]
+        if util.IsEmpty(value):
+          problems.MissingValue(column_name)
+        elif (value != u'0') and (value != '1'):
+          problems.InvalidValue(column_name, value)
+        index += 1
+
+  def ValidateHasServiceAtLeastOnceAWeek(self, problems):
+    if (True not in self.day_of_week and
+        1 not in self.date_exceptions.values()):
+      problems.OtherProblem('Service period with service_id "%s" '
+                            'doesn\'t have service on any days '
+                            'of the week.' % self.service_id,
+                            type=problems_module.TYPE_WARNING)
+
+  def ValidateDates(self, problems):
+    for date in self.date_exceptions:
+      if not self._IsValidDate(date):
+        problems.InvalidValue('date', date)
+
+  def Validate(self, problems=problems_module.default_problem_reporter):
+
+    self.ValidateServiceId(problems)
+
     # self.start_date/self.end_date is None in 3 cases:
     # ServicePeriod created by loader and
     #   1a) self.service_id wasn't in calendar.txt
@@ -251,44 +305,10 @@ class ServicePeriod(object):
     # problem. There is no way to tell the difference between cases 1b and 2
     # so case 2 is ignored because making the feedvalidator pretty is more
     # important than perfect validation when an API users makes a mistake.
-    start_date = None
-    if self.start_date is not None:
-      if util.IsEmpty(self.start_date):
-        problems.MissingValue('start_date')
-      elif self._IsValidDate(self.start_date):
-        start_date = self.start_date
-      else:
-        problems.InvalidValue('start_date', self.start_date)
-    end_date = None
-    if self.end_date is not None:
-      if util.IsEmpty(self.end_date):
-        problems.MissingValue('end_date')
-      elif self._IsValidDate(self.end_date):
-        end_date = self.end_date
-      else:
-        problems.InvalidValue('end_date', self.end_date)
-    if start_date and end_date and end_date < start_date:
-      problems.InvalidValue('end_date', end_date,
-                            'end_date of %s is earlier than '
-                            'start_date of "%s"' %
-                            (end_date, start_date))
-    if self.original_day_values:
-      index = 0
-      for value in self.original_day_values:
-        column_name = self._DAYS_OF_WEEK[index]
-        if util.IsEmpty(value):
-          problems.MissingValue(column_name)
-        elif (value != u'0') and (value != '1'):
-          problems.InvalidValue(column_name, value)
-        index += 1
-    if (True not in self.day_of_week and
-        1 not in self.date_exceptions.values()):
-      problems.OtherProblem('Service period with service_id "%s" '
-                            'doesn\'t have service on any days '
-                            'of the week.' % self.service_id,
-                            type=problems_module.TYPE_WARNING)
-    for date in self.date_exceptions:
-      if not self._IsValidDate(date):
-        problems.InvalidValue('date', date)
+    self.ValidateStartDate(problems)
+    self.ValidateEndDate(problems)
 
-
+    self.ValidateEndDateAfterStartDate(problems)
+    self.ValidateDaysOfWeek(problems)
+    self.ValidateHasServiceAtLeastOnceAWeek(problems)
+    self.ValidateDates(problems)
