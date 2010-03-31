@@ -698,8 +698,12 @@ def ProfileRunValidationOutputFromOptions(feed, options):
         raise Exception("no proc file %s" % _proc_status)
         return 0  # non-Linux?
      # get VmKey line e.g. 'VmRSS:  9999  kB\n ...'
-    i = v.index(VmKey)
-    v = v[i:].split(None, 3)  # whitespace
+    try:
+        i = v.index(VmKey)
+        v = v[i:].split(None, 3)  # whitespace
+    except:
+        return 0 # v is empty
+
     if len(v) < 3:
         raise Exception("%s" % v)
         return 0  # invalid format?

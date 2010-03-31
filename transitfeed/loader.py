@@ -31,6 +31,7 @@ from route import Route
 import schedule as schedule_module
 from serviceperiod import ServicePeriod
 from shape import Shape
+from shapepoint import ShapePoint
 from stop import Stop
 from stoptime import StopTime
 from transfer import Transfer
@@ -479,53 +480,34 @@ class Loader:
       self._problems.ClearContext()
 
   def _LoadShapes(self):
-    if not self._HasFile('shapes.txt'):
+    file_name = 'shapes.txt'
+    if not self._HasFile(file_name):
       return
     shape_class = self._gtfs_factory.GetGtfsClass('shapes.txt')
-    shapes = {}  # shape_id to tuple
-    for (row, row_num, cols) in self._ReadCSV(
-        'shapes.txt',
-        shape_class._FIELD_NAMES,
-        shape_class._REQUIRED_FIELD_NAMES):
-      file_context = ('shapes.txt', row_num, row, cols)
+    shapes = {}  # shape_id to shape object
+    for (d, row_num, header, row) in self._ReadCsvDict(
+                                         file_name, 
+                                         Shape._FIELD_NAMES,
+                                         Shape._REQUIRED_FIELD_NAMES):
+      file_context = (file_name, row_num, row, header)
       self._problems.SetFileContext(*file_context)
 
-      (shape_id, lat, lon, seq, dist) = row
-      if util.IsEmpty(shape_id):
-        self._problems.MissingValue('shape_id')
-        continue
-      try:
-        seq = int(seq)
-      except (TypeError, ValueError):
-        self._problems.InvalidValue('shape_pt_sequence', seq,
-                                    'Value should be a number (0 or higher)')
+      shapepoint = ShapePoint(field_dict=d)
+      if not shapepoint.ParseAttributes(self._problems):
         continue
 
-      shapes.setdefault(shape_id, []).append((seq, lat, lon, dist, file_context))
+      if shapepoint.shape_id in shapes:
+        shape = shapes[shapepoint.shape_id]
+      else:
+        shape = Shape(shapepoint.shape_id)
+        shapes[shapepoint.shape_id] = shape
+
+      shape.AddShapePointObjectUnsorted(shapepoint, self._problems)
       self._problems.ClearContext()
-
-    for shape_id, points in shapes.items():
-      shape = shape_class(shape_id)
-      points.sort()
-      if points and points[0][0] < 0:
-        self._problems.InvalidValue('shape_pt_sequence', points[0][0],
-                                    'In shape %s, a negative sequence number '
-                                    '%d was found; sequence numbers should be '
-                                    '0 or higher.' % (shape_id, points[0][0]))
-
-      last_seq = None
-      for (seq, lat, lon, dist, file_context) in points:
-        if (seq == last_seq):
-          self._problems.SetFileContext(*file_context)
-          self._problems.InvalidValue('shape_pt_sequence', seq,
-                                      'The sequence number %d occurs more '
-                                      'than once in shape %s.' %
-                                      (seq, shape_id))
-        last_seq = seq
-        shape.AddPoint(lat, lon, dist, self._problems)
-        self._problems.ClearContext()
-
+      
+    for shape_id, shape in shapes.items():
       self._schedule.AddShapeObject(shape, self._problems)
+      del shapes[shape_id]
 
   def _LoadStopTimes(self):
     stop_time_class = self._gtfs_factory.GetGtfsClass('stop_times.txt')

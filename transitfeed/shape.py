@@ -17,6 +17,7 @@
 import bisect
 
 import problems as problems_module
+from shapepoint import ShapePoint
 import util
 
 class Shape(object):
@@ -36,59 +37,59 @@ class Shape(object):
     self.max_distance = 0
     # List of shape_dist_traveled of each shape point.
     self.distance = []
+    # List of shape_pt_sequence of each shape point.
+    self.sequence = []
 
   def AddPoint(self, lat, lon, distance=None,
                problems=problems_module.default_problem_reporter):
+    shapepoint = ShapePoint(self.shape_id, lat, lon, len(self.sequence),
+                            distance)
+    if shapepoint.ParseAttributes(problems):
+      self.AddShapePointObjectUnsorted(shapepoint, problems)
 
-    try:
-      lat = float(lat)
-      if abs(lat) > 90.0:
-        problems.InvalidValue('shape_pt_lat', lat)
-        return
-    except (TypeError, ValueError):
-      problems.InvalidValue('shape_pt_lat', lat)
-      return
+  def AddShapePointObjectUnsorted(self, shapepoint, problems):
+    """Insert a point into a correct position by sequence. """
+    if (len(self.sequence) == 0 or
+        shapepoint.shape_pt_sequence >= self.sequence[-1]):
+      index = len(self.sequence)
+    elif shapepoint.shape_pt_sequence <= self.sequence[0]:
+      index = 0
+    else:
+      index = bisect.bisect(self.sequence, shapepoint.shape_pt_sequence)
 
-    try:
-      lon = float(lon)
-      if abs(lon) > 180.0:
-        problems.InvalidValue('shape_pt_lon', lon)
-        return
-    except (TypeError, ValueError):
-      problems.InvalidValue('shape_pt_lon', lon)
-      return
+    if shapepoint.shape_pt_sequence in self.sequence:
+      problems.InvalidValue('shape_pt_sequence', shapepoint.shape_pt_sequence,
+                            'The sequence number %d occurs more than once in '
+                            'shape %s.' %
+                            (shapepoint.shape_pt_sequence, self.shape_id))
 
-    if (abs(lat) < 1.0) and (abs(lon) < 1.0):
-      problems.InvalidValue('shape_pt_lat', lat,
-                            'Point location too close to 0, 0, which means '
-                            'that it\'s probably an incorrect location.',
-                            type=problems_module.TYPE_WARNING)
-      return
+    if shapepoint.shape_dist_traveled is not None and len(self.sequence) > 0:
+      if (index != len(self.sequence) and
+          shapepoint.shape_dist_traveled > self.distance[index]):
+        problems.InvalidValue('shape_dist_traveled',
+                              shapepoint.shape_dist_traveled,
+                              'Each subsequent point in a shape should have '
+                              'a distance value that shouldn\'t be larger '
+                              'than the next ones. In this case, the next '
+                              'distance was %f.' % self.distance[index])
 
-    if distance == '':  # canonicalizing empty string to None for comparison
-      distance = None
+      if (index > 0 and
+          shapepoint.shape_dist_traveled < self.distance[index - 1]):
+        problems.InvalidValue('shape_dist_traveled',
+                              shapepoint.shape_dist_traveled,
+                              'Each subsequent point in a shape should have '
+                              'a distance value that\'s at least as large as '
+                              'the previous ones. In this case, the previous '
+                              'distance was %f.' % self.distance[index - 1])
 
-    if distance != None:
-      try:
-        distance = float(distance)
-        if (distance < self.max_distance and not
-            (len(self.points) == 0 and distance == 0)):  # first one can be 0
-          problems.InvalidValue('shape_dist_traveled', distance,
-                                'Each subsequent point in a shape should '
-                                'have a distance value that\'s at least as '
-                                'large as the previous ones.  In this case, '
-                                'the previous distance was %f.' % 
-                                self.max_distance)
-          return
-        else:
-          self.max_distance = distance
-          self.distance.append(distance)
-      except (TypeError, ValueError):
-        problems.InvalidValue('shape_dist_traveled', distance,
-                              'This value should be a positive number.')
-        return
+    if shapepoint.shape_dist_traveled > self.max_distance:
+      self.max_distance = shapepoint.shape_dist_traveled
 
-    self.points.append((lat, lon, distance))
+    self.sequence.insert(index, shapepoint.shape_pt_sequence)
+    self.distance.insert(index, shapepoint.shape_dist_traveled)
+    self.points.insert(index, (shapepoint.shape_pt_lat,
+                               shapepoint.shape_pt_lon,
+                               shapepoint.shape_dist_traveled))
 
   def ClearPoints(self):
     self.points = []
