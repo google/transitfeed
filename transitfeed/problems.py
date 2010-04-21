@@ -221,6 +221,12 @@ class ProblemReporterBase:
                       context2=self._context, type=TYPE_WARNING)
     self._Report(e)
 
+  def OverlappingTripsInSameBlock(self,trip_id1,trip_id2,block_id,context=None):
+    e = OverlappingTripsInSameBlock(trip_id1=trip_id1, trip_id2=trip_id2,
+                                    block_id=block_id, context=context,
+                                    context2=self._context,type=TYPE_WARNING)
+    self._Report(e)
+
   def OtherProblem(self, description, context=None, type=TYPE_ERROR):
     e = OtherProblem(description=description,
                     context=context, context2=self._context, type=type)
@@ -534,6 +540,10 @@ class DuplicateTrip(ExceptionWithContext):
   ERROR_TEXT = "Trip %(trip_id1)s of route %(route_id1)s might be duplicated " \
                "with trip %(trip_id2)s of route %(route_id2)s. They go " \
                "through the same stops with same service."
+
+class OverlappingTripsInSameBlock(ExceptionWithContext):
+  ERROR_TEXT = "Trip %(trip_id1)s and trip %(trip_id2)s both are in the " \
+               "same block %(block_id)s and have overlapping arrival times."
 
 class OtherProblem(ExceptionWithContext):
   ERROR_TEXT = '%(description)s'

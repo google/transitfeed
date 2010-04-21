@@ -952,15 +952,19 @@ class Schedule:
   def ValidateTrips(self, problems):
     stop_types = {} # a dict mapping stop_id to [route_id, route_type, is_match]
     trips = {} # a dict mapping tuple to (route_id, trip_id)
+
+    # a dict mapping block_id to a list of tuple of
+    # (trip_id, first_arrival_secs, last_arrival_secs)
+    trip_intervals_by_block_id = defaultdict(lambda: [])
+
     for trip in sorted(self.trips.values()):
       if trip.route_id not in self.routes:
         continue
       route_type = self.GetRoute(trip.route_id).route_type
-      arrival_times = []
       stop_ids = []
-      for index, st in enumerate(trip.GetStopTimes(problems)):
+      stop_times = trip.GetStopTimes(problems)
+      for index, st in enumerate(stop_times):
         stop_id = st.stop.stop_id
-        arrival_times.append(st.arrival_time)
         stop_ids.append(stop_id)
         # Check a stop if which belongs to both subway and bus.
         if (route_type == self._gtfs_factory.Route._ROUTE_TYPE_NAMES['Subway'] or
@@ -980,17 +984,106 @@ class Schedule:
             problems.StopWithMultipleRouteTypes(st.stop.stop_name, stop_id,
                                                 subway_route_id, bus_route_id)
 
+      # We only care about trips with a block id
+      if not util.IsEmpty(trip.block_id) and stop_times:
+
+        first_arrival_secs = stop_times[0].arrival_secs
+        last_departure_secs = stop_times[-1].departure_secs
+
+        # The arrival and departure time of the first and last stop_time
+        # SHOULD be set, but we need to handle the case where we're given
+        # an invalid feed anyway
+        if first_arrival_secs is not None and last_departure_secs is not None:
+
+          # Create a trip interval tuple of the trip id and arrival time
+          # intervals
+          key = trip.block_id
+          trip_intervals = trip_intervals_by_block_id[key]
+          trip_interval = (trip, first_arrival_secs, last_departure_secs)
+          trip_intervals.append(trip_interval)
+
       # Check duplicate trips which go through the same stops with same
       # service and start times.
       if self._check_duplicate_trips:
-        if not stop_ids or not arrival_times:
+        if not stop_ids or not stop_times:
           continue
-        key = (trip.service_id, min(arrival_times), str(stop_ids))
+        key = (trip.service_id, stop_times[0].arrival_time, str(stop_ids))
         if key not in trips:
           trips[key] = (trip.route_id, trip.trip_id)
         else:
           problems.DuplicateTrip(trips[key][1], trips[key][0], trip.trip_id,
                                  trip.route_id)
+
+    # Now that we've generated our block trip intervls, we can check for
+    # overlaps in the intervals
+    self.ValidateBlocks(problems, trip_intervals_by_block_id)
+  
+  def ValidateBlocks(self, problems, trip_intervals_by_block_id):
+    # Expects trip_intervals_by_block_id to be a dict with a key of block ids
+    # and a value of lists of tuples
+    # (trip, min_arrival_secs, max_departure_secs)
+
+    # Cache potentially expensive ServicePeriod overlap checks
+    service_period_overlap_cache = {}
+
+    for (block_id,trip_intervals) in trip_intervals_by_block_id.items():
+
+      # Sort trip intervals by min arrival time
+      trip_intervals.sort(key=(lambda x: x[1]))
+
+      for xi in range(len(trip_intervals)):
+        trip_interval_a = trip_intervals[xi]
+        trip_a = trip_interval_a[0]
+
+        for xj in range(xi+1,len(trip_intervals)):
+          trip_interval_b = trip_intervals[xj]
+          trip_b = trip_interval_b[0]
+
+          # If the last departure of trip interval A is less than or equal
+          # to the first arrival of trip interval B, stop checking
+          if trip_interval_a[2] <= trip_interval_b[1]:
+            break
+
+          # We have an overlap between the times in two trip intervals in
+          # the same block.  Potentially a problem...
+          
+          # If they have the same service id, the trips run on the same
+          # day, yet have overlapping stop times.  Definitely a problem.
+          if trip_a.service_id == trip_b.service_id:
+            problems.OverlappingTripsInSameBlock(trip_a.trip_id,
+                                                 trip_b.trip_id, block_id)
+          else:
+            # Even if the the trips don't have the same service_id, their
+            # service dates might still overlap.  Since the ServicePeriod
+            # overlap check is potentially expensive, we cache the
+            # computation
+
+            service_id_pair_key = tuple(sorted([trip_a.service_id,
+                                                trip_b.service_id]))
+
+            # If the serivce_id_pair_key is not in the cache, we do the
+            # full service period comparison
+            if service_id_pair_key not in service_period_overlap_cache:
+
+              service_period_a = self.GetServicePeriod(trip_a.service_id)
+              service_period_b = self.GetServicePeriod(trip_b.service_id)
+
+              dates_a = service_period_a.ActiveDates()
+              dates_b = service_period_b.ActiveDates()
+
+              overlap = False
+
+              for date in dates_a:
+                if date in dates_b:
+                  overlap = True
+                  break
+
+              service_period_overlap_cache[service_id_pair_key] = overlap
+
+            if service_period_overlap_cache[service_id_pair_key]:
+              problems.OverlappingTripsInSameBlock(trip_a.trip_id,
+                                                   trip_b.trip_id,
+                                                   block_id)
 
   def ValidateRouteAgencyId(self, problems):
     # Check that routes' agency IDs are valid, if set

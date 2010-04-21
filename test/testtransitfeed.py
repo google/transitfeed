@@ -586,6 +586,169 @@ class DuplicateScheduleIDTestCase(util.TestCase):
     except transitfeed.DuplicateID:
       pass
 
+class OverlappingBlockSchedule(transitfeed.Schedule):
+  """Special Schedule subclass that counts the number of calls to
+  GetServicePeriod() so we can verify service period overlap calculation
+  caching"""
+
+  _get_service_period_call_count = 0
+
+  def GetServicePeriod(self, service_id):
+    self._get_service_period_call_count += 1
+    return transitfeed.Schedule.GetServicePeriod(self,service_id)
+
+  def GetServicePeriodCallCount(self):
+    return self._get_service_period_call_count
+
+class OverlappingBlockTripsTestCase(util.TestCase):
+  """Builds a simple schedule for testing of overlapping block trips"""
+
+  def setUp(self):
+    self.problems = RecordingProblemReporter(self, ("ExpirationDate",))
+
+    schedule = OverlappingBlockSchedule(problem_reporter=self.problems)
+    schedule.AddAgency("Demo Transit Authority", "http://dta.org",
+                       "America/Los_Angeles")
+
+    sp1 = transitfeed.ServicePeriod("SID1")
+    sp1.SetWeekdayService(True)
+    sp1.SetStartDate("20070605")
+    sp1.SetEndDate("20080605")
+    schedule.AddServicePeriodObject(sp1)
+
+    sp2 = transitfeed.ServicePeriod("SID2")
+    sp2.SetDayOfWeekHasService(0)
+    sp2.SetDayOfWeekHasService(2)
+    sp2.SetDayOfWeekHasService(4)
+    sp2.SetStartDate("20070605")
+    sp2.SetEndDate("20080605")
+    schedule.AddServicePeriodObject(sp2)
+
+    sp3 = transitfeed.ServicePeriod("SID3")
+    sp3.SetWeekendService(True)
+    sp3.SetStartDate("20070605")
+    sp3.SetEndDate("20080605")
+    schedule.AddServicePeriodObject(sp3)
+
+    self.stop1 = schedule.AddStop(lng=-116.75167,
+                                  lat=36.915682,
+                                  name="Stagecoach Hotel & Casino",
+                                  stop_id="S1")
+
+    self.stop2 = schedule.AddStop(lng=-116.76218,
+                                  lat=36.905697,
+                                  name="E Main St / S Irving St",
+                                  stop_id="S2")
+
+    self.route = schedule.AddRoute("", "City", "Bus", route_id="CITY")
+
+    self.schedule = schedule
+    self.sp1 = sp1
+    self.sp2 = sp2
+    self.sp3 = sp3
+
+  def testNoOverlap(self):
+
+    schedule, route, sp1 = self.schedule, self.route, self.sp1
+
+    trip1 = route.AddTrip(schedule, service_period=sp1, trip_id="CITY1")
+    trip1.block_id = "BLOCK"
+    trip1.AddStopTime(self.stop1, stop_time="6:00:00")
+    trip1.AddStopTime(self.stop2, stop_time="6:30:00")
+
+    trip2 = route.AddTrip(schedule, service_period=sp1, trip_id="CITY2")
+    trip2.block_id = "BLOCK"
+    trip2.AddStopTime(self.stop2, stop_time="6:30:00")
+    trip2.AddStopTime(self.stop1, stop_time="7:00:00")
+
+    schedule.Validate(self.problems)
+
+    self.problems.AssertNoMoreExceptions()
+
+  def testOverlapSameServicePeriod(self):
+
+    schedule, route, sp1 = self.schedule, self.route, self.sp1
+
+    trip1 = route.AddTrip(schedule, service_period=sp1, trip_id="CITY1")
+    trip1.block_id = "BLOCK"
+    trip1.AddStopTime(self.stop1, stop_time="6:00:00")
+    trip1.AddStopTime(self.stop2, stop_time="6:30:00")
+
+    trip2 = route.AddTrip(schedule, service_period=sp1, trip_id="CITY2")
+    trip2.block_id = "BLOCK"
+    trip2.AddStopTime(self.stop2, stop_time="6:20:00")
+    trip2.AddStopTime(self.stop1, stop_time="6:50:00")
+
+    schedule.Validate(self.problems)
+
+    e = self.problems.PopException('OverlappingTripsInSameBlock')
+    self.assertEqual(e.trip_id1, 'CITY1')
+    self.assertEqual(e.trip_id2, 'CITY2')
+    self.assertEqual(e.block_id, 'BLOCK')
+
+    self.problems.AssertNoMoreExceptions()
+
+  def testOverlapDifferentServicePeriods(self):
+
+    schedule, route, sp1, sp2 = self.schedule, self.route, self.sp1, self.sp2
+
+    trip1 = route.AddTrip(schedule, service_period=sp1, trip_id="CITY1")
+    trip1.block_id = "BLOCK"
+    trip1.AddStopTime(self.stop1, stop_time="6:00:00")
+    trip1.AddStopTime(self.stop2, stop_time="6:30:00")
+
+    trip2 = route.AddTrip(schedule, service_period=sp2, trip_id="CITY2")
+    trip2.block_id = "BLOCK"
+    trip2.AddStopTime(self.stop2, stop_time="6:20:00")
+    trip2.AddStopTime(self.stop1, stop_time="6:50:00")
+
+    trip3 = route.AddTrip(schedule, service_period=sp1, trip_id="CITY3")
+    trip3.block_id = "BLOCK"
+    trip3.AddStopTime(self.stop1, stop_time="7:00:00")
+    trip3.AddStopTime(self.stop2, stop_time="7:30:00")
+
+    trip4 = route.AddTrip(schedule, service_period=sp2, trip_id="CITY4")
+    trip4.block_id = "BLOCK"
+    trip4.AddStopTime(self.stop2, stop_time="7:20:00")
+    trip4.AddStopTime(self.stop1, stop_time="7:50:00")
+
+    schedule.Validate(self.problems)
+
+    e = self.problems.PopException('OverlappingTripsInSameBlock')
+    self.assertEqual(e.trip_id1, 'CITY1')
+    self.assertEqual(e.trip_id2, 'CITY2')
+    self.assertEqual(e.block_id, 'BLOCK')
+
+    e = self.problems.PopException('OverlappingTripsInSameBlock')
+    self.assertEqual(e.trip_id1, 'CITY3')
+    self.assertEqual(e.trip_id2, 'CITY4')
+    self.assertEqual(e.block_id, 'BLOCK')
+
+    self.problems.AssertNoMoreExceptions()
+
+    # If service period overlap calculation caching is working correctly,
+    # we expect only two calls to GetServicePeriod(), one each for sp1 and
+    # sp2, as oppossed four calls total for the four overlapping trips
+    self.assertEquals(2,schedule.GetServicePeriodCallCount())
+
+  def testNoOverlapDifferentServicePeriods(self):
+
+    schedule, route, sp1, sp3 = self.schedule, self.route, self.sp1, self.sp3
+
+    trip1 = route.AddTrip(schedule, service_period=sp1, trip_id="CITY1")
+    trip1.block_id = "BLOCK"
+    trip1.AddStopTime(self.stop1, stop_time="6:00:00")
+    trip1.AddStopTime(self.stop2, stop_time="6:30:00")
+
+    trip2 = route.AddTrip(schedule, service_period=sp3, trip_id="CITY2")
+    trip2.block_id = "BLOCK"
+    trip2.AddStopTime(self.stop2, stop_time="6:20:00")
+    trip2.AddStopTime(self.stop1, stop_time="6:50:00")
+
+    schedule.Validate(self.problems)
+
+    self.problems.AssertNoMoreExceptions()
+
 class ColorLuminanceTestCase(util.TestCase):
   def runTest(self):
     self.assertEqual(transitfeed.ColorLuminance('000000'), 0,
