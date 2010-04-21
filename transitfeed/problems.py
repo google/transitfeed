@@ -563,3 +563,24 @@ log.addHandler(console)
 class Error(Exception):
   pass
 
+# Below are the exceptions related to loading and setting up Feed Validator
+# extensions
+
+class ExtensionException(Exception):
+  pass
+
+class InvalidMapping(ExtensionException):
+  def __init__(self, missing_field):
+    self.missing_field = missing_field
+
+class NonexistentMapping(ExtensionException):
+  def __init__(self, name):
+    self.name = name
+
+class DuplicateMapping(ExtensionException):
+  def __init__(self, name):
+    self.name = name
+
+class NonStandardMapping(ExtensionException):
+  def __init__(self, name):
+    self.name = name

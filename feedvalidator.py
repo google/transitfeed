@@ -529,15 +529,33 @@ def RunValidation(feed, options, problems):
   Returns:
     a transitfeed.Schedule object, exit code and plain text string of other
     problems
-    Exit code is 1 if problems are found and 0 if the Schedule is problem free.
+    Exit code is 2 if an extension is provided but can't be loaded, 1 if
+    problems are found and 0 if the Schedule is problem free.
     plain text string is '' if no other problems are found.
   """
   other_problems_string = CheckVersion(latest_version=options.latest_version)
+
+  # TODO: Add tests for this flag in testfeedvalidator.py
+  if options.extension:
+    try:
+      __import__(options.extension)
+      extension_module = sys.modules[options.extension]
+    except ImportError:
+      # TODO: Document extensions in a wiki page, place link here
+      print("Could not import extension %s! Please ensure it is a proper "
+            "Python module." % options.extension)
+      exit(2)
+  else:
+    extension_module = transitfeed
+
+  gtfs_factory = extension_module.GetGtfsFactory()
+
   print 'validating %s' % feed
-  loader = transitfeed.Loader(feed, problems=problems, extra_validation=False,
-                              memory_db=options.memory_db,
-                              check_duplicate_trips=\
-                              options.check_duplicate_trips)
+  loader = gtfs_factory.Loader(feed, problems=problems, extra_validation=False,
+                               memory_db=options.memory_db,
+                               check_duplicate_trips=\
+                               options.check_duplicate_trips,
+                               gtfs_factory=gtfs_factory)
   schedule = loader.Load()
   schedule.Validate(service_gap_interval=options.service_gap_interval)
   
@@ -642,6 +660,11 @@ http://code.google.com/p/googletransitdatafeed/wiki/FeedValidator
                     'scheduled service. For each interval with no service '
                     'having this number of days or more a warning will be '
                     'issued')
+  parser.add_option('--extension',
+                    dest='extension',
+                    help='the name of the Python module that containts a GTFS '
+                    'extension that is to be loaded and used while validating '
+                    'the specified feed.')
 
   parser.set_defaults(manual_entry=True, output='validation-results.html',
                       memory_db=False, check_duplicate_trips=False,

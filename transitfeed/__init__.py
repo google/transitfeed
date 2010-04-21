@@ -64,6 +64,11 @@ Stop object which has attributes such as stop_lat and stop_name.
 # problems.py gets fully loaded right away.
 # TODO: Solve this problem cleanly
 from util import *
+# schedule needs to be imported before gtfsfactory to avoid a circular reference
+# (GtfsFactory -> Schedule -> Loader -> GtfsFactory)
+# Because schedule imports problems (both directly and indirectly), it must be
+# imported after util.
+from schedule import *
 from agency import *
 from fare import *
 from farerule import *
@@ -73,10 +78,10 @@ from headwayperiod import *
 from loader import *
 from problems import *
 from route import *
-from schedule import *
 from serviceperiod import *
 from shape import *
 from shapeloader import *
+from shapepoint import *
 from stop import *
 from stoptime import *
 from transfer import *

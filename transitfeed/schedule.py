@@ -32,19 +32,9 @@ import time
 import weakref
 import zipfile
 
-from agency import Agency
-from fare import Fare
-from farerule import FareRule
-import loader as loadermodule
+import gtfsfactory
 import problems as problems_module
-from route import Route
-from serviceperiod import ServicePeriod
-from shape import Shape
-from stop import Stop
-from stoptime import StopTime
-from transfer import Transfer
 from transitfeed.util import defaultdict
-from trip import Trip
 import util
 
 class Schedule:
@@ -52,7 +42,12 @@ class Schedule:
   an agency.  This is the main class for this module."""
 
   def __init__(self, problem_reporter=None,
-               memory_db=True, check_duplicate_trips=False):
+               memory_db=True, check_duplicate_trips=False,
+               gtfs_factory=None):
+    if gtfs_factory is None:
+      gtfs_factory = gtfsfactory.GetGtfsFactory()
+    self._gtfs_factory = gtfs_factory
+
     # Map from table name to list of columns present in this schedule
     self._table_columns = {}
 
@@ -142,7 +137,7 @@ class Schedule:
 
   def AddAgency(self, name, url, timezone, agency_id=None):
     """Adds an agency to this schedule."""
-    agency = Agency(name, url, timezone, agency_id)
+    agency = self._gtfs_factory.Agency(name, url, timezone, agency_id)
     self.AddAgencyObject(agency)
     return agency
 
@@ -182,7 +177,7 @@ class Schedule:
 
   def NewDefaultAgency(self, **kwargs):
     """Create a new Agency object and make it the default agency for this Schedule"""
-    agency = Agency(**kwargs)
+    agency = self._gtfs_factory.Agency(**kwargs)
     if not agency.agency_id:
       agency.agency_id = util.FindUniqueId(self._agencies)
     self._default_agency = agency
@@ -191,7 +186,7 @@ class Schedule:
 
   def SetDefaultAgency(self, agency, validate=True):
     """Make agency the default and add it to the schedule if not already added"""
-    assert isinstance(agency, Agency)
+    assert isinstance(agency, self._gtfs_factory.Agency)
     self._default_agency = agency
     if agency.agency_id not in self._agencies:
       self.AddAgencyObject(agency, validate=validate)
@@ -221,14 +216,14 @@ class Schedule:
     """Create a new ServicePeriod object, make it the default service period and
     return it. The default service period is used when you create a trip without
     providing an explict service period. """
-    service_period = ServicePeriod()
+    service_period = self._gtfs_factory.ServicePeriod()
     service_period.service_id = util.FindUniqueId(self.service_periods)
     # blank service won't validate in AddServicePeriodObject
     self.SetDefaultServicePeriod(service_period, validate=False)
     return service_period
 
   def SetDefaultServicePeriod(self, service_period, validate=True):
-    assert isinstance(service_period, ServicePeriod)
+    assert isinstance(service_period, self._gtfs_factory.ServicePeriod)
     self._default_service_period = service_period
     if service_period.service_id not in self.service_periods:
       self.AddServicePeriodObject(service_period, validate=validate)
@@ -304,7 +299,7 @@ class Schedule:
     """
     if stop_id is None:
       stop_id = util.FindUniqueId(self.stops)
-    stop = Stop(stop_id=stop_id, lat=lat, lng=lng, name=name)
+    stop = self._gtfs_factory.Stop(stop_id=stop_id, lat=lat, lng=lng, name=name)
     self.AddStopObject(stop)
     return stop
 
@@ -343,8 +338,8 @@ class Schedule:
     """
     if route_id is None:
       route_id = util.FindUniqueId(self.routes)
-    route = Route(short_name=short_name, long_name=long_name,
-                  route_type=route_type, route_id=route_id)
+    route = self._gtfs_factory.Route(short_name=short_name, long_name=long_name,
+                        route_type=route_type, route_id=route_id)
     route.agency_id = self.GetDefaultAgency().agency_id
     self.AddRouteObject(route)
     return route
@@ -475,7 +470,7 @@ class Schedule:
     transfer_id = transfer._ID()
 
     if transfer_id in self._transfers:
-      self.problem_reporter.DuplicateID(Transfer._ID_COLUMNS,
+      self.problem_reporter.DuplicateID(self._gtfs_factory.Transfer._ID_COLUMNS,
                                         transfer_id,
                                         type=problems_module.TYPE_WARNING)
       # Duplicates are still added, while not prohibited by GTFS.
@@ -525,9 +520,9 @@ class Schedule:
     return stop_list
 
   def Load(self, feed_path, extra_validation=False):
-    loader = loadermodule.Loader(feed_path, 
-                                 self, problems=self.problem_reporter,
-                                 extra_validation=extra_validation)
+    loader = self._gtfs_factory.Loader(feed_path,
+                                       self, problems=self.problem_reporter,
+                                       extra_validation=extra_validation)
     loader.Load()
 
   def _WriteArchiveString(self, archive, filename, stringio):
@@ -562,7 +557,8 @@ class Schedule:
 
     calendar_dates_string = StringIO.StringIO()
     writer = util.CsvUnicodeWriter(calendar_dates_string)
-    writer.writerow(ServicePeriod._FIELD_NAMES_CALENDAR_DATES)
+    writer.writerow(
+        self._gtfs_factory.ServicePeriod._FIELD_NAMES_CALENDAR_DATES)
     has_data = False
     for period in self.service_periods.values():
       for row in period.GenerateCalendarDatesFieldValuesTuples():
@@ -576,7 +572,7 @@ class Schedule:
 
     calendar_string = StringIO.StringIO()
     writer = util.CsvUnicodeWriter(calendar_string)
-    writer.writerow(ServicePeriod._FIELD_NAMES)
+    writer.writerow(self._gtfs_factory.ServicePeriod._FIELD_NAMES)
     has_data = False
     for s in self.service_periods.values():
       row = s.GetCalendarFieldValuesTuple()
@@ -620,7 +616,7 @@ class Schedule:
     if headway_rows:
       headway_string = StringIO.StringIO()
       writer = util.CsvUnicodeWriter(headway_string)
-      writer.writerow(Trip._FIELD_NAMES_HEADWAY)
+      writer.writerow(self._gtfs_factory.HeadwayPeriod._FIELD_NAMES)
       writer.writerows(headway_rows)
       self._WriteArchiveString(archive, 'frequencies.txt', headway_string)
 
@@ -628,7 +624,7 @@ class Schedule:
     if self.GetFareList():
       fare_string = StringIO.StringIO()
       writer = util.CsvUnicodeWriter(fare_string)
-      writer.writerow(Fare._FIELD_NAMES)
+      writer.writerow(self._gtfs_factory.Fare._FIELD_NAMES)
       writer.writerows(f.GetFieldValuesTuple() for f in self.GetFareList())
       self._WriteArchiveString(archive, 'fare_attributes.txt', fare_string)
 
@@ -640,12 +636,12 @@ class Schedule:
     if rule_rows:
       rule_string = StringIO.StringIO()
       writer = util.CsvUnicodeWriter(rule_string)
-      writer.writerow(FareRule._FIELD_NAMES)
+      writer.writerow(self._gtfs_factory.FareRule._FIELD_NAMES)
       writer.writerows(rule_rows)
       self._WriteArchiveString(archive, 'fare_rules.txt', rule_string)
     stop_times_string = StringIO.StringIO()
     writer = util.CsvUnicodeWriter(stop_times_string)
-    writer.writerow(StopTime._FIELD_NAMES)
+    writer.writerow(self._gtfs_factory.StopTime._FIELD_NAMES)
     for t in self.trips.values():
       writer.writerows(t._GenerateStopTimesTuples())
     self._WriteArchiveString(archive, 'stop_times.txt', stop_times_string)
@@ -660,7 +656,7 @@ class Schedule:
     if shape_rows:
       shape_string = StringIO.StringIO()
       writer = util.CsvUnicodeWriter(shape_string)
-      writer.writerow(Shape._FIELD_NAMES)
+      writer.writerow(self._gtfs_factory.Shape._FIELD_NAMES)
       writer.writerows(shape_rows)
       self._WriteArchiveString(archive, 'shapes.txt', shape_string)
 
@@ -967,14 +963,15 @@ class Schedule:
         arrival_times.append(st.arrival_time)
         stop_ids.append(stop_id)
         # Check a stop if which belongs to both subway and bus.
-        if (route_type == Route._ROUTE_TYPE_NAMES['Subway'] or
-            route_type == Route._ROUTE_TYPE_NAMES['Bus']):
+        if (route_type == self._gtfs_factory.Route._ROUTE_TYPE_NAMES['Subway'] or
+            route_type == self._gtfs_factory.Route._ROUTE_TYPE_NAMES['Bus']):
           if stop_id not in stop_types:
             stop_types[stop_id] = [trip.route_id, route_type, 0]
           elif (stop_types[stop_id][1] != route_type and
                 stop_types[stop_id][2] == 0):
             stop_types[stop_id][2] = 1
-            if stop_types[stop_id][1] == Route._ROUTE_TYPE_NAMES['Subway']:
+            if stop_types[stop_id][1] == \
+                self._gtfs_factory.Route._ROUTE_TYPE_NAMES['Subway']:
               subway_route_id = stop_types[stop_id][0]
               bus_route_id = trip.route_id
             else:

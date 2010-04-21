@@ -252,6 +252,7 @@ class MockOptions:
     self.output = 'fake-filename.zip'
     self.manual_entry = False
     self.service_gap_interval = None
+    self.extension = None
 
 
 class FeedValidatorTestCase(util.TempDirTestCaseBase):

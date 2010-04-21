@@ -27,7 +27,6 @@ class Trip(GenericGTFSObject):
   _FIELD_NAMES = _REQUIRED_FIELD_NAMES + [
     'trip_headsign', 'direction_id', 'block_id', 'shape_id'
     ]
-  _FIELD_NAMES_HEADWAY = ['trip_id', 'start_time', 'end_time', 'headway_secs']
   _TABLE_NAME= "trips"
 
   def __init__(self, headsign=None, service_period=None,
