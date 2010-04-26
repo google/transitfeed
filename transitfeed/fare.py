@@ -135,11 +135,6 @@ class Fare(GenericGTFSObject):
       problems.InvalidValue("transfer_duration", self.transfer_duration)
     if self.transfer_duration and (self.transfer_duration < 0):
       problems.InvalidValue("transfer_duration", self.transfer_duration)
-    if (self.transfer_duration and (self.transfer_duration > 0) and
-        self.transfers == 0):
-      problems.InvalidValue("transfer_duration", self.transfer_duration,
-                            "can't have a nonzero transfer_duration for "
-                            "a fare that doesn't allow transfers!")
 
   def Validate(self, problems=default_problem_reporter):
       self.ValidateFareId(problems)

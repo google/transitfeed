@@ -2468,9 +2468,9 @@ class FareValidationTestCase(ValidationTestCase):
     fare.Validate(self.problems)
     fare.transfer_duration = -3600
     self.ExpectInvalidValue(fare, "transfer_duration")
-    fare.transfers = 0  # no transfers allowed but duration specified!
+    fare.transfers = 0  # no transfers allowed and duration specified!
     fare.transfer_duration = 3600
-    self.ExpectInvalidValue(fare, "transfer_duration")
+    fare.Validate(self.problems)
     fare.transfers = 1
     fare.transfer_duration = "3600"
     self.ExpectInvalidValue(fare, "transfer_duration")
