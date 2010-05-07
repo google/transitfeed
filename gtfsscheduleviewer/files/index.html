@@ -13,6 +13,7 @@
     </style>
     <script src="http://[host]/maps?file=api&amp;v=2&amp;key=[key]" type="text/javascript"></script>
     <script src="/file/labeled_marker.js" type="text/javascript"></script>
+    <script src="/file/calendarpopup.js" type="text/javascript"></script>
     <script language="VBScript" src="/file/svgcheck.vbs"></script>
     <script type="text/javascript">
     //<![CDATA[
@@ -289,7 +290,7 @@
      * window.
      */
     function fetchStopInfoWindow(marker) {
-      var url = "/json/stoptrips?stop=" + encodeURIComponent(marker.stopId) + "&time=" + parseTimeInput();
+      var url = "/json/stoptrips?stop=" + encodeURIComponent(marker.stopId) + "&time=" + parseTimeInput() + "&date=" + parseDateInput();
       GDownloadUrl(url, function(data, responseCode) {
           callbackDisplayStopInfoWindow(marker, data, responseCode); } );
       if (log)
@@ -360,7 +361,20 @@
         return seconds;
       } else {
         if (log)
-          GLog.write("Couldn't match " + text);
+          GLog.write("Couldn't match " + text + " to time");
+        return "";
+      }
+    }
+
+    function parseDateInput() {
+      var text = document.getElementById("startDateInput").value;
+      var m = text.match(/(19|20\d\d)(0[1-9]|1[012])(0[1-9]|[12][0-9]|3[01])/);
+      if (m) {
+        return text;
+      } else {
+        if (log)
+          GLog.write("Couldn't match " + text + " to date");
+        return "";
       }
     }
 
@@ -432,7 +446,7 @@
     }
 
     function fetchPatterns(routeId) {
-      url = "/json/routepatterns?route=" + encodeURIComponent(routeId) + "&time=" + parseTimeInput();
+      url = "/json/routepatterns?route=" + encodeURIComponent(routeId) + "&time=" + parseTimeInput() + "&date=" + parseDateInput();
       if (log)
         GLog.writeUrl(url);
       GDownloadUrl(url, callbackDisplayPatterns);
@@ -675,6 +689,21 @@
       }
     }
 
+    var calStartDate = new CalendarPopup();
+    calStartDate.setReturnFunction("setStartDate");
+    
+    function maybeAddLeadingZero(number) {
+      if(number > 10)
+      { 
+        return number;
+      }
+      return '0' + number;
+    }
+    
+    function setStartDate(y,m,d) {
+      document.getElementById('startDateInput').value = y + maybeAddLeadingZero(m) + maybeAddLeadingZero(d);
+    }
+
     //]]>
     </script>
   </head>
@@ -690,6 +719,7 @@
 <div id='content'>
 	<div id='sidebar-wrapper'><div id='sidebar'>
 	Time:&nbsp;<input type="text" value="8:00" width="9" id="timeInput"><br>
+	Date:&nbsp;<input type="text" value="" size="8" id="startDateInput" name="startDateInput"> <a href="#" onclick="calStartDate.select(document.getElementById('startDateInput'),'startDateInput','yyyyMMdd'); return false;">select</a><br>
 	<form onSubmit="stopTextSearchSubmit(); return false;">
 	Find Station: <input type="text" id="stopTextSearchInput"><input value="Search" type="submit"></form><br>
 	<form onSubmit="tripTextSearchSubmit(); return false;">

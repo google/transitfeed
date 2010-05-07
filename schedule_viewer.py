@@ -192,6 +192,7 @@ class ScheduleRequestHandler(BaseHTTPServer.BaseHTTPRequestHandler):
       self.send_error(404)
       return
     time = int(params.get('time', 0))
+    date = params.get('date', "")
     sample_size = 3  # For each pattern return the start time for this many trips
 
     pattern_id_trip_dict = route.GetPatternIdTripDict()
@@ -202,9 +203,23 @@ class ScheduleRequestHandler(BaseHTTPServer.BaseHTTPRequestHandler):
       if not time_stops:
         continue
       has_non_zero_trip_type = False;
+
+      # Iterating over a copy so we can remove from trips inside the loop
+      trips_with_service = []
       for trip in trips:
+        service_id = trip.service_id
+        service_period = schedule.GetServicePeriod(service_id)
+        
+        if date and not service_period.IsActiveOn(date):
+          continue
+        trips_with_service.add(trip)
+        
         if trip['trip_type'] and trip['trip_type'] != '0':
           has_non_zero_trip_type = True
+
+      # We're only interested in the trips that do run on the specified date
+      trips = trips_with_service
+
       name = u'%s to %s, %d stops' % (time_stops[0][2].stop_name, time_stops[-1][2].stop_name, len(time_stops))
       transitfeed.SortListOfTripByTime(trips)
 
@@ -349,6 +364,8 @@ class ScheduleRequestHandler(BaseHTTPServer.BaseHTTPRequestHandler):
     schedule = self.server.schedule
     stop = schedule.GetStop(params.get('stop', None))
     time = int(params.get('time', 0))
+    date = params.get('date', "")
+     
     time_trips = stop.GetStopTimeTrips(schedule)
     time_trips.sort()  # OPT: use bisect.insort to make this O(N*ln(N)) -> O(N)
     # Keep the first 5 after param 'time'.
@@ -358,6 +375,10 @@ class ScheduleRequestHandler(BaseHTTPServer.BaseHTTPRequestHandler):
     # TODO: combine times for a route to show next 2 departure times
     result = []
     for time, (trip, index), tp in time_trips:
+      service_id = trip.service_id
+      service_period = schedule.GetServicePeriod(service_id)
+      if date and not service_period.IsActiveOn(date):
+        continue
       headsign = None
       # Find the most recent headsign from the StopTime objects
       for stoptime in trip.GetStopTimes()[index::-1]:
