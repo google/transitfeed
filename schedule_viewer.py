@@ -212,7 +212,7 @@ class ScheduleRequestHandler(BaseHTTPServer.BaseHTTPRequestHandler):
         
         if date and not service_period.IsActiveOn(date):
           continue
-        trips_with_service.add(trip)
+        trips_with_service.append(trip)
         
         if trip['trip_type'] and trip['trip_type'] != '0':
           has_non_zero_trip_type = True
