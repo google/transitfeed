@@ -64,6 +64,13 @@ class ServicePeriod(object):
     except ValueError:
       return False
 
+  def HasExceptions(self):
+    """Checks if the ServicePeriod has service exceptions."""
+    if self.date_exceptions:
+      return True
+    else:
+      return False
+
   def GetDateRange(self):
     """Return the range over which this ServicePeriod is valid.
 

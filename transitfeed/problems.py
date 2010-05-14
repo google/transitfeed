@@ -193,6 +193,11 @@ class ProblemReporterBase:
                       context2=self._context, type=TYPE_WARNING)
     self._Report(e)
 
+  def NoServiceExceptions(self, start, end, type=TYPE_WARNING, context=None):
+    e = NoServiceExceptions(start=start, end=end, context=context,
+                            context2=self._context, type=type);
+    self._Report(e)
+
   def InvalidLineEnd(self, bad_line_end, context=None):
     """bad_line_end is a human readable string."""
     e = InvalidLineEnd(bad_line_end=bad_line_end, context=context,
@@ -511,6 +516,11 @@ class FutureService(ExceptionWithContext):
             "Published feeds must always include the current date." %
             formatted_date)
 
+class NoServiceExceptions(ExceptionWithContext):
+  ERROR_TEXT = "All services are defined on a weekly basis from %(start)s " \
+               "to %(end)s with no single day variations. If there are " \
+               "exceptions such as holiday service dates please ensure they " \
+               "are listed in calendar_dates.txt"
 
 class InvalidLineEnd(ExceptionWithContext):
   ERROR_TEXT = "Each line must end with CR LF or LF except for the last line " \

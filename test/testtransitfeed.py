@@ -556,7 +556,8 @@ class DuplicateStopTestCase(util.TestCase):
 
 class DuplicateStopSequenceTestCase(util.TestCase):
   def runTest(self):
-    problems = RecordingProblemReporter(self, ("ExpirationDate",))
+    problems = RecordingProblemReporter(self, ("ExpirationDate",
+                                               "NoServiceExceptions"))
     schedule = transitfeed.Schedule(problem_reporter=problems)
     schedule.Load(DataPath('duplicate_stop_sequence'), extra_validation=True)
     e = problems.PopException('InvalidValue')
@@ -604,7 +605,8 @@ class OverlappingBlockTripsTestCase(util.TestCase):
   """Builds a simple schedule for testing of overlapping block trips"""
 
   def setUp(self):
-    self.problems = RecordingProblemReporter(self, ("ExpirationDate",))
+    self.problems = RecordingProblemReporter(self, ("ExpirationDate", 
+                                                    "NoServiceExceptions"))
 
     schedule = OverlappingBlockSchedule(problem_reporter=self.problems)
     schedule.AddAgency("Demo Transit Authority", "http://dta.org",
@@ -771,7 +773,8 @@ class ColorLuminanceTestCase(util.TestCase):
 INVALID_VALUE = Exception()
 class ValidationTestCase(util.TestCase):
   def setUp(self):
-    self.problems = RecordingProblemReporter(self, ("ExpirationDate",))
+    self.problems = RecordingProblemReporter(self, ("ExpirationDate",
+                                                    "NoServiceExceptions"))
 
   def tearDown(self):
     assert len(self.problems.exceptions) == 0, "see util.AssertNoMoreExceptions"
@@ -842,6 +845,7 @@ class ValidationTestCase(util.TestCase):
     service_period.SetWeekdayService(True)
     service_period.SetStartDate("20091203")
     service_period.SetEndDate("20111203")
+    service_period.SetDateHasService("20091203")
     schedule.AddServicePeriodObject(service_period)
     stop1 = schedule.AddStop(lng=1.00, lat=48.2, name="Stop 1", stop_id="stop1")
     stop2 = schedule.AddStop(lng=1.01, lat=48.2, name="Stop 2", stop_id="stop2")
@@ -1331,6 +1335,10 @@ class MemoryZipTestCase(util.TestCase):
         "FULLW,1,1,1,1,1,1,1,20070101,20101231\n"
         "WE,0,0,0,0,0,1,1,20070101,20101231\n")
     self.zip.writestr(
+        "calendar_dates.txt",
+        "service_id,date,exception_type\n"
+        "FULLW,20070101,1\n")
+    self.zip.writestr(
         "routes.txt",
         "route_id,agency_id,route_short_name,route_long_name,route_type\n"
         "AB,DTA,,Airport Bullfrog,3\n")
@@ -1350,6 +1358,9 @@ class MemoryZipTestCase(util.TestCase):
         "AB1,10:00:00,10:00:00,BEATTY_AIRPORT,1\n"
         "AB1,10:20:00,10:20:00,BULLFROG,2\n"
         "AB1,10:25:00,10:25:00,STAGECOACH,3\n")
+    self.InstantiateLoader()
+
+  def InstantiateLoader(self):
     self.loader = transitfeed.Loader(
         problems=self.problems,
         extra_validation=True,
@@ -1358,6 +1369,17 @@ class MemoryZipTestCase(util.TestCase):
   def AppendToZip(self, arcname, s):
     """Append string s to the file arcname in the in-memory zip."""
     zip.writestr(arcname, zip.read(arcname) + s)
+
+  def RemoveFileFromZip(self, arcname):
+    newzipfile = StringIO()
+    newzip = zipfile.ZipFile(newzipfile, 'a')
+    for item in self.zip.namelist():
+      if (item == arcname):
+        continue
+      buffer = self.zip.read(item)
+      newzip.writestr(item, buffer)
+    self.zipfile = newzipfile
+    self.zip = newzip
 
   def DumpZipFile(self, zf):
     """Print the contents of something zipfile can open, such as a StringIO."""
@@ -2621,8 +2643,9 @@ class TransferObjectTestCase(ValidationTestCase):
     schedule.WriteGoogleTransitFeed(saved_schedule_file)
     self.problems.AssertNoMoreExceptions()
 
+    # Ignore NoServiceExceptions error to keep the test simple
     load_problems = TestFailureProblemReporter(
-        self, ("ExpirationDate", "UnrecognizedColumn"))
+        self, ("ExpirationDate", "UnrecognizedColumn", "NoServiceExceptions"))
     loaded_schedule = transitfeed.Loader(saved_schedule_file,
                                          problems=load_problems,
                                          extra_validation=True).Load()
@@ -2768,6 +2791,36 @@ class ServicePeriodValidationTestCase(ValidationTestCase):
     self.ExpectInvalidValue(period2, 'wednesday', 'h')
     repr(period)  # shouldn't crash
 
+  def testHasExceptions(self):
+    # A new ServicePeriod object has no exceptions
+    period = transitfeed.ServicePeriod()
+    self.assertFalse(period.HasExceptions())
+
+    # Only regular service, no exceptions
+    period.service_id = 'WEEKDAY'
+    period.start_date = '20070101'
+    period.end_date = '20071231'
+    period.day_of_week[0] = True
+    self.assertFalse(period.HasExceptions())
+
+    # Regular service + removed service exception
+    period.SetDateHasService('20070101', False)
+    self.assertTrue(period.HasExceptions())
+
+    # Regular service + added service exception
+    period.SetDateHasService('20070101', True)
+    self.assertTrue(period.HasExceptions())
+
+    # Only added service exception
+    period = transitfeed.ServicePeriod()
+    period.SetDateHasService('20070101', True)
+    self.assertTrue(period.HasExceptions())
+
+    # Only removed service exception
+    period = transitfeed.ServicePeriod()
+    period.SetDateHasService('20070101', False)
+    self.assertTrue(period.HasExceptions())
+    
 
 class ServicePeriodDateRangeTestCase(ValidationTestCase):
   def runTest(self):
@@ -2810,6 +2863,65 @@ class ServicePeriodDateRangeTestCase(ValidationTestCase):
     self.assertEqual(('20070101', '20080101'), schedule.GetDateRange())
     schedule.AddServicePeriodObject(period4)
     self.assertEqual(('20051031', '20080101'), schedule.GetDateRange())
+    self.problems.AssertNoMoreExceptions()
+
+
+class NoServiceExceptionsTestCase(MemoryZipTestCase):
+
+  def testNoCalendarDates(self):
+    self.RemoveFileFromZip("calendar_dates.txt")
+    self.InstantiateLoader()
+    self.loader.Load()
+    e = self.problems.PopException("NoServiceExceptions")
+    self.problems.AssertNoMoreExceptions()
+
+  def testNoExceptionsWhenFeedActiveForShortPeriodOfTime(self):
+    self.zip.writestr(
+        "calendar.txt",
+        "service_id,monday,tuesday,wednesday,thursday,friday,saturday,sunday,"
+        "start_date,end_date\n"
+        "FULLW,1,1,1,1,1,1,1,20070101,20070630\n"
+        "WE,0,0,0,0,0,1,1,20070101,20070331\n")
+    self.RemoveFileFromZip("calendar_dates.txt")
+    self.InstantiateLoader()
+    self.loader.Load()
+    self.problems.AssertNoMoreExceptions()
+
+  def testEmptyCalendarDates(self):
+    self.zip.writestr(
+        "calendar_dates.txt",
+        "")
+    self.InstantiateLoader()
+    self.loader.Load()
+    e = self.problems.PopException("EmptyFile")
+    e = self.problems.PopException("NoServiceExceptions")
+    self.problems.AssertNoMoreExceptions()
+
+  def testCalendarDatesWithHeaderOnly(self):
+    self.zip.writestr(
+        "calendar_dates.txt",
+        "service_id,date,exception_type\n")
+    self.InstantiateLoader()
+    self.loader.Load()
+    e = self.problems.PopException("NoServiceExceptions")
+    self.problems.AssertNoMoreExceptions()
+
+  def testCalendarDatesWithAddedServiceException(self):
+    self.zip.writestr(
+        "calendar_dates.txt",
+        "service_id,date,exception_type\n"
+        "FULLW,20070101,1\n")
+    self.InstantiateLoader()
+    self.loader.Load()
+    self.problems.AssertNoMoreExceptions()
+
+  def testCalendarDatesWithRemovedServiceException(self):
+    self.zip.writestr(
+        "calendar_dates.txt",
+        "service_id,date,exception_type\n"
+        "FULLW,20070101,2\n")
+    self.InstantiateLoader()
+    self.loader.Load()
     self.problems.AssertNoMoreExceptions()
 
 
@@ -3715,7 +3827,7 @@ class AddStopTimeParametersTestCase(util.TestCase):
 
 class ExpirationDateTestCase(util.TestCase):
   def runTest(self):
-    problems = RecordingProblemReporter(self)
+    problems = RecordingProblemReporter(self, ("NoServiceExceptions"))
     schedule = transitfeed.Schedule(problem_reporter=problems)
 
     now = time.mktime(time.localtime())
@@ -4199,7 +4311,8 @@ class ScheduleBuilderTestCase(TempFileTestCaseBase):
 
   def testBuildSimpleFeed(self):
     """Make a very simple feed using the Schedule class."""
-    problems = TestFailureProblemReporter(self)
+    problems = TestFailureProblemReporter(self, ("ExpirationDate", 
+                                                 "NoServiceExceptions"))
     schedule = transitfeed.Schedule(problem_reporter=problems)
 
     schedule.AddAgency("Test Agency", "http://example.com",

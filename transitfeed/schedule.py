@@ -787,7 +787,28 @@ class Schedule:
                                          last_day_without_service, 
                                          consecutive_days_without_service)
 
-  def ValidateServiceRange(self, problems, today, service_gap_interval):
+  def ValidateServiceExceptions(self, 
+                                problems, 
+                                first_service_day,
+                                last_service_day):
+    # good enough approximation
+    six_months = datetime.timedelta(days=182)
+    service_span = last_service_day - first_service_day
+    if service_span < six_months:
+      # We don't check for exceptions because the feed is
+      # active for less than six months
+      return
+
+    for period in self.GetServicePeriodList():
+      # If at least one ServicePeriod has service exceptions we don't issue the
+      # warning, so we can stop looking at the list of ServicePeriods.
+      if period.HasExceptions():
+        return
+    problems.NoServiceExceptions(start=first_service_day,
+                                 end=last_service_day)
+
+  def ValidateServiceRangeAndExceptions(self, problems, today, 
+                                        service_gap_interval):
     if today is None:
       today = datetime.date.today()
     (start_date, end_date) = self.GetDateRange()
@@ -806,7 +827,9 @@ class Schedule:
           pass
 
         else:
-          
+          self.ValidateServiceExceptions(problems,
+                                         first_service_day,
+                                         last_service_day)
           self.ValidateFeedStartAndExpirationDates(problems,
                                                    first_service_day,
                                                    last_service_day,
@@ -1145,7 +1168,8 @@ class Schedule:
     if not problems:
       problems = self.problem_reporter
 
-    self.ValidateServiceRange(problems, today, service_gap_interval)
+    self.ValidateServiceRangeAndExceptions(problems, today, 
+                                           service_gap_interval)
     # TODO: Check Trip fields against valid values
     self.ValidateStops(problems, validate_children)
     #TODO: check that every station is used.
