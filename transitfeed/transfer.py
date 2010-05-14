@@ -15,7 +15,7 @@
 # limitations under the License.
 
 from genericgtfsobject import GenericGTFSObject
-from problems import default_problem_reporter
+import problems as problems_module
 import util
 
 class Transfer(GenericGTFSObject):
@@ -58,47 +58,126 @@ class Transfer(GenericGTFSObject):
       # use it and other GenericGTFSObject subclasses don't support it.
       schedule.AddTransferObject(self)
 
-  def ValidateFromStopId(self, problems):
+  def ValidateFromStopIdIsPresent(self, problems):
     if util.IsEmpty(self.from_stop_id):
       problems.MissingValue('from_stop_id')
-    elif self._schedule:
-      if self.from_stop_id not in self._schedule.stops.keys():
-        problems.InvalidValue('from_stop_id', self.from_stop_id)
+      return False
+    return True
 
-  def ValidateToStopId(self, problems):
+  def ValidateToStopIdIsPresent(self, problems):
     if util.IsEmpty(self.to_stop_id):
       problems.MissingValue('to_stop_id')
-    elif self._schedule:
-      if self.to_stop_id not in self._schedule.stops.keys():
-        problems.InvalidValue('to_stop_id', self.to_stop_id)
+      return False
+    return True
 
   def ValidateTransferType(self, problems):
     if not util.IsEmpty(self.transfer_type):
       if (not isinstance(self.transfer_type, int)) or \
           (self.transfer_type not in range(0, 4)):
         problems.InvalidValue('transfer_type', self.transfer_type)
+        return False
+    return True
 
   def ValidateMinimumTransferTime(self, problems):
     if not util.IsEmpty(self.min_transfer_time):
-      if (not isinstance(self.min_transfer_time, int)) or \
-          self.min_transfer_time < 0:
+      # If min_transfer_time is negative, equal to or bigger than 24h issue
+      # an error. If smaller than 24h but bigger than 3h issue a warning.
+      # These errors are not blocking, and should not prevent the transfer
+      # from being added to the schedule.
+      if (isinstance(self.min_transfer_time, int)):
+        if self.min_transfer_time < 0:
+          problems.InvalidValue('min_transfer_time', self.min_transfer_time)
+        elif self.min_transfer_time >= 24*3600:
+          problems.InvalidValue('min_transfer_time', self.min_transfer_time,
+                                reason="The value is very large for a " \
+                                       "transfer time and most likely " \
+                                       "indicates an error.")
+        elif self.min_transfer_time >= 3*3600:
+          problems.InvalidValue('min_transfer_time', self.min_transfer_time,
+                                type=problems_module.TYPE_WARNING,
+                                reason="The value is large for a transfer " \
+                                       "time and most likely indicates " \
+                                       "an error.")
+      else:
         problems.InvalidValue('min_transfer_time', self.min_transfer_time)
-
-  def ValidateBeforeAdd(self, problems):
-    self.ValidateFromStopId(problems)
-    self.ValidateToStopId(problems)
-    self.ValidateTransferType(problems)
-    self.ValidateMinimumTransferTime(problems)
-    
-    # None of these checks are blocking
+        return False
     return True
 
-  def ValidateAfterAdd(self, problems):
-    return
+  def GetTransferDistance(self):
+    from_stop = self._schedule.stops[self.from_stop_id]
+    to_stop = self._schedule.stops[self.to_stop_id]
+    distance = util.ApproximateDistanceBetweenStops(from_stop, to_stop)
+    return distance
 
-  def Validate(self, problems=default_problem_reporter):
-    self.ValidateBeforeAdd(problems)
-    self.ValidateAfterAdd(problems)
+  def ValidateFromStopIdIsValid(self, problems):
+    if self.from_stop_id not in self._schedule.stops.keys():
+      problems.InvalidValue('from_stop_id', self.from_stop_id)
+      return False
+    return True
+
+  def ValidateToStopIdIsValid(self, problems):
+    if self.to_stop_id not in self._schedule.stops.keys():
+      problems.InvalidValue('to_stop_id', self.to_stop_id)
+      return False
+    return True
+
+  def ValidateTransferDistance(self, problems):
+    distance = self.GetTransferDistance()
+
+    if distance > 10000:
+      problems.TransferDistanceTooBig(self.from_stop_id,
+                                      self.to_stop_id,
+                                      distance)
+    elif distance > 2000:
+      problems.TransferDistanceTooBig(self.from_stop_id,
+                                      self.to_stop_id,
+                                      distance,
+                                      type=problems_module.TYPE_WARNING)
+
+  def ValidateTransferWalkingTime(self, problems):
+    if util.IsEmpty(self.min_transfer_time):
+      return
+
+    if self.min_transfer_time < 0:
+      # Error has already been reported, and it does not make sense
+      # to calculate walking speed with negative times.
+      return
+
+    distance = self.GetTransferDistance()
+    # If min_transfer_time + 120s isn't enough for someone walking very fast 
+    # (2m/s) then issue a warning.
+    # 
+    # Stops that are close together (less than 240m appart) never trigger this
+    # warning, regardless of min_transfer_time.
+    FAST_WALKING_SPEED= 2 # 2m/s
+    if self.min_transfer_time + 120 < distance / FAST_WALKING_SPEED:
+      problems.TransferWalkingSpeedTooFast(from_stop_id=self.from_stop_id,
+                                           to_stop_id=self.to_stop_id,
+                                           transfer_time=self.min_transfer_time,
+                                           distance=distance)
+
+  def ValidateBeforeAdd(self, problems):
+    result = True
+    result = self.ValidateFromStopIdIsPresent(problems) and result
+    result = self.ValidateToStopIdIsPresent(problems) and result
+    result = self.ValidateTransferType(problems) and result
+    result = self.ValidateMinimumTransferTime(problems) and result
+    return result
+
+  def ValidateAfterAdd(self, problems):
+    valid_stop_ids = True
+    valid_stop_ids = self.ValidateFromStopIdIsValid(problems) and valid_stop_ids
+    valid_stop_ids = self.ValidateToStopIdIsValid(problems) and valid_stop_ids
+    # We need both stop IDs to be valid to able to validate their distance and
+    # the walking time between them
+    if valid_stop_ids:
+      self.ValidateTransferDistance(problems)
+      self.ValidateTransferWalkingTime(problems)
+
+  def Validate(self,
+               problems=problems_module.default_problem_reporter):
+    if self.ValidateBeforeAdd(problems) and self._schedule:
+      self.ValidateAfterAdd(problems)
 
   def _ID(self):
     return tuple(self[i] for i in self._ID_COLUMNS)

@@ -2583,6 +2583,14 @@ class TransferObjectTestCase(ValidationTestCase):
     self.ExpectInvalidValue(transfer, "min_transfer_time")
     transfer.min_transfer_time = "text"
     self.ExpectInvalidValue(transfer, "min_transfer_time")
+    transfer.min_transfer_time = 4*3600
+    transfer.Validate(self.problems)
+    e = self.problems.PopInvalidValue("min_transfer_time")
+    self.assertEquals(e.type, transitfeed.TYPE_WARNING)
+    transfer.min_transfer_time = 25*3600
+    transfer.Validate(self.problems)
+    e = self.problems.PopInvalidValue("min_transfer_time")
+    self.assertEquals(e.type, transitfeed.TYPE_ERROR)
     transfer.min_transfer_time = 250
     transfer.Validate(self.problems)
     self.problems.AssertNoMoreExceptions()
@@ -2597,13 +2605,14 @@ class TransferObjectTestCase(ValidationTestCase):
 
     # from_stop_id and to_stop_id are present in schedule
     schedule = transitfeed.Schedule()
+    # 597m appart
     stop1 = schedule.AddStop(57.5, 30.2, "stop 1")
-    stop2 = schedule.AddStop(57.5, 30.3, "stop 2")
+    stop2 = schedule.AddStop(57.5, 30.21, "stop 2")
     transfer = transitfeed.Transfer(schedule=schedule)
     transfer.from_stop_id = stop1.stop_id
     transfer.to_stop_id = stop2.stop_id
     transfer.transfer_type = 2
-    transfer.min_transfer_time = 250
+    transfer.min_transfer_time = 600
     repr(transfer)  # shouldn't crash
     transfer.Validate(self.problems)
     self.problems.AssertNoMoreExceptions()
@@ -2628,6 +2637,90 @@ class TransferObjectTestCase(ValidationTestCase):
     transfer.to_stop_id = stop1.stop_id
     schedule.AddTransferObject(transfer)
     self.assertRaises(AssertionError, schedule.AddTransferObject, transfer)
+
+  def testValidationSpeedDistanceAllTransferTypes(self):
+    schedule = transitfeed.Schedule()
+    transfer = transitfeed.Transfer(schedule=schedule)
+    stop1 = schedule.AddStop(1, 0, "stop 1")
+    stop2 = schedule.AddStop(0, 1, "stop 2")
+    transfer = transitfeed.Transfer(schedule=schedule)
+    transfer.from_stop_id = stop1.stop_id
+    transfer.to_stop_id = stop2.stop_id
+    for transfer_type in [0, 1, 2, 3]:
+      transfer.transfer_type = transfer_type
+
+      # from_stop_id and to_stop_id are present in schedule
+      # and a bit far away (should be warning)
+      # 2303m appart
+      stop1.stop_lat = 57.5
+      stop1.stop_lon = 30.32
+      stop2.stop_lat = 57.52
+      stop2.stop_lon = 30.33
+      transfer.min_transfer_time = 2500
+      repr(transfer)  # shouldn't crash
+      transfer.Validate(self.problems)
+      e = self.problems.PopException('TransferDistanceTooBig')
+      self.assertEquals(e.type, transitfeed.TYPE_WARNING)
+      self.assertEquals(e.from_stop_id, stop1.stop_id)
+      self.assertEquals(e.to_stop_id, stop2.stop_id)
+      self.problems.AssertNoMoreExceptions()
+      
+      # from_stop_id and to_stop_id are present in schedule
+      # and too far away (should be error)
+      # 11140m appart
+      stop1.stop_lat = 57.5
+      stop1.stop_lon = 30.32
+      stop2.stop_lat = 57.4
+      stop2.stop_lon = 30.33
+      transfer.min_transfer_time = 3600
+      repr(transfer)  # shouldn't crash
+      transfer.Validate(self.problems)
+      e = self.problems.PopException('TransferDistanceTooBig')
+      self.assertEquals(e.type, transitfeed.TYPE_ERROR)
+      self.assertEquals(e.from_stop_id, stop1.stop_id)
+      self.assertEquals(e.to_stop_id, stop2.stop_id)
+      e = self.problems.PopException('TransferWalkingSpeedTooFast')
+      self.assertEquals(e.type, transitfeed.TYPE_WARNING)
+      self.assertEquals(e.from_stop_id, stop1.stop_id)
+      self.assertEquals(e.to_stop_id, stop2.stop_id)
+      self.problems.AssertNoMoreExceptions()
+
+  def testSmallTransferTimeTriggersWarning(self):
+    # from_stop_id and to_stop_id are present in schedule
+    # and transfer time is too small
+    schedule = transitfeed.Schedule()
+    # 298m appart
+    stop1 = schedule.AddStop(57.5, 30.2, "stop 1")
+    stop2 = schedule.AddStop(57.5, 30.205, "stop 2")
+    transfer = transitfeed.Transfer(schedule=schedule)
+    transfer.from_stop_id = stop1.stop_id
+    transfer.to_stop_id = stop2.stop_id
+    transfer.transfer_type = 2
+    transfer.min_transfer_time = 1
+    repr(transfer)  # shouldn't crash
+    transfer.Validate(self.problems)
+    e = self.problems.PopException('TransferWalkingSpeedTooFast')
+    self.assertEquals(e.type, transitfeed.TYPE_WARNING)
+    self.assertEquals(e.from_stop_id, stop1.stop_id)
+    self.assertEquals(e.to_stop_id, stop2.stop_id)
+    self.problems.AssertNoMoreExceptions()
+
+  def testVeryCloseStationsDoNotTriggerWarning(self):
+    # from_stop_id and to_stop_id are present in schedule
+    # and transfer time is too small, but stations
+    # are very close together.
+    schedule = transitfeed.Schedule()
+    # 239m appart
+    stop1 = schedule.AddStop(57.5, 30.2, "stop 1")
+    stop2 = schedule.AddStop(57.5, 30.204, "stop 2")
+    transfer = transitfeed.Transfer(schedule=schedule)
+    transfer.from_stop_id = stop1.stop_id
+    transfer.to_stop_id = stop2.stop_id
+    transfer.transfer_type = 2
+    transfer.min_transfer_time = 1
+    repr(transfer)  # shouldn't crash
+    transfer.Validate(self.problems)
+    self.problems.AssertNoMoreExceptions()
 
   def testCustomAttribute(self):
     """Add unknown attributes to a Transfer and make sure they are saved."""
@@ -2690,6 +2783,34 @@ class TransferObjectTestCase(ValidationTestCase):
 
 class TransferValidationTestCase(MemoryZipTestCase):
   """Integration test for transfers."""
+
+  def testInvalidStopIds(self):
+    self.zip.writestr(
+        "transfers.txt",
+        "from_stop_id,to_stop_id,transfer_type\n"
+        "DOESNOTEXIST,BULLFROG,2\n"
+        ",BULLFROG,2\n"
+        "BULLFROG,,2\n"
+        "BULLFROG,DOESNOTEXISTEITHER,2\n"
+        "DOESNOTEXIT,DOESNOTEXISTEITHER,2\n"
+        ",,2\n")
+    schedule = self.loader.Load()
+    # First row
+    e = self.problems.PopInvalidValue('from_stop_id')
+    # Second row
+    e = self.problems.PopMissingValue('from_stop_id')
+    # Third row
+    e = self.problems.PopMissingValue('to_stop_id')
+    # Fourth row
+    e = self.problems.PopInvalidValue('to_stop_id')
+    # Fifth row
+    e = self.problems.PopInvalidValue('from_stop_id')
+    e = self.problems.PopInvalidValue('to_stop_id')
+    # Sixth row
+    e = self.problems.PopMissingValue('from_stop_id')
+    e = self.problems.PopMissingValue('to_stop_id')
+    self.problems.AssertNoMoreExceptions()
+
   def testDuplicateTransfer(self):
     self.zip.writestr(
         "stops.txt", self.zip.read("stops.txt") +

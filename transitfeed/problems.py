@@ -232,6 +232,23 @@ class ProblemReporterBase:
                                     context2=self._context,type=TYPE_WARNING)
     self._Report(e)
 
+  def TransferDistanceTooBig(self, from_stop_id, to_stop_id, distance,
+                             context=None, type=TYPE_ERROR):
+    e = TransferDistanceTooBig(from_stop_id=from_stop_id, to_stop_id=to_stop_id,
+                               distance=distance, context=context,
+                               context2=self._context, type=type)
+    self._Report(e)
+
+  def TransferWalkingSpeedTooFast(self, from_stop_id, to_stop_id, distance,
+                                  transfer_time, context=None,
+                                  type=TYPE_WARNING):
+    e = TransferWalkingSpeedTooFast(from_stop_id=from_stop_id,
+                                    transfer_time=transfer_time,
+                                    distance=distance,
+                                    to_stop_id=to_stop_id, context=context,
+                                    context2=self._context, type=type)
+    self._Report(e)
+
   def OtherProblem(self, description, context=None, type=TYPE_ERROR):
     e = OtherProblem(description=description,
                     context=context, context2=self._context, type=type)
@@ -554,6 +571,15 @@ class DuplicateTrip(ExceptionWithContext):
 class OverlappingTripsInSameBlock(ExceptionWithContext):
   ERROR_TEXT = "Trip %(trip_id1)s and trip %(trip_id2)s both are in the " \
                "same block %(block_id)s and have overlapping arrival times."
+
+class TransferDistanceTooBig(ExceptionWithContext):
+  ERROR_TEXT = "Transfer from stop %(from_stop_id)s to stop " \
+               "%(to_stop_id)s has a distance of %(distance)s meters."
+
+class TransferWalkingSpeedTooFast(ExceptionWithContext):
+  ERROR_TEXT = "Riders transfering from stop %(from_stop_id)s to stop " \
+               "%(to_stop_id)s would need to walk %(distance)s meters in " \
+               "%(transfer_time)s seconds."
 
 class OtherProblem(ExceptionWithContext):
   ERROR_TEXT = '%(description)s'
