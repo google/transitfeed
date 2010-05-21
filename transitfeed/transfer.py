@@ -80,13 +80,19 @@ class Transfer(GenericGTFSObject):
 
   def ValidateMinimumTransferTime(self, problems):
     if not util.IsEmpty(self.min_transfer_time):
-      # If min_transfer_time is negative, equal to or bigger than 24h issue
+      if self.transfer_type != 2:
+        problems.MinimumTransferTimeSetWithInvalidTransferType(
+            self.transfer_type)
+
+      # If min_transfer_time is negative, equal to or bigger than 24h, issue
       # an error. If smaller than 24h but bigger than 3h issue a warning.
       # These errors are not blocking, and should not prevent the transfer
       # from being added to the schedule.
       if (isinstance(self.min_transfer_time, int)):
         if self.min_transfer_time < 0:
-          problems.InvalidValue('min_transfer_time', self.min_transfer_time)
+          problems.InvalidValue('min_transfer_time', self.min_transfer_time,
+                                reason="This field cannot contain a negative " \
+                                       "value.")
         elif self.min_transfer_time >= 24*3600:
           problems.InvalidValue('min_transfer_time', self.min_transfer_time,
                                 reason="The value is very large for a " \
@@ -99,7 +105,10 @@ class Transfer(GenericGTFSObject):
                                        "time and most likely indicates " \
                                        "an error.")
       else:
-        problems.InvalidValue('min_transfer_time', self.min_transfer_time)
+        # It has a value, but it is not an integer
+        problems.InvalidValue('min_transfer_time', self.min_transfer_time,
+                              reason="If present, this field should contain " \
+                                "an integer value.")
         return False
     return True
 

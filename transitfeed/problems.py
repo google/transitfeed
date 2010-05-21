@@ -269,6 +269,14 @@ class ProblemReporterBase:
         type=type)
     self._Report(e)
 
+  def MinimumTransferTimeSetWithInvalidTransferType(self, 
+                                                    transfer_type=None,
+                                                    context=None,
+                                                    type=TYPE_ERROR):
+    e = MinimumTransferTimeSetWithInvalidTransferType(context=context,
+        context2=self._context, transfer_type=transfer_type, type=type)
+    self._Report(e)
+
 class ProblemReporter(ProblemReporterBase):
   """This is a basic problem reporter that just prints to console."""
   def _Report(self, e):
@@ -510,6 +518,10 @@ class TooManyDaysWithoutService(ExceptionWithContext):
                " days, from %(first_day_without_service)s to" \
                " %(last_day_without_service)s, without any scheduled service." \
                " Please ensure this is intentional."
+
+class MinimumTransferTimeSetWithInvalidTransferType(ExceptionWithContext):
+  ERROR_TEXT = "The field min_transfer_time should only be set when " \
+               "transfer_type is set to 2, but it is set to %(transfer_type)s."
 
 
 class ExpirationDate(ExceptionWithContext):

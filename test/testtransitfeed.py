@@ -2507,11 +2507,11 @@ class TransferObjectTestCase(ValidationTestCase):
     self.assertEquals(0, transfer.transfer_type)
 
     transfer = transitfeed.Transfer(from_stop_id = "S1", to_stop_id = "S2",
-                                    transfer_type = "1", min_transfer_time = 2)
+                                    transfer_type = "1")
     self.assertEquals("S1", transfer.from_stop_id)
     self.assertEquals("S2", transfer.to_stop_id)
     self.assertEquals(1, transfer.transfer_type)
-    self.assertEquals(2, transfer.min_transfer_time)
+    self.assertEquals(None, transfer.min_transfer_time)
     # references to other tables aren't checked without schedule so this
     # validates even though from_stop_id and to_stop_id are invalid.
     transfer.Validate(self.problems)
@@ -2519,21 +2519,21 @@ class TransferObjectTestCase(ValidationTestCase):
     self.assertEquals("S1", transfer.from_stop_id)
     self.assertEquals("S2", transfer.to_stop_id)
     self.assertEquals(1, transfer.transfer_type)
-    self.assertEquals(2, transfer.min_transfer_time)
+    self.assertEquals(None, transfer.min_transfer_time)
     self.problems.AssertNoMoreExceptions()
 
     transfer = transitfeed.Transfer(field_dict={"from_stop_id": "S1", \
                                                 "to_stop_id": "S2", \
-                                                "transfer_type": "0", \
+                                                "transfer_type": "2", \
                                                 "min_transfer_time": "2"})
     self.assertEquals("S1", transfer.from_stop_id)
     self.assertEquals("S2", transfer.to_stop_id)
-    self.assertEquals(0, transfer.transfer_type)
+    self.assertEquals(2, transfer.transfer_type)
     self.assertEquals(2, transfer.min_transfer_time)
     transfer.Validate(self.problems)
     self.assertEquals("S1", transfer.from_stop_id)
     self.assertEquals("S2", transfer.to_stop_id)
-    self.assertEquals(0, transfer.transfer_type)
+    self.assertEquals(2, transfer.transfer_type)
     self.assertEquals(2, transfer.min_transfer_time)
     self.problems.AssertNoMoreExceptions()
 
@@ -2545,7 +2545,10 @@ class TransferObjectTestCase(ValidationTestCase):
     self.assertEquals("S2", transfer.to_stop_id)
     self.assertEquals("-4", transfer.transfer_type)
     self.assertEquals(2, transfer.min_transfer_time)
-    self.ExpectInvalidValue(transfer, "transfer_type")
+    transfer.Validate(self.problems)
+    e = self.problems.PopInvalidValue("transfer_type")
+    e = self.problems.PopException(
+        "MinimumTransferTimeSetWithInvalidTransferType")
     self.assertEquals("S1", transfer.from_stop_id)
     self.assertEquals("S2", transfer.to_stop_id)
     self.assertEquals("-4", transfer.transfer_type)
@@ -2556,7 +2559,53 @@ class TransferObjectTestCase(ValidationTestCase):
                                                 "transfer_type": "", \
                                                 "min_transfer_time": "-1"})
     self.assertEquals(0, transfer.transfer_type)
-    self.ExpectInvalidValue(transfer, "min_transfer_time")
+    transfer.Validate(self.problems)
+    # It's negative *and* transfer_type is not 2
+    e = self.problems.PopException(
+        "MinimumTransferTimeSetWithInvalidTransferType")
+    e = self.problems.PopInvalidValue("min_transfer_time")
+
+    # Non-integer min_transfer_time with transfer_type == 2
+    transfer = transitfeed.Transfer(field_dict={"from_stop_id": "S1", \
+                                                "to_stop_id": "S2", \
+                                                "transfer_type": "2", \
+                                                "min_transfer_time": "foo"})
+    self.assertEquals("foo", transfer.min_transfer_time)
+    transfer.Validate(self.problems)
+    e = self.problems.PopInvalidValue("min_transfer_time")
+
+    # Non-integer min_transfer_time with transfer_type != 2
+    transfer = transitfeed.Transfer(field_dict={"from_stop_id": "S1", \
+                                                "to_stop_id": "S2", \
+                                                "transfer_type": "1", \
+                                                "min_transfer_time": "foo"})
+    self.assertEquals("foo", transfer.min_transfer_time)
+    transfer.Validate(self.problems)
+    # It's not an integer *and* transfer_type is not 2
+    e = self.problems.PopException(
+        "MinimumTransferTimeSetWithInvalidTransferType")
+    e = self.problems.PopInvalidValue("min_transfer_time")
+
+    # Fractional min_transfer_time with transfer_type == 2
+    transfer = transitfeed.Transfer(field_dict={"from_stop_id": "S1", \
+                                                "to_stop_id": "S2", \
+                                                "transfer_type": "2", \
+                                                "min_transfer_time": "2.5"})
+    self.assertEquals("2.5", transfer.min_transfer_time)
+    transfer.Validate(self.problems)
+    e = self.problems.PopInvalidValue("min_transfer_time")
+
+    # Fractional min_transfer_time with transfer_type != 2
+    transfer = transitfeed.Transfer(field_dict={"from_stop_id": "S1", \
+                                                "to_stop_id": "S2", \
+                                                "transfer_type": "1", \
+                                                "min_transfer_time": "2.5"})
+    self.assertEquals("2.5", transfer.min_transfer_time)
+    transfer.Validate(self.problems)
+    # It's not an integer *and* transfer_type is not 2
+    e = self.problems.PopException(
+        "MinimumTransferTimeSetWithInvalidTransferType")
+    e = self.problems.PopInvalidValue("min_transfer_time")
 
     # simple successes
     transfer = transitfeed.Transfer()
@@ -2659,6 +2708,10 @@ class TransferObjectTestCase(ValidationTestCase):
       transfer.min_transfer_time = 2500
       repr(transfer)  # shouldn't crash
       transfer.Validate(self.problems)
+      if transfer_type != 2:
+        e = self.problems.PopException(
+            "MinimumTransferTimeSetWithInvalidTransferType")
+        self.assertEquals(e.transfer_type, transfer.transfer_type)
       e = self.problems.PopException('TransferDistanceTooBig')
       self.assertEquals(e.type, transitfeed.TYPE_WARNING)
       self.assertEquals(e.from_stop_id, stop1.stop_id)
@@ -2675,6 +2728,10 @@ class TransferObjectTestCase(ValidationTestCase):
       transfer.min_transfer_time = 3600
       repr(transfer)  # shouldn't crash
       transfer.Validate(self.problems)
+      if transfer_type != 2:
+        e = self.problems.PopException(
+            "MinimumTransferTimeSetWithInvalidTransferType")
+        self.assertEquals(e.transfer_type, transfer.transfer_type)
       e = self.problems.PopException('TransferDistanceTooBig')
       self.assertEquals(e.type, transitfeed.TYPE_ERROR)
       self.assertEquals(e.from_stop_id, stop1.stop_id)
