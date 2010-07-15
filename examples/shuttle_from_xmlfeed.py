@@ -32,11 +32,15 @@ except ImportError, e:
   import elementtree.ElementTree as ET  # older pythons
 
 
-class NoUnusedStopExceptionProblemReporter(
-        transitfeed.ExceptionProblemReporter):
+class NoUnusedStopExceptionProblemReporter(transitfeed.ProblemReporter):
   """The company shuttle database has a few unused stops for reasons unrelated
   to this script. Ignore them.
   """
+
+  def __init__(self):
+    accumulator = transitfeed.ExceptionProblemAccumulator()
+    transitfeed.ProblemReporter.__init__(self, accumulator)
+
   def UnusedStop(self, stop_id, stop_name):
     pass
 

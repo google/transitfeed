@@ -29,13 +29,23 @@ MAX_DISTANCE_BETWEEN_STOP_AND_PARENT_STATION_WARNING = 100.0
 MAX_DISTANCE_BETWEEN_STOP_AND_PARENT_STATION_ERROR = 1000.0
 
 
-class ProblemReporterBase:
+class ProblemReporter(object):
   """Base class for problem reporters. Tracks the current context and creates
-  an exception object for each problem. Subclasses must implement
-  _Report(self, e)"""
+     an exception object for each problem. Exception objects are sent to a
+     Problem Accumulator, which is responsible for handling them."""
 
-  def __init__(self):
+  def __init__(self, accumulator=None):
     self.ClearContext()
+    if accumulator is None:
+      self.accumulator = SimpleProblemAccumulator()
+    else:
+      self.accumulator = accumulator
+
+  def SetAccumulator(self, accumulator):
+    self.accumulator = accumulator
+
+  def GetAccumulator(self):
+    return self.accumulator
 
   def ClearContext(self):
     """Clear any previous context."""
@@ -52,51 +62,55 @@ class ProblemReporterBase:
     """
     self._context = (file_name, row_num, row, headers)
 
+  def AddToAccumulator(self,e):
+    """Report an exception to the Problem Accumulator"""
+    self.accumulator._Report(e)
+
   def FeedNotFound(self, feed_name, context=None):
     e = FeedNotFound(feed_name=feed_name, context=context,
                      context2=self._context)
-    self._Report(e)
+    self.AddToAccumulator(e)
 
   def UnknownFormat(self, feed_name, context=None):
     e = UnknownFormat(feed_name=feed_name, context=context,
                       context2=self._context)
-    self._Report(e)
+    self.AddToAccumulator(e)
 
   def FileFormat(self, problem, context=None):
     e = FileFormat(problem=problem, context=context,
                    context2=self._context)
-    self._Report(e)
+    self.AddToAccumulator(e)
 
   def MissingFile(self, file_name, context=None):
     e = MissingFile(file_name=file_name, context=context,
                     context2=self._context)
-    self._Report(e)
+    self.AddToAccumulator(e)
 
   def UnknownFile(self, file_name, context=None):
     e = UnknownFile(file_name=file_name, context=context,
                   context2=self._context, type=TYPE_WARNING)
-    self._Report(e)
+    self.AddToAccumulator(e)
 
   def EmptyFile(self, file_name, context=None):
     e = EmptyFile(file_name=file_name, context=context,
                   context2=self._context)
-    self._Report(e)
+    self.AddToAccumulator(e)
 
   def MissingColumn(self, file_name, column_name, context=None):
     e = MissingColumn(file_name=file_name, column_name=column_name,
                       context=context, context2=self._context)
-    self._Report(e)
+    self.AddToAccumulator(e)
 
   def UnrecognizedColumn(self, file_name, column_name, context=None):
     e = UnrecognizedColumn(file_name=file_name, column_name=column_name,
                            context=context, context2=self._context,
                            type=TYPE_WARNING)
-    self._Report(e)
+    self.AddToAccumulator(e)
 
   def CsvSyntax(self, description=None, context=None, type=TYPE_ERROR):
     e = CsvSyntax(description=description, context=context,
                   context2=self._context, type=type)
-    self._Report(e)
+    self.AddToAccumulator(e)
 
   def DuplicateColumn(self, file_name, header, count, type=TYPE_ERROR, 
                       context=None):
@@ -106,18 +120,18 @@ class ProblemReporterBase:
                         type=type,
                         context=context,
                         context2=self._context)
-    self._Report(e)
+    self.AddToAccumulator(e)
 
   def MissingValue(self, column_name, reason=None, context=None):
     e = MissingValue(column_name=column_name, reason=reason, context=context,
                      context2=self._context)
-    self._Report(e)
+    self.AddToAccumulator(e)
 
   def InvalidValue(self, column_name, value, reason=None, context=None,
                    type=TYPE_ERROR):
     e = InvalidValue(column_name=column_name, value=value, reason=reason,
                      context=context, context2=self._context, type=type)
-    self._Report(e)
+    self.AddToAccumulator(e)
 
   def DuplicateID(self, column_names, values, context=None, type=TYPE_ERROR):
     if isinstance(column_names, (tuple, list)):
@@ -126,17 +140,17 @@ class ProblemReporterBase:
       values = '(' + ', '.join(values) + ')'
     e = DuplicateID(column_name=column_names, value=values,
                     context=context, context2=self._context, type=type)
-    self._Report(e)
+    self.AddToAccumulator(e)
 
   def UnusedStop(self, stop_id, stop_name, context=None):
     e = UnusedStop(stop_id=stop_id, stop_name=stop_name,
                    context=context, context2=self._context, type=TYPE_WARNING)
-    self._Report(e)
+    self.AddToAccumulator(e)
 
   def UsedStation(self, stop_id, stop_name, context=None):
     e = UsedStation(stop_id=stop_id, stop_name=stop_name,
                     context=context, context2=self._context, type=TYPE_ERROR)
-    self._Report(e)
+    self.AddToAccumulator(e)
 
   def StopTooFarFromParentStation(self, stop_id, stop_name, parent_stop_id,
                                   parent_stop_name, distance,
@@ -146,7 +160,7 @@ class ProblemReporterBase:
         parent_stop_id=parent_stop_id,
         parent_stop_name=parent_stop_name, distance=distance,
         context=context, context2=self._context, type=type)
-    self._Report(e)
+    self.AddToAccumulator(e)
 
   def StopsTooClose(self, stop_name_a, stop_id_a, stop_name_b, stop_id_b,
                     distance, type=TYPE_WARNING, context=None):
@@ -154,7 +168,7 @@ class ProblemReporterBase:
         stop_name_a=stop_name_a, stop_id_a=stop_id_a, stop_name_b=stop_name_b,
         stop_id_b=stop_id_b, distance=distance, context=context,
         context2=self._context, type=type)
-    self._Report(e)
+    self.AddToAccumulator(e)
 
   def StationsTooClose(self, stop_name_a, stop_id_a, stop_name_b, stop_id_b,
                        distance, type=TYPE_WARNING, context=None):
@@ -162,7 +176,7 @@ class ProblemReporterBase:
         stop_name_a=stop_name_a, stop_id_a=stop_id_a, stop_name_b=stop_name_b,
         stop_id_b=stop_id_b, distance=distance, context=context,
         context2=self._context, type=type)
-    self._Report(e)
+    self.AddToAccumulator(e)
 
   def DifferentStationTooClose(self, stop_name, stop_id,
                                station_stop_name, station_stop_id,
@@ -171,7 +185,7 @@ class ProblemReporterBase:
         stop_name=stop_name, stop_id=stop_id,
         station_stop_name=station_stop_name, station_stop_id=station_stop_id,
         distance=distance, context=context, context2=self._context, type=type)
-    self._Report(e)
+    self.AddToAccumulator(e)
 
   def StopTooFarFromShapeWithDistTraveled(self, trip_id, stop_name, stop_id,
                                           shape_dist_traveled, shape_id,
@@ -181,35 +195,35 @@ class ProblemReporterBase:
         trip_id=trip_id, stop_name=stop_name, stop_id=stop_id,
         shape_dist_traveled=shape_dist_traveled, shape_id=shape_id,
         distance=distance, max_distance=max_distance, type=type)
-    self._Report(e)
+    self.AddToAccumulator(e)
 
   def ExpirationDate(self, expiration, context=None):
     e = ExpirationDate(expiration=expiration, context=context,
                        context2=self._context, type=TYPE_WARNING)
-    self._Report(e)
+    self.AddToAccumulator(e)
 
   def FutureService(self, start_date, context=None):
     e = FutureService(start_date=start_date, context=context,
                       context2=self._context, type=TYPE_WARNING)
-    self._Report(e)
+    self.AddToAccumulator(e)
 
   def NoServiceExceptions(self, start, end, type=TYPE_WARNING, context=None):
     e = NoServiceExceptions(start=start, end=end, context=context,
                             context2=self._context, type=type);
-    self._Report(e)
+    self.AddToAccumulator(e)
 
   def InvalidLineEnd(self, bad_line_end, context=None):
     """bad_line_end is a human readable string."""
     e = InvalidLineEnd(bad_line_end=bad_line_end, context=context,
                        context2=self._context, type=TYPE_WARNING)
-    self._Report(e)
+    self.AddToAccumulator(e)
 
   def TooFastTravel(self, trip_id, prev_stop, next_stop, dist, time, speed,
                     type=TYPE_ERROR):
     e = TooFastTravel(trip_id=trip_id, prev_stop=prev_stop,
                       next_stop=next_stop, time=time, dist=dist, speed=speed,
                       context=None, context2=self._context, type=type)
-    self._Report(e)
+    self.AddToAccumulator(e)
 
   def StopWithMultipleRouteTypes(self, stop_name, stop_id, route_id1, route_id2,
                                  context=None):
@@ -217,27 +231,27 @@ class ProblemReporterBase:
                                    route_id1=route_id1, route_id2=route_id2,
                                    context=context, context2=self._context,
                                    type=TYPE_WARNING)
-    self._Report(e)
+    self.AddToAccumulator(e)
 
   def DuplicateTrip(self, trip_id1, route_id1, trip_id2, route_id2,
                     context=None):
     e = DuplicateTrip(trip_id1=trip_id1, route_id1=route_id1, trip_id2=trip_id2,
                       route_id2=route_id2, context=context,
                       context2=self._context, type=TYPE_WARNING)
-    self._Report(e)
+    self.AddToAccumulator(e)
 
   def OverlappingTripsInSameBlock(self,trip_id1,trip_id2,block_id,context=None):
     e = OverlappingTripsInSameBlock(trip_id1=trip_id1, trip_id2=trip_id2,
                                     block_id=block_id, context=context,
                                     context2=self._context,type=TYPE_WARNING)
-    self._Report(e)
+    self.AddToAccumulator(e)
 
   def TransferDistanceTooBig(self, from_stop_id, to_stop_id, distance,
                              context=None, type=TYPE_ERROR):
     e = TransferDistanceTooBig(from_stop_id=from_stop_id, to_stop_id=to_stop_id,
                                distance=distance, context=context,
                                context2=self._context, type=type)
-    self._Report(e)
+    self.AddToAccumulator(e)
 
   def TransferWalkingSpeedTooFast(self, from_stop_id, to_stop_id, distance,
                                   transfer_time, context=None,
@@ -247,12 +261,12 @@ class ProblemReporterBase:
                                     distance=distance,
                                     to_stop_id=to_stop_id, context=context,
                                     context2=self._context, type=type)
-    self._Report(e)
+    self.AddToAccumulator(e)
 
   def OtherProblem(self, description, context=None, type=TYPE_ERROR):
     e = OtherProblem(description=description,
                     context=context, context2=self._context, type=type)
-    self._Report(e)
+    self.AddToAccumulator(e)
 
   def TooManyDaysWithoutService(self,
                                 first_day_without_service,
@@ -267,7 +281,7 @@ class ProblemReporterBase:
         context=context,
         context2=self._context,
         type=type)
-    self._Report(e)
+    self.AddToAccumulator(e)
 
   def MinimumTransferTimeSetWithInvalidTransferType(self, 
                                                     transfer_type=None,
@@ -275,10 +289,19 @@ class ProblemReporterBase:
                                                     type=TYPE_ERROR):
     e = MinimumTransferTimeSetWithInvalidTransferType(context=context,
         context2=self._context, transfer_type=transfer_type, type=type)
-    self._Report(e)
+    self.AddToAccumulator(e)
 
-class ProblemReporter(ProblemReporterBase):
-  """This is a basic problem reporter that just prints to console."""
+
+class ProblemAccumulatorInterface(object):
+  """The base class for Problem Accumulators, which defines their interface."""
+
+  def _Report(self, e):
+    raise NotImplementedError("Please use a concrete Problem Accumulator that "
+                              "implements error and warning handling.")
+
+
+class SimpleProblemAccumulator(ProblemAccumulatorInterface):
+  """This is a basic problem accumulator that just prints to console."""
   def _Report(self, e):
     context = e.FormatContext()
     if context:
@@ -597,19 +620,30 @@ class OtherProblem(ExceptionWithContext):
   ERROR_TEXT = '%(description)s'
 
 
-class ExceptionProblemReporter(ProblemReporter):
+class ExceptionProblemAccumulator(ProblemAccumulatorInterface):
+  """A problem accumulator that handles errors and optionally warnings by
+     raising exceptions."""
   def __init__(self, raise_warnings=False):
-    ProblemReporterBase.__init__(self)
+    """Initialise.
+
+    Args:
+      raise_warnings: If this is True then warnings are also raised as
+                      exceptions.
+                      If it is false, warnings are printed to the console using
+                      SimpleProblemAccumulator.
+    """
     self.raise_warnings = raise_warnings
+    self.accumulator = SimpleProblemAccumulator()
 
   def _Report(self, e):
     if self.raise_warnings or e.IsError():
       raise e
     else:
-      ProblemReporter._Report(self, e)
+      self.accumulator._Report(e)
 
 
-default_problem_reporter = ExceptionProblemReporter()
+default_accumulator = ExceptionProblemAccumulator()
+default_problem_reporter = ProblemReporter(default_accumulator)
 
 # Add a default handler to send log messages to console
 console = logging.StreamHandler()

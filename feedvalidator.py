@@ -139,14 +139,13 @@ def MaxVersion(versions):
     return versions[0]
 
 
-class CountingConsoleProblemReporter(transitfeed.ProblemReporter):
+class CountingConsoleProblemAccumulator(transitfeed.SimpleProblemAccumulator):
   def __init__(self):
-    transitfeed.ProblemReporter.__init__(self)
     self._error_count = 0
     self._warning_count = 0
 
   def _Report(self, e):
-    transitfeed.ProblemReporter._Report(self, e)
+    transitfeed.SimpleProblemAccumulator._Report(self, e)
     if e.IsError():
       self._error_count += 1
     else:
@@ -199,10 +198,8 @@ class BoundedProblemList(object):
   problems = property(lambda s: s._exceptions)
 
 
-class LimitPerTypeProblemReporter(transitfeed.ProblemReporter):
+class LimitPerTypeProblemAccumulator(transitfeed.ProblemAccumulatorInterface):
   def __init__(self, limit_per_type):
-    transitfeed.ProblemReporter.__init__(self)
-
     # {TYPE_WARNING: {"ClassName": BoundedProblemList()}}
     self._type_to_name_to_problist = {
       TYPE_WARNING: defaultdict(lambda: BoundedProblemList(limit_per_type)),
@@ -233,7 +230,7 @@ class LimitPerTypeProblemReporter(transitfeed.ProblemReporter):
     return self._type_to_name_to_problist[problem_type]
 
 
-class HTMLCountingProblemReporter(LimitPerTypeProblemReporter):
+class HTMLCountingProblemAccumulator(LimitPerTypeProblemAccumulator):
   def FormatType(self, f, level_name, class_problist):
     """Write the HTML dumping all problems of one type.
 
@@ -499,21 +496,23 @@ def RunValidationOutputToFilename(feed, options, output_filename):
 
 def RunValidationOutputToFile(feed, options, output_file):
   """Validate feed, write HTML to output_file and return an exit code."""
-  problems = HTMLCountingProblemReporter(options.limit_per_type)
+  accumulator = HTMLCountingProblemAccumulator(options.limit_per_type)
+  problems = transitfeed.ProblemReporter(accumulator)
   schedule, exit_code, other_problems_string = RunValidation(feed, options,
                                                              problems)
   if isinstance(feed, basestring):
     feed_location = feed
   else:
     feed_location = getattr(feed, 'name', repr(feed))
-  problems.WriteOutput(feed_location, output_file, schedule,
+  accumulator.WriteOutput(feed_location, output_file, schedule,
                        other_problems_string)
   return exit_code
 
 
 def RunValidationOutputToConsole(feed, options):
   """Validate feed, print reports and return an exit code."""
-  problems = CountingConsoleProblemReporter()
+  accumulator = CountingConsoleProblemAccumulator()
+  problems = transitfeed.ProblemReporter(accumulator)
   _, exit_code, _ = RunValidation(feed, options, problems)
   return exit_code
 
@@ -566,8 +565,9 @@ def RunValidation(feed, options, problems):
   if other_problems_string:
     print other_problems_string
 
-  if problems.HasIssues():
-    print 'ERROR: %s found' % problems.FormatCount()
+  accumulator = problems.GetAccumulator()
+  if accumulator.HasIssues():
+    print 'ERROR: %s found' % accumulator.FormatCount()
     return schedule, 1, other_problems_string
   else:
     print 'feed validated successfully'

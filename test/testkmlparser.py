@@ -63,7 +63,8 @@ class FullTests(util.TempDirTestCaseBase):
     (out, err) = self.CheckCallWithPath(
         [self.GetPath('kmlparser.py'), 'one_stop.kml', 'one_stop.zip'])
     # There will be lots of problems, but ignore them
-    problems = util.RecordingProblemReporter(self)
+    accumulator = util.RecordingProblemAccumulator(self)
+    problems = transitfeed.ProblemReporter(accumulator)
     schedule = transitfeed.Loader('one_stop.zip', problems=problems).Load()
     self.assertEquals(len(schedule.GetStopList()), 1)
     self.assertFalse(os.path.exists('transitfeedcrash.txt'))

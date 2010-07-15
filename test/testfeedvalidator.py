@@ -274,29 +274,38 @@ class FeedValidatorTestCase(util.TempDirTestCaseBase):
 
 
 class LimitPerTypeProblemReporterTestCase(util.TestCase):
+
+  def CreateLimitPerTypeProblemReporter(self, limit):
+    accumulator = feedvalidator.LimitPerTypeProblemAccumulator(limit)
+    problems = transitfeed.ProblemReporter(accumulator)
+    return problems
+
   def assertProblemsAttribute(self, problem_type, class_name, attribute_name,
                               expected):
     """Join the value of each exception's attribute_name in order."""
     problem_attribute_list = []
-    for e in self.problems.ProblemList(problem_type, class_name).problems:
+    for e in self.problems.GetAccumulator().ProblemList(
+        problem_type, class_name).problems:
       problem_attribute_list.append(getattr(e, attribute_name))
     self.assertEquals(expected, " ".join(problem_attribute_list))
 
   def testLimitOtherProblems(self):
     """The first N of each type should be kept."""
-    self.problems = feedvalidator.LimitPerTypeProblemReporter(2)
+    self.problems = self.CreateLimitPerTypeProblemReporter(2)
+    self.accumulator = self.problems.GetAccumulator()
+
     self.problems.OtherProblem("e1", type=transitfeed.TYPE_ERROR)
     self.problems.OtherProblem("w1", type=transitfeed.TYPE_WARNING)
     self.problems.OtherProblem("e2", type=transitfeed.TYPE_ERROR)
     self.problems.OtherProblem("e3", type=transitfeed.TYPE_ERROR)
     self.problems.OtherProblem("w2", type=transitfeed.TYPE_WARNING)
-    self.assertEquals(2, self.problems.WarningCount())
-    self.assertEquals(3, self.problems.ErrorCount())
+    self.assertEquals(2, self.accumulator.WarningCount())
+    self.assertEquals(3, self.accumulator.ErrorCount())
 
     # These are BoundedProblemList objects
-    warning_bounded_list = self.problems.ProblemList(
+    warning_bounded_list = self.accumulator.ProblemList(
         transitfeed.TYPE_WARNING, "OtherProblem")
-    error_bounded_list = self.problems.ProblemList(
+    error_bounded_list = self.accumulator.ProblemList(
         transitfeed.TYPE_ERROR, "OtherProblem")
    
     self.assertEquals(2, warning_bounded_list.count)
@@ -322,14 +331,15 @@ class LimitPerTypeProblemReporterTestCase(util.TestCase):
     for i in range(20):
       exceptions.append(transitfeed.OtherProblem(description="e%i" % i))
     exceptions = exceptions[10:] + exceptions[:10]
-    self.problems = feedvalidator.LimitPerTypeProblemReporter(3)
+    self.problems = self.CreateLimitPerTypeProblemReporter(3)
+    self.accumulator = self.problems.GetAccumulator()
     for e in exceptions:
-      self.problems._Report(e)
+      self.problems.AddToAccumulator(e)
 
-    self.assertEquals(0, self.problems.WarningCount())
-    self.assertEquals(20, self.problems.ErrorCount())
+    self.assertEquals(0, self.accumulator.WarningCount())
+    self.assertEquals(20, self.accumulator.ErrorCount())
 
-    bounded_list = self.problems.ProblemList(
+    bounded_list = self.accumulator.ProblemList(
         transitfeed.TYPE_ERROR, "OtherProblem")
     self.assertEquals(20, bounded_list.count)
     self.assertEquals(17, bounded_list.dropped_count)
@@ -338,36 +348,39 @@ class LimitPerTypeProblemReporterTestCase(util.TestCase):
 
   def testLimitSortedTooFastTravel(self):
     """Sort by decreasing distance, keeping the N greatest."""
-    self.problems = feedvalidator.LimitPerTypeProblemReporter(3)
+    self.problems = self.CreateLimitPerTypeProblemReporter(3)
+    self.accumulator = self.problems.GetAccumulator()
     self.problems.TooFastTravel("t1", "prev stop", "next stop", 11230.4, 5,
         None)
     self.problems.TooFastTravel("t2", "prev stop", "next stop", 1120.4, 5, None)
     self.problems.TooFastTravel("t3", "prev stop", "next stop", 1130.4, 5, None)
     self.problems.TooFastTravel("t4", "prev stop", "next stop", 1230.4, 5, None)
-    self.assertEquals(0, self.problems.WarningCount())
-    self.assertEquals(4, self.problems.ErrorCount())
+    self.assertEquals(0, self.accumulator.WarningCount())
+    self.assertEquals(4, self.accumulator.ErrorCount())
     self.assertProblemsAttribute(transitfeed.TYPE_ERROR, "TooFastTravel",
         "trip_id", "t1 t4 t3")
 
   def testLimitSortedStopTooFarFromParentStation(self):
     """Sort by decreasing distance, keeping the N greatest."""
-    self.problems = feedvalidator.LimitPerTypeProblemReporter(3)
+    self.problems = self.CreateLimitPerTypeProblemReporter(3)
+    self.accumulator = self.problems.GetAccumulator()
     for i, distance in enumerate((1000, 3002.0, 1500, 2434.1, 5023.21)):
       self.problems.StopTooFarFromParentStation(
           "s%d" % i, "S %d" % i, "p%d" % i, "P %d" % i, distance)
-    self.assertEquals(5, self.problems.WarningCount())
-    self.assertEquals(0, self.problems.ErrorCount())
+    self.assertEquals(5, self.accumulator.WarningCount())
+    self.assertEquals(0, self.accumulator.ErrorCount())
     self.assertProblemsAttribute(transitfeed.TYPE_WARNING,
         "StopTooFarFromParentStation", "stop_id", "s4 s1 s3")
 
   def testLimitSortedStopsTooClose(self):
     """Sort by increasing distance, keeping the N closest."""
-    self.problems = feedvalidator.LimitPerTypeProblemReporter(3)
+    self.problems = self.CreateLimitPerTypeProblemReporter(3)
+    self.accumulator = self.problems.GetAccumulator()
     for i, distance in enumerate((4.0, 3.0, 2.5, 2.2, 1.0, 0.0)):
       self.problems.StopsTooClose(
           "Sa %d" % i, "sa%d" % i, "Sb %d" % i, "sb%d" % i, distance)
-    self.assertEquals(6, self.problems.WarningCount())
-    self.assertEquals(0, self.problems.ErrorCount())
+    self.assertEquals(6, self.accumulator.WarningCount())
+    self.assertEquals(0, self.accumulator.ErrorCount())
     self.assertProblemsAttribute(transitfeed.TYPE_WARNING,
         "StopsTooClose", "stop_id_a", "sa5 sa4 sa3")
     

@@ -137,47 +137,32 @@ class FareRulesBroken(MergeProblemWithContext):
                 "properly.")
 
 
-class MergeProblemReporterBase(transitfeed.ProblemReporterBase):
+class MergeProblemReporter(transitfeed.ProblemReporter):
   """The base problem reporter class for the merge module."""
 
+  def __init__(self, accumulator):
+    transitfeed.ProblemReporter.__init__(self, accumulator)
+
   def SameIdButNotMerged(self, dataset, entity_id, reason):
-    self._Report(SameIdButNotMerged(dataset, id=entity_id, reason=reason))
+    self.AddToAccumulator(
+        SameIdButNotMerged(dataset, id=entity_id, reason=reason))
 
   def CalendarsNotDisjoint(self, dataset):
-    self._Report(CalendarsNotDisjoint(dataset,
-                                      problem_type=transitfeed.TYPE_ERROR))
+    self.AddToAccumulator(
+        CalendarsNotDisjoint(dataset, problem_type=transitfeed.TYPE_ERROR))
 
   def MergeNotImplemented(self, dataset):
-    self._Report(MergeNotImplemented(dataset))
+    self.AddToAccumulator(MergeNotImplemented(dataset))
 
   def FareRulesBroken(self, dataset):
-    self._Report(FareRulesBroken(dataset))
+    self.AddToAccumulator(FareRulesBroken(dataset))
 
 
-class ExceptionProblemReporter(MergeProblemReporterBase):
-  """A problem reporter that reports errors by raising exceptions."""
-
-  def __init__(self, raise_warnings=False):
-    """Initialise.
-
-    Args:
-      raise_warnings: If this is True then warnings are also raised as
-                      exceptions.
-    """
-    MergeProblemReporterBase.__init__(self)
-    self._raise_warnings = raise_warnings
-
-  def _Report(self, merge_problem):
-    if self._raise_warnings or merge_problem.IsError():
-      raise merge_problem
-
-
-class HTMLProblemReporter(MergeProblemReporterBase):
+class HTMLProblemAccumulator(transitfeed.ProblemAccumulatorInterface):
   """A problem reporter which generates HTML output."""
 
   def __init__(self):
     """Initialise."""
-    MergeProblemReporterBase.__init__(self)
     self._dataset_warnings = {}  # a map from DataSetMergers to their warnings
     self._dataset_errors = {}
     self._warning_count = 0
@@ -333,22 +318,10 @@ Generated using transitfeed version %s on %s.
     output_file.write(transitfeed.EncodeUnicode(html_footer))
 
 
-class ConsoleWarningRaiseErrorProblemReporter(transitfeed.ProblemReporterBase):
-  """Problem reporter to use when loading feeds for merge."""
-
-  def _Report(self, e):
-    if e.IsError():
-      raise e
-    else:
-      print transitfeed.EncodeUnicode(e.FormatProblem())
-      context = e.FormatContext()
-      if context:
-        print context
-
-
 def LoadWithoutErrors(path, memory_db):
   """"Return a Schedule object loaded from path; sys.exit for any error."""
-  loading_problem_handler = ConsoleWarningRaiseErrorProblemReporter()
+  accumulator = transitfeed.ExceptionProblemAccumulator()
+  loading_problem_handler = MergeProblemReporter(accumulator)
   try:
     schedule = transitfeed.Loader(path,
                                   memory_db=memory_db,
@@ -1561,7 +1534,7 @@ class FeedMerger(object):
   """
 
   def __init__(self, a_schedule, b_schedule, merged_schedule,
-               problem_reporter=None):
+               problem_reporter):
     """Initialise the merger.
 
     Once this initialiser has been called, a_schedule and b_schedule should
@@ -1571,8 +1544,7 @@ class FeedMerger(object):
       a_schedule: The old schedule, an instance of transitfeed.Schedule.
       b_schedule: The new schedule, an instance of transitfeed.Schedule.
       problem_reporter: The problem reporter, an instance of
-                        transitfeed.ProblemReporterBase. This can be None in
-                        which case the ExceptionProblemReporter is used.
+                        transitfeed.ProblemReporter.
     """
     self.a_schedule = a_schedule
     self.b_schedule = b_schedule
@@ -1585,10 +1557,7 @@ class FeedMerger(object):
     self._idnum = max(self._FindLargestIdPostfixNumber(self.a_schedule),
                       self._FindLargestIdPostfixNumber(self.b_schedule))
 
-    if problem_reporter is not None:
-      self.problem_reporter = problem_reporter
-    else:
-      self.problem_reporter = ExceptionProblemReporter()
+    self.problem_reporter = problem_reporter
 
   def _FindLargestIdPostfixNumber(self, schedule):
     """Finds the largest integer used as the ending of an id in the schedule.
@@ -1826,7 +1795,8 @@ http://code.google.com/p/googletransitdatafeed/wiki/Merge
   a_schedule = LoadWithoutErrors(old_feed_path, options.memory_db)
   b_schedule = LoadWithoutErrors(new_feed_path, options.memory_db)
   merged_schedule = transitfeed.Schedule(memory_db=options.memory_db)
-  problem_reporter = HTMLProblemReporter()
+  accumulator = HTMLProblemAccumulator()
+  problem_reporter = MergeProblemReporter(accumulator)
   feed_merger = FeedMerger(a_schedule, b_schedule, merged_schedule,
                            problem_reporter)
   feed_merger.AddDefaultMergers()
@@ -1846,8 +1816,8 @@ http://code.google.com/p/googletransitdatafeed/wiki/Merge
     merged_feed_path = None
 
   output_file = file(options.html_output_path, 'w')
-  problem_reporter.WriteOutput(output_file, feed_merger,
-                               old_feed_path, new_feed_path, merged_feed_path)
+  accumulator.WriteOutput(output_file, feed_merger,
+                          old_feed_path, new_feed_path, merged_feed_path)
   output_file.close()
 
   if not options.no_browser:

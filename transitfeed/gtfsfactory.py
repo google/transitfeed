@@ -226,6 +226,9 @@ class GtfsFactory(object):
       raise problems.NonexistentMapping(class_name)
     del self._class_mapping[class_name]
 
+  def GetProblemReporter(self):
+    return problems.ProblemReporter()
+
 def GetGtfsFactory():
   """Called by FeedValidator to retrieve this extension's GtfsFactory.
      Extensions will most likely only need to create an instance of

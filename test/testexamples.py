@@ -89,7 +89,8 @@ class filter_unused_stops(util.TempDirTestCaseBase):
   def testNormalRun(self):
     unused_stop_path = self.GetPath('test', 'data', 'unused_stop')
     # Make sure load fails for input
-    problem_reporter = transitfeed.ExceptionProblemReporter(raise_warnings=True)
+    accumulator = transitfeed.ExceptionProblemAccumulator(raise_warnings=True)
+    problem_reporter = transitfeed.ProblemReporter(accumulator)
     try:
       transitfeed.Loader(
           unused_stop_path,

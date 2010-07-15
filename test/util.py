@@ -139,15 +139,15 @@ class TempDirTestCaseBase(GetPathTestCase):
                       env=env, stdin_str=stdin_str)
 
 
-class RecordingProblemReporter(transitfeed.ProblemReporterBase):
+#TODO(anog): Revisit this after we implement proper per-exception level change
+class RecordingProblemAccumulator(transitfeed.ProblemAccumulatorInterface):
   """Save all problems for later inspection.
 
   Args:
     test_case: a unittest.TestCase object on which to report problems
     ignore_types: sequence of string type names that will be ignored by the
-    ProblemReporter"""
+    ProblemAccumulator"""
   def __init__(self, test_case, ignore_types=None):
-    transitfeed.ProblemReporterBase.__init__(self)
     self.exceptions = []
     self._test_case = test_case
     self._ignore_types = ignore_types or set()
@@ -176,6 +176,14 @@ class RecordingProblemReporter(transitfeed.ProblemReporterBase):
   def FormatException(self, exce, tb):
     return ("%s\nwith gtfs file context %s\nand traceback\n%s" %
             (exce.FormatProblem(), exce.FormatContext(), tb))
+
+  def TearDownAssertNoMoreExceptions(self):
+    """Assert that there are no unexpected problems left after a test has run.
+
+       This function should be called on a test's tearDown. For more information
+       please see AssertNoMoreExceptions"""
+    assert len(self.exceptions) == 0, \
+        "see util.RecordingProblemAccumulator.AssertNoMoreExceptions"
 
   def AssertNoMoreExceptions(self):
     """Check that no unexpected problems were reported.
@@ -217,4 +225,3 @@ class RecordingProblemReporter(transitfeed.ProblemReporterBase):
     self._test_case.assertEquals(header, e.header)
     self._test_case.assertEquals(count, e.count)
     return e
-

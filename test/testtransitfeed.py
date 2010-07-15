@@ -28,7 +28,7 @@ import transitfeed
 import types
 import unittest
 import util
-from util import RecordingProblemReporter
+from util import RecordingProblemAccumulator
 from StringIO import StringIO
 import zipfile
 import zlib
@@ -43,8 +43,7 @@ def GetDataPathContents():
   return dircache.listdir(os.path.join(here, 'data'))
 
 
-class ExceptionProblemReporterNoExpiration(
-    transitfeed.ExceptionProblemReporter):
+class ExceptionProblemReporterNoExpiration(transitfeed.ProblemReporter):
   """Ignores feed expiration problems.
 
   Use TestFailureProblemReporter in new code because it fails more cleanly, is
@@ -52,16 +51,23 @@ class ExceptionProblemReporterNoExpiration(
   """
 
   def __init__(self):
-    transitfeed.ExceptionProblemReporter.__init__(self, raise_warnings=True)
+    accumulator = transitfeed.ExceptionProblemAccumulator(raise_warnings=True)
+    transitfeed.ProblemReporter.__init__(self, accumulator)
 
   def ExpirationDate(self, expiration, context=None):
     pass  # We don't want to give errors about our test data
 
 
-class TestFailureProblemReporter(transitfeed.ProblemReporter):
+def GetTestFailureProblemReporter(test_case,
+                                  ignore_types=("ExpirationDate",)):
+  accumulator = TestFailureProblemAccumulator(test_case, ignore_types)
+  problems = transitfeed.ProblemReporter(accumulator)
+  return problems
+
+
+class TestFailureProblemAccumulator(transitfeed.ProblemAccumulatorInterface):
   """Causes a test failure immediately on any problem."""
   def __init__(self, test_case, ignore_types=("ExpirationDate",)):
-    transitfeed.ProblemReporter.__init__(self)
     self.test_case = test_case
     self._ignore_types = ignore_types or set()
 
@@ -76,11 +82,11 @@ class TestFailureProblemReporter(transitfeed.ProblemReporter):
         "%s: %s\n%s" % (exception_class, formatted_problem, formatted_context))
 
 
-class UnrecognizedColumnRecorder(RecordingProblemReporter):
+class UnrecognizedColumnRecorder(transitfeed.ProblemReporter):
   """Keeps track of unrecognized column errors."""
   def __init__(self, test_case):
-    RecordingProblemReporter.__init__(self, test_case,
-                                      ignore_types=("ExpirationDate",))
+    self.accumulator = RecordingProblemAccumulator(test_case,
+        ignore_types=("ExpirationDate",))
     self.column_errors = []
 
   def UnrecognizedColumn(self, file_name, column_name, context=None):
@@ -113,7 +119,8 @@ class NoExceptionTestCase(RedirectStdOutTestCaseBase):
 
 class EndOfLineCheckerTestCase(util.TestCase):
   def setUp(self):
-    self.problems = RecordingProblemReporter(self)
+    self.accumulator = RecordingProblemAccumulator(self)
+    self.problems = transitfeed.ProblemReporter(self.accumulator)
 
   def RunEndOfLineChecker(self, end_of_line_checker):
     # Iterating using for calls end_of_line_checker.next() until a
@@ -127,111 +134,112 @@ class EndOfLineCheckerTestCase(util.TestCase):
                                      "<StringIO>",
                                      self.problems)
     self.RunEndOfLineChecker(f)
-    e = self.problems.PopException("InvalidLineEnd")
+    e = self.accumulator.PopException("InvalidLineEnd")
     self.assertEqual(e.file_name, "<StringIO>")
     self.assertEqual(e.row_num, 1)
     self.assertEqual(e.bad_line_end, r"\r\r\n")
-    self.problems.AssertNoMoreExceptions()
+    self.accumulator.AssertNoMoreExceptions()
 
   def testInvalidLineEndToo(self):
     f = transitfeed.EndOfLineChecker(
         StringIO("line1\nline2\r\nline3\r\r\r\n"),
         "<StringIO>", self.problems)
     self.RunEndOfLineChecker(f)
-    e = self.problems.PopException("InvalidLineEnd")
+    e = self.accumulator.PopException("InvalidLineEnd")
     self.assertEqual(e.file_name, "<StringIO>")
     self.assertEqual(e.row_num, 3)
     self.assertEqual(e.bad_line_end, r"\r\r\r\n")
-    e = self.problems.PopException("OtherProblem")
+    e = self.accumulator.PopException("OtherProblem")
     self.assertEqual(e.file_name, "<StringIO>")
     self.assertTrue(e.description.find("consistent line end") != -1)
-    self.problems.AssertNoMoreExceptions()
+    self.accumulator.AssertNoMoreExceptions()
 
   def testEmbeddedCr(self):
     f = transitfeed.EndOfLineChecker(
         StringIO("line1\rline1b"),
         "<StringIO>", self.problems)
     self.RunEndOfLineChecker(f)
-    e = self.problems.PopException("OtherProblem")
+    e = self.accumulator.PopException("OtherProblem")
     self.assertEqual(e.file_name, "<StringIO>")
     self.assertEqual(e.row_num, 1)
     self.assertEqual(e.FormatProblem(),
                      "Line contains ASCII Carriage Return 0x0D, \\r")
-    self.problems.AssertNoMoreExceptions()
+    self.accumulator.AssertNoMoreExceptions()
 
   def testEmbeddedUtf8NextLine(self):
     f = transitfeed.EndOfLineChecker(
         StringIO("line1b\xc2\x85"),
         "<StringIO>", self.problems)
     self.RunEndOfLineChecker(f)
-    e = self.problems.PopException("OtherProblem")
+    e = self.accumulator.PopException("OtherProblem")
     self.assertEqual(e.file_name, "<StringIO>")
     self.assertEqual(e.row_num, 1)
     self.assertEqual(e.FormatProblem(),
                      "Line contains Unicode NEXT LINE SEPARATOR U+0085")
-    self.problems.AssertNoMoreExceptions()
+    self.accumulator.AssertNoMoreExceptions()
 
   def testEndOfLineMix(self):
     f = transitfeed.EndOfLineChecker(
         StringIO("line1\nline2\r\nline3\nline4"),
         "<StringIO>", self.problems)
     self.RunEndOfLineChecker(f)
-    e = self.problems.PopException("OtherProblem")
+    e = self.accumulator.PopException("OtherProblem")
     self.assertEqual(e.file_name, "<StringIO>")
     self.assertEqual(e.FormatProblem(),
                      "Found 1 CR LF \"\\r\\n\" line end (line 2) and "
                      "2 LF \"\\n\" line ends (lines 1, 3). A file must use a "
                      "consistent line end.")
-    self.problems.AssertNoMoreExceptions()
+    self.accumulator.AssertNoMoreExceptions()
 
   def testEndOfLineManyMix(self):
     f = transitfeed.EndOfLineChecker(
         StringIO("1\n2\n3\n4\n5\n6\n7\r\n8\r\n9\r\n10\r\n11\r\n"),
         "<StringIO>", self.problems)
     self.RunEndOfLineChecker(f)
-    e = self.problems.PopException("OtherProblem")
+    e = self.accumulator.PopException("OtherProblem")
     self.assertEqual(e.file_name, "<StringIO>")
     self.assertEqual(e.FormatProblem(),
                      "Found 5 CR LF \"\\r\\n\" line ends (lines 7, 8, 9, 10, "
                      "11) and 6 LF \"\\n\" line ends (lines 1, 2, 3, 4, 5, "
                      "...). A file must use a consistent line end.")
-    self.problems.AssertNoMoreExceptions()
+    self.accumulator.AssertNoMoreExceptions()
 
   def testLoad(self):
     loader = transitfeed.Loader(
       DataPath("bad_eol.zip"), problems=self.problems, extra_validation=True)
     loader.Load()
 
-    e = self.problems.PopException("OtherProblem")
+    e = self.accumulator.PopException("OtherProblem")
     self.assertEqual(e.file_name, "calendar.txt")
     self.assertTrue(re.search(
       r"Found 1 CR LF.* \(line 2\) and 2 LF .*\(lines 1, 3\)",
       e.FormatProblem()))
 
-    e = self.problems.PopException("InvalidLineEnd")
+    e = self.accumulator.PopException("InvalidLineEnd")
     self.assertEqual(e.file_name, "routes.txt")
     self.assertEqual(e.row_num, 5)
     self.assertTrue(e.FormatProblem().find(r"\r\r\n") != -1)
 
-    e = self.problems.PopException("OtherProblem")
+    e = self.accumulator.PopException("OtherProblem")
     self.assertEqual(e.file_name, "trips.txt")
     self.assertEqual(e.row_num, 1)
     self.assertTrue(re.search(
       r"contains ASCII Form Feed",
       e.FormatProblem()))
     # TODO(Tom): avoid this duplicate error for the same issue
-    e = self.problems.PopException("CsvSyntax")
+    e = self.accumulator.PopException("CsvSyntax")
     self.assertEqual(e.row_num, 1)
     self.assertTrue(re.search(
       r"header row should not contain any space char",
       e.FormatProblem()))
 
-    self.problems.AssertNoMoreExceptions()
+    self.accumulator.AssertNoMoreExceptions()
 
 
 class LoadTestCase(util.TestCase):
   def setUp(self):
-    self.problems = RecordingProblemReporter(self, ("ExpirationDate",))
+    self.accumulator = RecordingProblemAccumulator(self, ("ExpirationDate",))
+    self.problems = transitfeed.ProblemReporter(self.accumulator)
 
   def Load(self, feed_name):
     loader = transitfeed.Loader(
@@ -240,12 +248,12 @@ class LoadTestCase(util.TestCase):
 
   def ExpectInvalidValue(self, feed_name, column_name):
     self.Load(feed_name)
-    self.problems.PopInvalidValue(column_name)
-    self.problems.AssertNoMoreExceptions()
+    self.accumulator.PopInvalidValue(column_name)
+    self.accumulator.AssertNoMoreExceptions()
 
   def ExpectMissingFile(self, feed_name, file_name):
     self.Load(feed_name)
-    e = self.problems.PopException("MissingFile")
+    e = self.accumulator.PopException("MissingFile")
     self.assertEqual(file_name, e.file_name)
     # Don't call AssertNoMoreExceptions() because a missing file causes
     # many errors.
@@ -255,7 +263,7 @@ class LoadFromZipTestCase(util.TestCase):
   def runTest(self):
     loader = transitfeed.Loader(
       DataPath('good_feed.zip'),
-      problems = TestFailureProblemReporter(self),
+      problems = GetTestFailureProblemReporter(self),
       extra_validation = True)
     loader.Load()
 
@@ -279,7 +287,7 @@ class LoadFromDirectoryTestCase(util.TestCase):
   def runTest(self):
     loader = transitfeed.Loader(
       DataPath('good_feed'),
-      problems = TestFailureProblemReporter(self),
+      problems = GetTestFailureProblemReporter(self),
       extra_validation = True)
     loader.Load()
 
@@ -342,40 +350,41 @@ class LoadExtraCellValidationTestCase(LoadTestCase):
   """Check that the validation detects too many cells in a row."""
   def runTest(self):
     self.Load('extra_row_cells')
-    e = self.problems.PopException("OtherProblem")
+    e = self.accumulator.PopException("OtherProblem")
     self.assertEquals("routes.txt", e.file_name)
     self.assertEquals(4, e.row_num)
-    self.problems.AssertNoMoreExceptions()
+    self.accumulator.AssertNoMoreExceptions()
 
 
 class LoadMissingCellValidationTestCase(LoadTestCase):
   """Check that the validation detects missing cells in a row."""
   def runTest(self):
     self.Load('missing_row_cells')
-    e = self.problems.PopException("OtherProblem")
+    e = self.accumulator.PopException("OtherProblem")
     self.assertEquals("routes.txt", e.file_name)
     self.assertEquals(4, e.row_num)
-    self.problems.AssertNoMoreExceptions()
+    self.accumulator.AssertNoMoreExceptions()
 
 class LoadUnknownFileTestCase(util.TestCase):
   """Check that the validation detects unknown files."""
   def runTest(self):
     feed_name = DataPath('unknown_file')
-    self.problems = RecordingProblemReporter(self, ("ExpirationDate",))
+    self.accumulator = RecordingProblemAccumulator(self, ("ExpirationDate",))
+    self.problems = transitfeed.ProblemReporter(self.accumulator)
     loader = transitfeed.Loader(
       feed_name,
       problems = self.problems,
       extra_validation = True)
     loader.Load()
-    e = self.problems.PopException('UnknownFile')
+    e = self.accumulator.PopException('UnknownFile')
     self.assertEqual('frecuencias.txt', e.file_name)
-    self.problems.AssertNoMoreExceptions()
+    self.accumulator.AssertNoMoreExceptions()
 
 class LoadUTF8BOMTestCase(util.TestCase):
   def runTest(self):
     loader = transitfeed.Loader(
       DataPath('utf8bom'),
-      problems = TestFailureProblemReporter(self),
+      problems = GetTestFailureProblemReporter(self),
       extra_validation = True)
     loader.Load()
 
@@ -383,9 +392,11 @@ class LoadUTF8BOMTestCase(util.TestCase):
 class LoadUTF16TestCase(util.TestCase):
   def runTest(self):
     # utf16 generated by `recode utf8..utf16 *'
+    accumulator = transitfeed.ExceptionProblemAccumulator()
+    problem_reporter = transitfeed.ProblemReporter(accumulator)
     loader = transitfeed.Loader(
       DataPath('utf16'),
-      problems = transitfeed.ExceptionProblemReporter(),
+      problems = problem_reporter,
       extra_validation = True)
     try:
       loader.Load()
@@ -399,9 +410,11 @@ class LoadUTF16TestCase(util.TestCase):
 
 class LoadNullTestCase(util.TestCase):
   def runTest(self):
+    accumulator = transitfeed.ExceptionProblemAccumulator()
+    problem_reporter = transitfeed.ProblemReporter(accumulator)
     loader = transitfeed.Loader(
       DataPath('contains_null'),
-      problems = transitfeed.ExceptionProblemReporter(),
+      problems = problem_reporter,
       extra_validation = True)
     try:
       loader.Load()
@@ -472,14 +485,14 @@ class BadProblemReporterTestCase(RedirectStdOutTestCaseBase):
 class BadUtf8TestCase(LoadTestCase):
   def runTest(self):
     self.Load('bad_utf8')
-    self.problems.PopException("UnrecognizedColumn")
-    self.problems.PopInvalidValue("agency_name", "agency.txt")
-    self.problems.PopInvalidValue("stop_name", "stops.txt")
-    self.problems.PopInvalidValue("route_short_name", "routes.txt")
-    self.problems.PopInvalidValue("route_long_name", "routes.txt")
-    self.problems.PopInvalidValue("trip_headsign", "trips.txt")
-    self.problems.PopInvalidValue("stop_headsign", "stop_times.txt")
-    self.problems.AssertNoMoreExceptions()
+    self.accumulator.PopException("UnrecognizedColumn")
+    self.accumulator.PopInvalidValue("agency_name", "agency.txt")
+    self.accumulator.PopInvalidValue("stop_name", "stops.txt")
+    self.accumulator.PopInvalidValue("route_short_name", "routes.txt")
+    self.accumulator.PopInvalidValue("route_long_name", "routes.txt")
+    self.accumulator.PopInvalidValue("trip_headsign", "trips.txt")
+    self.accumulator.PopInvalidValue("stop_headsign", "stop_times.txt")
+    self.accumulator.AssertNoMoreExceptions()
 
 
 class LoadMissingAgencyTestCase(LoadTestCase):
@@ -556,19 +569,20 @@ class DuplicateStopTestCase(util.TestCase):
 
 class DuplicateStopSequenceTestCase(util.TestCase):
   def runTest(self):
-    problems = RecordingProblemReporter(self, ("ExpirationDate",
-                                               "NoServiceExceptions"))
+    accumulator = RecordingProblemAccumulator(self, ("ExpirationDate",
+                                                     "NoServiceExceptions"))
+    problems = transitfeed.ProblemReporter(accumulator)
     schedule = transitfeed.Schedule(problem_reporter=problems)
     schedule.Load(DataPath('duplicate_stop_sequence'), extra_validation=True)
-    e = problems.PopException('InvalidValue')
+    e = accumulator.PopException('InvalidValue')
     self.assertEqual('stop_sequence', e.column_name)
-    problems.AssertNoMoreExceptions()
+    accumulator.AssertNoMoreExceptions()
 
 
 class MissingEndpointTimesTestCase(util.TestCase):
   def runTest(self):
-    schedule = transitfeed.Schedule(
-        problem_reporter=ExceptionProblemReporterNoExpiration())
+    problems = ExceptionProblemReporterNoExpiration()
+    schedule = transitfeed.Schedule(problem_reporter=problems)
     try:
       schedule.Load(DataPath('missing_endpoint_times'), extra_validation=True)
       self.fail('InvalidValue exception expected')
@@ -605,8 +619,9 @@ class OverlappingBlockTripsTestCase(util.TestCase):
   """Builds a simple schedule for testing of overlapping block trips"""
 
   def setUp(self):
-    self.problems = RecordingProblemReporter(self, ("ExpirationDate", 
-                                                    "NoServiceExceptions"))
+    self.accumulator = RecordingProblemAccumulator(
+        self, ("ExpirationDate", "NoServiceExceptions"))
+    self.problems = transitfeed.ProblemReporter(self.accumulator)
 
     schedule = OverlappingBlockSchedule(problem_reporter=self.problems)
     schedule.AddAgency("Demo Transit Authority", "http://dta.org",
@@ -665,7 +680,7 @@ class OverlappingBlockTripsTestCase(util.TestCase):
 
     schedule.Validate(self.problems)
 
-    self.problems.AssertNoMoreExceptions()
+    self.accumulator.AssertNoMoreExceptions()
 
   def testOverlapSameServicePeriod(self):
 
@@ -683,12 +698,12 @@ class OverlappingBlockTripsTestCase(util.TestCase):
 
     schedule.Validate(self.problems)
 
-    e = self.problems.PopException('OverlappingTripsInSameBlock')
+    e = self.accumulator.PopException('OverlappingTripsInSameBlock')
     self.assertEqual(e.trip_id1, 'CITY1')
     self.assertEqual(e.trip_id2, 'CITY2')
     self.assertEqual(e.block_id, 'BLOCK')
 
-    self.problems.AssertNoMoreExceptions()
+    self.accumulator.AssertNoMoreExceptions()
 
   def testOverlapDifferentServicePeriods(self):
 
@@ -716,17 +731,17 @@ class OverlappingBlockTripsTestCase(util.TestCase):
 
     schedule.Validate(self.problems)
 
-    e = self.problems.PopException('OverlappingTripsInSameBlock')
+    e = self.accumulator.PopException('OverlappingTripsInSameBlock')
     self.assertEqual(e.trip_id1, 'CITY1')
     self.assertEqual(e.trip_id2, 'CITY2')
     self.assertEqual(e.block_id, 'BLOCK')
 
-    e = self.problems.PopException('OverlappingTripsInSameBlock')
+    e = self.accumulator.PopException('OverlappingTripsInSameBlock')
     self.assertEqual(e.trip_id1, 'CITY3')
     self.assertEqual(e.trip_id2, 'CITY4')
     self.assertEqual(e.block_id, 'BLOCK')
 
-    self.problems.AssertNoMoreExceptions()
+    self.accumulator.AssertNoMoreExceptions()
 
     # If service period overlap calculation caching is working correctly,
     # we expect only two calls to GetServicePeriod(), one each for sp1 and
@@ -749,7 +764,7 @@ class OverlappingBlockTripsTestCase(util.TestCase):
 
     schedule.Validate(self.problems)
 
-    self.problems.AssertNoMoreExceptions()
+    self.accumulator.AssertNoMoreExceptions()
 
 class ColorLuminanceTestCase(util.TestCase):
   def runTest(self):
@@ -773,19 +788,20 @@ class ColorLuminanceTestCase(util.TestCase):
 INVALID_VALUE = Exception()
 class ValidationTestCase(util.TestCase):
   def setUp(self):
-    self.problems = RecordingProblemReporter(self, ("ExpirationDate",
-                                                    "NoServiceExceptions"))
+    self.accumulator = RecordingProblemAccumulator(
+        self, ("ExpirationDate", "NoServiceExceptions"))
+    self.problems = transitfeed.ProblemReporter(self.accumulator)
 
   def tearDown(self):
-    assert len(self.problems.exceptions) == 0, "see util.AssertNoMoreExceptions"
+    self.accumulator.TearDownAssertNoMoreExceptions()
 
   def ExpectNoProblems(self, object):
-    self.problems.AssertNoMoreExceptions()
+    self.accumulator.AssertNoMoreExceptions()
     object.Validate(self.problems)
-    self.problems.AssertNoMoreExceptions()
+    self.accumulator.AssertNoMoreExceptions()
 
   # TODO: Get rid of Expect*Closure methods. With the
-  # RecordingProblemReporter it is now possible to replace
+  # RecordingProblemAccumulator it is now possible to replace
   # self.ExpectMissingValueInClosure(lambda: o.method(...), foo)
   # with
   # o.method(...)
@@ -798,14 +814,14 @@ class ValidationTestCase(util.TestCase):
                                      lambda: object.Validate(self.problems))
 
   def ExpectMissingValueInClosure(self, column_name, c):
-    self.problems.AssertNoMoreExceptions()
+    self.accumulator.AssertNoMoreExceptions()
     rv = c()
-    e = self.problems.PopException('MissingValue')
+    e = self.accumulator.PopException('MissingValue')
     self.assertEqual(column_name, e.column_name)
     # these should not throw any exceptions
     e.FormatProblem()
     e.FormatContext()
-    self.problems.AssertNoMoreExceptions()
+    self.accumulator.AssertNoMoreExceptions()
 
   def ExpectInvalidValue(self, object, column_name, value=INVALID_VALUE):
     self.ExpectInvalidValueInClosure(column_name, value,
@@ -813,28 +829,28 @@ class ValidationTestCase(util.TestCase):
 
   def ExpectInvalidValueInClosure(self, column_name, value=INVALID_VALUE,
                                   c=None):
-    self.problems.AssertNoMoreExceptions()
+    self.accumulator.AssertNoMoreExceptions()
     rv = c()
-    e = self.problems.PopException('InvalidValue')
+    e = self.accumulator.PopException('InvalidValue')
     self.assertEqual(column_name, e.column_name)
     if value != INVALID_VALUE:
       self.assertEqual(value, e.value)
     # these should not throw any exceptions
     e.FormatProblem()
     e.FormatContext()
-    self.problems.AssertNoMoreExceptions()
+    self.accumulator.AssertNoMoreExceptions()
 
   def ExpectOtherProblem(self, object):
     self.ExpectOtherProblemInClosure(lambda: object.Validate(self.problems))
 
   def ExpectOtherProblemInClosure(self, c):
-    self.problems.AssertNoMoreExceptions()
+    self.accumulator.AssertNoMoreExceptions()
     rv = c()
-    e = self.problems.PopException('OtherProblem')
+    e = self.accumulator.PopException('OtherProblem')
     # these should not throw any exceptions
     e.FormatProblem()
     e.FormatContext()
-    self.problems.AssertNoMoreExceptions()
+    self.accumulator.AssertNoMoreExceptions()
 
   def SimpleSchedule(self):
     """Return a minimum schedule that will load without warnings."""
@@ -885,10 +901,10 @@ class AgencyValidationTestCase(ValidationTestCase):
     agency = transitfeed.Agency(name='Test Agency', url='http://example.com',
                                 timezone='America/Alviso', id='TA')
     agency.Validate(self.problems)
-    e = self.problems.PopInvalidValue('agency_timezone')
+    e = self.accumulator.PopInvalidValue('agency_timezone')
     self.assertMatchesRegex('"America/Alviso" is not a common timezone',
                             e.FormatProblem())
-    self.problems.AssertNoMoreExceptions()
+    self.accumulator.AssertNoMoreExceptions()
 
     # bad language code
     agency = transitfeed.Agency(name='Test Agency', url='http://example.com',
@@ -924,11 +940,11 @@ class AgencyValidationTestCase(ValidationTestCase):
     agency = transitfeed.Agency(name='Test Agency', url='www.example.com',
                                 timezone='America/West Coast', id='TA')
     self.assertEquals(False, agency.Validate(self.problems))
-    e = self.problems.PopException('InvalidValue')
+    e = self.accumulator.PopException('InvalidValue')
     self.assertEqual(e.column_name, 'agency_url')
-    e = self.problems.PopException('InvalidValue')
+    e = self.accumulator.PopException('InvalidValue')
     self.assertEqual(e.column_name, 'agency_timezone')
-    self.problems.AssertNoMoreExceptions()
+    self.accumulator.AssertNoMoreExceptions()
 
 
 
@@ -1000,7 +1016,7 @@ class StopValidationTestCase(ValidationTestCase):
     # latitude as a string works when it is valid
     stop.stop_lat = '50.0'
     stop.Validate(self.problems)
-    self.problems.AssertNoMoreExceptions()
+    self.accumulator.AssertNoMoreExceptions()
     stop.stop_lat = '10f'
     self.ExpectInvalidValue(stop, 'stop_lat')
     stop.stop_lat = 50.0
@@ -1034,7 +1050,7 @@ class StopValidationTestCase(ValidationTestCase):
     stop.stop_desc = 'Couch AT End Table'
     self.ExpectInvalidValue(stop, 'stop_desc')
     stop.stop_desc = 'Edge of the Couch'
-    self.problems.AssertNoMoreExceptions()
+    self.accumulator.AssertNoMoreExceptions()
 
 
 class StopAttributes(ValidationTestCase):
@@ -1042,9 +1058,9 @@ class StopAttributes(ValidationTestCase):
     stop = transitfeed.Stop()
     stop.Validate(self.problems)
     for name in "stop_id stop_name stop_lat stop_lon".split():
-      e = self.problems.PopException('MissingValue')
+      e = self.accumulator.PopException('MissingValue')
       self.assertEquals(name, e.column_name)
-    self.problems.AssertNoMoreExceptions()
+    self.accumulator.AssertNoMoreExceptions()
 
     stop = transitfeed.Stop()
     # Test behaviour for unset and unknown attribute
@@ -1066,7 +1082,7 @@ class StopAttributes(ValidationTestCase):
     self.assertTrue(isinstance(stop['stop_lon'], basestring))
     self.assertAlmostEqual(float(stop['stop_lon']), 40.02)
     stop.Validate(self.problems)
-    self.problems.AssertNoMoreExceptions()
+    self.accumulator.AssertNoMoreExceptions()
     # After validation stop.stop_lon has been converted to a float
     self.assertAlmostEqual(stop.stop_lat, 5.909)
     self.assertAlmostEqual(stop.stop_lon, 40.02)
@@ -1096,17 +1112,17 @@ class StopAttributes(ValidationTestCase):
     schedule.AddStopObject(stop)
     stop.Validate(self.problems)
     for name in "stop_name stop_lat stop_lon".split():
-      e = self.problems.PopException("MissingValue")
+      e = self.accumulator.PopException("MissingValue")
       self.assertEquals(name, e.column_name)
-    self.problems.AssertNoMoreExceptions()
+    self.accumulator.AssertNoMoreExceptions()
 
     stop.new_column = "val"
     self.assertTrue("new_column" in schedule.GetTableColumns("stops"))
 
     # Adding a duplicate stop_id fails
     schedule.AddStopObject(transitfeed.Stop(field_dict={"stop_id": "b"}))
-    self.problems.PopException("DuplicateID")
-    self.problems.AssertNoMoreExceptions()
+    self.accumulator.PopException("DuplicateID")
+    self.accumulator.AssertNoMoreExceptions()
 
 
 class StopTimeValidationTestCase(ValidationTestCase):
@@ -1192,7 +1208,7 @@ class StopTimeValidationTestCase(ValidationTestCase):
     transitfeed.StopTime(self.problems, stop, arrival_time="101:01:00",
         departure_time="101:21:00")
     transitfeed.StopTime(self.problems, stop)
-    self.problems.AssertNoMoreExceptions()
+    self.accumulator.AssertNoMoreExceptions()
 
 class TooFastTravelTestCase(ValidationTestCase):
   def setUp(self):
@@ -1219,40 +1235,40 @@ class TooFastTravelTestCase(ValidationTestCase):
                               (1616, 60)])
 
     self.trip.Validate(self.problems)
-    e = self.problems.PopException('TooFastTravel')
+    e = self.accumulator.PopException('TooFastTravel')
     self.assertMatchesRegex(r'High speed travel detected', e.FormatProblem())
     self.assertMatchesRegex(r'Stop 0 to Demo Stop 1', e.FormatProblem())
     self.assertMatchesRegex(r'1691 meters in 60 seconds', e.FormatProblem())
     self.assertMatchesRegex(r'\(101 km/h\)', e.FormatProblem())
     self.assertEqual(e.type, transitfeed.TYPE_WARNING)
-    self.problems.AssertNoMoreExceptions()
+    self.accumulator.AssertNoMoreExceptions()
 
     self.route.route_type = 4  # Ferry with max_speed 80
     self.trip.Validate(self.problems)
-    e = self.problems.PopException('TooFastTravel')
+    e = self.accumulator.PopException('TooFastTravel')
     self.assertMatchesRegex(r'High speed travel detected', e.FormatProblem())
     self.assertMatchesRegex(r'Stop 0 to Demo Stop 1', e.FormatProblem())
     self.assertMatchesRegex(r'1691 meters in 60 seconds', e.FormatProblem())
     self.assertMatchesRegex(r'\(101 km/h\)', e.FormatProblem())
     self.assertEqual(e.type, transitfeed.TYPE_WARNING)
-    e = self.problems.PopException('TooFastTravel')
+    e = self.accumulator.PopException('TooFastTravel')
     self.assertMatchesRegex(r'High speed travel detected', e.FormatProblem())
     self.assertMatchesRegex(r'Stop 1 to Demo Stop 2', e.FormatProblem())
     self.assertMatchesRegex(r'1616 meters in 60 seconds', e.FormatProblem())
     self.assertMatchesRegex(r'97 km/h', e.FormatProblem())
     self.assertEqual(e.type, transitfeed.TYPE_WARNING)
-    self.problems.AssertNoMoreExceptions()
+    self.accumulator.AssertNoMoreExceptions()
 
     # Run test without a route_type
     self.route.route_type = None
     self.trip.Validate(self.problems)
-    e = self.problems.PopException('TooFastTravel')
+    e = self.accumulator.PopException('TooFastTravel')
     self.assertMatchesRegex(r'High speed travel detected', e.FormatProblem())
     self.assertMatchesRegex(r'Stop 0 to Demo Stop 1', e.FormatProblem())
     self.assertMatchesRegex(r'1691 meters in 60 seconds', e.FormatProblem())
     self.assertMatchesRegex(r'101 km/h', e.FormatProblem())
     self.assertEqual(e.type, transitfeed.TYPE_WARNING)
-    self.problems.AssertNoMoreExceptions()
+    self.accumulator.AssertNoMoreExceptions()
 
   def testNoTimeDelta(self):
     # See comments where TooFastTravel is called in transitfeed.py to
@@ -1263,37 +1279,37 @@ class TooFastTravelTestCase(ValidationTestCase):
                               (1691, 0)])
 
     self.trip.Validate(self.problems)
-    e = self.problems.PopException('TooFastTravel')
+    e = self.accumulator.PopException('TooFastTravel')
     self.assertMatchesRegex('High speed travel detected', e.FormatProblem())
     self.assertMatchesRegex('Stop 2 to Demo Stop 3', e.FormatProblem())
     self.assertMatchesRegex('1691 meters in 0 seconds', e.FormatProblem())
     self.assertEqual(e.type, transitfeed.TYPE_WARNING)
-    self.problems.AssertNoMoreExceptions()
+    self.accumulator.AssertNoMoreExceptions()
 
     self.route.route_type = 4  # Ferry with max_speed 80
     self.trip.Validate(self.problems)
     self.assertEqual(e.type, transitfeed.TYPE_WARNING)
-    e = self.problems.PopException('TooFastTravel')
+    e = self.accumulator.PopException('TooFastTravel')
     self.assertMatchesRegex('High speed travel detected', e.FormatProblem())
     self.assertMatchesRegex('Stop 0 to Demo Stop 1', e.FormatProblem())
     self.assertMatchesRegex('1616 meters in 0 seconds', e.FormatProblem())
     self.assertEqual(e.type, transitfeed.TYPE_WARNING)
-    e = self.problems.PopException('TooFastTravel')
+    e = self.accumulator.PopException('TooFastTravel')
     self.assertMatchesRegex('High speed travel detected', e.FormatProblem())
     self.assertMatchesRegex('Stop 2 to Demo Stop 3', e.FormatProblem())
     self.assertMatchesRegex('1691 meters in 0 seconds', e.FormatProblem())
     self.assertEqual(e.type, transitfeed.TYPE_WARNING)
-    self.problems.AssertNoMoreExceptions()
+    self.accumulator.AssertNoMoreExceptions()
 
     # Run test without a route_type
     self.route.route_type = None
     self.trip.Validate(self.problems)
-    e = self.problems.PopException('TooFastTravel')
+    e = self.accumulator.PopException('TooFastTravel')
     self.assertMatchesRegex('High speed travel detected', e.FormatProblem())
     self.assertMatchesRegex('Stop 2 to Demo Stop 3', e.FormatProblem())
     self.assertMatchesRegex('1691 meters in 0 seconds', e.FormatProblem())
     self.assertEqual(e.type, transitfeed.TYPE_WARNING)
-    self.problems.AssertNoMoreExceptions()
+    self.accumulator.AssertNoMoreExceptions()
 
   def testNoTimeDeltaNotRounded(self):
     # See comments where TooFastTravel is called in transitfeed.py to
@@ -1304,12 +1320,12 @@ class TooFastTravelTestCase(ValidationTestCase):
                               (10, 0)])
 
     self.trip.Validate(self.problems)
-    e = self.problems.PopException('TooFastTravel')
+    e = self.accumulator.PopException('TooFastTravel')
     self.assertMatchesRegex('High speed travel detected', e.FormatProblem())
     self.assertMatchesRegex('Stop 1 to Demo Stop 2', e.FormatProblem())
     self.assertMatchesRegex('10 meters in 0 seconds', e.FormatProblem())
     self.assertEqual(e.type, transitfeed.TYPE_WARNING)
-    self.problems.AssertNoMoreExceptions()
+    self.accumulator.AssertNoMoreExceptions()
 
 
 class MemoryZipTestCase(util.TestCase):
@@ -1321,7 +1337,8 @@ class MemoryZipTestCase(util.TestCase):
   break tests in StopHierarchyTestCase and StopsNearEachOther."""
 
   def setUp(self):
-    self.problems = RecordingProblemReporter(self, ("ExpirationDate",))
+    self.accumulator = RecordingProblemAccumulator(self, ("ExpirationDate",))
+    self.problems = transitfeed.ProblemReporter(self.accumulator)
     self.zipfile = StringIO()
     self.zip = zipfile.ZipFile(self.zipfile, 'a')
     self.zip.writestr(
@@ -1391,98 +1408,99 @@ class MemoryZipTestCase(util.TestCase):
 
 class CsvDictTestCase(util.TestCase):
   def setUp(self):
-    self.problems = RecordingProblemReporter(self)
+    self.accumulator = RecordingProblemAccumulator(self)
+    self.problems = transitfeed.ProblemReporter(self.accumulator)
     self.zip = zipfile.ZipFile(StringIO(), 'a')
     self.loader = transitfeed.Loader(
         problems=self.problems,
         zip=self.zip)
 
   def tearDown(self):
-    assert len(self.problems.exceptions) == 0, "see util.AssertNoMoreExceptions"
+    self.accumulator.TearDownAssertNoMoreExceptions()
 
   def testEmptyFile(self):
     self.zip.writestr("test.txt", "")
     results = list(self.loader._ReadCsvDict("test.txt", [], []))
     self.assertEquals([], results)
-    self.problems.PopException("EmptyFile")
-    self.problems.AssertNoMoreExceptions()
+    self.accumulator.PopException("EmptyFile")
+    self.accumulator.AssertNoMoreExceptions()
 
   def testHeaderOnly(self):
     self.zip.writestr("test.txt", "test_id,test_name")
     results = list(self.loader._ReadCsvDict("test.txt",
                                             ["test_id", "test_name"], []))
     self.assertEquals([], results)
-    self.problems.AssertNoMoreExceptions()
+    self.accumulator.AssertNoMoreExceptions()
 
   def testHeaderAndNewLineOnly(self):
     self.zip.writestr("test.txt", "test_id,test_name\n")
     results = list(self.loader._ReadCsvDict("test.txt",
                                             ["test_id", "test_name"], []))
     self.assertEquals([], results)
-    self.problems.AssertNoMoreExceptions()
+    self.accumulator.AssertNoMoreExceptions()
 
   def testHeaderWithSpaceBefore(self):
     self.zip.writestr("test.txt", " test_id, test_name\n")
     results = list(self.loader._ReadCsvDict("test.txt",
                                             ["test_id", "test_name"], []))
     self.assertEquals([], results)
-    self.problems.AssertNoMoreExceptions()
+    self.accumulator.AssertNoMoreExceptions()
 
   def testHeaderWithSpaceBeforeAfter(self):
     self.zip.writestr("test.txt", "test_id , test_name\n")
     results = list(self.loader._ReadCsvDict("test.txt",
                                             ["test_id", "test_name"], []))
     self.assertEquals([], results)
-    e = self.problems.PopException("CsvSyntax")
-    self.problems.AssertNoMoreExceptions()
+    e = self.accumulator.PopException("CsvSyntax")
+    self.accumulator.AssertNoMoreExceptions()
 
   def testHeaderQuoted(self):
     self.zip.writestr("test.txt", "\"test_id\", \"test_name\"\n")
     results = list(self.loader._ReadCsvDict("test.txt",
                                             ["test_id", "test_name"], []))
     self.assertEquals([], results)
-    self.problems.AssertNoMoreExceptions()
+    self.accumulator.AssertNoMoreExceptions()
 
   def testHeaderSpaceAfterQuoted(self):
     self.zip.writestr("test.txt", "\"test_id\" , \"test_name\"\n")
     results = list(self.loader._ReadCsvDict("test.txt",
                                             ["test_id", "test_name"], []))
     self.assertEquals([], results)
-    e = self.problems.PopException("CsvSyntax")
-    self.problems.AssertNoMoreExceptions()
+    e = self.accumulator.PopException("CsvSyntax")
+    self.accumulator.AssertNoMoreExceptions()
 
   def testHeaderSpaceInQuotesAfterValue(self):
     self.zip.writestr("test.txt", "\"test_id \",\"test_name\"\n")
     results = list(self.loader._ReadCsvDict("test.txt",
                                             ["test_id", "test_name"], []))
     self.assertEquals([], results)
-    e = self.problems.PopException("CsvSyntax")
-    self.problems.AssertNoMoreExceptions()
+    e = self.accumulator.PopException("CsvSyntax")
+    self.accumulator.AssertNoMoreExceptions()
 
   def testHeaderSpaceInQuotesBeforeValue(self):
     self.zip.writestr("test.txt", "\"test_id\",\" test_name\"\n")
     results = list(self.loader._ReadCsvDict("test.txt",
                                             ["test_id", "test_name"], []))
     self.assertEquals([], results)
-    e = self.problems.PopException("CsvSyntax")
-    self.problems.AssertNoMoreExceptions()
+    e = self.accumulator.PopException("CsvSyntax")
+    self.accumulator.AssertNoMoreExceptions()
 
   def testHeaderEmptyColumnName(self):
     self.zip.writestr("test.txt", 'test_id,test_name,\n')
     results = list(self.loader._ReadCsvDict("test.txt",
                                             ["test_id", "test_name"], []))
     self.assertEquals([], results)
-    e = self.problems.PopException("CsvSyntax")
-    self.problems.AssertNoMoreExceptions()
+    e = self.accumulator.PopException("CsvSyntax")
+    self.accumulator.AssertNoMoreExceptions()
 
   def testHeaderAllUnknownColumnNames(self):
     self.zip.writestr("test.txt", 'id,nam\n')
     results = list(self.loader._ReadCsvDict("test.txt",
                                             ["test_id", "test_name"], []))
     self.assertEquals([], results)
-    e = self.problems.PopException("CsvSyntax")
+    e = self.accumulator.PopException("CsvSyntax")
     self.assertTrue(e.FormatProblem().find("missing the header") != -1)
-    self.problems.AssertNoMoreExceptions()
+    self.accumulator.AssertNoMoreExceptions()
 
   def testFieldWithSpaces(self):
     self.zip.writestr("test.txt",
@@ -1492,7 +1510,7 @@ class CsvDictTestCase(util.TestCase):
                                             ["test_id", "test_name"], []))
     self.assertEquals([({"test_id": "id1 ", "test_name": "my name"}, 2,
                         ["test_id", "test_name"], ["id1 ","my name"])], results)
-    self.problems.AssertNoMoreExceptions()
+    self.accumulator.AssertNoMoreExceptions()
 
   def testFieldWithOnlySpaces(self):
     self.zip.writestr("test.txt",
@@ -1502,7 +1520,7 @@ class CsvDictTestCase(util.TestCase):
                                             ["test_id", "test_name"], []))
     self.assertEquals([({"test_id": "id1", "test_name": ""}, 2,
                         ["test_id", "test_name"], ["id1",""])], results)
-    self.problems.AssertNoMoreExceptions()
+    self.accumulator.AssertNoMoreExceptions()
 
   def testQuotedFieldWithSpaces(self):
     self.zip.writestr("test.txt",
@@ -1515,7 +1533,7 @@ class CsvDictTestCase(util.TestCase):
         [({"test_id": "id1 ", "test_name": "my name ", "test_size": "234 "}, 2,
           ["test_id", "test_name", "test_size"], ["id1 ", "my name ", "234 "])],
         results)
-    self.problems.AssertNoMoreExceptions()
+    self.accumulator.AssertNoMoreExceptions()
 
   def testQuotedFieldWithCommas(self):
     self.zip.writestr("test.txt",
@@ -1527,7 +1545,7 @@ class CsvDictTestCase(util.TestCase):
         [({"id": "1", "name1": "brown, tom", "name2": "brown, \"tom\""}, 2,
           ["id", "name1", "name2"], ["1", "brown, tom", "brown, \"tom\""])],
         results)
-    self.problems.AssertNoMoreExceptions()
+    self.accumulator.AssertNoMoreExceptions()
 
   def testUnknownColumn(self):
     # A small typo (omitting '_' in a header name) is detected
@@ -1535,9 +1553,9 @@ class CsvDictTestCase(util.TestCase):
     results = list(self.loader._ReadCsvDict("test.txt",
                                             ["test_id", "test_name"], []))
     self.assertEquals([], results)
-    e = self.problems.PopException("UnrecognizedColumn")
+    e = self.accumulator.PopException("UnrecognizedColumn")
     self.assertEquals("testname", e.column_name)
-    self.problems.AssertNoMoreExceptions()
+    self.accumulator.AssertNoMoreExceptions()
 
   def testMissingRequiredColumn(self):
     self.zip.writestr("test.txt", "test_id,test_size\n")
@@ -1545,9 +1563,9 @@ class CsvDictTestCase(util.TestCase):
                                             ["test_id", "test_size"],
                                             ["test_name"]))
     self.assertEquals([], results)
-    e = self.problems.PopException("MissingColumn")
+    e = self.accumulator.PopException("MissingColumn")
     self.assertEquals("test_name", e.column_name)
-    self.problems.AssertNoMoreExceptions()
+    self.accumulator.AssertNoMoreExceptions()
 
   def testRequiredNotInAllCols(self):
     self.zip.writestr("test.txt", "test_id,test_name,test_size\n")
@@ -1555,9 +1573,9 @@ class CsvDictTestCase(util.TestCase):
                                             ["test_id", "test_size"],
                                             ["test_name"]))
     self.assertEquals([], results)
-    e = self.problems.PopException("UnrecognizedColumn")
+    e = self.accumulator.PopException("UnrecognizedColumn")
     self.assertEquals("test_name", e.column_name)
-    self.problems.AssertNoMoreExceptions()
+    self.accumulator.AssertNoMoreExceptions()
 
   def testBlankLine(self):
     # line_num is increased for an empty line
@@ -1569,7 +1587,7 @@ class CsvDictTestCase(util.TestCase):
                                             ["test_id", "test_name"], []))
     self.assertEquals([({"test_id": "id1", "test_name": "my name"}, 3,
                         ["test_id", "test_name"], ["id1","my name"])], results)
-    self.problems.AssertNoMoreExceptions()
+    self.accumulator.AssertNoMoreExceptions()
 
   def testExtraComma(self):
     self.zip.writestr("test.txt",
@@ -1580,9 +1598,9 @@ class CsvDictTestCase(util.TestCase):
     self.assertEquals([({"test_id": "id1", "test_name": "my name"}, 2,
                         ["test_id", "test_name"], ["id1","my name"])],
                       results)
-    e = self.problems.PopException("OtherProblem")
+    e = self.accumulator.PopException("OtherProblem")
     self.assertTrue(e.FormatProblem().find("too many cells") != -1)
-    self.problems.AssertNoMoreExceptions()
+    self.accumulator.AssertNoMoreExceptions()
 
   def testMissingComma(self):
     self.zip.writestr("test.txt",
@@ -1592,9 +1610,9 @@ class CsvDictTestCase(util.TestCase):
                                             ["test_id", "test_name"], []))
     self.assertEquals([({"test_id": "id1 my name"}, 2,
                         ["test_id", "test_name"], ["id1 my name"])], results)
-    e = self.problems.PopException("OtherProblem")
+    e = self.accumulator.PopException("OtherProblem")
     self.assertTrue(e.FormatProblem().find("missing cells") != -1)
-    self.problems.AssertNoMoreExceptions()
+    self.accumulator.AssertNoMoreExceptions()
 
   def testDetectsDuplicateHeaders(self):
     self.zip.writestr(
@@ -1609,24 +1627,25 @@ class CsvDictTestCase(util.TestCase):
                                   transitfeed.Transfer._FIELD_NAMES,
                                   transitfeed.Transfer._REQUIRED_FIELD_NAMES))
 
-    self.problems.PopDuplicateColumn("transfers.txt","min_transfer_time",4)
-    self.problems.PopDuplicateColumn("transfers.txt","from_stop_id",2)
-    self.problems.PopDuplicateColumn("transfers.txt","unknown",2)
-    e = self.problems.PopException("UnrecognizedColumn")
+    self.accumulator.PopDuplicateColumn("transfers.txt","min_transfer_time",4)
+    self.accumulator.PopDuplicateColumn("transfers.txt","from_stop_id",2)
+    self.accumulator.PopDuplicateColumn("transfers.txt","unknown",2)
+    e = self.accumulator.PopException("UnrecognizedColumn")
     self.assertEquals("unknown", e.column_name)
-    self.problems.AssertNoMoreExceptions()
+    self.accumulator.AssertNoMoreExceptions()
 
 
 class ReadCsvTestCase(util.TestCase):
   def setUp(self):
-    self.problems = RecordingProblemReporter(self)
+    self.accumulator = RecordingProblemAccumulator(self)
+    self.problems = transitfeed.ProblemReporter(self.accumulator)
     self.zip = zipfile.ZipFile(StringIO(), 'a')
     self.loader = transitfeed.Loader(
         problems=self.problems,
         zip=self.zip)
 
   def tearDown(self):
-    assert len(self.problems.exceptions) == 0, "see util.AssertNoMoreExceptions"
+    self.accumulator.TearDownAssertNoMoreExceptions()
 
   def testDetectsDuplicateHeaders(self):
     self.zip.writestr(
@@ -1639,18 +1658,18 @@ class ReadCsvTestCase(util.TestCase):
                               transitfeed.ServicePeriod._FIELD_NAMES,
                               transitfeed.ServicePeriod._FIELD_NAMES_REQUIRED))
 
-    self.problems.PopDuplicateColumn("calendar.txt","end_date",3)
-    self.problems.PopDuplicateColumn("calendar.txt","unknown",2)
-    self.problems.PopDuplicateColumn("calendar.txt","tuesday",2)
-    e = self.problems.PopException("UnrecognizedColumn")
+    self.accumulator.PopDuplicateColumn("calendar.txt","end_date",3)
+    self.accumulator.PopDuplicateColumn("calendar.txt","unknown",2)
+    self.accumulator.PopDuplicateColumn("calendar.txt","tuesday",2)
+    e = self.accumulator.PopException("UnrecognizedColumn")
     self.assertEquals("unknown", e.column_name)
-    self.problems.AssertNoMoreExceptions()
+    self.accumulator.AssertNoMoreExceptions()
 
 
 class BasicMemoryZipTestCase(MemoryZipTestCase):
   def runTest(self):
     self.loader.Load()
-    self.problems.AssertNoMoreExceptions()
+    self.accumulator.AssertNoMoreExceptions()
 
 
 class ZipCompressionTestCase(MemoryZipTestCase):
@@ -1682,7 +1701,7 @@ class StopHierarchyTestCase(MemoryZipTestCase):
     schedule = self.loader.Load()
     self.assertEquals(1, schedule.stops["STATION"].location_type)
     self.assertEquals(0, schedule.stops["BEATTY_AIRPORT"].location_type)
-    self.problems.AssertNoMoreExceptions()
+    self.accumulator.AssertNoMoreExceptions()
 
   def testBadLocationType(self):
     self.zip.writestr(
@@ -1692,15 +1711,15 @@ class StopHierarchyTestCase(MemoryZipTestCase):
         "BULLFROG,Bullfrog,36.88108,-116.81797,notvalid\n"
         "STAGECOACH,Stagecoach Hotel,36.915682,-116.751677,\n")
     schedule = self.loader.Load()
-    e = self.problems.PopException("InvalidValue")
+    e = self.accumulator.PopException("InvalidValue")
     self.assertEquals("location_type", e.column_name)
     self.assertEquals(2, e.row_num)
     self.assertEquals(1, e.type)
-    e = self.problems.PopException("InvalidValue")
+    e = self.accumulator.PopException("InvalidValue")
     self.assertEquals("location_type", e.column_name)
     self.assertEquals(3, e.row_num)
     self.assertEquals(0, e.type)
-    self.problems.AssertNoMoreExceptions()
+    self.accumulator.AssertNoMoreExceptions()
 
   def testBadLocationTypeAtSameLatLon(self):
     self.zip.writestr(
@@ -1711,12 +1730,12 @@ class StopHierarchyTestCase(MemoryZipTestCase):
         "BULLFROG,Bullfrog,36.88108,-116.81797,,\n"
         "STAGECOACH,Stagecoach Hotel,36.915682,-116.751677,,\n")
     schedule = self.loader.Load()
-    e = self.problems.PopException("InvalidValue")
+    e = self.accumulator.PopException("InvalidValue")
     self.assertEquals("location_type", e.column_name)
     self.assertEquals(3, e.row_num)
-    e = self.problems.PopException("InvalidValue")
+    e = self.accumulator.PopException("InvalidValue")
     self.assertEquals("parent_station", e.column_name)
-    self.problems.AssertNoMoreExceptions()
+    self.accumulator.AssertNoMoreExceptions()
 
   def testStationUsed(self):
     self.zip.writestr(
@@ -1726,8 +1745,8 @@ class StopHierarchyTestCase(MemoryZipTestCase):
         "BULLFROG,Bullfrog,36.88108,-116.81797,\n"
         "STAGECOACH,Stagecoach Hotel,36.915682,-116.751677,\n")
     schedule = self.loader.Load()
-    self.problems.PopException("UsedStation")
-    self.problems.AssertNoMoreExceptions()
+    self.accumulator.PopException("UsedStation")
+    self.accumulator.AssertNoMoreExceptions()
 
   def testParentNotFound(self):
     self.zip.writestr(
@@ -1737,9 +1756,9 @@ class StopHierarchyTestCase(MemoryZipTestCase):
         "BULLFROG,Bullfrog,36.88108,-116.81797,,\n"
         "STAGECOACH,Stagecoach Hotel,36.915682,-116.751677,,\n")
     schedule = self.loader.Load()
-    e = self.problems.PopException("InvalidValue")
+    e = self.accumulator.PopException("InvalidValue")
     self.assertEquals("parent_station", e.column_name)
-    self.problems.AssertNoMoreExceptions()
+    self.accumulator.AssertNoMoreExceptions()
 
   def testParentIsStop(self):
     self.zip.writestr(
@@ -1749,9 +1768,9 @@ class StopHierarchyTestCase(MemoryZipTestCase):
         "BULLFROG,Bullfrog,36.88108,-116.81797,,\n"
         "STAGECOACH,Stagecoach Hotel,36.915682,-116.751677,,\n")
     schedule = self.loader.Load()
-    e = self.problems.PopException("InvalidValue")
+    e = self.accumulator.PopException("InvalidValue")
     self.assertEquals("parent_station", e.column_name)
-    self.problems.AssertNoMoreExceptions()
+    self.accumulator.AssertNoMoreExceptions()
 
   def testParentOfEntranceIsStop(self):
     self.zip.writestr(
@@ -1761,12 +1780,12 @@ class StopHierarchyTestCase(MemoryZipTestCase):
         "BULLFROG,Bullfrog,36.88108,-116.81797,,\n"
         "STAGECOACH,Stagecoach Hotel,36.915682,-116.751677,,\n")
     schedule = self.loader.Load()
-    e = self.problems.PopException("InvalidValue")
+    e = self.accumulator.PopException("InvalidValue")
     self.assertEquals("location_type", e.column_name)
-    e = self.problems.PopException("InvalidValue")
+    e = self.accumulator.PopException("InvalidValue")
     self.assertEquals("parent_station", e.column_name)
     self.assertTrue(e.FormatProblem().find("location_type=1") != -1)
-    self.problems.AssertNoMoreExceptions()
+    self.accumulator.AssertNoMoreExceptions()
 
   def testStationWithParent(self):
     self.zip.writestr(
@@ -1778,10 +1797,10 @@ class StopHierarchyTestCase(MemoryZipTestCase):
         "BULLFROG,Bullfrog,36.868088,-116.784797,,STATION2\n"
         "STAGECOACH,Stagecoach Hotel,36.915682,-116.751677,,\n")
     schedule = self.loader.Load()
-    e = self.problems.PopException("InvalidValue")
+    e = self.accumulator.PopException("InvalidValue")
     self.assertEquals("parent_station", e.column_name)
     self.assertEquals(3, e.row_num)
-    self.problems.AssertNoMoreExceptions()
+    self.accumulator.AssertNoMoreExceptions()
 
   def testStationWithSelfParent(self):
     self.zip.writestr(
@@ -1792,10 +1811,10 @@ class StopHierarchyTestCase(MemoryZipTestCase):
         "BULLFROG,Bullfrog,36.88108,-116.81797,,\n"
         "STAGECOACH,Stagecoach Hotel,36.915682,-116.751677,,\n")
     schedule = self.loader.Load()
-    e = self.problems.PopException("InvalidValue")
+    e = self.accumulator.PopException("InvalidValue")
     self.assertEquals("parent_station", e.column_name)
     self.assertEquals(3, e.row_num)
-    self.problems.AssertNoMoreExceptions()
+    self.accumulator.AssertNoMoreExceptions()
 
   def testStopNearToNonParentStation(self):
     self.zip.writestr(
@@ -1806,17 +1825,17 @@ class StopHierarchyTestCase(MemoryZipTestCase):
         "BULLFROG_ST,Bullfrog,36.868446,-116.784582,1,\n"
         "STAGECOACH,Stagecoach Hotel,36.915682,-116.751677,,\n")
     schedule = self.loader.Load()
-    e = self.problems.PopException("DifferentStationTooClose")
+    e = self.accumulator.PopException("DifferentStationTooClose")
     self.assertMatchesRegex(
         "The parent_station of stop \"Bullfrog\"", e.FormatProblem())
-    e = self.problems.PopException("StopsTooClose")
+    e = self.accumulator.PopException("StopsTooClose")
     self.assertMatchesRegex("BEATTY_AIRPORT", e.FormatProblem())
     self.assertMatchesRegex("BULLFROG", e.FormatProblem())
     self.assertMatchesRegex("are 0.00m apart", e.FormatProblem())
-    e = self.problems.PopException("DifferentStationTooClose")
+    e = self.accumulator.PopException("DifferentStationTooClose")
     self.assertMatchesRegex(
         "The parent_station of stop \"Airport\"", e.FormatProblem())
-    self.problems.AssertNoMoreExceptions()
+    self.accumulator.AssertNoMoreExceptions()
 
   def testStopTooFarFromParentStation(self):
     self.zip.writestr(
@@ -1827,17 +1846,17 @@ class StopHierarchyTestCase(MemoryZipTestCase):
         "BULLFROG,Bullfrog,36.881,-116.818,,BULLFROG_ST\n"        # ~ 150m far
         "STAGECOACH,Stagecoach,36.915,-116.751,,BULLFROG_ST\n")   # > 3km far
     schedule = self.loader.Load()
-    e = self.problems.PopException("StopTooFarFromParentStation")
+    e = self.accumulator.PopException("StopTooFarFromParentStation")
     self.assertEqual(1, e.type)  # Warning
     self.assertTrue(e.FormatProblem().find(
         "Bullfrog (ID BULLFROG) is too far from its parent"
         " station Bullfrog (ID BULLFROG_ST)") != -1)
-    e = self.problems.PopException("StopTooFarFromParentStation")
+    e = self.accumulator.PopException("StopTooFarFromParentStation")
     self.assertEqual(0, e.type)  # Error
     self.assertTrue(e.FormatProblem().find(
         "Stagecoach (ID STAGECOACH) is too far from its parent"
         " station Bullfrog (ID BULLFROG_ST)") != -1)
-    self.problems.AssertNoMoreExceptions()
+    self.accumulator.AssertNoMoreExceptions()
 
   #Uncomment once validation is implemented
   #def testStationWithoutReference(self):
@@ -1849,10 +1868,10 @@ class StopHierarchyTestCase(MemoryZipTestCase):
   #      "BULLFROG,Bullfrog,36.88108,-116.81797,,\n"
   #      "STAGECOACH,Stagecoach Hotel,36.915682,-116.751677,,\n")
   #  schedule = self.loader.Load()
-  #  e = self.problems.PopException("OtherProblem")
+  #  e = self.accumulator.PopException("OtherProblem")
   #  self.assertEquals("parent_station", e.column_name)
   #  self.assertEquals(2, e.row_num)
-  #  self.problems.AssertNoMoreExceptions()
+  #  self.accumulator.AssertNoMoreExceptions()
 
 
 class StopSpacesTestCase(MemoryZipTestCase):
@@ -1865,7 +1884,7 @@ class StopSpacesTestCase(MemoryZipTestCase):
         "BULLFROG,,Bullfrog,36.88108,-116.81797,,,\n"
         "STAGECOACH,,Stagecoach Hotel,36.915682,-116.751677,,,\n")
     schedule = self.loader.Load()
-    self.problems.AssertNoMoreExceptions()
+    self.accumulator.AssertNoMoreExceptions()
 
 
 class StopBlankHeaders(MemoryZipTestCase):
@@ -1881,10 +1900,10 @@ class StopBlankHeaders(MemoryZipTestCase):
         new.append(row + "," + str(i))  # Put a junk value in data rows
     self.zip.writestr("stops.txt", "\n".join(new))
     schedule = self.loader.Load()
-    e = self.problems.PopException("CsvSyntax")
+    e = self.accumulator.PopException("CsvSyntax")
     self.assertTrue(e.FormatProblem().
                     find("header row should not contain any blank") != -1)
-    self.problems.AssertNoMoreExceptions()
+    self.accumulator.AssertNoMoreExceptions()
 
   def testBlankHeaderValueAtStart(self):
     # Modify the stops.txt added by MemoryZipTestCase.setUp. This allows the
@@ -1898,10 +1917,10 @@ class StopBlankHeaders(MemoryZipTestCase):
         new.append(str(i) + "," + row)  # Put a junk value in data rows
     self.zip.writestr("stops.txt", "\n".join(new))
     schedule = self.loader.Load()
-    e = self.problems.PopException("CsvSyntax")
+    e = self.accumulator.PopException("CsvSyntax")
     self.assertTrue(e.FormatProblem().
                     find("header row should not contain any blank") != -1)
-    self.problems.AssertNoMoreExceptions()
+    self.accumulator.AssertNoMoreExceptions()
 
   def testBlankHeaderValueInMiddle(self):
     # Modify the stops.txt added by MemoryZipTestCase.setUp. This allows the
@@ -1917,12 +1936,12 @@ class StopBlankHeaders(MemoryZipTestCase):
         new.append(str(i) + "," + str(i) + "," + row)
     self.zip.writestr("stops.txt", "\n".join(new))
     schedule = self.loader.Load()
-    e = self.problems.PopException("CsvSyntax")
+    e = self.accumulator.PopException("CsvSyntax")
     self.assertTrue(e.FormatProblem().
                     find("header row should not contain any blank") != -1)
-    e = self.problems.PopException("UnrecognizedColumn")
+    e = self.accumulator.PopException("UnrecognizedColumn")
     self.assertEquals("test_name", e.column_name)
-    self.problems.AssertNoMoreExceptions()
+    self.accumulator.AssertNoMoreExceptions()
 
 
 class StopsNearEachOther(MemoryZipTestCase):
@@ -1934,9 +1953,9 @@ class StopsNearEachOther(MemoryZipTestCase):
         "BULLFROG,Bullfrog,48.20001,140\n"
         "STAGECOACH,Stagecoach Hotel,48.20016,140\n")
     schedule = self.loader.Load()
-    e = self.problems.PopException('StopsTooClose')
+    e = self.accumulator.PopException('StopsTooClose')
     self.assertTrue(e.FormatProblem().find("1.11m apart") != -1)
-    self.problems.AssertNoMoreExceptions()
+    self.accumulator.AssertNoMoreExceptions()
 
   def testJustFarEnough(self):
     self.zip.writestr(
@@ -1947,7 +1966,7 @@ class StopsNearEachOther(MemoryZipTestCase):
         "STAGECOACH,Stagecoach Hotel,48.20016,140\n")
     schedule = self.loader.Load()
     # Stops are 2.2m apart
-    self.problems.AssertNoMoreExceptions()
+    self.accumulator.AssertNoMoreExceptions()
 
   def testSameLocation(self):
     self.zip.writestr(
@@ -1957,9 +1976,9 @@ class StopsNearEachOther(MemoryZipTestCase):
         "BULLFROG,Bullfrog,48.2,140\n"
         "STAGECOACH,Stagecoach Hotel,48.20016,140\n")
     schedule = self.loader.Load()
-    e = self.problems.PopException('StopsTooClose')
+    e = self.accumulator.PopException('StopsTooClose')
     self.assertTrue(e.FormatProblem().find("0.00m apart") != -1)
-    self.problems.AssertNoMoreExceptions()
+    self.accumulator.AssertNoMoreExceptions()
 
   def testStationsTooNear(self):
     self.zip.writestr(
@@ -1971,10 +1990,10 @@ class StopsNearEachOther(MemoryZipTestCase):
         "BULLFROG_STATION,Bullfrog,48.20002,140,1,\n"
         "STAGECOACH,Stagecoach Hotel,48.20016,140,,\n")
     schedule = self.loader.Load()
-    e = self.problems.PopException('StationsTooClose')
+    e = self.accumulator.PopException('StationsTooClose')
     self.assertTrue(e.FormatProblem().find("1.11m apart") != -1)
     self.assertTrue(e.FormatProblem().find("BEATTY_AIRPORT_STATION") != -1)
-    self.problems.AssertNoMoreExceptions()
+    self.accumulator.AssertNoMoreExceptions()
 
   def testStopNearNonParentStation(self):
     self.zip.writestr(
@@ -1985,12 +2004,12 @@ class StopsNearEachOther(MemoryZipTestCase):
         "BULLFROG_STATION,Bullfrog,48.20006,140,1,\n"
         "STAGECOACH,Stagecoach Hotel,48.20016,140,,\n")
     schedule = self.loader.Load()
-    e = self.problems.PopException('DifferentStationTooClose')
+    e = self.accumulator.PopException('DifferentStationTooClose')
     fmt = e.FormatProblem()
     self.assertTrue(re.search(
       r"parent_station of.*BULLFROG.*station.*BULLFROG_STATION.* 1.11m apart",
       fmt), fmt)
-    self.problems.AssertNoMoreExceptions()
+    self.accumulator.AssertNoMoreExceptions()
 
 
 class BadLatLonInStopUnitTest(ValidationTestCase):
@@ -2017,13 +2036,13 @@ class BadLatLonInFileUnitTest(MemoryZipTestCase):
         "BULLFROG,Bullfrog,48.20001,140.0123\n"
         "STAGECOACH,Stagecoach Hotel,48.002,bogus\n")
     schedule = self.loader.Load()
-    e = self.problems.PopException('InvalidValue')
+    e = self.accumulator.PopException('InvalidValue')
     self.assertEquals(2, e.row_num)
     self.assertEquals("stop_lat", e.column_name)
-    e = self.problems.PopException('InvalidValue')
+    e = self.accumulator.PopException('InvalidValue')
     self.assertEquals(4, e.row_num)
     self.assertEquals("stop_lon", e.column_name)
-    self.problems.AssertNoMoreExceptions()
+    self.accumulator.AssertNoMoreExceptions()
 
 
 class LoadUnknownFileInZipTestCase(MemoryZipTestCase):
@@ -2036,9 +2055,9 @@ class LoadUnknownFileInZipTestCase(MemoryZipTestCase):
         "BULLFROG,Bullfrog,36.88108,-116.81797,,\n"
         "STAGECOACH,Stagecoach Hotel,36.915682,-116.751677,,\n")
     schedule = self.loader.Load()
-    e = self.problems.PopException('UnknownFile')
+    e = self.accumulator.PopException('UnknownFile')
     self.assertEquals('stpos.txt', e.file_name)
-    self.problems.AssertNoMoreExceptions()
+    self.accumulator.AssertNoMoreExceptions()
 
 
 class TabDelimitedTestCase(MemoryZipTestCase):
@@ -2049,7 +2068,7 @@ class TabDelimitedTestCase(MemoryZipTestCase):
       orig = self.zip.read(arcname)
       self.zip.writestr(arcname, orig.replace(",", "\t"))
     schedule = self.loader.Load()
-    # Don't call self.problems.AssertNoMoreExceptions() because there are lots
+    # Don't call self.accumulator.AssertNoMoreExceptions() because there are lots
     # of problems but I only care that the validator doesn't crash. In the
     # magical future the validator will stop when the csv is obviously hosed.
 
@@ -2057,7 +2076,7 @@ class TabDelimitedTestCase(MemoryZipTestCase):
 class RouteMemoryZipTestCase(MemoryZipTestCase):
   def assertLoadAndCheckExtraValues(self, schedule_file):
     """Load file-like schedule_file and check for extra route columns."""
-    load_problems = TestFailureProblemReporter(
+    load_problems = GetTestFailureProblemReporter(
         self, ("ExpirationDate", "UnrecognizedColumn"))
     loaded_schedule = transitfeed.Loader(schedule_file,
                                          problems=load_problems,
@@ -2083,7 +2102,7 @@ class RouteMemoryZipTestCase(MemoryZipTestCase):
     schedule.AddRouteObject(route_n)
     saved_schedule_file = StringIO()
     schedule.WriteGoogleTransitFeed(saved_schedule_file)
-    self.problems.AssertNoMoreExceptions()
+    self.accumulator.AssertNoMoreExceptions()
 
     self.assertLoadAndCheckExtraValues(saved_schedule_file)
 
@@ -2098,7 +2117,7 @@ class RouteMemoryZipTestCase(MemoryZipTestCase):
         "AB,DTA,,Airport Bullfrog,3,,\n"
         "t,DTA,T,,3,foo,\n"
         "n,DTA,N,,3,,bar\n")
-    load1_problems = TestFailureProblemReporter(
+    load1_problems = GetTestFailureProblemReporter(
         self, ("ExpirationDate", "UnrecognizedColumn"))
     schedule = transitfeed.Loader(problems=load1_problems,
                                   extra_validation=True,
@@ -2111,10 +2130,11 @@ class RouteMemoryZipTestCase(MemoryZipTestCase):
 
 class RouteConstructorTestCase(util.TestCase):
   def setUp(self):
-    self.problems = RecordingProblemReporter(self)
+    self.accumulator = RecordingProblemAccumulator(self)
+    self.problems = transitfeed.ProblemReporter(self.accumulator)
 
   def tearDown(self):
-    assert len(self.problems.exceptions) == 0, "see util.AssertNoMoreExceptions"
+    self.accumulator.TearDownAssertNoMoreExceptions()
 
   def testDefault(self):
     route = transitfeed.Route()
@@ -2124,20 +2144,20 @@ class RouteConstructorTestCase(util.TestCase):
     repr(route)
     self.assertEqual({}, dict(route))
 
-    e = self.problems.PopException('MissingValue')
+    e = self.accumulator.PopException('MissingValue')
     self.assertEqual('route_id', e.column_name)
-    e = self.problems.PopException('MissingValue')
+    e = self.accumulator.PopException('MissingValue')
     self.assertEqual('route_type', e.column_name)
-    e = self.problems.PopException('InvalidValue')
+    e = self.accumulator.PopException('InvalidValue')
     self.assertEqual('route_short_name', e.column_name)
-    self.problems.AssertNoMoreExceptions()
+    self.accumulator.AssertNoMoreExceptions()
 
   def testInitArgs(self):
     # route_type name
     route = transitfeed.Route(route_id='id1', short_name='22', route_type='Bus')
     repr(route)
     route.Validate(self.problems)
-    self.problems.AssertNoMoreExceptions()
+    self.accumulator.AssertNoMoreExceptions()
     self.assertEquals(3, route.route_type)  # converted to an int
     self.assertEquals({'route_id': 'id1', 'route_short_name': '22',
                        'route_type': '3'}, dict(route))
@@ -2146,7 +2166,7 @@ class RouteConstructorTestCase(util.TestCase):
     route = transitfeed.Route(route_id='i1', long_name='Twenty 2', route_type=1)
     repr(route)
     route.Validate(self.problems)
-    self.problems.AssertNoMoreExceptions()
+    self.accumulator.AssertNoMoreExceptions()
     self.assertEquals(1, route.route_type)  # kept as an int
     self.assertEquals({'route_id': 'i1', 'route_long_name': 'Twenty 2',
                        'route_type': '1'}, dict(route))
@@ -2155,7 +2175,7 @@ class RouteConstructorTestCase(util.TestCase):
     route = transitfeed.Route(route_id='id1', short_name='22', route_type='1')
     repr(route)
     route.Validate(self.problems)
-    self.problems.AssertNoMoreExceptions()
+    self.accumulator.AssertNoMoreExceptions()
     self.assertEquals(1, route.route_type)  # converted to an int
     self.assertEquals({'route_id': 'id1', 'route_short_name': '22',
                        'route_type': '1'}, dict(route))
@@ -2165,10 +2185,10 @@ class RouteConstructorTestCase(util.TestCase):
                               route_type='8')
     repr(route)
     route.Validate(self.problems)
-    e = self.problems.PopException('InvalidValue')
+    e = self.accumulator.PopException('InvalidValue')
     self.assertEqual('route_type', e.column_name)
     self.assertEqual(1, e.type)
-    self.problems.AssertNoMoreExceptions()
+    self.accumulator.AssertNoMoreExceptions()
     self.assertEquals({'route_id': 'id1', 'route_short_name': '22',
                        'route_type': '8'}, dict(route))
 
@@ -2177,9 +2197,9 @@ class RouteConstructorTestCase(util.TestCase):
                               route_type='1foo')
     repr(route)
     route.Validate(self.problems)
-    e = self.problems.PopException('InvalidValue')
+    e = self.accumulator.PopException('InvalidValue')
     self.assertEqual('route_type', e.column_name)
-    self.problems.AssertNoMoreExceptions()
+    self.accumulator.AssertNoMoreExceptions()
     self.assertEquals({'route_id': 'id1', 'route_short_name': '22',
                        'route_type': '1foo'}, dict(route))
 
@@ -2188,7 +2208,7 @@ class RouteConstructorTestCase(util.TestCase):
                               agency_id='myage')
     repr(route)
     route.Validate(self.problems)
-    self.problems.AssertNoMoreExceptions()
+    self.accumulator.AssertNoMoreExceptions()
     self.assertEquals({'route_id': 'id1', 'route_short_name': '22',
                        'route_type': '1', 'agency_id': 'myage'}, dict(route))
 
@@ -2207,7 +2227,7 @@ class RouteConstructorTestCase(util.TestCase):
       'route_id': 'id1', 'route_short_name': '22', 'agency_id': 'myage',
       'route_type': '1'})
     route.Validate(self.problems)
-    self.problems.AssertNoMoreExceptions()
+    self.accumulator.AssertNoMoreExceptions()
     self.assertEquals({'route_id': 'id1', 'route_short_name': '22',
                        'agency_id': 'myage', 'route_type': '1'}, dict(route))
 
@@ -2215,7 +2235,7 @@ class RouteConstructorTestCase(util.TestCase):
       'route_id': 'id1', 'route_short_name': '22', 'agency_id': 'myage',
       'route_type': '1', 'my_column': 'v'})
     route.Validate(self.problems)
-    self.problems.AssertNoMoreExceptions()
+    self.accumulator.AssertNoMoreExceptions()
     self.assertEquals({'route_id': 'id1', 'route_short_name': '22',
                        'agency_id': 'myage', 'route_type': '1',
                        'my_column':'v'}, dict(route))
@@ -2324,7 +2344,7 @@ class RouteValidationTestCase(ValidationTestCase):
     route.route_text_color = None # black
     route.route_color = None      # white
     route.Validate(self.problems)
-    self.problems.AssertNoMoreExceptions()
+    self.accumulator.AssertNoMoreExceptions()
 
 
 class ShapeValidationTestCase(ValidationTestCase):
@@ -2360,29 +2380,29 @@ class ShapeValidationTestCase(ValidationTestCase):
 
     # distance decreasing is bad, but staying the same is OK
     shape.AddPoint(36.905019, -116.763206, 4, self.problems)
-    e = self.problems.PopException('InvalidValue')
+    e = self.accumulator.PopException('InvalidValue')
     self.assertMatchesRegex('Each subsequent point', e.FormatProblem())
     self.assertMatchesRegex('distance was 5.000000.', e.FormatProblem())
-    self.problems.AssertNoMoreExceptions()
+    self.accumulator.AssertNoMoreExceptions()
 
     shape.AddPoint(36.925019, -116.764206, 6, self.problems)
-    self.problems.AssertNoMoreExceptions()
+    self.accumulator.AssertNoMoreExceptions()
     
     shapepoint = transitfeed.ShapePoint('TEST', 36.915760, -116.7156, 6, 8)
     shape.AddShapePointObjectUnsorted(shapepoint, self.problems)
     shapepoint = transitfeed.ShapePoint('TEST', 36.915760, -116.7156, 5, 10)
     shape.AddShapePointObjectUnsorted(shapepoint, self.problems)
-    e = self.problems.PopException('InvalidValue')
+    e = self.accumulator.PopException('InvalidValue')
     self.assertMatchesRegex('Each subsequent point', e.FormatProblem())
     self.assertMatchesRegex('distance was 8.000000.', e.FormatProblem())
-    self.problems.AssertNoMoreExceptions()
+    self.accumulator.AssertNoMoreExceptions()
 
     shapepoint = transitfeed.ShapePoint('TEST', 36.915760, -116.7156, 6, 11)
     shape.AddShapePointObjectUnsorted(shapepoint, self.problems)
-    e = self.problems.PopException('InvalidValue')
+    e = self.accumulator.PopException('InvalidValue')
     self.assertMatchesRegex('The sequence number 6 occurs ', e.FormatProblem())
     self.assertMatchesRegex('once in shape TEST.', e.FormatProblem())
-    self.problems.AssertNoMoreExceptions()
+    self.accumulator.AssertNoMoreExceptions()
 
 
 class ShapePointValidationTestCase(ValidationTestCase):
@@ -2393,30 +2413,30 @@ class ShapePointValidationTestCase(ValidationTestCase):
 
     shapepoint = transitfeed.ShapePoint('T', '36.9151', '-116.7611', '00', '0')
     shapepoint.ParseAttributes(self.problems)
-    e = self.problems.PopException('InvalidValue')
+    e = self.accumulator.PopException('InvalidValue')
     self.assertMatchesRegex('Value should be a number', e.FormatProblem())
-    self.problems.AssertNoMoreExceptions()
+    self.accumulator.AssertNoMoreExceptions()
     
     shapepoint = transitfeed.ShapePoint('T', '36.9151', '-116.7611', -1, '0')
     shapepoint.ParseAttributes(self.problems)
-    e = self.problems.PopException('InvalidValue')
+    e = self.accumulator.PopException('InvalidValue')
     self.assertMatchesRegex('Value should be a number', e.FormatProblem())
-    self.problems.AssertNoMoreExceptions()
+    self.accumulator.AssertNoMoreExceptions()
 
     shapepoint = transitfeed.ShapePoint('T', '0.1', '0.1', '1', '0')
     shapepoint.ParseAttributes(self.problems)
-    e = self.problems.PopException('InvalidValue')
+    e = self.accumulator.PopException('InvalidValue')
     self.assertMatchesRegex('too close to 0, 0,', e.FormatProblem())
-    self.problems.AssertNoMoreExceptions()
+    self.accumulator.AssertNoMoreExceptions()
 
     shapepoint = transitfeed.ShapePoint('T', '36.9151', '-116.7611', '0', '')
     shapepoint.ParseAttributes(self.problems)
     shapepoint = transitfeed.ShapePoint('T', '36.9151', '-116.7611', '0', '-1')
     shapepoint.ParseAttributes(self.problems)
-    e = self.problems.PopException('InvalidValue')
+    e = self.accumulator.PopException('InvalidValue')
     self.assertMatchesRegex('Invalid value -1.0', e.FormatProblem())
     self.assertMatchesRegex('should be a positive number', e.FormatProblem())
-    self.problems.AssertNoMoreExceptions()
+    self.accumulator.AssertNoMoreExceptions()
 
 
 class FareValidationTestCase(ValidationTestCase):
@@ -2497,7 +2517,7 @@ class FareValidationTestCase(ValidationTestCase):
     fare.transfer_duration = "3600"
     self.ExpectInvalidValue(fare, "transfer_duration")
     fare.transfer_duration = 7200
-    self.problems.AssertNoMoreExceptions()
+    self.accumulator.AssertNoMoreExceptions()
 
 
 class TransferObjectTestCase(ValidationTestCase):
@@ -2515,12 +2535,12 @@ class TransferObjectTestCase(ValidationTestCase):
     # references to other tables aren't checked without schedule so this
     # validates even though from_stop_id and to_stop_id are invalid.
     transfer.Validate(self.problems)
-    self.problems.AssertNoMoreExceptions()
+    self.accumulator.AssertNoMoreExceptions()
     self.assertEquals("S1", transfer.from_stop_id)
     self.assertEquals("S2", transfer.to_stop_id)
     self.assertEquals(1, transfer.transfer_type)
     self.assertEquals(None, transfer.min_transfer_time)
-    self.problems.AssertNoMoreExceptions()
+    self.accumulator.AssertNoMoreExceptions()
 
     transfer = transitfeed.Transfer(field_dict={"from_stop_id": "S1", \
                                                 "to_stop_id": "S2", \
@@ -2535,7 +2555,7 @@ class TransferObjectTestCase(ValidationTestCase):
     self.assertEquals("S2", transfer.to_stop_id)
     self.assertEquals(2, transfer.transfer_type)
     self.assertEquals(2, transfer.min_transfer_time)
-    self.problems.AssertNoMoreExceptions()
+    self.accumulator.AssertNoMoreExceptions()
 
     transfer = transitfeed.Transfer(field_dict={"from_stop_id": "S1", \
                                                 "to_stop_id": "S2", \
@@ -2546,8 +2566,8 @@ class TransferObjectTestCase(ValidationTestCase):
     self.assertEquals("-4", transfer.transfer_type)
     self.assertEquals(2, transfer.min_transfer_time)
     transfer.Validate(self.problems)
-    e = self.problems.PopInvalidValue("transfer_type")
-    e = self.problems.PopException(
+    e = self.accumulator.PopInvalidValue("transfer_type")
+    e = self.accumulator.PopException(
         "MinimumTransferTimeSetWithInvalidTransferType")
     self.assertEquals("S1", transfer.from_stop_id)
     self.assertEquals("S2", transfer.to_stop_id)
@@ -2561,9 +2581,9 @@ class TransferObjectTestCase(ValidationTestCase):
     self.assertEquals(0, transfer.transfer_type)
     transfer.Validate(self.problems)
     # It's negative *and* transfer_type is not 2
-    e = self.problems.PopException(
+    e = self.accumulator.PopException(
         "MinimumTransferTimeSetWithInvalidTransferType")
-    e = self.problems.PopInvalidValue("min_transfer_time")
+    e = self.accumulator.PopInvalidValue("min_transfer_time")
 
     # Non-integer min_transfer_time with transfer_type == 2
     transfer = transitfeed.Transfer(field_dict={"from_stop_id": "S1", \
@@ -2572,7 +2592,7 @@ class TransferObjectTestCase(ValidationTestCase):
                                                 "min_transfer_time": "foo"})
     self.assertEquals("foo", transfer.min_transfer_time)
     transfer.Validate(self.problems)
-    e = self.problems.PopInvalidValue("min_transfer_time")
+    e = self.accumulator.PopInvalidValue("min_transfer_time")
 
     # Non-integer min_transfer_time with transfer_type != 2
     transfer = transitfeed.Transfer(field_dict={"from_stop_id": "S1", \
@@ -2582,9 +2602,9 @@ class TransferObjectTestCase(ValidationTestCase):
     self.assertEquals("foo", transfer.min_transfer_time)
     transfer.Validate(self.problems)
     # It's not an integer *and* transfer_type is not 2
-    e = self.problems.PopException(
+    e = self.accumulator.PopException(
         "MinimumTransferTimeSetWithInvalidTransferType")
-    e = self.problems.PopInvalidValue("min_transfer_time")
+    e = self.accumulator.PopInvalidValue("min_transfer_time")
 
     # Fractional min_transfer_time with transfer_type == 2
     transfer = transitfeed.Transfer(field_dict={"from_stop_id": "S1", \
@@ -2593,7 +2613,7 @@ class TransferObjectTestCase(ValidationTestCase):
                                                 "min_transfer_time": "2.5"})
     self.assertEquals("2.5", transfer.min_transfer_time)
     transfer.Validate(self.problems)
-    e = self.problems.PopInvalidValue("min_transfer_time")
+    e = self.accumulator.PopInvalidValue("min_transfer_time")
 
     # Fractional min_transfer_time with transfer_type != 2
     transfer = transitfeed.Transfer(field_dict={"from_stop_id": "S1", \
@@ -2603,9 +2623,9 @@ class TransferObjectTestCase(ValidationTestCase):
     self.assertEquals("2.5", transfer.min_transfer_time)
     transfer.Validate(self.problems)
     # It's not an integer *and* transfer_type is not 2
-    e = self.problems.PopException(
+    e = self.accumulator.PopException(
         "MinimumTransferTimeSetWithInvalidTransferType")
-    e = self.problems.PopInvalidValue("min_transfer_time")
+    e = self.accumulator.PopInvalidValue("min_transfer_time")
 
     # simple successes
     transfer = transitfeed.Transfer()
@@ -2616,7 +2636,7 @@ class TransferObjectTestCase(ValidationTestCase):
     transfer.Validate(self.problems)
     transfer.transfer_type = 3
     transfer.Validate(self.problems)
-    self.problems.AssertNoMoreExceptions()
+    self.accumulator.AssertNoMoreExceptions()
 
     # transfer_type is out of range
     transfer.transfer_type = 4
@@ -2634,15 +2654,15 @@ class TransferObjectTestCase(ValidationTestCase):
     self.ExpectInvalidValue(transfer, "min_transfer_time")
     transfer.min_transfer_time = 4*3600
     transfer.Validate(self.problems)
-    e = self.problems.PopInvalidValue("min_transfer_time")
+    e = self.accumulator.PopInvalidValue("min_transfer_time")
     self.assertEquals(e.type, transitfeed.TYPE_WARNING)
     transfer.min_transfer_time = 25*3600
     transfer.Validate(self.problems)
-    e = self.problems.PopInvalidValue("min_transfer_time")
+    e = self.accumulator.PopInvalidValue("min_transfer_time")
     self.assertEquals(e.type, transitfeed.TYPE_ERROR)
     transfer.min_transfer_time = 250
     transfer.Validate(self.problems)
-    self.problems.AssertNoMoreExceptions()
+    self.accumulator.AssertNoMoreExceptions()
 
     # missing stop ids
     transfer.from_stop_id = ""
@@ -2664,7 +2684,7 @@ class TransferObjectTestCase(ValidationTestCase):
     transfer.min_transfer_time = 600
     repr(transfer)  # shouldn't crash
     transfer.Validate(self.problems)
-    self.problems.AssertNoMoreExceptions()
+    self.accumulator.AssertNoMoreExceptions()
 
     # only from_stop_id is present in schedule
     schedule = transitfeed.Schedule()
@@ -2678,7 +2698,7 @@ class TransferObjectTestCase(ValidationTestCase):
     transfer.from_stop_id = "unexist"
     transfer.to_stop_id = stop1.stop_id
     self.ExpectInvalidValue(transfer, "from_stop_id")
-    self.problems.AssertNoMoreExceptions()
+    self.accumulator.AssertNoMoreExceptions()
 
     # Transfer can only be added to a schedule once because _schedule is set
     transfer = transitfeed.Transfer()
@@ -2709,14 +2729,14 @@ class TransferObjectTestCase(ValidationTestCase):
       repr(transfer)  # shouldn't crash
       transfer.Validate(self.problems)
       if transfer_type != 2:
-        e = self.problems.PopException(
+        e = self.accumulator.PopException(
             "MinimumTransferTimeSetWithInvalidTransferType")
         self.assertEquals(e.transfer_type, transfer.transfer_type)
-      e = self.problems.PopException('TransferDistanceTooBig')
+      e = self.accumulator.PopException('TransferDistanceTooBig')
       self.assertEquals(e.type, transitfeed.TYPE_WARNING)
       self.assertEquals(e.from_stop_id, stop1.stop_id)
       self.assertEquals(e.to_stop_id, stop2.stop_id)
-      self.problems.AssertNoMoreExceptions()
+      self.accumulator.AssertNoMoreExceptions()
       
       # from_stop_id and to_stop_id are present in schedule
       # and too far away (should be error)
@@ -2729,18 +2749,18 @@ class TransferObjectTestCase(ValidationTestCase):
       repr(transfer)  # shouldn't crash
       transfer.Validate(self.problems)
       if transfer_type != 2:
-        e = self.problems.PopException(
+        e = self.accumulator.PopException(
             "MinimumTransferTimeSetWithInvalidTransferType")
         self.assertEquals(e.transfer_type, transfer.transfer_type)
-      e = self.problems.PopException('TransferDistanceTooBig')
+      e = self.accumulator.PopException('TransferDistanceTooBig')
       self.assertEquals(e.type, transitfeed.TYPE_ERROR)
       self.assertEquals(e.from_stop_id, stop1.stop_id)
       self.assertEquals(e.to_stop_id, stop2.stop_id)
-      e = self.problems.PopException('TransferWalkingSpeedTooFast')
+      e = self.accumulator.PopException('TransferWalkingSpeedTooFast')
       self.assertEquals(e.type, transitfeed.TYPE_WARNING)
       self.assertEquals(e.from_stop_id, stop1.stop_id)
       self.assertEquals(e.to_stop_id, stop2.stop_id)
-      self.problems.AssertNoMoreExceptions()
+      self.accumulator.AssertNoMoreExceptions()
 
   def testSmallTransferTimeTriggersWarning(self):
     # from_stop_id and to_stop_id are present in schedule
@@ -2756,11 +2776,11 @@ class TransferObjectTestCase(ValidationTestCase):
     transfer.min_transfer_time = 1
     repr(transfer)  # shouldn't crash
     transfer.Validate(self.problems)
-    e = self.problems.PopException('TransferWalkingSpeedTooFast')
+    e = self.accumulator.PopException('TransferWalkingSpeedTooFast')
     self.assertEquals(e.type, transitfeed.TYPE_WARNING)
     self.assertEquals(e.from_stop_id, stop1.stop_id)
     self.assertEquals(e.to_stop_id, stop2.stop_id)
-    self.problems.AssertNoMoreExceptions()
+    self.accumulator.AssertNoMoreExceptions()
 
   def testVeryCloseStationsDoNotTriggerWarning(self):
     # from_stop_id and to_stop_id are present in schedule
@@ -2777,7 +2797,7 @@ class TransferObjectTestCase(ValidationTestCase):
     transfer.min_transfer_time = 1
     repr(transfer)  # shouldn't crash
     transfer.Validate(self.problems)
-    self.problems.AssertNoMoreExceptions()
+    self.accumulator.AssertNoMoreExceptions()
 
   def testCustomAttribute(self):
     """Add unknown attributes to a Transfer and make sure they are saved."""
@@ -2791,10 +2811,10 @@ class TransferObjectTestCase(ValidationTestCase):
     
     saved_schedule_file = StringIO()
     schedule.WriteGoogleTransitFeed(saved_schedule_file)
-    self.problems.AssertNoMoreExceptions()
+    self.accumulator.AssertNoMoreExceptions()
 
     # Ignore NoServiceExceptions error to keep the test simple
-    load_problems = TestFailureProblemReporter(
+    load_problems = GetTestFailureProblemReporter(
         self, ("ExpirationDate", "UnrecognizedColumn", "NoServiceExceptions"))
     loaded_schedule = transitfeed.Loader(saved_schedule_file,
                                          problems=load_problems,
@@ -2814,11 +2834,11 @@ class TransferObjectTestCase(ValidationTestCase):
     transfer2.transfer_type = 3
     schedule.AddTransferObject(transfer2)
     transfer2.Validate()
-    e = self.problems.PopException('DuplicateID')
+    e = self.accumulator.PopException('DuplicateID')
     self.assertEquals('(from_stop_id, to_stop_id)', e.column_name)
     self.assertEquals('(stop1, stop2)', e.value)
     self.assertTrue(e.IsWarning())
-    self.problems.AssertNoMoreExceptions()
+    self.accumulator.AssertNoMoreExceptions()
     # Check that both transfers were kept
     self.assertEquals(transfer1, schedule.GetTransferList()[0])
     self.assertEquals(transfer2, schedule.GetTransferList()[1])
@@ -2827,7 +2847,7 @@ class TransferObjectTestCase(ValidationTestCase):
     transfer3 = transitfeed.Transfer(from_stop_id="stop1", to_stop_id="stop3")
     schedule.AddTransferObject(transfer3)
     self.assertEquals(3, len(schedule.GetTransferList()))
-    self.problems.AssertNoMoreExceptions()
+    self.accumulator.AssertNoMoreExceptions()
 
     # GetTransferIter should return all Transfers
     transfer4 = transitfeed.Transfer(from_stop_id="stop1")
@@ -2835,7 +2855,7 @@ class TransferObjectTestCase(ValidationTestCase):
     self.assertEquals(
         ",stop2,stop2,stop3",
         ",".join(sorted(t["to_stop_id"] for t in schedule.GetTransferIter())))
-    self.problems.AssertNoMoreExceptions()
+    self.accumulator.AssertNoMoreExceptions()
 
 
 class TransferValidationTestCase(MemoryZipTestCase):
@@ -2853,20 +2873,20 @@ class TransferValidationTestCase(MemoryZipTestCase):
         ",,2\n")
     schedule = self.loader.Load()
     # First row
-    e = self.problems.PopInvalidValue('from_stop_id')
+    e = self.accumulator.PopInvalidValue('from_stop_id')
     # Second row
-    e = self.problems.PopMissingValue('from_stop_id')
+    e = self.accumulator.PopMissingValue('from_stop_id')
     # Third row
-    e = self.problems.PopMissingValue('to_stop_id')
+    e = self.accumulator.PopMissingValue('to_stop_id')
     # Fourth row
-    e = self.problems.PopInvalidValue('to_stop_id')
+    e = self.accumulator.PopInvalidValue('to_stop_id')
     # Fifth row
-    e = self.problems.PopInvalidValue('from_stop_id')
-    e = self.problems.PopInvalidValue('to_stop_id')
+    e = self.accumulator.PopInvalidValue('from_stop_id')
+    e = self.accumulator.PopInvalidValue('to_stop_id')
     # Sixth row
-    e = self.problems.PopMissingValue('from_stop_id')
-    e = self.problems.PopMissingValue('to_stop_id')
-    self.problems.AssertNoMoreExceptions()
+    e = self.accumulator.PopMissingValue('from_stop_id')
+    e = self.accumulator.PopMissingValue('to_stop_id')
+    self.accumulator.AssertNoMoreExceptions()
 
   def testDuplicateTransfer(self):
     self.zip.writestr(
@@ -2887,18 +2907,18 @@ class TransferValidationTestCase(MemoryZipTestCase):
         "BEATTY_AIRPORT,BEATTY_AIRPORT_HANGER,0\n"
         "BEATTY_AIRPORT,BEATTY_AIRPORT_HANGER,3")
     schedule = self.loader.Load()
-    e = self.problems.PopException('DuplicateID')
+    e = self.accumulator.PopException('DuplicateID')
     self.assertEquals('(from_stop_id, to_stop_id)', e.column_name)
     self.assertEquals('(BEATTY_AIRPORT, BEATTY_AIRPORT_HANGER)', e.value)
     self.assertTrue(e.IsWarning())
     self.assertEquals('transfers.txt', e.file_name)
     self.assertEquals(3, e.row_num)
-    self.problems.AssertNoMoreExceptions()
+    self.accumulator.AssertNoMoreExceptions()
 
     saved_schedule_file = StringIO()
     schedule.WriteGoogleTransitFeed(saved_schedule_file)
-    self.problems.AssertNoMoreExceptions()
-    load_problems = TestFailureProblemReporter(
+    self.accumulator.AssertNoMoreExceptions()
+    load_problems = GetTestFailureProblemReporter(
         self, ("ExpirationDate", "DuplicateID"))
     loaded_schedule = transitfeed.Loader(saved_schedule_file,
                                          problems=load_problems,
@@ -3041,7 +3061,7 @@ class ServicePeriodDateRangeTestCase(ValidationTestCase):
     self.assertEqual(('20070101', '20080101'), schedule.GetDateRange())
     schedule.AddServicePeriodObject(period4)
     self.assertEqual(('20051031', '20080101'), schedule.GetDateRange())
-    self.problems.AssertNoMoreExceptions()
+    self.accumulator.AssertNoMoreExceptions()
 
 
 class NoServiceExceptionsTestCase(MemoryZipTestCase):
@@ -3050,8 +3070,8 @@ class NoServiceExceptionsTestCase(MemoryZipTestCase):
     self.RemoveFileFromZip("calendar_dates.txt")
     self.InstantiateLoader()
     self.loader.Load()
-    e = self.problems.PopException("NoServiceExceptions")
-    self.problems.AssertNoMoreExceptions()
+    e = self.accumulator.PopException("NoServiceExceptions")
+    self.accumulator.AssertNoMoreExceptions()
 
   def testNoExceptionsWhenFeedActiveForShortPeriodOfTime(self):
     self.zip.writestr(
@@ -3063,7 +3083,7 @@ class NoServiceExceptionsTestCase(MemoryZipTestCase):
     self.RemoveFileFromZip("calendar_dates.txt")
     self.InstantiateLoader()
     self.loader.Load()
-    self.problems.AssertNoMoreExceptions()
+    self.accumulator.AssertNoMoreExceptions()
 
   def testEmptyCalendarDates(self):
     self.zip.writestr(
@@ -3071,9 +3091,9 @@ class NoServiceExceptionsTestCase(MemoryZipTestCase):
         "")
     self.InstantiateLoader()
     self.loader.Load()
-    e = self.problems.PopException("EmptyFile")
-    e = self.problems.PopException("NoServiceExceptions")
-    self.problems.AssertNoMoreExceptions()
+    e = self.accumulator.PopException("EmptyFile")
+    e = self.accumulator.PopException("NoServiceExceptions")
+    self.accumulator.AssertNoMoreExceptions()
 
   def testCalendarDatesWithHeaderOnly(self):
     self.zip.writestr(
@@ -3081,8 +3101,8 @@ class NoServiceExceptionsTestCase(MemoryZipTestCase):
         "service_id,date,exception_type\n")
     self.InstantiateLoader()
     self.loader.Load()
-    e = self.problems.PopException("NoServiceExceptions")
-    self.problems.AssertNoMoreExceptions()
+    e = self.accumulator.PopException("NoServiceExceptions")
+    self.accumulator.AssertNoMoreExceptions()
 
   def testCalendarDatesWithAddedServiceException(self):
     self.zip.writestr(
@@ -3091,7 +3111,7 @@ class NoServiceExceptionsTestCase(MemoryZipTestCase):
         "FULLW,20070101,1\n")
     self.InstantiateLoader()
     self.loader.Load()
-    self.problems.AssertNoMoreExceptions()
+    self.accumulator.AssertNoMoreExceptions()
 
   def testCalendarDatesWithRemovedServiceException(self):
     self.zip.writestr(
@@ -3100,7 +3120,7 @@ class NoServiceExceptionsTestCase(MemoryZipTestCase):
         "FULLW,20070101,2\n")
     self.InstantiateLoader()
     self.loader.Load()
-    self.problems.AssertNoMoreExceptions()
+    self.accumulator.AssertNoMoreExceptions()
 
 
 class ServicePeriodTestCase(util.TestCase):
@@ -3237,7 +3257,7 @@ class GetServicePeriodsActiveEachDateTestCase(util.TestCase):
 class TripMemoryZipTestCase(MemoryZipTestCase):
   def assertLoadAndCheckExtraValues(self, schedule_file):
     """Load file-like schedule_file and check for extra trip columns."""
-    load_problems = TestFailureProblemReporter(
+    load_problems = GetTestFailureProblemReporter(
         self, ("ExpirationDate", "UnrecognizedColumn"))
     loaded_schedule = transitfeed.Loader(schedule_file,
                                          problems=load_problems,
@@ -3266,7 +3286,7 @@ class TripMemoryZipTestCase(MemoryZipTestCase):
     trip2.AddStopTime(stop=schedule.GetStop("STAGECOACH"), stop_time="09:30:00")
     saved_schedule_file = StringIO()
     schedule.WriteGoogleTransitFeed(saved_schedule_file)
-    self.problems.AssertNoMoreExceptions()
+    self.accumulator.AssertNoMoreExceptions()
 
     self.assertLoadAndCheckExtraValues(saved_schedule_file)
 
@@ -3284,7 +3304,7 @@ class TripMemoryZipTestCase(MemoryZipTestCase):
         self.zip.read("stop_times.txt") +
         "AB2,09:00:00,09:00:00,BULLFROG,1\n"
         "AB2,09:30:00,09:30:00,STAGECOACH,2\n")
-    load1_problems = TestFailureProblemReporter(
+    load1_problems = GetTestFailureProblemReporter(
         self, ("ExpirationDate", "UnrecognizedColumn"))
     schedule = transitfeed.Loader(problems=load1_problems,
                                   extra_validation=True,
@@ -3316,7 +3336,7 @@ class TripValidationTestCase(ValidationTestCase):
     trip.block_id = None
     trip.shape_id = None
     trip.Validate(self.problems)
-    self.problems.AssertNoMoreExceptions()
+    self.accumulator.AssertNoMoreExceptions()
     repr(trip)  # shouldn't crash
 
     # missing route ID
@@ -3344,22 +3364,22 @@ class TripValidationTestCase(ValidationTestCase):
     # check because trip is not in a schedule.
     trip.route_id = '054C-notfound'
     schedule.AddTripObject(trip, self.problems, True)
-    e = self.problems.PopException('InvalidValue')
+    e = self.accumulator.PopException('InvalidValue')
     self.assertEqual('route_id', e.column_name)
-    self.problems.AssertNoMoreExceptions()
+    self.accumulator.AssertNoMoreExceptions()
     trip.route_id = '054C'
 
     # Make sure calling Trip.Validate validates that route_id and service_id
     # are found in the schedule.
     trip.service_id = 'WEEK-notfound'
     trip.Validate(self.problems)
-    e = self.problems.PopException('InvalidValue')
+    e = self.accumulator.PopException('InvalidValue')
     self.assertEqual('service_id', e.column_name)
-    self.problems.AssertNoMoreExceptions()
+    self.accumulator.AssertNoMoreExceptions()
     trip.service_id = 'WEEK'
 
     trip.Validate(self.problems)
-    self.problems.AssertNoMoreExceptions()
+    self.accumulator.AssertNoMoreExceptions()
 
     # expect no problems for non-overlapping periods
     trip.AddHeadwayPeriod("06:00:00", "12:00:00", 600)
@@ -3367,7 +3387,7 @@ class TripValidationTestCase(ValidationTestCase):
     trip.AddHeadwayPeriod("04:00:00", "05:00:00", 1000)
     trip.AddHeadwayPeriod("12:00:00", "19:00:00", 700)
     trip.Validate(self.problems)
-    self.problems.AssertNoMoreExceptions()
+    self.accumulator.AssertNoMoreExceptions()
     trip.ClearHeadwayPeriods()
 
     # overlapping headway periods
@@ -3387,7 +3407,7 @@ class TripValidationTestCase(ValidationTestCase):
     trip.AddHeadwayPeriod("06:00:00", "18:00:00", 1200)
     self.ExpectOtherProblem(trip)
     trip.ClearHeadwayPeriods()
-    self.problems.AssertNoMoreExceptions()
+    self.accumulator.AssertNoMoreExceptions()
 
 
 class HeadwayPeriodValidationTestCase(ValidationTestCase):
@@ -3433,7 +3453,7 @@ class HeadwayPeriodValidationTestCase(ValidationTestCase):
     headway_period3.AddToSchedule(self.schedule, self.problems)
     headway_period4.AddToSchedule(self.schedule, self.problems)
     self.trip.Validate(self.problems)
-    self.problems.AssertNoMoreExceptions()
+    self.accumulator.AssertNoMoreExceptions()
     self.trip.ClearHeadwayPeriods()
 
   def testOverlappingPeriods(self):
@@ -3452,7 +3472,7 @@ class HeadwayPeriodValidationTestCase(ValidationTestCase):
     headway_period2.AddToSchedule(self.schedule, self.problems)
     self.ExpectOtherProblem(self.trip)
     self.trip.ClearHeadwayPeriods()
-    self.problems.AssertNoMoreExceptions()
+    self.accumulator.AssertNoMoreExceptions()
 
   def testPeriodWithInvalidTripId(self):
     headway_period1 = transitfeed.HeadwayPeriod({'trip_id': 'foo',
@@ -3461,7 +3481,7 @@ class HeadwayPeriodValidationTestCase(ValidationTestCase):
                                                  'headway_secs': 600,
                                                 })
     headway_period1.AddToSchedule(self.schedule, self.problems)
-    e = self.problems.PopException('InvalidValue')
+    e = self.accumulator.PopException('InvalidValue')
     self.assertEqual('trip_id', e.column_name)
     self.trip.ClearHeadwayPeriods()
 
@@ -3484,10 +3504,10 @@ class TripSequenceValidationTestCase(ValidationTestCase):
     trip._AddStopTimeObjectUnordered(stoptime2, schedule)
     trip._AddStopTimeObjectUnordered(stoptime3, schedule)
     trip.Validate(self.problems)
-    e = self.problems.PopException('OtherProblem')
+    e = self.accumulator.PopException('OtherProblem')
     self.assertTrue(e.FormatProblem().find('Timetravel detected') != -1)
     self.assertTrue(e.FormatProblem().find('number 2 in trip 054C-00') != -1)
-    self.problems.AssertNoMoreExceptions()
+    self.accumulator.AssertNoMoreExceptions()
 
 
 class TripServiceIDValidationTestCase(ValidationTestCase):
@@ -3515,12 +3535,12 @@ class TripHasStopTimeValidationTestCase(ValidationTestCase):
     # but no stops
     trip.AddHeadwayPeriod("01:00:00","12:00:00", 600)
     schedule.Validate(self.problems)
-    self.problems.PopException('OtherProblem')  # pop first warning
-    e = self.problems.PopException('OtherProblem')  # pop frequency error
+    self.accumulator.PopException('OtherProblem')  # pop first warning
+    e = self.accumulator.PopException('OtherProblem')  # pop frequency error
     self.assertTrue(e.FormatProblem().find('Frequencies defined, but') != -1)
     self.assertTrue(e.FormatProblem().find('given in trip 054C-00') != -1)
     self.assertEquals(transitfeed.TYPE_ERROR, e.type)
-    self.problems.AssertNoMoreExceptions()
+    self.accumulator.AssertNoMoreExceptions()
     trip.ClearHeadwayPeriods()
 
     # Add a stop, but with only one stop passengers have nowhere to exit!
@@ -3569,11 +3589,11 @@ class ShapeDistTraveledOfStopTimeValidationTestCase(ValidationTestCase):
     schedule.AddStopObject(stop)
     trip.AddStopTime(stop, arrival_time="5:18:00", departure_time="5:19:00",
                      stop_sequence=2, shape_dist_traveled=2)
-    self.problems.AssertNoMoreExceptions()
+    self.accumulator.AssertNoMoreExceptions()
     schedule.Validate(self.problems)
-    e = self.problems.PopException('OtherProblem')
+    e = self.accumulator.PopException('OtherProblem')
     self.assertMatchesRegex('shape_dist_traveled=2', e.FormatProblem())
-    self.problems.AssertNoMoreExceptions()
+    self.accumulator.AssertNoMoreExceptions()
 
     # Error if the distance decreases.
     shape.AddPoint(36.421288, -117.133132, 2)
@@ -3584,25 +3604,25 @@ class ShapeDistTraveledOfStopTimeValidationTestCase(ValidationTestCase):
                                     departure_time="5:29:00",stop_sequence=3, 
                                     shape_dist_traveled=1.7)
     trip.AddStopTimeObject(stoptime, schedule=schedule)
-    self.problems.AssertNoMoreExceptions()
+    self.accumulator.AssertNoMoreExceptions()
     schedule.Validate(self.problems)
-    e = self.problems.PopException('InvalidValue')
+    e = self.accumulator.PopException('InvalidValue')
     self.assertMatchesRegex('stop STOP4 has', e.FormatProblem())
     self.assertMatchesRegex('shape_dist_traveled=1.7', e.FormatProblem())
     self.assertMatchesRegex('distance was 2.0.', e.FormatProblem())
     self.assertEqual(e.type, transitfeed.TYPE_ERROR)
-    self.problems.AssertNoMoreExceptions()
+    self.accumulator.AssertNoMoreExceptions()
 
     # Warning if distance remains the same between two stop_times 
     stoptime.shape_dist_traveled = 2.0
     trip.ReplaceStopTimeObject(stoptime, schedule=schedule)
     schedule.Validate(self.problems)
-    e = self.problems.PopException('InvalidValue')
+    e = self.accumulator.PopException('InvalidValue')
     self.assertMatchesRegex('stop STOP4 has', e.FormatProblem())
     self.assertMatchesRegex('shape_dist_traveled=2.0', e.FormatProblem())
     self.assertMatchesRegex('distance was 2.0.', e.FormatProblem())
     self.assertEqual(e.type, transitfeed.TYPE_WARNING)
-    self.problems.AssertNoMoreExceptions()
+    self.accumulator.AssertNoMoreExceptions()
 
 
 class StopMatchWithShapeTestCase(ValidationTestCase):
@@ -3629,10 +3649,10 @@ class StopMatchWithShapeTestCase(ValidationTestCase):
                      stop_sequence=1, shape_dist_traveled=1)
 
     schedule.Validate(self.problems)
-    e = self.problems.PopException('StopTooFarFromShapeWithDistTraveled')
+    e = self.accumulator.PopException('StopTooFarFromShapeWithDistTraveled')
     self.assertTrue(e.FormatProblem().find('Demo Stop 2') != -1)
     self.assertTrue(e.FormatProblem().find('1344 meters away') != -1)
-    self.problems.AssertNoMoreExceptions()
+    self.accumulator.AssertNoMoreExceptions()
 
 
 class TripAddStopTimeObjectTestCase(ValidationTestCase):
@@ -3670,7 +3690,7 @@ class TripAddStopTimeObjectTestCase(ValidationTestCase):
                                                 arrival_secs=30,
                                                 departure_secs=30),
                            schedule=schedule, problems=self.problems)
-    self.problems.AssertNoMoreExceptions()
+    self.accumulator.AssertNoMoreExceptions()
 
 class DuplicateTripTestCase(ValidationTestCase):
   def runTest(self):
@@ -3733,10 +3753,10 @@ class DuplicateTripTestCase(ValidationTestCase):
                       stop_sequence=1, shape_dist_traveled=1)
 
     schedule.Validate(self.problems)
-    e = self.problems.PopException('DuplicateTrip')
+    e = self.accumulator.PopException('DuplicateTrip')
     self.assertTrue(e.FormatProblem().find('t1 of route') != -1)
     self.assertTrue(e.FormatProblem().find('t2 of route') != -1)
-    self.problems.AssertNoMoreExceptions()
+    self.accumulator.AssertNoMoreExceptions()
 
 
 class StopBelongsToBothSubwayAndBusTestCase(ValidationTestCase):
@@ -3767,11 +3787,11 @@ class StopBelongsToBothSubwayAndBusTestCase(ValidationTestCase):
     trip2.AddStopTime(stop3, arrival_time="6:21:00", departure_time="6:22:00")
 
     schedule.Validate(self.problems)
-    e = self.problems.PopException("StopWithMultipleRouteTypes")
+    e = self.accumulator.PopException("StopWithMultipleRouteTypes")
     self.assertTrue(e.FormatProblem().find("Stop stop1") != -1)
     self.assertTrue(e.FormatProblem().find("subway (ID=1)") != -1)
     self.assertTrue(e.FormatProblem().find("bus line (ID=0)") != -1)
-    self.problems.AssertNoMoreExceptions()
+    self.accumulator.AssertNoMoreExceptions()
 
 
 class TripReplaceStopTimeObjectTestCase(util.TestCase):
@@ -3898,7 +3918,7 @@ class BasicParsingTestCase(util.TestCase):
   def test_MemoryDb(self):
     loader = transitfeed.Loader(
       DataPath('good_feed.zip'),
-      problems=TestFailureProblemReporter(self),
+      problems=GetTestFailureProblemReporter(self),
       extra_validation=True,
       memory_db=True)
     schedule = loader.Load()
@@ -3908,7 +3928,7 @@ class BasicParsingTestCase(util.TestCase):
   def test_TemporaryFile(self):
     loader = transitfeed.Loader(
       DataPath('good_feed.zip'),
-      problems=TestFailureProblemReporter(self),
+      problems=GetTestFailureProblemReporter(self),
       extra_validation=True,
       memory_db=False)
     schedule = loader.Load()
@@ -3916,7 +3936,7 @@ class BasicParsingTestCase(util.TestCase):
     self.assertLoadedStopTimesCorrectly(schedule)
 
   def test_NoLoadStopTimes(self):
-    problems = TestFailureProblemReporter(
+    problems = GetTestFailureProblemReporter(
         self, ignore_types=("ExpirationDate", "UnusedStop", "OtherProblem"))
     loader = transitfeed.Loader(
       DataPath('good_feed.zip'),
@@ -3936,9 +3956,9 @@ class RepeatedRouteNameTestCase(LoadTestCase):
 class InvalidRouteAgencyTestCase(LoadTestCase):
   def runTest(self):
     self.Load('invalid_route_agency')
-    self.problems.PopInvalidValue("agency_id", "routes.txt")
-    self.problems.PopInvalidValue("route_id", "trips.txt")
-    self.problems.AssertNoMoreExceptions()
+    self.accumulator.PopInvalidValue("agency_id", "routes.txt")
+    self.accumulator.PopInvalidValue("route_id", "trips.txt")
+    self.accumulator.AssertNoMoreExceptions()
 
 
 class UndefinedStopAgencyTestCase(LoadTestCase):
@@ -3954,17 +3974,17 @@ class SameShortLongNameTestCase(LoadTestCase):
 class UnusedStopAgencyTestCase(LoadTestCase):
   def runTest(self):
     self.Load('unused_stop'),
-    e = self.problems.PopException("UnusedStop")
+    e = self.accumulator.PopException("UnusedStop")
     self.assertEqual("Bogus Stop (Demo)", e.stop_name)
     self.assertEqual("BOGUS", e.stop_id)
-    self.problems.AssertNoMoreExceptions()
+    self.accumulator.AssertNoMoreExceptions()
 
 
 
 class OnlyCalendarDatesTestCase(LoadTestCase):
   def runTest(self):
     self.Load('only_calendar_dates'),
-    self.problems.AssertNoMoreExceptions()
+    self.accumulator.AssertNoMoreExceptions()
 
 
 class DuplicateServiceIdDateWarningTestCase(MemoryZipTestCase):
@@ -3977,14 +3997,14 @@ class DuplicateServiceIdDateWarningTestCase(MemoryZipTestCase):
         'FULLW,20100604,1\n'
         'FULLW,20100604,2\n')
     schedule = self.loader.Load()
-    e = self.problems.PopException('DuplicateID')
+    e = self.accumulator.PopException('DuplicateID')
     self.assertEquals('(service_id, date)', e.column_name)
     self.assertEquals('(FULLW, 20100604)', e.value)
 
 
 class AddStopTimeParametersTestCase(util.TestCase):
   def runTest(self):
-    problem_reporter = TestFailureProblemReporter(self)
+    problem_reporter = GetTestFailureProblemReporter(self)
     schedule = transitfeed.Schedule(problem_reporter=problem_reporter)
     route = schedule.AddRoute(short_name="10", long_name="", route_type="Bus")
     stop = schedule.AddStop(40, -128, "My stop")
@@ -4005,7 +4025,8 @@ class AddStopTimeParametersTestCase(util.TestCase):
 
 class ExpirationDateTestCase(util.TestCase):
   def runTest(self):
-    problems = RecordingProblemReporter(self, ("NoServiceExceptions"))
+    accumulator = RecordingProblemAccumulator(self, ("NoServiceExceptions"))
+    problems = transitfeed.ProblemReporter(accumulator)
     schedule = transitfeed.Schedule(problem_reporter=problems)
 
     now = time.mktime(time.localtime())
@@ -4021,24 +4042,25 @@ class ExpirationDateTestCase(util.TestCase):
 
     service_period.SetEndDate(time.strftime(date_format, two_months_from_now))
     schedule.Validate()  # should have no problems
-    problems.AssertNoMoreExceptions()
+    accumulator.AssertNoMoreExceptions()
 
     service_period.SetEndDate(time.strftime(date_format, two_weeks_from_now))
     schedule.Validate()
-    e = problems.PopException('ExpirationDate')
+    e = accumulator.PopException('ExpirationDate')
     self.assertTrue(e.FormatProblem().index('will soon expire'))
-    problems.AssertNoMoreExceptions()
+    accumulator.AssertNoMoreExceptions()
 
     service_period.SetEndDate(time.strftime(date_format, two_weeks_ago))
     schedule.Validate()
-    e = problems.PopException('ExpirationDate')
+    e = accumulator.PopException('ExpirationDate')
     self.assertTrue(e.FormatProblem().index('expired'))
-    problems.AssertNoMoreExceptions()
+    accumulator.AssertNoMoreExceptions()
 
 
 class FutureServiceStartDateTestCase(util.TestCase):
   def runTest(self):
-    problems = RecordingProblemReporter(self)
+    accumulator = RecordingProblemAccumulator(self)
+    problems = transitfeed.ProblemReporter(accumulator)
     schedule = transitfeed.Schedule(problem_reporter=problems)
 
     today = datetime.date.today()
@@ -4053,16 +4075,16 @@ class FutureServiceStartDateTestCase(util.TestCase):
 
     service_period.SetStartDate(yesterday.strftime("%Y%m%d"))
     schedule.Validate()
-    problems.AssertNoMoreExceptions()
+    accumulator.AssertNoMoreExceptions()
 
     service_period.SetStartDate(today.strftime("%Y%m%d"))
     schedule.Validate()
-    problems.AssertNoMoreExceptions()
+    accumulator.AssertNoMoreExceptions()
 
     service_period.SetStartDate(tomorrow.strftime("%Y%m%d"))
     schedule.Validate()
-    problems.PopException('FutureService')
-    problems.AssertNoMoreExceptions()
+    accumulator.PopException('FutureService')
+    accumulator.AssertNoMoreExceptions()
 
 
 class CalendarTxtIntegrationTestCase(MemoryZipTestCase):
@@ -4076,8 +4098,8 @@ class CalendarTxtIntegrationTestCase(MemoryZipTestCase):
         "FULLW,1,1,1,1,1,1,1,20070101,20101232\n"
         "WE,0,0,0,0,0,1,1,20070101,20101231\n")
     schedule = self.loader.Load()
-    e = self.problems.PopInvalidValue('end_date')
-    self.problems.AssertNoMoreExceptions()
+    e = self.accumulator.PopInvalidValue('end_date')
+    self.accumulator.AssertNoMoreExceptions()
 
   def testBadStartDateFormat(self):
     self.zip.writestr(
@@ -4087,8 +4109,8 @@ class CalendarTxtIntegrationTestCase(MemoryZipTestCase):
         "FULLW,1,1,1,1,1,1,1,200701xx,20101231\n"
         "WE,0,0,0,0,0,1,1,20070101,20101231\n")
     schedule = self.loader.Load()
-    e = self.problems.PopInvalidValue('start_date')
-    self.problems.AssertNoMoreExceptions()
+    e = self.accumulator.PopInvalidValue('start_date')
+    self.accumulator.AssertNoMoreExceptions()
 
   def testNoStartDateAndEndDate(self):
     """Regression test for calendar.txt with empty start_date and end_date.
@@ -4102,13 +4124,13 @@ class CalendarTxtIntegrationTestCase(MemoryZipTestCase):
         "FULLW,1,1,1,1,1,1,1,    ,\t\n"
         "WE,0,0,0,0,0,1,1,20070101,20101231\n")
     schedule = self.loader.Load()
-    e = self.problems.PopException("MissingValue")
+    e = self.accumulator.PopException("MissingValue")
     self.assertEquals(2, e.row_num)
     self.assertEquals("start_date", e.column_name)
-    e = self.problems.PopException("MissingValue")
+    e = self.accumulator.PopException("MissingValue")
     self.assertEquals(2, e.row_num)
     self.assertEquals("end_date", e.column_name)
-    self.problems.AssertNoMoreExceptions()
+    self.accumulator.AssertNoMoreExceptions()
 
   def testNoStartDateAndBadEndDate(self):
     self.zip.writestr(
@@ -4118,12 +4140,12 @@ class CalendarTxtIntegrationTestCase(MemoryZipTestCase):
         "FULLW,1,1,1,1,1,1,1,,abc\n"
         "WE,0,0,0,0,0,1,1,20070101,20101231\n")
     schedule = self.loader.Load()
-    e = self.problems.PopException("MissingValue")
+    e = self.accumulator.PopException("MissingValue")
     self.assertEquals(2, e.row_num)
     self.assertEquals("start_date", e.column_name)
-    e = self.problems.PopInvalidValue("end_date")
+    e = self.accumulator.PopInvalidValue("end_date")
     self.assertEquals(2, e.row_num)
-    self.problems.AssertNoMoreExceptions()
+    self.accumulator.AssertNoMoreExceptions()
 
   def testMissingEndDateColumn(self):
     self.zip.writestr(
@@ -4133,9 +4155,9 @@ class CalendarTxtIntegrationTestCase(MemoryZipTestCase):
         "FULLW,1,1,1,1,1,1,1,20070101\n"
         "WE,0,0,0,0,0,1,1,20070101\n")
     schedule = self.loader.Load()
-    e = self.problems.PopException("MissingColumn")
+    e = self.accumulator.PopException("MissingColumn")
     self.assertEquals("end_date", e.column_name)
-    self.problems.AssertNoMoreExceptions()
+    self.accumulator.AssertNoMoreExceptions()
 
 
 class DuplicateTripIDValidationTestCase(util.TestCase):
@@ -4222,7 +4244,7 @@ class DuplicateStopValidationTestCase(ValidationTestCase):
     schedule.AddStopObject(stop3)
     trip.AddStopTime(stop3, arrival_time="12:10:00", departure_time="12:10:00")
     schedule.Validate()
-    self.problems.AssertNoMoreExceptions()
+    self.accumulator.AssertNoMoreExceptions()
 
     stop4 = transitfeed.Stop()
     stop4.stop_id = "STOP4"
@@ -4232,8 +4254,8 @@ class DuplicateStopValidationTestCase(ValidationTestCase):
     schedule.AddStopObject(stop4)
     trip.AddStopTime(stop4, arrival_time="12:15:00", departure_time="12:15:00")
     schedule.Validate()
-    e = self.problems.PopException('StopsTooClose')
-    self.problems.AssertNoMoreExceptions()
+    e = self.accumulator.PopException('StopsTooClose')
+    self.accumulator.AssertNoMoreExceptions()
 
 
 class TempFileTestCaseBase(util.TestCase):
@@ -4456,7 +4478,7 @@ class ScheduleBuilderTestCase(TempFileTestCaseBase):
   """Tests for using a Schedule object to build a GTFS file."""
 
   def testBuildFeedWithUtf8Names(self):
-    problems = TestFailureProblemReporter(self)
+    problems = GetTestFailureProblemReporter(self)
     schedule = transitfeed.Schedule(problem_reporter=problems)
     schedule.AddAgency("\xc8\x8b Fly Agency", "http://iflyagency.com",
                        "America/Los_Angeles")
@@ -4489,8 +4511,8 @@ class ScheduleBuilderTestCase(TempFileTestCaseBase):
 
   def testBuildSimpleFeed(self):
     """Make a very simple feed using the Schedule class."""
-    problems = TestFailureProblemReporter(self, ("ExpirationDate", 
-                                                 "NoServiceExceptions"))
+    problems = GetTestFailureProblemReporter(self, ("ExpirationDate", 
+                                                    "NoServiceExceptions"))
     schedule = transitfeed.Schedule(problem_reporter=problems)
 
     schedule.AddAgency("Test Agency", "http://example.com",
@@ -4540,7 +4562,7 @@ class ScheduleBuilderTestCase(TempFileTestCaseBase):
     self.assertEqual(4, len(read_schedule.GetStopList()))
 
   def testStopIdConflict(self):
-    problems = TestFailureProblemReporter(self)
+    problems = GetTestFailureProblemReporter(self)
     schedule = transitfeed.Schedule(problem_reporter=problems)
     schedule.AddStop(lat=3, lng=4.1, name="stop1", stop_id="1")
     schedule.AddStop(lat=3, lng=4.0, name="stop0", stop_id="0")
@@ -4555,7 +4577,7 @@ class ScheduleBuilderTestCase(TempFileTestCaseBase):
                             " ".join(s.stop_id for s in stop_list))
 
   def testRouteIdConflict(self):
-    problems = TestFailureProblemReporter(self)
+    problems = GetTestFailureProblemReporter(self)
     schedule = transitfeed.Schedule(problem_reporter=problems)
     route0 = schedule.AddRoute("0", "Long Name", "Bus")
     route1 = schedule.AddRoute("1", "", "Bus", route_id="1")
@@ -4572,7 +4594,7 @@ class ScheduleBuilderTestCase(TempFileTestCaseBase):
                      ",".join(r.route_long_name for r in route_list))
 
   def testTripIdConflict(self):
-    problems = TestFailureProblemReporter(self)
+    problems = GetTestFailureProblemReporter(self)
     schedule = transitfeed.Schedule(problem_reporter=problems)
     service_period = schedule.GetDefaultServicePeriod()
     service_period.SetDateHasService("20070101")
@@ -4612,7 +4634,9 @@ class WriteSampleFeedTestCase(TempFileTestCaseBase):
     self.assertTrue(False, "a=%s b=%s" % (a, b))
 
   def runTest(self):
-    problems = RecordingProblemReporter(self, ignore_types=("ExpirationDate",))
+    accumulator = RecordingProblemAccumulator(self,
+                                              ignore_types=("ExpirationDate",))
+    problems = transitfeed.ProblemReporter(accumulator)
     schedule = transitfeed.Schedule(problem_reporter=problems)
     agency = transitfeed.Agency()
     agency.agency_id = "DTA"
@@ -4816,19 +4840,19 @@ class WriteSampleFeedTestCase(TempFileTestCaseBase):
       schedule.AddFareRuleObject(rule, problems)
 
     schedule.Validate(problems)
-    problems.AssertNoMoreExceptions()
+    accumulator.AssertNoMoreExceptions()
     schedule.WriteGoogleTransitFeed(self.tempfilepath)
 
     read_schedule = \
         transitfeed.Loader(self.tempfilepath, problems=problems,
                            extra_validation=True).Load()
-    e = problems.PopException("UnrecognizedColumn")
+    e = accumulator.PopException("UnrecognizedColumn")
     self.assertEqual(e.file_name, "agency.txt")
     self.assertEqual(e.column_name, "agency_mission")
-    e = problems.PopException("UnrecognizedColumn")
+    e = accumulator.PopException("UnrecognizedColumn")
     self.assertEqual(e.file_name, "stops.txt")
     self.assertEqual(e.column_name, "stop_sound")
-    problems.AssertNoMoreExceptions()
+    accumulator.AssertNoMoreExceptions()
 
     self.assertEqual(1, len(read_schedule.GetAgencyList()))
     self.assertEqual(agency, read_schedule.GetAgency(agency.agency_id))
@@ -5042,7 +5066,7 @@ class DefaultServicePeriodTestCase(util.TestCase):
 class GetTripTimeTestCase(util.TestCase):
   """Test for GetStopTimeTrips and GetTimeInterpolatedStops"""
   def setUp(self):
-    problems = TestFailureProblemReporter(self)
+    problems = GetTestFailureProblemReporter(self)
     schedule = transitfeed.Schedule(problem_reporter=problems)
     self.schedule = schedule
     schedule.AddAgency("Agency", "http://iflyagency.com",
@@ -5094,7 +5118,7 @@ class GetTripTimeTestCase(util.TestCase):
     # Temporarily replace the problem reporter so that adding the first
     # StopTime without a time doesn't throw an exception.
     old_problems = self.schedule.problem_reporter
-    self.schedule.problem_reporter = TestFailureProblemReporter(
+    self.schedule.problem_reporter = GetTestFailureProblemReporter(
         self, ("OtherProblem",))
     self.trip3.AddStopTime(self.stop3, schedule=self.schedule)
     self.schedule.problem_reporter = old_problems
@@ -5212,7 +5236,7 @@ class NonNegIntStringToIntTestCase(util.TestCase):
 class GetHeadwayTimesTestCase(util.TestCase):
   """Test for GetHeadwayStartTimes and GetHeadwayStopTimes"""
   def setUp(self):
-    problems = TestFailureProblemReporter(self)
+    problems = GetTestFailureProblemReporter(self)
     schedule = transitfeed.Schedule(problem_reporter=problems)
     self.schedule = schedule
     schedule.AddAgency("Agency", "http://iflyagency.com",
@@ -5320,7 +5344,7 @@ class ServiceGapsTestCase(MemoryZipTestCase):
   def testServiceGapBeforeTodayIsDiscovered(self):
     self.schedule.Validate(today=date(2009, 7, 17),
                            service_gap_interval=13)
-    exception = self.problems.PopException("TooManyDaysWithoutService")
+    exception = self.accumulator.PopException("TooManyDaysWithoutService")
     self.assertEquals(date(2009, 7, 5), 
                       exception.first_day_without_service)
     self.assertEquals(date(2009, 7, 17),
@@ -5342,7 +5366,7 @@ class ServiceGapsTestCase(MemoryZipTestCase):
                            service_gap_interval=13)
 
     # This service gap is the one between FULLW and WE
-    exception = self.problems.PopException("TooManyDaysWithoutService")
+    exception = self.accumulator.PopException("TooManyDaysWithoutService")
     self.assertEquals(date(2009, 6, 11), 
                       exception.first_day_without_service)
     self.assertEquals(date(2009, 7, 17),
@@ -5357,7 +5381,7 @@ class ServiceGapsTestCase(MemoryZipTestCase):
                            service_gap_interval=13)
 
     # This service gap is the one between FULLW and WE
-    exception = self.problems.PopException("TooManyDaysWithoutService")
+    exception = self.accumulator.PopException("TooManyDaysWithoutService")
     self.assertEquals(date(2009, 6, 11), 
                       exception.first_day_without_service)
     self.assertEquals(date(2009, 7, 17),
@@ -5371,7 +5395,7 @@ class ServiceGapsTestCase(MemoryZipTestCase):
   def testCurrentServiceGapIsDiscovered(self):
     self.schedule.Validate(today=date(2009, 6, 30),
                            service_gap_interval=13)
-    exception = self.problems.PopException("TooManyDaysWithoutService")
+    exception = self.accumulator.PopException("TooManyDaysWithoutService")
     self.assertEquals(date(2009, 6, 18), 
                       exception.first_day_without_service)
     self.assertEquals(date(2009, 7, 17),
@@ -5382,26 +5406,26 @@ class ServiceGapsTestCase(MemoryZipTestCase):
   # Asserts the service gaps that appear towards the end of the calendar
   # and which are common to all the tests
   def AssertCommonExceptions(self, last_exception_date):
-    exception = self.problems.PopException("TooManyDaysWithoutService")
+    exception = self.accumulator.PopException("TooManyDaysWithoutService")
     self.assertEquals(date(2009, 8, 10), 
                       exception.first_day_without_service)
     self.assertEquals(date(2009, 8, 22),
                       exception.last_day_without_service)
 
-    exception = self.problems.PopException("TooManyDaysWithoutService")
+    exception = self.accumulator.PopException("TooManyDaysWithoutService")
     self.assertEquals(date(2009, 12, 28),
                       exception.first_day_without_service)
     self.assertEquals(date(2010, 1, 15),
                       exception.last_day_without_service)
 
     if last_exception_date is not None:
-      exception = self.problems.PopException("TooManyDaysWithoutService")
+      exception = self.accumulator.PopException("TooManyDaysWithoutService")
       self.assertEquals(date(2010, 6, 7),
                         exception.first_day_without_service)
       self.assertEquals(last_exception_date,
                         exception.last_day_without_service)
 
-    self.problems.AssertNoMoreExceptions()
+    self.accumulator.AssertNoMoreExceptions()
 
 class TestGtfsFactory(util.TestCase):
   def setUp(self):
