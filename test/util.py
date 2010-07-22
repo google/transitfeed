@@ -27,6 +27,7 @@ import tempfile
 import traceback
 import transitfeed
 import unittest
+import zipfile
 
 
 def check_call(cmd, expected_retcode=0, stdin_str="", **kwargs):
@@ -138,6 +139,35 @@ class TempDirTestCaseBase(GetPathTestCase):
     return check_call(cmd, expected_retcode=expected_retcode, shell=False,
                       env=env, stdin_str=stdin_str)
 
+  def ConvertZipToDict(self, zip):
+    """Converts a zip file into a dictionary.
+
+    Arguments:
+        zip: The zipfile whose contents are to be converted to a dictionary.
+
+    Returns:
+        A dictionary mapping filenames to file contents."""
+
+    zip_dict = {}
+    for archive_name in zip.namelist():
+      zip_dict[archive_name] = zip.read(archive_name)
+    zip.close()
+    return zip_dict
+
+  def ConvertDictToZip(self, dict):
+    """Converts a dictionary to an in-memory zipfile.
+
+    Arguments:
+        dict: A dictionary mapping file names to file contents
+
+    Returns:
+        The new file's in-memory contents as a file-like object."""
+    zipfile_mem = StringIO.StringIO()
+    zip = zipfile.ZipFile(zipfile_mem, 'a')
+    for arcname, contents in dict.items():
+      zip.writestr(arcname, contents)
+    zip.close()
+    return zipfile_mem
 
 #TODO(anog): Revisit this after we implement proper per-exception level change
 class RecordingProblemAccumulator(transitfeed.ProblemAccumulatorInterface):

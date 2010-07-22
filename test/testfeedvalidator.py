@@ -258,19 +258,22 @@ class MockOptions:
 class FeedValidatorTestCase(util.TempDirTestCaseBase):
   def testBadEolContext(self):
     """Make sure the filename is included in the report of a bad eol."""
-    zipfile_mem = StringIO.StringIO(open(
-        self.GetPath('test', 'data', 'good_feed.zip'), 'rb').read())
-    zip = zipfile.ZipFile(zipfile_mem, 'a')
-    routes_txt = zip.read('routes.txt')
-    # routes_txt_modified is invalid because the first line ends with \r\n.
-    routes_txt_modified = routes_txt.replace('\n', '\r\n', 1)
-    self.assertNotEquals(routes_txt_modified, routes_txt)
-    zip.writestr('routes.txt', routes_txt_modified)
-    zip.close()
+
+    filename = "routes.txt"
+    old_zip = zipfile.ZipFile(
+        self.GetPath('test', 'data', 'good_feed.zip'), 'a')
+    content_dict = self.ConvertZipToDict(old_zip)
+    old_routes = content_dict[filename]
+    new_routes = old_routes.replace('\n', '\r\n', 1)
+    self.assertNotEquals(old_routes, new_routes)
+    content_dict[filename] = new_routes
+    new_zipfile_mem = self.ConvertDictToZip(content_dict)
+
     options = MockOptions()
     output_file = StringIO.StringIO()
-    feedvalidator.RunValidationOutputToFile(zipfile_mem, options, output_file)
-    self.assertMatchesRegex("routes.txt", output_file.getvalue())
+    feedvalidator.RunValidationOutputToFile(
+        new_zipfile_mem, options, output_file)
+    self.assertMatchesRegex(filename, output_file.getvalue())
 
 
 class LimitPerTypeProblemReporterTestCase(util.TestCase):
