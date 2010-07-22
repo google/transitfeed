@@ -48,6 +48,7 @@ class StopTime(object):
   _SQL_FIELD_NAMES = ['trip_id', 'arrival_secs', 'departure_secs',
                       'stop_id', 'stop_sequence', 'stop_headsign',
                       'pickup_type', 'drop_off_type', 'shape_dist_traveled']
+  _STOP_CLASS = Stop
 
   __slots__ = ('arrival_secs', 'departure_secs', 'stop_headsign', 'stop',
                'stop_headsign', 'pickup_type', 'drop_off_type',
@@ -57,6 +58,17 @@ class StopTime(object):
                stop_headsign=None, pickup_type=None, drop_off_type=None,
                shape_dist_traveled=None, arrival_secs=None,
                departure_secs=None, stop_time=None, stop_sequence=None):
+    # Implementation note from Andre, July 22, 2010:
+    # The checks performed here should be in their own Validate* methods to
+    # keep consistency. Unfortunately the performance degradation is too great,
+    # so the validation was left in __init__.
+    # Performance is also the reason why we don't use the GtfsFactory, but
+    # have StopTime._STOP_CLASS instead. If a Stop class that does not inherit
+    # from transitfeed.Stop is used, the extension should also provide a
+    # StopTime class that updates _STOP_CLASS accordingly.
+    #
+    # For more details see the discussion at
+    # http://codereview.appspot.com/1713041
     if stop_time != None:
       arrival_time = departure_time = stop_time
 
@@ -84,7 +96,7 @@ class StopTime(object):
         problems.InvalidValue('departure_time', departure_time)
         self.departure_secs = None
 
-    if not isinstance(stop, Stop):
+    if not isinstance(stop, self._STOP_CLASS):
       # Not quite correct, but better than letting the problem propagate
       problems.InvalidValue('stop', stop)
     self.stop = stop
@@ -161,25 +173,40 @@ class StopTime(object):
       self.stop_sequence = stop_sequence
 
   def GetFieldValuesTuple(self, trip_id):
-    """Return a tuple that outputs a row of _FIELD_NAMES.
+    """Return a tuple that outputs a row of _FIELD_NAMES to be written to a
+       GTFS file.
 
-    trip must be provided because it is not stored in StopTime.
+    Arguments:
+        trip_id: The trip_id of the trip to which this StopTime corresponds.
+                 It must be provided, as it is not stored in StopTime.
     """
     result = []
-    for fn in StopTime._FIELD_NAMES:
+    for fn in self._FIELD_NAMES:
       if fn == 'trip_id':
         result.append(trip_id)
       else:
+        # Since we'll be writting to an output file, we want empty values to be
+        # outputted as an empty string
         result.append(getattr(self, fn) or '' )
     return tuple(result)
 
   def GetSqlValuesTuple(self, trip_id):
+    """Return a tuple that outputs a row of _FIELD_NAMES to be written to a
+       SQLite database.
+
+    Arguments:
+        trip_id: The trip_id of the trip to which this StopTime corresponds.
+                 It must be provided, as it is not stored in StopTime.
+    """
+
     result = []
-    for fn in StopTime._SQL_FIELD_NAMES:
+    for fn in self._SQL_FIELD_NAMES:
       if fn == 'trip_id':
         result.append(trip_id)
       else:
-        # This might append None, which will be inserted into SQLite as NULL
+        # Since we'll be writting to SQLite, we want empty values to be
+        # outputted as NULL string (contrary to what happens in
+        # GetFieldValuesTuple)
         result.append(getattr(self, fn))
     return tuple(result)
 
@@ -205,4 +232,3 @@ class StopTime(object):
     elif name == 'shape_dist_traveled':
       return ''
     raise AttributeError(name)
-

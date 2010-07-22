@@ -396,6 +396,7 @@ class Loader:
                                        object_class._REQUIRED_FIELD_NAMES):
           self._problems.SetFileContext(filename, row_num, row, header)
           instance = object_class(field_dict=d)
+          instance.SetGtfsFactory(self._gtfs_factory)
           if not instance.ValidateBeforeAdd(self._problems):
             continue
           instance.AddToSchedule(self._schedule, self._problems)
@@ -484,6 +485,7 @@ class Loader:
         shape = shapes[shapepoint.shape_id]
       else:
         shape = self._gtfs_factory.Shape(shapepoint.shape_id)
+        shape.SetGtfsFactory(self._gtfs_factory)
         shapes[shapepoint.shape_id] = shape
 
       shape.AddShapePointObjectUnsorted(shapepoint, self._problems)
@@ -532,7 +534,7 @@ class Loader:
       # wrap problems and a better solution is to move all validation out of
       # __init__. For now make sure Trip.GetStopTimes gets a problem reporter
       # when called from Trip.Validate.
-      stop_time = self._gtfs_factory.StopTime(self._problems, stop, 
+      stop_time = self._gtfs_factory.StopTime(self._problems, stop,
           arrival_time, departure_time, stop_headsign, pickup_type,
           drop_off_type, shape_dist_traveled, stop_sequence=sequence)
       trip._AddStopTimeObjectUnordered(stop_time, self._schedule)
@@ -562,4 +564,3 @@ class Loader:
       self._schedule.Validate(self._problems, validate_children=False)
 
     return self._schedule
-

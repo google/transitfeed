@@ -14,7 +14,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-class GenericGTFSObject(object):
+from gtfsfactoryuser import GtfsFactoryUser
+
+class GenericGTFSObject(GtfsFactoryUser):
   """Object with arbitrary attributes which may be added to a schedule.
 
   This class should be used as the base class for GTFS objects which may

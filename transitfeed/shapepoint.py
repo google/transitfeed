@@ -43,7 +43,7 @@ class ShapePoint(GenericGTFSObject):
     """
     self._schedule = None
     if field_dict:
-      if isinstance(field_dict, ShapePoint):
+      if isinstance(field_dict, self.__class__):
         for k, v in field_dict.iteritems():
           self.__dict__[k] = v
       else:

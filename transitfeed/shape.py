@@ -16,11 +16,11 @@
 
 import bisect
 
+from gtfsfactoryuser import GtfsFactoryUser
 import problems as problems_module
-from shapepoint import ShapePoint
 import util
 
-class Shape(object):
+class Shape(GtfsFactoryUser):
   """This class represents a geographic shape that corresponds to the route
   taken by one or more Trips."""
   _REQUIRED_FIELD_NAMES = ['shape_id', 'shape_pt_lat', 'shape_pt_lon',
@@ -42,8 +42,9 @@ class Shape(object):
 
   def AddPoint(self, lat, lon, distance=None,
                problems=problems_module.default_problem_reporter):
-    shapepoint = ShapePoint(self.shape_id, lat, lon, len(self.sequence),
-                            distance)
+    shapepoint_class = self.GetGtfsFactory().ShapePoint
+    shapepoint = shapepoint_class(
+        self.shape_id, lat, lon, len(self.sequence), distance)
     if shapepoint.ParseAttributes(problems):
       self.AddShapePointObjectUnsorted(shapepoint, problems)
 

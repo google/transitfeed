@@ -55,7 +55,7 @@ class Stop(GenericGTFSObject):
     """
     self._schedule = None
     if field_dict:
-      if isinstance(field_dict, Stop):
+      if isinstance(field_dict, self.__class__):
         # Special case so that we don't need to re-parse the attributes to
         # native types iteritems returns all attributes that don't start with _
         for k, v in field_dict.iteritems():
@@ -139,7 +139,7 @@ class Stop(GenericGTFSObject):
       return 0
     elif name == "trip_index":
       return self._GetTripIndex()
-    elif name in Stop._FIELD_NAMES:
+    elif name in self._FIELD_NAMES:
       return None
     else:
       raise AttributeError(name)
@@ -192,7 +192,7 @@ class Stop(GenericGTFSObject):
                                   type=problems_module.TYPE_WARNING)
 
   def ValidateStopRequiredFields(self, problems):
-    for required in Stop._REQUIRED_FIELD_NAMES:
+    for required in self._REQUIRED_FIELD_NAMES:
       if util.IsEmpty(getattr(self, required, None)):
         # TODO: For now I'm keeping the API stable but it would be cleaner to
         # treat whitespace stop_id as invalid, instead of missing

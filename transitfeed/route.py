@@ -15,7 +15,6 @@
 # limitations under the License.
 
 from genericgtfsobject import GenericGTFSObject
-import trip
 import problems as problems_module
 import util
 
@@ -55,8 +54,8 @@ class Route(GenericGTFSObject):
       if long_name is not None:
         field_dict['route_long_name'] = long_name
       if route_type is not None:
-        if route_type in Route._ROUTE_TYPE_NAMES:
-          self.route_type = Route._ROUTE_TYPE_NAMES[route_type]
+        if route_type in self._ROUTE_TYPE_NAMES:
+          self.route_type = self._ROUTE_TYPE_NAMES[route_type]
         else:
           field_dict['route_type'] = route_type
       if route_id is not None:
@@ -87,7 +86,8 @@ class Route(GenericGTFSObject):
       trip_id = util.FindUniqueId(schedule.trips)
     if service_period is None:
       service_period = schedule.GetDefaultServicePeriod()
-    trip_obj = trip.Trip(route=self, headsign=headsign,
+    trip_class = self.GetGtfsFactory().Trip
+    trip_obj = trip_class(route=self, headsign=headsign,
                 service_period=service_period, trip_id=trip_id)
     schedule.AddTripObject(trip_obj)
     return trip_obj
@@ -188,7 +188,7 @@ class Route(GenericGTFSObject):
       except (TypeError, ValueError):
         problems.InvalidValue('route_type', self.route_type)
       else:
-        if self.route_type not in Route._ROUTE_TYPE_IDS:
+        if self.route_type not in self._ROUTE_TYPE_IDS:
           problems.InvalidValue('route_type',
                                 self.route_type,
                                 type=problems_module.TYPE_WARNING)

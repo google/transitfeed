@@ -1198,7 +1198,22 @@ class StopTimeValidationTestCase(ValidationTestCase):
         lambda: transitfeed.StopTime(self.problems, stop,
                                      arrival_time="10:60:00",
                                      departure_time="11:02:00"))
+    self.ExpectInvalidValueInClosure('stop', "id",
+        lambda: transitfeed.StopTime(self.problems, "id",
+                                     arrival_time="10:00:00",
+                                     departure_time="11:02:00"))
+    self.ExpectInvalidValueInClosure('stop', "3",
+        lambda: transitfeed.StopTime(self.problems, "3",
+                                     arrival_time="10:00:00",
+                                     departure_time="11:02:00"))
+    self.ExpectInvalidValueInClosure('stop', None,
+        lambda: transitfeed.StopTime(self.problems, None,
+                                     arrival_time="10:00:00",
+                                     departure_time="11:02:00"))
+
     # The following should work
+    transitfeed.StopTime(self.problems, stop, arrival_time="10:00:00",
+        departure_time="10:05:00", pickup_type='1', drop_off_type='1')
     transitfeed.StopTime(self.problems, stop, arrival_time="10:00:00",
         departure_time="10:05:00", pickup_type='1', drop_off_type='1')
     transitfeed.StopTime(self.problems, stop, arrival_time="1:00:00",
@@ -5588,6 +5603,33 @@ class TestGtfsFactory(util.TestCase):
     self.assertRaises(transitfeed.NonexistentMapping,
                       self._factory.UpdateClass,
                       "Agenci", transitfeed.Agency)
+
+
+class TestGtfsFactoryUser(util.TestCase):
+  def AssertDefaultFactoryIsReturnedIfNoneIsSet(self, instance):
+    self.assertTrue(isinstance(instance.GetGtfsFactory(),
+                               transitfeed.GtfsFactory))
+
+  def AssertFactoryIsSavedAndReturned(self, instance, factory):
+    instance.SetGtfsFactory(factory)
+    self.assertEquals(factory, instance.GetGtfsFactory())
+
+  def testClasses(self):
+    class FakeGtfsFactory(object):
+      pass
+
+    factory = transitfeed.GetGtfsFactory()
+    gtfs_class_instances = [
+        factory.Shape("id"),
+        factory.ShapePoint(),
+    ]
+    gtfs_class_instances += [factory.GetGtfsClassByFileName(filename)() for
+                             filename in factory.GetLoadingOrder()]
+
+    for instance in gtfs_class_instances:
+      self.AssertDefaultFactoryIsReturnedIfNoneIsSet(instance)
+      self.AssertFactoryIsSavedAndReturned(instance, FakeGtfsFactory())
+
 
 if __name__ == '__main__':
   unittest.main()

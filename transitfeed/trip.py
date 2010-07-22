@@ -18,8 +18,6 @@ import warnings
 
 from genericgtfsobject import GenericGTFSObject
 import problems as problems_module
-import route
-from stoptime import StopTime
 import util
 
 class Trip(GenericGTFSObject):
@@ -54,7 +52,7 @@ class Trip(GenericGTFSObject):
     self.__dict__.update(field_dict)
 
   def GetFieldValuesTuple(self):
-    return [getattr(self, fn) or '' for fn in Trip._FIELD_NAMES]
+    return [getattr(self, fn) or '' for fn in self._FIELD_NAMES]
 
   def AddStopTime(self, stop, problems=None, schedule=None, **kwargs):
     """Add a stop to this trip. Stops must be added in the order visited.
@@ -70,7 +68,8 @@ class Trip(GenericGTFSObject):
       # TODO: delete this branch when StopTime.__init__ doesn't need a
       # ProblemReporter
       problems = problems_module.default_problem_reporter
-    stoptime = StopTime(problems=problems, stop=stop, **kwargs)
+    stoptime = self.GetGtfsFactory().StopTime(
+        problems=problems, stop=stop, **kwargs)
     self.AddStopTimeObject(stoptime, schedule)
 
   def _AddStopTimeObjectUnordered(self, stoptime, schedule):
@@ -78,10 +77,11 @@ class Trip(GenericGTFSObject):
 
     The trip isn't checked for duplicate sequence numbers so it must be
     validated later."""
+    stop_time_class = self.GetGtfsFactory().StopTime
     cursor = schedule._connection.cursor()
     insert_query = "INSERT INTO stop_times (%s) VALUES (%s);" % (
-       ','.join(StopTime._SQL_FIELD_NAMES),
-       ','.join(['?'] * len(StopTime._SQL_FIELD_NAMES)))
+       ','.join(stop_time_class._SQL_FIELD_NAMES),
+       ','.join(['?'] * len(stop_time_class._SQL_FIELD_NAMES)))
     cursor = schedule._connection.cursor()
     cursor.execute(
         insert_query, stoptime.GetSqlValuesTuple(self.trip_id))
@@ -233,15 +233,18 @@ class Trip(GenericGTFSObject):
         'stop_times WHERE '
         'trip_id=? ORDER BY stop_sequence', (self.trip_id,))
     stop_times = []
+    stoptime_class = self.GetGtfsFactory().StopTime
     for row in cursor.fetchall():
       stop = self._schedule.GetStop(row[6])
-      stop_times.append(StopTime(problems=problems, stop=stop, arrival_secs=row[0],
-                                 departure_secs=row[1],
-                                 stop_headsign=row[2],
-                                 pickup_type=row[3],
-                                 drop_off_type=row[4],
-                                 shape_dist_traveled=row[5],
-                                 stop_sequence=row[7]))
+      stop_times.append(stoptime_class(problems=problems,
+                                       stop=stop,
+                                       arrival_secs=row[0],
+                                       departure_secs=row[1],
+                                       stop_headsign=row[2],
+                                       pickup_type=row[3],
+                                       drop_off_type=row[4],
+                                       shape_dist_traveled=row[5],
+                                       stop_sequence=row[7]))
     return stop_times
 
   def GetHeadwayStopTimes(self, problems=None):
@@ -255,6 +258,7 @@ class Trip(GenericGTFSObject):
     stoptimes_list = [] # list of stoptime lists to be returned
     stoptime_pattern = self.GetStopTimes()
     first_secs = stoptime_pattern[0].arrival_secs # first time of the trip
+    stoptime_class = self.GetGtfsFactory().StopTime
     # for each start time of a headway run
     for run_secs in self.GetHeadwayStartTimes():
       # stop time list for a headway run
@@ -267,14 +271,15 @@ class Trip(GenericGTFSObject):
         if st.departure_secs != None:
           departure_secs = st.departure_secs - first_secs + run_secs
         # append stoptime
-        stoptimes.append(StopTime(problems=problems, stop=st.stop,
-                                  arrival_secs=arrival_secs,
-                                  departure_secs=departure_secs,
-                                  stop_headsign=st.stop_headsign,
-                                  pickup_type=st.pickup_type,
-                                  drop_off_type=st.drop_off_type,
-                                  shape_dist_traveled=st.shape_dist_traveled,
-                                  stop_sequence=st.stop_sequence))
+        stoptimes.append(stoptime_class(problems=problems, stop=st.stop,
+                                        arrival_secs=arrival_secs,
+                                        departure_secs=departure_secs,
+                                        stop_headsign=st.stop_headsign,
+                                        pickup_type=st.pickup_type,
+                                        drop_off_type=st.drop_off_type,
+                                        shape_dist_traveled= \
+                                            st.shape_dist_traveled,
+                                        stop_sequence=st.stop_sequence))
       # add stoptimes to the stoptimes_list
       stoptimes_list.append ( stoptimes )
     return stoptimes_list
@@ -529,6 +534,7 @@ class Trip(GenericGTFSObject):
                                                             problems,
                                                             stoptimes):
     if stoptimes:
+      route_class = self.GetGtfsFactory().Route
       # Checks that the arrival time for each time point is after the departure 
       # time of the previous. Assumes a stoptimes sorted by sequence
       prev_departure = 0
@@ -536,11 +542,11 @@ class Trip(GenericGTFSObject):
       prev_distance = None
       try:
         route_type = self._schedule.GetRoute(self.route_id).route_type
-        max_speed = route.Route._ROUTE_TYPES[route_type]['max_speed']
+        max_speed = route_class._ROUTE_TYPES[route_type]['max_speed']
       except KeyError, e:
         # If route_type cannot be found, assume it is 0 (Tram) for checking
         # speeds between stops.
-        max_speed = route.Route._ROUTE_TYPES[0]['max_speed']
+        max_speed = route_class._ROUTE_TYPES[0]['max_speed']
       for timepoint in stoptimes:
         # Distance should be a nonnegative float number, so it should be 
         # always larger than None.

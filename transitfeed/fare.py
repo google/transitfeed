@@ -74,7 +74,7 @@ class Fare(GenericGTFSObject):
     self.rules = []
 
   def GetFieldValuesTuple(self):
-    return [getattr(self, fn) for fn in Fare._FIELD_NAMES]
+    return [getattr(self, fn) for fn in self._FIELD_NAMES]
 
   def __getitem__(self, name):
     return getattr(self, name)

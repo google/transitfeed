@@ -64,7 +64,7 @@ class Agency(GenericGTFSObject):
     self.__dict__.update(field_dict)
 
   def ValidateRequiredFieldNames(self, problems):
-    for required in Agency._REQUIRED_FIELD_NAMES:
+    for required in self._REQUIRED_FIELD_NAMES:
       if util.IsEmpty(getattr(self, required, None)):
         problems.MissingValue(required)
         return True

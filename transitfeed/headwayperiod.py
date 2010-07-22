@@ -14,45 +14,51 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-class HeadwayPeriod(object):
+from genericgtfsobject import GenericGTFSObject
 
-    _REQUIRED_FIELD_NAMES = ['trip_id', 'start_time', 'end_time', 
+class HeadwayPeriod(GenericGTFSObject):
+    """This class represents a period of a trip during which the vehicle travels
+    at regular intervals (rather than specifying exact times for each stop)."""
+
+    _REQUIRED_FIELD_NAMES = ['trip_id', 'start_time', 'end_time',
                              'headway_secs']
     _FIELD_NAMES = _REQUIRED_FIELD_NAMES
-    
+    _TABLE_NAME = "frequencies"
 
     def __init__(self, field_dict=None):
+      self._schedule = None
       if not field_dict:
-        pass
+        return
       self._trip_id = field_dict['trip_id']
       self._start_time = field_dict['start_time']
       self._end_time = field_dict['end_time']
       self._headway_secs = field_dict['headway_secs']
-    
+
     def StartTime(self):
       return self._start_time
-    
+
     def EndTime(self):
       return self._end_time
-    
+
     def TripId(self):
       return self._trip_id
-    
+
     def HeadwaySecs(self):
       return self._headway_secs
-    
+
     def ValidateBeforeAdd(self, problems):
       return True
-    
+
     def ValidateAfterAdd(self, problems):
       return
-    
+
     def Validate(self, problems=None):
       return
-    
+
     def AddToSchedule(self, schedule=None, problems=None):
       if schedule is None:
         return
+      self._schedule = schedule
       try:
         trip = schedule.GetTrip(self._trip_id)
       except KeyError:

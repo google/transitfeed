@@ -103,7 +103,7 @@ class ServicePeriod(object):
     """Return the tuple of calendar.txt values or None if this ServicePeriod
     should not be in calendar.txt ."""
     if self.start_date and self.end_date:
-      return [getattr(self, fn) for fn in ServicePeriod._FIELD_NAMES]
+      return [getattr(self, fn) for fn in self._FIELD_NAMES]
 
   def GenerateCalendarDatesFieldValuesTuples(self):
     """Generates tuples of calendar_dates.txt values. Yield zero tuples if
@@ -213,7 +213,7 @@ class ServicePeriod(object):
   def __getattr__(self, name):
     try:
       # Return 1 if value in day_of_week is True, 0 otherwise
-      return (self.day_of_week[ServicePeriod._DAYS_OF_WEEK.index(name)]
+      return (self.day_of_week[self._DAYS_OF_WEEK.index(name)]
               and 1 or 0)
     except KeyError:
       pass

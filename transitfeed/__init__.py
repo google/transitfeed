@@ -58,28 +58,26 @@ Stop object which has attributes such as stop_lat and stop_name.
 """
 
 # util needs to be imported before problems because otherwise the loading order
-# of this module is Agency -> Problems -> Util -> Trip -> Stop and stop tries to
+# of this module is Agency -> Problems -> Util -> Trip and trip tries to
 # use problems.default_problem_reporter as a default argument (which fails 
 # because problems.py isn't fully loaded yet). Loading util first solves this as
 # problems.py gets fully loaded right away.
 # TODO: Solve this problem cleanly
 from util import *
-# schedule needs to be imported before gtfsfactory to avoid a circular reference
-# (GtfsFactory -> Schedule -> Loader -> GtfsFactory)
-# Because schedule imports problems (both directly and indirectly), it must be
-# imported after util.
-from schedule import *
 from agency import *
 from fare import *
 from farerule import *
 from genericgtfsobject import *
 from gtfsfactory import *
+from gtfsfactoryuser import *
 from headwayperiod import *
 from loader import *
 from problems import *
 from route import *
+from schedule import *
 from serviceperiod import *
 from shape import *
+from shapelib import *
 from shapeloader import *
 from shapepoint import *
 from stop import *
