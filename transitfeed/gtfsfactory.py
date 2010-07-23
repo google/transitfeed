@@ -15,9 +15,9 @@
 # limitations under the License.
 
 from agency import Agency
-from fare import Fare
+from fareattribute import FareAttribute
 from farerule import FareRule
-from headwayperiod import HeadwayPeriod
+from frequency import Frequency
 import loader
 import problems
 from route import Route
@@ -40,9 +40,9 @@ class GtfsFactory(object):
     self._class_mapping = {
       'Agency': Agency,
       'ServicePeriod': ServicePeriod,
-      'Fare': Fare,
+      'FareAttribute': FareAttribute,
       'FareRule': FareRule,
-      'HeadwayPeriod': HeadwayPeriod,
+      'Frequency': Frequency,
       'Shape': Shape,
       'ShapePoint': ShapePoint,
       'Stop': Stop,
@@ -63,13 +63,13 @@ class GtfsFactory(object):
                                 'classes': ['ServicePeriod']},
 
         'fare_attributes.txt': { 'required': False, 'loading_order': 50, 
-                                 'classes': ['Fare']},
+                                 'classes': ['FareAttribute']},
 
         'fare_rules.txt': { 'required': False, 'loading_order': 60,
                             'classes': ['FareRule']},
 
         'frequencies.txt': { 'required': False, 'loading_order': 70,
-                             'classes': ['HeadwayPeriod']},
+                             'classes': ['Frequency']},
 
         'shapes.txt': { 'required': False, 'loading_order': None, 
                         'classes': ['Shape', 'ShapePoint']},
@@ -235,4 +235,3 @@ def GetGtfsFactory():
      transitfeed.GtfsFactory, call {Remove,Add,Update}Mapping as needed, and
      return that instance"""
   return GtfsFactory()
-

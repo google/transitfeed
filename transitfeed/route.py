@@ -14,11 +14,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from genericgtfsobject import GenericGTFSObject
+from gtfsobjectbase import GtfsObjectBase
 import problems as problems_module
 import util
 
-class Route(GenericGTFSObject):
+class Route(GtfsObjectBase):
   """Represents a single route."""
 
   _REQUIRED_FIELD_NAMES = [
@@ -100,13 +100,13 @@ class Route(GenericGTFSObject):
   def __getattr__(self, name):
     """Return None or the default value if name is a known attribute.
 
-    This method overrides GenericGTFSObject.__getattr__ to provide backwards
+    This method overrides GtfsObjectBase.__getattr__ to provide backwards
     compatible access to trips.
     """
     if name == 'trips':
       return self._trips
     else:
-      return GenericGTFSObject.__getattr__(self, name)
+      return GtfsObjectBase.__getattr__(self, name)
 
   def GetPatternIdTripDict(self):
     """Return a dictionary that maps pattern_id to a list of Trip objects."""

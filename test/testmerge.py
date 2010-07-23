@@ -1082,15 +1082,15 @@ class TestFareMerger(util.TestCase):
     self.faremerger = merge.FareMerger(self.fm)
     self.fm.AddMerger(self.faremerger)
 
-    self.f1 = transitfeed.Fare('f1', '10', 'ZAR', '1', '0')
-    self.f2 = transitfeed.Fare('f2', '10', 'ZAR', '1', '0')
+    self.f1 = transitfeed.FareAttribute('f1', '10', 'ZAR', '1', '0')
+    self.f2 = transitfeed.FareAttribute('f2', '10', 'ZAR', '1', '0')
 
   def testMerge(self):
     self.f2.fare_id = self.f1.fare_id
-    self.fm.a_schedule.AddFareObject(self.f1)
-    self.fm.b_schedule.AddFareObject(self.f2)
+    self.fm.a_schedule.AddFareAttributeObject(self.f1)
+    self.fm.b_schedule.AddFareAttributeObject(self.f2)
     self.fm.MergeSchedules()
-    self.assertEquals(len(self.fm.merged_schedule.GetFareList()), 1)
+    self.assertEquals(len(self.fm.merged_schedule.GetFareAttributeList()), 1)
     self.assertEquals(self.faremerger.GetMergeStats(), (1, 0, 0))
 
     # check that the id is preserved
@@ -1099,11 +1099,11 @@ class TestFareMerger(util.TestCase):
   def testNoMerge_DifferentPrice(self):
     self.f2.fare_id = self.f1.fare_id
     self.f2.price = 11.0
-    self.fm.a_schedule.AddFareObject(self.f1)
-    self.fm.b_schedule.AddFareObject(self.f2)
+    self.fm.a_schedule.AddFareAttributeObject(self.f1)
+    self.fm.b_schedule.AddFareAttributeObject(self.f2)
     self.accumulator.ExpectProblemClass(merge.SameIdButNotMerged)
     self.fm.MergeSchedules()
-    self.assertEquals(len(self.fm.merged_schedule.GetFareList()), 2)
+    self.assertEquals(len(self.fm.merged_schedule.GetFareAttributeList()), 2)
     self.assertEquals(self.faremerger.GetMergeStats(), (0, 1, 1))
 
     # check that the merged ids are different
@@ -1113,10 +1113,10 @@ class TestFareMerger(util.TestCase):
     self.accumulator.assertExpectedProblemsReported(self)
 
   def testNoMerge_DifferentId(self):
-    self.fm.a_schedule.AddFareObject(self.f1)
-    self.fm.b_schedule.AddFareObject(self.f2)
+    self.fm.a_schedule.AddFareAttributeObject(self.f1)
+    self.fm.b_schedule.AddFareAttributeObject(self.f2)
     self.fm.MergeSchedules()
-    self.assertEquals(len(self.fm.merged_schedule.GetFareList()), 2)
+    self.assertEquals(len(self.fm.merged_schedule.GetFareAttributeList()), 2)
     self.assertEquals(self.faremerger.GetMergeStats(), (0, 1, 1))
 
     # check that the ids are preserved
@@ -1260,9 +1260,9 @@ class TestFareRuleMerger(util.TestCase):
     self.r1 = transitfeed.Route(**rkwargs)
     self.r2 = transitfeed.Route(**rkwargs)
 
-    self.f1 = transitfeed.Fare('f1', '10', 'ZAR', '1', '0')
-    self.f2 = transitfeed.Fare('f1', '10', 'ZAR', '1', '0')
-    self.f3 = transitfeed.Fare('f3', '11', 'USD', '1', '0')
+    self.f1 = transitfeed.FareAttribute('f1', '10', 'ZAR', '1', '0')
+    self.f2 = transitfeed.FareAttribute('f1', '10', 'ZAR', '1', '0')
+    self.f3 = transitfeed.FareAttribute('f3', '11', 'USD', '1', '0')
 
     self.fr1 = transitfeed.FareRule('f1', 'r1')
     self.fr2 = transitfeed.FareRule('f1', 'r1')
@@ -1270,14 +1270,14 @@ class TestFareRuleMerger(util.TestCase):
 
     self.fm.a_schedule.AddAgencyObject(self.a1)
     self.fm.a_schedule.AddRouteObject(self.r1)
-    self.fm.a_schedule.AddFareObject(self.f1)
-    self.fm.a_schedule.AddFareObject(self.f3)
+    self.fm.a_schedule.AddFareAttributeObject(self.f1)
+    self.fm.a_schedule.AddFareAttributeObject(self.f3)
     self.fm.a_schedule.AddFareRuleObject(self.fr1)
     self.fm.a_schedule.AddFareRuleObject(self.fr3)
 
     self.fm.b_schedule.AddAgencyObject(self.a2)
     self.fm.b_schedule.AddRouteObject(self.r2)
-    self.fm.b_schedule.AddFareObject(self.f2)
+    self.fm.b_schedule.AddFareAttributeObject(self.f2)
     self.fm.b_schedule.AddFareRuleObject(self.fr2)
 
   def testMerge(self):
@@ -1285,7 +1285,7 @@ class TestFareRuleMerger(util.TestCase):
     self.accumulator.ExpectProblemClass(merge.MergeNotImplemented)
     self.fm.MergeSchedules()
 
-    self.assertEquals(len(self.fm.merged_schedule.GetFareList()), 2)
+    self.assertEquals(len(self.fm.merged_schedule.GetFareAttributeList()), 2)
 
     fare_1 = self.fm.a_merge_map[self.f1]
     fare_2 = self.fm.a_merge_map[self.f3]

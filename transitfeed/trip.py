@@ -16,11 +16,11 @@
 
 import warnings
 
-from genericgtfsobject import GenericGTFSObject
+from gtfsobjectbase import GtfsObjectBase
 import problems as problems_module
 import util
 
-class Trip(GenericGTFSObject):
+class Trip(GtfsObjectBase):
   _REQUIRED_FIELD_NAMES = ['route_id', 'service_id', 'trip_id']
   _FIELD_NAMES = _REQUIRED_FIELD_NAMES + [
     'trip_headsign', 'direction_id', 'block_id', 'shape_id'
@@ -248,6 +248,13 @@ class Trip(GenericGTFSObject):
     return stop_times
 
   def GetHeadwayStopTimes(self, problems=None):
+    """Deprecated. Please use GetFrequencyStopTimes instead."""
+    warnings.warn("No longer supported. The HeadwayPeriod class was renamed to "
+                  "Frequency, and all related functions were renamed "
+                  "accordingly.", DeprecationWarning)
+    return self.GetFrequencyStopTimes(problems)
+
+  def GetFrequencyStopTimes(self, problems=None):
     """Return a list of StopTime objects for each headway-based run.
 
     Returns:
@@ -260,7 +267,7 @@ class Trip(GenericGTFSObject):
     first_secs = stoptime_pattern[0].arrival_secs # first time of the trip
     stoptime_class = self.GetGtfsFactory().StopTime
     # for each start time of a headway run
-    for run_secs in self.GetHeadwayStartTimes():
+    for run_secs in self.GetFrequencyStartTimes():
       # stop time list for a headway run
       stoptimes = []
       # go through the pattern and generate stoptimes
@@ -302,6 +309,13 @@ class Trip(GenericGTFSObject):
                             'times.' % self.trip_id)
 
   def GetHeadwayStartTimes(self):
+    """Deprecated. Please use GetFrequencyStartTimes instead."""
+    warnings.warn("No longer supported. The HeadwayPeriod class was renamed to "
+                  "Frequency, and all related functions were renamed "
+                  "accordingly.", DeprecationWarning)
+    return self.GetFrequencyStartTimes()
+
+  def GetFrequencyStartTimes(self):
     """Return a list of start time for each headway-based run.
 
     Returns:
@@ -309,7 +323,7 @@ class Trip(GenericGTFSObject):
       this trip doesn't have headways returns an empty list."""
     start_times = []
     # for each headway period of the trip
-    for start_secs, end_secs, headway_secs in self.GetHeadwayPeriodTuples():
+    for start_secs, end_secs, headway_secs in self.GetFrequencyTuples():
       # reset run secs to the start of the timeframe
       run_secs = start_secs
       while run_secs < end_secs:
@@ -353,14 +367,30 @@ class Trip(GenericGTFSObject):
     return tuple(st.stop for st in stoptimes)
 
   def AddHeadwayPeriodObject(self, headway_period, problem_reporter):
-    if headway_period is not None:
-      self.AddHeadwayPeriod(headway_period.StartTime(), 
-                            headway_period.EndTime(), 
-                            headway_period.HeadwaySecs(), 
-                            problem_reporter)
+    """Deprecated. Please use AddFrequencyObject instead."""
+    warnings.warn("No longer supported. The HeadwayPeriod class was renamed to "
+                  "Frequency, and all related functions were renamed "
+                  "accordingly.", DeprecationWarning)
+    self.AddFrequencyObject(frequency, problem_reporter)
+
+  def AddFrequencyObject(self, frequency, problem_reporter):
+    """Add a Frequency object to this trip's list of Frequencies."""
+    if frequency is not None:
+      self.AddFrequency(frequency.StartTime(),
+                        frequency.EndTime(),
+                        frequency.HeadwaySecs(),
+                        problem_reporter)
 
   def AddHeadwayPeriod(self, start_time, end_time, headway_secs,
-                       problem_reporter=problems_module.default_problem_reporter):
+      problem_reporter=problems_module.default_problem_reporter):
+    """Deprecated. Please use AddFrequency instead."""
+    warnings.warn("No longer supported. The HeadwayPeriod class was renamed to "
+                  "Frequency, and all related functions were renamed "
+                  "accordingly.", DeprecationWarning)
+    self.AddFrequency(start_time, end_time, headway_secs, problem_reporter)
+
+  def AddFrequency(self, start_time, end_time, headway_secs,
+      problem_reporter=problems_module.default_problem_reporter):
     """Adds a period to this trip during which the vehicle travels
     at regular intervals (rather than specifying exact times for each stop).
 
@@ -421,7 +451,7 @@ class Trip(GenericGTFSObject):
 
     self._headways.append((start_time, end_time, headway_secs))
 
-  def ClearHeadwayPeriods(self):
+  def ClearFrequencies(self):
     self._headways = []
 
   def _HeadwayOutputTuple(self, headway):
@@ -430,13 +460,13 @@ class Trip(GenericGTFSObject):
               util.FormatSecondsSinceMidnight(headway[1]),
               unicode(headway[2]))
 
-  def GetHeadwayPeriodOutputTuples(self):
+  def GetFrequencyOutputTuples(self):
     tuples = []
     for headway in self._headways:
       tuples.append(self._HeadwayOutputTuple(headway))
     return tuples
 
-  def GetHeadwayPeriodTuples(self):
+  def GetFrequencyTuples(self):
     return self._headways
 
   def __getattr__(self, name):
@@ -448,7 +478,7 @@ class Trip(GenericGTFSObject):
         self.__dict__['_pattern_id'] = hash(self.GetPattern())
       return self.__dict__['_pattern_id']
     else:
-      return GenericGTFSObject.__getattr__(self, name)
+      return GtfsObjectBase.__getattr__(self, name)
 
   def ValidateRouteId(self, problems):
     if util.IsEmpty(self.route_id):
@@ -621,7 +651,7 @@ class Trip(GenericGTFSObject):
                     self.shape_id, distance,
                     problems_module.MAX_DISTANCE_FROM_STOP_TO_SHAPE)
 
-  def ValidateHeadwayPeriods(self, problems):
+  def ValidateFrequencies(self, problems):
     # O(n^2), but we don't anticipate many headway periods per trip
     for headway_index, headway in enumerate(self._headways[0:-1]):
       for other in self._headways[headway_index + 1:]:
@@ -645,7 +675,7 @@ class Trip(GenericGTFSObject):
     self.ValidateShapeDistTraveledSmallerThanMaxShapeDistance(problems,
                                                               stoptimes)
     self.ValidateDistanceFromStopToShape(problems, stoptimes)
-    self.ValidateHeadwayPeriods(problems)
+    self.ValidateFrequencies(problems)
     
   def ValidateBeforeAdd(self, problems):
     return True

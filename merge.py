@@ -1203,15 +1203,15 @@ class ServicePeriodMerger(DataSetMerger):
 class FareMerger(DataSetMerger):
   """A DataSetMerger for fares."""
 
-  ENTITY_TYPE_NAME = 'fare'
+  ENTITY_TYPE_NAME = 'fare attribute'
   FILE_NAME = 'fare_attributes.txt'
   DATASET_NAME = 'Fares'
 
   def _GetIter(self, schedule):
-    return schedule.GetFareList()
+    return schedule.GetFareAttributeList()
 
   def _GetById(self, schedule, fare_id):
-    return schedule.GetFare(fare_id)
+    return schedule.GetFareAttribute(fare_id)
 
   def _MergeEntities(self, a, b):
     """Merges the fares if all the attributes are the same."""
@@ -1223,7 +1223,7 @@ class FareMerger(DataSetMerger):
     return self._SchemedMerge(scheme, a, b)
 
   def _Migrate(self, original_fare, schedule, newid):
-    migrated_fare = transitfeed.Fare(
+    migrated_fare = transitfeed.FareAttribute(
         field_dict=original_fare)
     if newid:
       migrated_fare.fare_id = self.feed_merger.GenerateId(
@@ -1232,7 +1232,7 @@ class FareMerger(DataSetMerger):
 
   def _Add(self, a, b, migrated_fare):
     self.feed_merger.Register(a, b, migrated_fare)
-    self.feed_merger.merged_schedule.AddFareObject(migrated_fare)
+    self.feed_merger.merged_schedule.AddFareAttributeObject(migrated_fare)
 
   def _GetId(self, fare):
     return fare.fare_id
@@ -1241,8 +1241,8 @@ class FareMerger(DataSetMerger):
     num_merged = self._MergeSameId()
     print 'Fares merged: %d of %d, %d' % (
         num_merged,
-        len(self.feed_merger.a_schedule.GetFareList()),
-        len(self.feed_merger.b_schedule.GetFareList()))
+        len(self.feed_merger.a_schedule.GetFareAttributeList()),
+        len(self.feed_merger.b_schedule.GetFareAttributeList()))
     return True
 
 
@@ -1444,8 +1444,8 @@ class TripMerger(DataSetMerger):
           original_stop_time.departure_secs)
       migrated_trip.AddStopTimeObject(migrated_stop_time)
 
-    for headway_period in original_trip.GetHeadwayPeriodTuples():
-      migrated_trip.AddHeadwayPeriod(*headway_period)
+    for headway_period in original_trip.GetFrequencyTuples():
+      migrated_trip.AddFrequency(*headway_period)
 
     return migrated_trip
 
@@ -1489,9 +1489,10 @@ class FareRuleMerger(DataSetMerger):
                                             [self.feed_merger.b_schedule,
                                              self.feed_merger.b_merge_map,
                                              self.feed_merger.b_zone_map]):
-      for fare in schedule.GetFareList():
+      for fare in schedule.GetFareAttributeList():
         for fare_rule in fare.GetFareRuleList():
-          fare_id = merge_map[schedule.GetFare(fare_rule.fare_id)].fare_id
+          fare_id = merge_map[
+              schedule.GetFareAttribute(fare_rule.fare_id)].fare_id
           route_id = (fare_rule.route_id and
                       merge_map[schedule.GetRoute(fare_rule.route_id)].route_id)
           origin_id = (fare_rule.origin_id and
@@ -1595,7 +1596,7 @@ class FeedMerger(object):
                     'route_id': schedule.GetRouteList(),
                     'trip_id': schedule.GetTripList(),
                     'service_id': schedule.GetServicePeriodList(),
-                    'fare_id': schedule.GetFareList(),
+                    'fare_id': schedule.GetFareAttributeList(),
                     'shape_id': schedule.GetShapeList()}
 
     max_postfix_number = 0

@@ -14,11 +14,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from genericgtfsobject import GenericGTFSObject
+from gtfsobjectbase import GtfsObjectBase
 import problems as problems_module
 import util
 
-class Transfer(GenericGTFSObject):
+class Transfer(GtfsObjectBase):
   """Represents a transfer in a schedule"""
   _REQUIRED_FIELD_NAMES = ['from_stop_id', 'to_stop_id', 'transfer_type']
   _FIELD_NAMES = _REQUIRED_FIELD_NAMES + ['min_transfer_time']

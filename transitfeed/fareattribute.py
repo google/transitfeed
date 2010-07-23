@@ -14,15 +14,16 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from genericgtfsobject import GenericGTFSObject
+from gtfsobjectbase import GtfsObjectBase
 from problems import default_problem_reporter
 import util
 
-class Fare(GenericGTFSObject):
+class FareAttribute(GtfsObjectBase):
   """Represents a fare type."""
   _REQUIRED_FIELD_NAMES = ['fare_id', 'price', 'currency_type',
                            'payment_method', 'transfers']
   _FIELD_NAMES = _REQUIRED_FIELD_NAMES + ['transfer_duration']
+  _TABLE_NAME = "fare_attributes"
 
   def __init__(self,
                fare_id=None, price=None, currency_type=None,
@@ -35,7 +36,7 @@ class Fare(GenericGTFSObject):
       transfers, transfer_duration)
 
     if field_dict:
-      if isinstance(field_dict, Fare):
+      if isinstance(field_dict, FareAttribute):
         # Special case so that we don't need to re-parse the attributes to
         # native types iteritems returns all attributes that don't start with _
         for k, v in field_dict.iteritems():
@@ -152,7 +153,7 @@ class Fare(GenericGTFSObject):
 
   def AddToSchedule(self, schedule=None, problems=None):
     if schedule:
-      schedule.AddFareObject(self, problems)
+      schedule.AddFareAttributeObject(self, problems)
 
 # TODO: move these into a separate file
 class ISO4217(object):

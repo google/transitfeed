@@ -15,9 +15,9 @@
 # limitations under the License.
 
 from problems import default_problem_reporter
-from genericgtfsobject import GenericGTFSObject
+from gtfsobjectbase import GtfsObjectBase
 
-class FareRule(GenericGTFSObject):
+class FareRule(GtfsObjectBase):
   """This class represents a rule that determines which itineraries a
   fare rule applies to."""
   _REQUIRED_FIELD_NAMES = ['fare_id']

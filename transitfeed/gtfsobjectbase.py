@@ -16,7 +16,7 @@
 
 from gtfsfactoryuser import GtfsFactoryUser
 
-class GenericGTFSObject(GtfsFactoryUser):
+class GtfsObjectBase(GtfsFactoryUser):
   """Object with arbitrary attributes which may be added to a schedule.
 
   This class should be used as the base class for GTFS objects which may
@@ -101,5 +101,3 @@ class GenericGTFSObject(GtfsFactoryUser):
 
   def _ColumnNames(self):
     return self.keys()
-
-

@@ -2481,9 +2481,9 @@ class ShapePointValidationTestCase(ValidationTestCase):
     self.accumulator.AssertNoMoreExceptions()
 
 
-class FareValidationTestCase(ValidationTestCase):
+class FareAttributeValidationTestCase(ValidationTestCase):
   def runTest(self):
-    fare = transitfeed.Fare()
+    fare = transitfeed.FareAttribute()
     fare.fare_id = "normal"
     fare.price = 1.50
     fare.currency_type = "USD"
@@ -3415,35 +3415,35 @@ class TripValidationTestCase(ValidationTestCase):
     self.accumulator.AssertNoMoreExceptions()
 
     # expect no problems for non-overlapping periods
-    trip.AddHeadwayPeriod("06:00:00", "12:00:00", 600)
-    trip.AddHeadwayPeriod("01:00:00", "02:00:00", 1200)
-    trip.AddHeadwayPeriod("04:00:00", "05:00:00", 1000)
-    trip.AddHeadwayPeriod("12:00:00", "19:00:00", 700)
+    trip.AddFrequency("06:00:00", "12:00:00", 600)
+    trip.AddFrequency("01:00:00", "02:00:00", 1200)
+    trip.AddFrequency("04:00:00", "05:00:00", 1000)
+    trip.AddFrequency("12:00:00", "19:00:00", 700)
     trip.Validate(self.problems)
     self.accumulator.AssertNoMoreExceptions()
-    trip.ClearHeadwayPeriods()
+    trip.ClearFrequencies()
 
     # overlapping headway periods
-    trip.AddHeadwayPeriod("00:00:00", "12:00:00", 600)
-    trip.AddHeadwayPeriod("06:00:00", "18:00:00", 1200)
+    trip.AddFrequency("00:00:00", "12:00:00", 600)
+    trip.AddFrequency("06:00:00", "18:00:00", 1200)
     self.ExpectOtherProblem(trip)
-    trip.ClearHeadwayPeriods()
-    trip.AddHeadwayPeriod("12:00:00", "20:00:00", 600)
-    trip.AddHeadwayPeriod("06:00:00", "18:00:00", 1200)
+    trip.ClearFrequencies()
+    trip.AddFrequency("12:00:00", "20:00:00", 600)
+    trip.AddFrequency("06:00:00", "18:00:00", 1200)
     self.ExpectOtherProblem(trip)
-    trip.ClearHeadwayPeriods()
-    trip.AddHeadwayPeriod("06:00:00", "12:00:00", 600)
-    trip.AddHeadwayPeriod("00:00:00", "25:00:00", 1200)
+    trip.ClearFrequencies()
+    trip.AddFrequency("06:00:00", "12:00:00", 600)
+    trip.AddFrequency("00:00:00", "25:00:00", 1200)
     self.ExpectOtherProblem(trip)
-    trip.ClearHeadwayPeriods()
-    trip.AddHeadwayPeriod("00:00:00", "20:00:00", 600)
-    trip.AddHeadwayPeriod("06:00:00", "18:00:00", 1200)
+    trip.ClearFrequencies()
+    trip.AddFrequency("00:00:00", "20:00:00", 600)
+    trip.AddFrequency("06:00:00", "18:00:00", 1200)
     self.ExpectOtherProblem(trip)
-    trip.ClearHeadwayPeriods()
+    trip.ClearFrequencies()
     self.accumulator.AssertNoMoreExceptions()
 
 
-class HeadwayPeriodValidationTestCase(ValidationTestCase):
+class FrequencyValidationTestCase(ValidationTestCase):
   def setUp(self):
     ValidationTestCase.setUp(self)
     self.schedule = self.SimpleSchedule()
@@ -3459,22 +3459,22 @@ class HeadwayPeriodValidationTestCase(ValidationTestCase):
     self.trip = trip
 
   def testNonOverlappingPeriods(self):
-    headway_period1 = transitfeed.HeadwayPeriod({'trip_id': '054C-00',
+    headway_period1 = transitfeed.Frequency({'trip_id': '054C-00',
                                                  'start_time': '06:00:00',
                                                  'end_time': '12:00:00',
                                                  'headway_secs': 600,
                                                 })
-    headway_period2 = transitfeed.HeadwayPeriod({'trip_id': '054C-00',
+    headway_period2 = transitfeed.Frequency({'trip_id': '054C-00',
                                                  'start_time': '01:00:00',
                                                  'end_time': '02:00:00',
                                                  'headway_secs': 1200,
                                                 })
-    headway_period3 = transitfeed.HeadwayPeriod({'trip_id': '054C-00',
+    headway_period3 = transitfeed.Frequency({'trip_id': '054C-00',
                                                  'start_time': '04:00:00',
                                                  'end_time': '05:00:00',
                                                  'headway_secs': 1000,
                                                 })
-    headway_period4 = transitfeed.HeadwayPeriod({'trip_id': '054C-00',
+    headway_period4 = transitfeed.Frequency({'trip_id': '054C-00',
                                                  'start_time': '12:00:00',
                                                  'end_time': '19:00:00',
                                                  'headway_secs': 700,
@@ -3487,16 +3487,16 @@ class HeadwayPeriodValidationTestCase(ValidationTestCase):
     headway_period4.AddToSchedule(self.schedule, self.problems)
     self.trip.Validate(self.problems)
     self.accumulator.AssertNoMoreExceptions()
-    self.trip.ClearHeadwayPeriods()
+    self.trip.ClearFrequencies()
 
   def testOverlappingPeriods(self):
     # overlapping headway periods
-    headway_period1 = transitfeed.HeadwayPeriod({'trip_id': '054C-00',
+    headway_period1 = transitfeed.Frequency({'trip_id': '054C-00',
                                                  'start_time': '00:00:00',
                                                  'end_time': '12:00:00',
                                                  'headway_secs': 600,
                                                 })
-    headway_period2 = transitfeed.HeadwayPeriod({'trip_id': '054C-00',
+    headway_period2 = transitfeed.Frequency({'trip_id': '054C-00',
                                                  'start_time': '06:00:00',
                                                  'end_time': '18:00:00',
                                                  'headway_secs': 1200,
@@ -3504,11 +3504,11 @@ class HeadwayPeriodValidationTestCase(ValidationTestCase):
     headway_period1.AddToSchedule(self.schedule, self.problems)
     headway_period2.AddToSchedule(self.schedule, self.problems)
     self.ExpectOtherProblem(self.trip)
-    self.trip.ClearHeadwayPeriods()
+    self.trip.ClearFrequencies()
     self.accumulator.AssertNoMoreExceptions()
 
   def testPeriodWithInvalidTripId(self):
-    headway_period1 = transitfeed.HeadwayPeriod({'trip_id': 'foo',
+    headway_period1 = transitfeed.Frequency({'trip_id': 'foo',
                                                  'start_time': '00:00:00',
                                                  'end_time': '12:00:00',
                                                  'headway_secs': 600,
@@ -3516,7 +3516,7 @@ class HeadwayPeriodValidationTestCase(ValidationTestCase):
     headway_period1.AddToSchedule(self.schedule, self.problems)
     e = self.accumulator.PopException('InvalidValue')
     self.assertEqual('trip_id', e.column_name)
-    self.trip.ClearHeadwayPeriods()
+    self.trip.ClearFrequencies()
 
 
 class TripSequenceValidationTestCase(ValidationTestCase):
@@ -3566,7 +3566,7 @@ class TripHasStopTimeValidationTestCase(ValidationTestCase):
 
     # It should trigger a TYPE_ERROR if there are frequencies for the trip
     # but no stops
-    trip.AddHeadwayPeriod("01:00:00","12:00:00", 600)
+    trip.AddFrequency("01:00:00","12:00:00", 600)
     schedule.Validate(self.problems)
     self.accumulator.PopException('OtherProblem')  # pop first warning
     e = self.accumulator.PopException('OtherProblem')  # pop frequency error
@@ -3574,7 +3574,7 @@ class TripHasStopTimeValidationTestCase(ValidationTestCase):
     self.assertTrue(e.FormatProblem().find('given in trip 054C-00') != -1)
     self.assertEquals(transitfeed.TYPE_ERROR, e.type)
     self.accumulator.AssertNoMoreExceptions()
-    trip.ClearHeadwayPeriods()
+    trip.ClearFrequencies()
 
     # Add a stop, but with only one stop passengers have nowhere to exit!
     stop = transitfeed.Stop(36.425288, -117.133162, "Demo Stop 1", "STOP1")
@@ -4451,35 +4451,35 @@ class AgencyIDValidationTestCase(util.TestCase):
     schedule.AddRouteObject(route)
 
 
-class AddHeadwayPeriodValidationTestCase(ValidationTestCase):
+class AddFrequencyValidationTestCase(ValidationTestCase):
   def ExpectInvalidValue(self, start_time, end_time, headway,
                          column_name, value):
     try:
       trip = transitfeed.Trip()
-      trip.AddHeadwayPeriod(start_time, end_time, headway)
+      trip.AddFrequency(start_time, end_time, headway)
       self.fail("Expected InvalidValue error on %s" % column_name)
     except transitfeed.InvalidValue, e:
       self.assertEqual(column_name, e.column_name)
       self.assertEqual(value, e.value)
-      self.assertEqual(0, len(trip.GetHeadwayPeriodTuples()))
+      self.assertEqual(0, len(trip.GetFrequencyTuples()))
 
   def ExpectMissingValue(self, start_time, end_time, headway, column_name):
     try:
       trip = transitfeed.Trip()
-      trip.AddHeadwayPeriod(start_time, end_time, headway)
+      trip.AddFrequency(start_time, end_time, headway)
       self.fail("Expected MissingValue error on %s" % column_name)
     except transitfeed.MissingValue, e:
       self.assertEqual(column_name, e.column_name)
-      self.assertEqual(0, len(trip.GetHeadwayPeriodTuples()))
+      self.assertEqual(0, len(trip.GetFrequencyTuples()))
 
   def runTest(self):
     # these should work fine
     trip = transitfeed.Trip()
     trip.trip_id = "SAMPLE_ID"
-    trip.AddHeadwayPeriod(0, 50, 1200)
-    trip.AddHeadwayPeriod("01:00:00", "02:00:00", "600")
-    trip.AddHeadwayPeriod(u"02:00:00", u"03:00:00", u"1800")
-    headways = trip.GetHeadwayPeriodTuples()
+    trip.AddFrequency(0, 50, 1200)
+    trip.AddFrequency("01:00:00", "02:00:00", "600")
+    trip.AddFrequency(u"02:00:00", u"03:00:00", u"1800")
+    headways = trip.GetFrequencyTuples()
     self.assertEqual(3, len(headways))
     self.assertEqual((0, 50, 1200), headways[0])
     self.assertEqual((3600, 7200, 600), headways[1])
@@ -4487,7 +4487,7 @@ class AddHeadwayPeriodValidationTestCase(ValidationTestCase):
     self.assertEqual([("SAMPLE_ID", "00:00:00", "00:00:50", "1200"),
                       ("SAMPLE_ID", "01:00:00", "02:00:00", "600"),
                       ("SAMPLE_ID", "02:00:00", "03:00:00", "1800")],
-                     trip.GetHeadwayPeriodOutputTuples())
+                     trip.GetFrequencyOutputTuples())
 
     # now test invalid input
     self.ExpectMissingValue(None, 50, 1200, "start_time")
@@ -4842,10 +4842,10 @@ class WriteSampleFeedTestCase(TempFileTestCaseBase):
       (trip_id, start_time, end_time, headway) = headway_entry
       headway_trips[trip_id] = []  # adding to set to check later
       trip = schedule.GetTrip(trip_id)
-      trip.AddHeadwayPeriod(start_time, end_time, headway, problems)
+      trip.AddFrequency(start_time, end_time, headway, problems)
     for trip_id in headway_trips:
       headway_trips[trip_id] = \
-          schedule.GetTrip(trip_id).GetHeadwayPeriodTuples()
+          schedule.GetTrip(trip_id).GetFrequencyTuples()
 
     fare_data = [
         ("p", 1.25, "USD", 0, 0),
@@ -4854,10 +4854,11 @@ class WriteSampleFeedTestCase(TempFileTestCaseBase):
 
     fares = []
     for fare_entry in fare_data:
-      fare = transitfeed.Fare(fare_entry[0], fare_entry[1], fare_entry[2],
-                              fare_entry[3], fare_entry[4])
+      fare = transitfeed.FareAttribute(fare_entry[0], fare_entry[1],
+                                       fare_entry[2], fare_entry[3],
+                                       fare_entry[4])
       fares.append(fare)
-      schedule.AddFareObject(fare)
+      schedule.AddFareAttributeObject(fare)
 
     fare_rule_data = [
         ("p", "AB", "zone-a", "zone-b", None),
@@ -4911,7 +4912,7 @@ class WriteSampleFeedTestCase(TempFileTestCaseBase):
 
     for trip_id in headway_trips:
       self.assertEqual(headway_trips[trip_id],
-                       read_schedule.GetTrip(trip_id).GetHeadwayPeriodTuples())
+                       read_schedule.GetTrip(trip_id).GetFrequencyTuples())
 
     for trip_id, stop_time_list in stop_time_data.items():
       trip = read_schedule.GetTrip(trip_id)
@@ -4929,23 +4930,23 @@ class WriteSampleFeedTestCase(TempFileTestCaseBase):
         self.assertEqualWithDefault(drop_off_type, read_stoptime.drop_off_type, 0)
         self.assertEqualWithDefault(stop_headsign, read_stoptime.stop_headsign, '')
 
-    self.assertEqual(len(fares), len(read_schedule.GetFareList()))
+    self.assertEqual(len(fares), len(read_schedule.GetFareAttributeList()))
     for fare in fares:
-      self.assertEqual(fare, read_schedule.GetFare(fare.fare_id))
+      self.assertEqual(fare, read_schedule.GetFareAttribute(fare.fare_id))
 
     read_fare_rules_data = []
-    for fare in read_schedule.GetFareList():
+    for fare in read_schedule.GetFareAttributeList():
       for rule in fare.GetFareRuleList():
         self.assertEqual(fare.fare_id, rule.fare_id)
         read_fare_rules_data.append((fare.fare_id, rule.route_id,
                                      rule.origin_id, rule.destination_id,
                                      rule.contains_id))
+
     fare_rule_data.sort()
     read_fare_rules_data.sort()
     self.assertEqual(len(read_fare_rules_data), len(fare_rule_data))
     for rf, f in zip(read_fare_rules_data, fare_rule_data):
       self.assertEqual(rf, f)
-
 
     self.assertEqual(1, len(read_schedule.GetShapeList()))
     self.assertEqual(shape, read_schedule.GetShape(shape.shape_id))
@@ -5266,8 +5267,8 @@ class NonNegIntStringToIntTestCase(util.TestCase):
     self.assertRaises(TypeError, transitfeed.NonNegIntStringToInt, None)
 
 
-class GetHeadwayTimesTestCase(util.TestCase):
-  """Test for GetHeadwayStartTimes and GetHeadwayStopTimes"""
+class GetFrequencyTimesTestCase(util.TestCase):
+  """Test for GetFrequencyStartTimes and GetFrequencyStopTimes"""
   def setUp(self):
     problems = GetTestFailureProblemReporter(self)
     schedule = transitfeed.Schedule(problem_reporter=problems)
@@ -5292,23 +5293,41 @@ class GetHeadwayTimesTestCase(util.TestCase):
     self.trip1.AddStopTime(self.stop3, stop_time="17:45:00") # only stop_time
 
     # add headways starting before the trip
-    self.trip1.AddHeadwayPeriod("16:00:00","18:00:00",1800) # each 30 min
-    self.trip1.AddHeadwayPeriod("18:00:00","20:00:00",2700) # each 45 min
+    self.trip1.AddFrequency("16:00:00","18:00:00",1800) # each 30 min
+    self.trip1.AddFrequency("18:00:00","20:00:00",2700) # each 45 min
 
-  def testGetHeadwayStartTimes(self):
-    start_times = self.trip1.GetHeadwayStartTimes()
+  def testGetFrequencyStartTimes(self):
+    start_times = self.trip1.GetFrequencyStartTimes()
     self.assertEqual(
         ["16:00:00", "16:30:00", "17:00:00", "17:30:00",
          "18:00:00", "18:45:00", "19:30:00"],
         [transitfeed.FormatSecondsSinceMidnight(secs) for secs in start_times])
+    # GetHeadwayStartTimes is deprecated, but should still return the same
+    # result as GetFrequencyStartTimes
+    self.assertEqual(start_times,
+                     self.trip1.GetFrequencyStartTimes())
 
-  def testGetHeadwayStopTimes(self):
-    stoptimes_list = self.trip1.GetHeadwayStopTimes()
+  def testGetFrequencyStopTimes(self):
+    stoptimes_list = self.trip1.GetFrequencyStopTimes()
     arrival_secs = []
     departure_secs = []
     for stoptimes in stoptimes_list:
       arrival_secs.append([st.arrival_secs for st in stoptimes])
       departure_secs.append([st.departure_secs for st in stoptimes])
+
+    # GetHeadwayStopTimes is deprecated, but should still return the same
+    # result as GetFrequencyStopTimes
+    # StopTimes are instantiated as they're read from the DB so they can't be
+    # compared directly, but checking {arrival,departure}_secs should be enough
+    # to catch most errors.
+    headway_stoptimes_list = self.trip1.GetFrequencyStopTimes()
+    headway_arrival_secs = []
+    headway_departure_secs = []
+    for stoptimes in stoptimes_list:
+      headway_arrival_secs.append([st.arrival_secs for st in stoptimes])
+      headway_departure_secs.append([st.departure_secs for st in stoptimes])
+    self.assertEqual(arrival_secs, headway_arrival_secs)
+    self.assertEqual(departure_secs, headway_departure_secs)
 
     self.assertEqual(([57600,None,60300],[59400,None,62100],[61200,None,63900],
                       [63000,None,65700],[64800,None,67500],[67500,None,70200],
@@ -5489,8 +5508,8 @@ class TestGtfsFactory(util.TestCase):
     self._factory.AddMapping("newfile.txt", 
                              { "required": False, "classes": ["NewClass"], 
                                "loading_order": -10})
-    self._factory.AddClass("NewClass", transitfeed.Fare)
-    self.assertEqual(self._factory.NewClass, transitfeed.Fare)
+    self._factory.AddClass("NewClass", transitfeed.FareAttribute)
+    self.assertEqual(self._factory.NewClass, transitfeed.FareAttribute)
     self.assertEqual(self._factory.NewRequiredClass, transitfeed.Stop)
     self.assertTrue(self._factory.IsFileRequired("newrequiredfile.txt"))
     self.assertFalse(self._factory.IsFileRequired("newfile.txt"))
@@ -5567,9 +5586,9 @@ class TestGtfsFactory(util.TestCase):
 
   def testCanFindClassByClassName(self):
     self.assertEqual(transitfeed.Agency, self._factory.Agency)
-    self.assertEqual(transitfeed.Fare, self._factory.Fare)
+    self.assertEqual(transitfeed.FareAttribute, self._factory.FareAttribute)
     self.assertEqual(transitfeed.FareRule, self._factory.FareRule)
-    self.assertEqual(transitfeed.HeadwayPeriod, self._factory.HeadwayPeriod)
+    self.assertEqual(transitfeed.Frequency, self._factory.Frequency)
     self.assertEqual(transitfeed.Route, self._factory.Route)
     self.assertEqual(transitfeed.ServicePeriod, self._factory.ServicePeriod)
     self.assertEqual(transitfeed.Shape, self._factory.Shape)
@@ -5582,12 +5601,12 @@ class TestGtfsFactory(util.TestCase):
   def testCanFindClassByFileName(self):
     self.assertEqual(transitfeed.Agency,
                      self._factory.GetGtfsClassByFileName('agency.txt'))
-    self.assertEqual(transitfeed.Fare,
+    self.assertEqual(transitfeed.FareAttribute,
                      self._factory.GetGtfsClassByFileName(
                          'fare_attributes.txt'))
     self.assertEqual(transitfeed.FareRule,
                      self._factory.GetGtfsClassByFileName('fare_rules.txt'))
-    self.assertEqual(transitfeed.HeadwayPeriod,
+    self.assertEqual(transitfeed.Frequency,
                      self._factory.GetGtfsClassByFileName('frequencies.txt'))
     self.assertEqual(transitfeed.Route,
                      self._factory.GetGtfsClassByFileName('routes.txt'))

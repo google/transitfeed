@@ -65,12 +65,12 @@ Stop object which has attributes such as stop_lat and stop_name.
 # TODO: Solve this problem cleanly
 from util import *
 from agency import *
-from fare import *
+from fareattribute import *
 from farerule import *
-from genericgtfsobject import *
+from frequency import *
 from gtfsfactory import *
 from gtfsfactoryuser import *
-from headwayperiod import *
+from gtfsobjectbase import *
 from loader import *
 from problems import *
 from route import *

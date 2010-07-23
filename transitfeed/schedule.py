@@ -25,6 +25,7 @@ except ImportError:
   from pysqlite2 import dbapi2 as sqlite
 import tempfile
 import time
+import warnings
 # Objects in a schedule (Route, Trip, etc) should not keep a strong reference
 # to the Schedule object to avoid a reference cycle. Schedule needs to use
 # __del__ to cleanup its temporary file. The garbage collector can't handle
@@ -421,6 +422,13 @@ class Schedule:
     return self.trips[trip_id]
 
   def AddFareObject(self, fare, problem_reporter=None):
+    """Deprecated. Please use AddFareAttributeObject."""
+    warnings.warn("No longer supported. The Fare class was renamed to "
+                  "FareAttribute, and all related functions were renamed "
+                  "accordingly.", DeprecationWarning)
+    self.AddFareAttributeObject(fare, problem_reporter)
+
+  def AddFareAttributeObject(self, fare, problem_reporter=None):
     if not problem_reporter:
       problem_reporter = self.problem_reporter
     fare.Validate(problem_reporter)
@@ -432,9 +440,23 @@ class Schedule:
     self.fares[fare.fare_id] = fare
 
   def GetFareList(self):
+    """Deprecated. Please use GetFareAttributeList instead"""
+    warnings.warn("No longer supported. The Fare class was renamed to "
+                  "FareAttribute, and all related functions were renamed "
+                  "accordingly.", DeprecationWarning)
+    return self.GetFareAttributeList()
+
+  def GetFareAttributeList(self):
     return self.fares.values()
 
   def GetFare(self, fare_id):
+    """Deprecated. Please use GetFareAttribute instead"""
+    warnings.warn("No longer supported. The Fare class was renamed to "
+                  "FareAttribute, and all related functions were renamed "
+                  "accordingly.", DeprecationWarning)
+    return self.GetFareAttribute(fare_id)
+
+  def GetFareAttribute(self, fare_id):
     return self.fares[fare_id]
 
   def AddFareRuleObject(self, rule, problem_reporter=None):
@@ -455,7 +477,7 @@ class Schedule:
       problem_reporter.InvalidValue('contains_id', rule.contains_id)
 
     if rule.fare_id in self.fares:
-      self.GetFare(rule.fare_id).rules.append(rule)
+      self.GetFareAttribute(rule.fare_id).rules.append(rule)
     else:
       problem_reporter.InvalidValue('fare_id', rule.fare_id,
                                     '(This fare_id doesn\'t correspond to any '
@@ -612,25 +634,26 @@ class Schedule:
     # write frequencies.txt (if applicable)
     headway_rows = []
     for trip in self.GetTripList():
-      headway_rows += trip.GetHeadwayPeriodOutputTuples()
+      headway_rows += trip.GetFrequencyOutputTuples()
     if headway_rows:
       headway_string = StringIO.StringIO()
       writer = util.CsvUnicodeWriter(headway_string)
-      writer.writerow(self._gtfs_factory.HeadwayPeriod._FIELD_NAMES)
+      writer.writerow(self._gtfs_factory.Frequency._FIELD_NAMES)
       writer.writerows(headway_rows)
       self._WriteArchiveString(archive, 'frequencies.txt', headway_string)
 
     # write fares (if applicable)
-    if self.GetFareList():
+    if self.GetFareAttributeList():
       fare_string = StringIO.StringIO()
       writer = util.CsvUnicodeWriter(fare_string)
-      writer.writerow(self._gtfs_factory.Fare._FIELD_NAMES)
-      writer.writerows(f.GetFieldValuesTuple() for f in self.GetFareList())
+      writer.writerow(self._gtfs_factory.FareAttribute._FIELD_NAMES)
+      writer.writerows(
+          f.GetFieldValuesTuple() for f in self.GetFareAttributeList())
       self._WriteArchiveString(archive, 'fare_attributes.txt', fare_string)
 
     # write fare rules (if applicable)
     rule_rows = []
-    for fare in self.GetFareList():
+    for fare in self.GetFareAttributeList():
       for rule in fare.GetFareRuleList():
         rule_rows.append(rule.GetFieldValuesTuple())
     if rule_rows:
@@ -687,7 +710,7 @@ class Schedule:
     service_id_to_trips = defaultdict(lambda: 0)
     service_id_to_departures = defaultdict(lambda: 0)
     for trip in self.GetTripList():
-      headway_start_times = trip.GetHeadwayStartTimes()
+      headway_start_times = trip.GetFrequencyStartTimes()
       if headway_start_times:
         trip_runs = len(headway_start_times)
       else:
@@ -1180,4 +1203,3 @@ class Schedule:
     self.ValidateRouteAgencyId(problems)
     self.ValidateTripStopTimes(problems)
     self.ValidateUnusedShapes(problems)
-

@@ -14,9 +14,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from genericgtfsobject import GenericGTFSObject
+from gtfsobjectbase import GtfsObjectBase
 
-class HeadwayPeriod(GenericGTFSObject):
+class Frequency(GtfsObjectBase):
     """This class represents a period of a trip during which the vehicle travels
     at regular intervals (rather than specifying exact times for each stop)."""
 
@@ -64,4 +64,4 @@ class HeadwayPeriod(GenericGTFSObject):
       except KeyError:
         problems.InvalidValue('trip_id', self._trip_id)
         return
-      trip.AddHeadwayPeriodObject(self, problems)
+      trip.AddFrequencyObject(self, problems)

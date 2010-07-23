@@ -14,11 +14,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from genericgtfsobject import GenericGTFSObject
+from gtfsobjectbase import GtfsObjectBase
 from problems import default_problem_reporter
 import util
 
-class Agency(GenericGTFSObject):
+class Agency(GtfsObjectBase):
   """Represents an agency in a schedule.
 
   Callers may assign arbitrary values to instance attributes. __init__ makes no

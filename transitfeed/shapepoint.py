@@ -16,12 +16,12 @@
 # limitations under the License.
 
 import bisect
-from genericgtfsobject import GenericGTFSObject
+from gtfsobjectbase import GtfsObjectBase
 import problems as problems_module
 import util
 import sys
 
-class ShapePoint(GenericGTFSObject):
+class ShapePoint(GtfsObjectBase):
   """This class represents a single shape point.
 
   Attributes:

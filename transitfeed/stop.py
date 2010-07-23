@@ -16,11 +16,11 @@
 
 import warnings
 
-from genericgtfsobject import GenericGTFSObject
+from gtfsobjectbase import GtfsObjectBase
 import problems as problems_module
 import util
 
-class Stop(GenericGTFSObject):
+class Stop(GtfsObjectBase):
   """Represents a single stop. A stop must have a latitude, longitude and name.
 
   Callers may assign arbitrary values to instance attributes.
