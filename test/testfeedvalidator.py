@@ -261,7 +261,7 @@ class FeedValidatorTestCase(util.TempDirTestCaseBase):
 
     filename = "routes.txt"
     old_zip = zipfile.ZipFile(
-        self.GetPath('test', 'data', 'good_feed.zip'), 'a')
+        self.GetPath('test', 'data', 'good_feed.zip'), 'r')
     content_dict = self.ConvertZipToDict(old_zip)
     old_routes = content_dict[filename]
     new_routes = old_routes.replace('\n', '\r\n', 1)

@@ -1475,7 +1475,7 @@ class MergeInSubprocessTestCase(util.TempDirTestCaseBase):
   def CopyAndModifyTestData(self, zip_path, modify_file, old, new):
     """Return path of zip_path copy with old replaced by new in modify_file."""
     zipfile_mem = StringIO.StringIO(open(zip_path, 'rb').read())
-    old_zip = zipfile.ZipFile(zipfile_mem, 'a')
+    old_zip = zipfile.ZipFile(zipfile_mem, 'r')
 
     content_dict = self.ConvertZipToDict(old_zip)
     content_dict[modify_file] = content_dict[modify_file].replace(old, new)
