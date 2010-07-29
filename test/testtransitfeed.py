@@ -840,6 +840,21 @@ class ValidationTestCase(util.TestCase):
     e.FormatContext()
     self.accumulator.AssertNoMoreExceptions()
 
+  def ExpectInvalidFloatValue(self, object, value):
+    self.ExpectInvalidFloatValueInClosure(value,
+        lambda: object.Validate(self.problems))
+
+  def ExpectInvalidFloatValueInClosure(self, value,
+                                  c=None):
+    self.accumulator.AssertNoMoreExceptions()
+    rv = c()
+    e = self.accumulator.PopException('InvalidFloatValue')
+    self.assertEqual(value, e.value)
+    # these should not throw any exceptions
+    e.FormatProblem()
+    e.FormatContext()
+    self.accumulator.AssertNoMoreExceptions()
+
   def ExpectOtherProblem(self, object):
     self.ExpectOtherProblemInClosure(lambda: object.Validate(self.problems))
 
@@ -2068,7 +2083,7 @@ class BadLatLonInStopUnitTest(ValidationTestCase):
                                         "stop_name": "Stop one",
                                         "stop_lat": "13.0",
                                         "stop_lon": "1e2"})
-    self.ExpectInvalidValue(stop, "stop_lon")
+    self.ExpectInvalidFloatValue(stop, "1e2")
 
 
 class BadLatLonInFileUnitTest(MemoryZipTestCase):
@@ -2455,10 +2470,10 @@ class ShapePointValidationTestCase(ValidationTestCase):
 
     shapepoint = transitfeed.ShapePoint('T', '36.9151', '-116.7611', '00', '0')
     shapepoint.ParseAttributes(self.problems)
-    e = self.accumulator.PopException('InvalidValue')
-    self.assertMatchesRegex('Value should be a number', e.FormatProblem())
+    e = self.accumulator.PopException('InvalidNonNegativeIntegerValue')
+    self.assertMatchesRegex('not have a leading zero', e.FormatProblem())
     self.accumulator.AssertNoMoreExceptions()
-    
+
     shapepoint = transitfeed.ShapePoint('T', '36.9151', '-116.7611', -1, '0')
     shapepoint.ParseAttributes(self.problems)
     e = self.accumulator.PopException('InvalidValue')
@@ -5245,26 +5260,90 @@ class TimeConversionHelpersTestCase(util.TestCase):
     else:
       self.fail("Should have thrown ValueError")
 
+class FloatStringToFloatTestCase(util.TestCase):
+  def runTest(self):
+    accumulator = RecordingProblemAccumulator(self)
+    problems = transitfeed.ProblemReporter(accumulator)
+
+    self.assertAlmostEqual(0, transitfeed.FloatStringToFloat("0", problems))
+    self.assertAlmostEqual(0, transitfeed.FloatStringToFloat(u"0", problems))
+    self.assertAlmostEqual(1, transitfeed.FloatStringToFloat("1", problems))
+    self.assertAlmostEqual(1,
+                           transitfeed.FloatStringToFloat("1.00000", problems))
+    self.assertAlmostEqual(1.5,
+                           transitfeed.FloatStringToFloat("1.500", problems))
+    self.assertAlmostEqual(-2, transitfeed.FloatStringToFloat("-2.0", problems))
+    self.assertAlmostEqual(-2.5,
+                            transitfeed.FloatStringToFloat("-2.5", problems))
+    self.assertRaises(ValueError,
+                      transitfeed.FloatStringToFloat, ".", problems)
+    self.assertRaises(ValueError,
+                      transitfeed.FloatStringToFloat, "0x20", problems)
+    self.assertRaises(ValueError,
+                      transitfeed.FloatStringToFloat, "-0x20", problems)
+    self.assertRaises(ValueError,
+                      transitfeed.FloatStringToFloat, "0b10", problems)
+
+    # These should issue a warning, but otherwise parse successfully
+    self.assertAlmostEqual(0.001,
+                           transitfeed.FloatStringToFloat("1E-3", problems))
+    e = accumulator.PopException("InvalidFloatValue")
+    self.assertAlmostEqual(0.001,
+                           transitfeed.FloatStringToFloat(".001", problems))
+    e = accumulator.PopException("InvalidFloatValue")
+    self.assertAlmostEqual(-0.001,
+                           transitfeed.FloatStringToFloat("-.001", problems))
+    e = accumulator.PopException("InvalidFloatValue")
+    self.assertAlmostEqual(0,
+                           transitfeed.FloatStringToFloat("0.", problems))
+    e = accumulator.PopException("InvalidFloatValue")
+
+    accumulator.AssertNoMoreExceptions()
+
 
 class NonNegIntStringToIntTestCase(util.TestCase):
   def runTest(self):
-    self.assertEqual(0, transitfeed.NonNegIntStringToInt("0"))
-    self.assertEqual(0, transitfeed.NonNegIntStringToInt(u"0"))
-    self.assertEqual(1, transitfeed.NonNegIntStringToInt("1"))
-    self.assertEqual(2, transitfeed.NonNegIntStringToInt("2"))
-    self.assertEqual(10, transitfeed.NonNegIntStringToInt("10"))
+    accumulator = RecordingProblemAccumulator(self)
+    problems = transitfeed.ProblemReporter(accumulator)
+
+    self.assertEqual(0, transitfeed.NonNegIntStringToInt("0", problems))
+    self.assertEqual(0, transitfeed.NonNegIntStringToInt(u"0", problems))
+    self.assertEqual(1, transitfeed.NonNegIntStringToInt("1", problems))
+    self.assertEqual(2, transitfeed.NonNegIntStringToInt("2", problems))
+    self.assertEqual(10, transitfeed.NonNegIntStringToInt("10", problems))
     self.assertEqual(1234567890123456789,
-                     transitfeed.NonNegIntStringToInt("1234567890123456789"))
-    self.assertRaises(ValueError, transitfeed.NonNegIntStringToInt, "")
-    self.assertRaises(ValueError, transitfeed.NonNegIntStringToInt, "-1")
-    self.assertRaises(ValueError, transitfeed.NonNegIntStringToInt, "+1")
-    self.assertRaises(ValueError, transitfeed.NonNegIntStringToInt, "01")
-    self.assertRaises(ValueError, transitfeed.NonNegIntStringToInt, "00")
-    self.assertRaises(ValueError, transitfeed.NonNegIntStringToInt, "0x1")
-    self.assertRaises(ValueError, transitfeed.NonNegIntStringToInt, "1.0")
-    self.assertRaises(ValueError, transitfeed.NonNegIntStringToInt, "1e1")
-    self.assertRaises(TypeError, transitfeed.NonNegIntStringToInt, 1)
-    self.assertRaises(TypeError, transitfeed.NonNegIntStringToInt, None)
+                     transitfeed.NonNegIntStringToInt("1234567890123456789",
+                                                      problems))
+    self.assertRaises(ValueError,
+                      transitfeed.NonNegIntStringToInt, "", problems)
+    self.assertRaises(ValueError,
+                      transitfeed.NonNegIntStringToInt, "-1", problems)
+    self.assertRaises(ValueError,
+                      transitfeed.NonNegIntStringToInt, "0x1", problems)
+    self.assertRaises(ValueError,
+                      transitfeed.NonNegIntStringToInt, "1.0", problems)
+    self.assertRaises(ValueError,
+                      transitfeed.NonNegIntStringToInt, "1e1", problems)
+    self.assertRaises(ValueError,
+                      transitfeed.NonNegIntStringToInt, "0x20", problems)
+    self.assertRaises(ValueError,
+                      transitfeed.NonNegIntStringToInt, "0b10", problems)
+    self.assertRaises(TypeError,
+                      transitfeed.NonNegIntStringToInt, 1, problems)
+    self.assertRaises(TypeError,
+                      transitfeed.NonNegIntStringToInt, None, problems)
+
+    # These should issue a warning, but otherwise parse successfully
+    self.assertEqual(1, transitfeed.NonNegIntStringToInt("+1", problems))
+    e = accumulator.PopException("InvalidNonNegativeIntegerValue")
+
+    self.assertEqual(1, transitfeed.NonNegIntStringToInt("01", problems))
+    e = accumulator.PopException("InvalidNonNegativeIntegerValue")
+
+    self.assertEqual(0, transitfeed.NonNegIntStringToInt("00", problems))
+    e = accumulator.PopException("InvalidNonNegativeIntegerValue")
+
+    accumulator.AssertNoMoreExceptions()
 
 
 class GetFrequencyTimesTestCase(util.TestCase):

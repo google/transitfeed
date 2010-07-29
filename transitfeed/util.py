@@ -245,21 +245,37 @@ def DateStringToDateObject(date_string):
                        int(date_string[6:8]))
 
 
-def FloatStringToFloat(float_string):
+def FloatStringToFloat(float_string, problems=None):
   """Convert a float as a string to a float or raise an exception"""
   # Will raise TypeError unless a string
-  if not re.match(r"^[+-]?\d+(\.\d+)?$", float_string):
+  match = re.match(r"^[+-]?\d+(\.\d+)?$", float_string)
+  # Will raise TypeError if the string can't be parsed
+  parsed_value = float(float_string)
+
+  if "x" in float_string:
+    # This is needed because Python 2.4 does not complain about float("0x20").
+    # But it does complain about float("0b10"), so this should be enough.
     raise ValueError()
-  return float(float_string)
 
+  if not match and problems is not None:
+    # Does not match the regex, but it's a float according to Python
+    problems.InvalidFloatValue(float_string)
+  return parsed_value
 
-def NonNegIntStringToInt(int_string):
+def NonNegIntStringToInt(int_string, problems=None):
   """Convert an non-negative integer string to an int or raise an exception"""
   # Will raise TypeError unless a string
-  if not re.match(r"^(?:0|[1-9]\d*)$", int_string):
-    raise ValueError()
-  return int(int_string)
+  match = re.match(r"^(?:0|[1-9]\d*)$", int_string)
+  # Will raise ValueError if the string can't be parsed
+  parsed_value = int(int_string)
 
+  if parsed_value < 0:
+    raise ValueError()
+  elif not match and problems is not None:
+    # Does not match the regex, but it's an int according to Python
+    problems.InvalidNonNegativeIntegerValue(int_string)
+
+  return parsed_value
 
 EARTH_RADIUS = 6378135          # in meters
 def ApproximateDistance(degree_lat1, degree_lng1, degree_lat2, degree_lng2):

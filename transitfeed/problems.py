@@ -133,6 +133,19 @@ class ProblemReporter(object):
                      context=context, context2=self._context, type=type)
     self.AddToAccumulator(e)
 
+  def InvalidFloatValue(self, value, reason=None, context=None,
+                        type=TYPE_WARNING):
+    e = InvalidFloatValue(value=value, reason=reason, context=context,
+                          context2=self._context, type=type)
+    self.AddToAccumulator(e)
+
+  def InvalidNonNegativeIntegerValue(self, value, reason=None, context=None,
+                                     type=TYPE_WARNING):
+    e = InvalidNonNegativeIntegerValue(value=value, reason=reason,
+                                       context=context, context2=self._context,
+                                       type=type)
+    self.AddToAccumulator(e)
+
   def DuplicateID(self, column_names, values, context=None, type=TYPE_ERROR):
     if isinstance(column_names, (tuple, list)):
       column_names = '(' + ', '.join(column_names) + ')'
@@ -478,6 +491,20 @@ class MissingValue(ExceptionWithContext):
 
 class InvalidValue(ExceptionWithContext):
   ERROR_TEXT = 'Invalid value %(value)s in field %(column_name)s'
+
+class InvalidFloatValue(ExceptionWithContext):
+  ERROR_TEXT = (
+      "Invalid numeric value %(value)s. "
+      "Please ensure that the number includes an explicit whole "
+      "number portion (ie. use 0.5 instead of .5), that you do not use the "
+      "exponential notation (ie. use 0.001 instead of 1E-3), and "
+      "that it is a properly formated decimal value.")
+
+class InvalidNonNegativeIntegerValue(ExceptionWithContext):
+  ERROR_TEXT = (
+      "Invalid numeric value %(value)s. "
+      "Please ensure that the number does not have a leading zero (ie. use "
+      "3 instead of 03), and that it is a properly formated integer value.")
 
 class DuplicateID(ExceptionWithContext):
   ERROR_TEXT = 'Duplicate ID %(value)s in column %(column_name)s'

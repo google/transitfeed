@@ -184,7 +184,7 @@ class Route(GtfsObjectBase):
     if self.route_type is not None:
       try:
         if not isinstance(self.route_type, int):
-          self.route_type = util.NonNegIntStringToInt(self.route_type)
+          self.route_type = util.NonNegIntStringToInt(self.route_type, problems)
       except (TypeError, ValueError):
         problems.InvalidValue('route_type', self.route_type)
       else:

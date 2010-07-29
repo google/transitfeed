@@ -67,7 +67,7 @@ class ShapePoint(GtfsObjectBase):
     try:
       if not isinstance(self.shape_pt_sequence, int):
         self.shape_pt_sequence = \
-                util.NonNegIntStringToInt(self.shape_pt_sequence)
+                util.NonNegIntStringToInt(self.shape_pt_sequence, problems)
       elif self.shape_pt_sequence < 0:
         problems.InvalidValue('shape_pt_sequence', self.shape_pt_sequence,
                               'Value should be a number (0 or higher)')
@@ -78,7 +78,7 @@ class ShapePoint(GtfsObjectBase):
 
     try:
       if not isinstance(self.shape_pt_lat, (int, float)):
-        self.shape_pt_lat = util.FloatStringToFloat(self.shape_pt_lat)
+        self.shape_pt_lat = util.FloatStringToFloat(self.shape_pt_lat, problems)
       if abs(self.shape_pt_lat) > 90.0:
         problems.InvalidValue('shape_pt_lat', self.shape_pt_lat)
         return
@@ -88,7 +88,7 @@ class ShapePoint(GtfsObjectBase):
 
     try:
       if not isinstance(self.shape_pt_lon, (int, float)):
-        self.shape_pt_lon = util.FloatStringToFloat(self.shape_pt_lon)
+        self.shape_pt_lon = util.FloatStringToFloat(self.shape_pt_lon, problems)
       if abs(self.shape_pt_lon) > 180.0:
         problems.InvalidValue('shape_pt_lon', self.shape_pt_lon)
         return
@@ -110,7 +110,7 @@ class ShapePoint(GtfsObjectBase):
         not isinstance(self.shape_dist_traveled, (int, float))):
       try:
         self.shape_dist_traveled = \
-                util.FloatStringToFloat(self.shape_dist_traveled)
+                util.FloatStringToFloat(self.shape_dist_traveled, problems)
       except (TypeError, ValueError):
         problems.InvalidValue('shape_dist_traveled', self.shape_dist_traveled,
                               'This value should be a positive number.')

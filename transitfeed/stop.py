@@ -149,7 +149,7 @@ class Stop(GtfsObjectBase):
       value = self.stop_lat
       try:
         if not isinstance(value, (float, int)):
-          self.stop_lat = util.FloatStringToFloat(value)
+          self.stop_lat = util.FloatStringToFloat(value, problems)
       except (ValueError, TypeError):
         problems.InvalidValue('stop_lat', value)
         del self.stop_lat
@@ -162,7 +162,7 @@ class Stop(GtfsObjectBase):
       value = self.stop_lon
       try:
         if not isinstance(value, (float, int)):
-          self.stop_lon = util.FloatStringToFloat(value)
+          self.stop_lon = util.FloatStringToFloat(value, problems)
       except (ValueError, TypeError):
         problems.InvalidValue('stop_lon', value)
         del self.stop_lon
