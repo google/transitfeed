@@ -119,7 +119,7 @@ class NoExceptionTestCase(RedirectStdOutTestCaseBase):
 
 class EndOfLineCheckerTestCase(util.TestCase):
   def setUp(self):
-    self.accumulator = RecordingProblemAccumulator(self)
+    self.accumulator = RecordingProblemAccumulator(self, ("ExpirationDate",))
     self.problems = transitfeed.ProblemReporter(self.accumulator)
 
   def RunEndOfLineChecker(self, end_of_line_checker):

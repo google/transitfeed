@@ -88,26 +88,27 @@ class google_random_queries(util.TempDirTestCaseBase):
 class filter_unused_stops(util.TempDirTestCaseBase):
   def testNormalRun(self):
     unused_stop_path = self.GetPath('test', 'data', 'unused_stop')
-    # Make sure load fails for input
-    accumulator = transitfeed.ExceptionProblemAccumulator(raise_warnings=True)
+    # Make sure original data has an unused stop.
+    accumulator = util.RecordingProblemAccumulator(self, ("ExpirationDate",))
     problem_reporter = transitfeed.ProblemReporter(accumulator)
-    try:
-      transitfeed.Loader(
-          unused_stop_path,
-          problems=problem_reporter, extra_validation=True).Load()
-      self.fail('UnusedStop exception expected')
-    except transitfeed.UnusedStop, e:
-      pass
+    transitfeed.Loader(
+        unused_stop_path,
+        problems=problem_reporter, extra_validation=True).Load()
+    accumulator.PopException("UnusedStop")
+    accumulator.AssertNoMoreExceptions()
+
     (stdout, stderr) = self.CheckCallWithPath(
         [self.GetExamplePath('filter_unused_stops.py'),
          '--list_removed',
          unused_stop_path, 'output.zip'])
     # Extra stop was listed on stdout
     self.assertNotEqual(stdout.find('Bogus Stop'), -1)
-    # Make sure unused stop was removed and another stop wasn't
+
+    # Make sure unused stop was removed and another stop still exists.
     schedule = transitfeed.Loader(
         'output.zip', problems=problem_reporter, extra_validation=True).Load()
     schedule.GetStop('STAGECOACH')
+    accumulator.AssertNoMoreExceptions()
 
 
 if __name__ == '__main__':
