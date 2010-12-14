@@ -556,7 +556,9 @@ def RunValidation(feed, options, problems):
                                options.check_duplicate_trips,
                                gtfs_factory=gtfs_factory)
   schedule = loader.Load()
-  schedule.Validate(service_gap_interval=options.service_gap_interval)
+  # Start validation: children are already validated by the loader.
+  schedule.Validate(service_gap_interval=options.service_gap_interval,
+                    validate_children=False)
   
   if feed == 'IWantMyvalidation-crash.txt':
     # See test/testfeedvalidator.py
