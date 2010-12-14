@@ -1358,111 +1358,6 @@ class TooFastTravelTestCase(ValidationTestCase):
     self.accumulator.AssertNoMoreExceptions()
 
 
-class MemoryZipTestCase(util.TestCase):
-  """Base for TestCase classes which read from an in-memory zip file.
-
-  A test that loads data from this zip file exercises almost all the code used
-  when the feedvalidator runs, but does not touch disk. Unfortunately it is very
-  difficult to add new stops to the default stops.txt because a new stop will
-  break tests in StopHierarchyTestCase and StopsNearEachOther."""
-
-  def setUp(self):
-    self.accumulator = RecordingProblemAccumulator(self, ("ExpirationDate",))
-    self.problems = transitfeed.ProblemReporter(self.accumulator)
-    self.zip_contents = {}
-    self.SetArchiveContents(
-        "agency.txt",
-        "agency_id,agency_name,agency_url,agency_timezone\n"
-        "DTA,Demo Agency,http://google.com,America/Los_Angeles\n")
-    self.SetArchiveContents(
-        "calendar.txt",
-        "service_id,monday,tuesday,wednesday,thursday,friday,saturday,sunday,"
-        "start_date,end_date\n"
-        "FULLW,1,1,1,1,1,1,1,20070101,20101231\n"
-        "WE,0,0,0,0,0,1,1,20070101,20101231\n")
-    self.SetArchiveContents(
-        "calendar_dates.txt",
-        "service_id,date,exception_type\n"
-        "FULLW,20070101,1\n")
-    self.SetArchiveContents(
-        "routes.txt",
-        "route_id,agency_id,route_short_name,route_long_name,route_type\n"
-        "AB,DTA,,Airport Bullfrog,3\n")
-    self.SetArchiveContents(
-        "trips.txt",
-        "route_id,service_id,trip_id\n"
-        "AB,FULLW,AB1\n")
-    self.SetArchiveContents(
-        "stops.txt",
-        "stop_id,stop_name,stop_lat,stop_lon\n"
-        "BEATTY_AIRPORT,Airport,36.868446,-116.784582\n"
-        "BULLFROG,Bullfrog,36.88108,-116.81797\n"
-        "STAGECOACH,Stagecoach Hotel,36.915682,-116.751677\n")
-    self.SetArchiveContents(
-        "stop_times.txt",
-        "trip_id,arrival_time,departure_time,stop_id,stop_sequence\n"
-        "AB1,10:00:00,10:00:00,BEATTY_AIRPORT,1\n"
-        "AB1,10:20:00,10:20:00,BULLFROG,2\n"
-        "AB1,10:25:00,10:25:00,STAGECOACH,3\n")
-
-  def MakeLoaderAndLoad(self,
-                        problems=None,
-                        extra_validation=True):
-    """Returns a Schedule loaded with the contents of the file dict."""
-    if problems is None:
-      problems = self.problems
-    self.CreateZip()
-    self.loader = transitfeed.Loader(
-        problems=problems,
-        extra_validation=extra_validation,
-        zip=self.zip)
-    return self.loader.Load()
-
-  def AppendToArchiveContents(self, arcname, s):
-    """Append string s to file arcname in the file dict.
-
-    All calls to this function, if any, should be made before calling
-    MakeLoaderAndLoad."""
-    current_contents = self.zip_contents[arcname]
-    self.zip_contents[arcname] = current_contents + s
-
-  def SetArchiveContents(self, arcname, contents):
-    """Set the contents of file arcname in the file dict.
-
-    All calls to this function, if any, should be made before calling
-    MakeLoaderAndLoad."""
-    self.zip_contents[arcname] = contents
-
-  def GetArchiveContents(self, arcname):
-    """Get the contents of file arcname in the file dict."""
-    return self.zip_contents[arcname]
-
-  def RemoveArchive(self, arcname):
-    """Remove file arcname from the file dict.
-
-    All calls to this function, if any, should be made before calling
-    MakeLoaderAndLoad."""
-    del self.zip_contents[arcname]
-
-  def GetArchiveNames(self):
-    """Get a list of all the archive names in the file dict."""
-    return self.zip_contents.keys()
-
-  def CreateZip(self):
-    """Create an in-memory GTFS zipfile from the contents of the file dict."""
-    self.zipfile = StringIO()
-    self.zip = zipfile.ZipFile(self.zipfile, 'a')
-    for (arcname, contents) in self.zip_contents.items():
-      self.zip.writestr(arcname, contents)
-
-  def DumpZipFile(self, zf):
-    """Print the contents of something zipfile can open, such as a StringIO."""
-    # Handy for debugging
-    z = zipfile.ZipFile(zf)
-    for n in z.namelist():
-      print "--\n%s\n%s" % (n, z.read(n))
-
-
 class CsvDictTestCase(util.TestCase):
   def setUp(self):
     self.accumulator = RecordingProblemAccumulator(self)
@@ -1723,12 +1618,12 @@ class ReadCsvTestCase(util.TestCase):
     self.accumulator.AssertNoMoreExceptions()
 
 
-class BasicMemoryZipTestCase(MemoryZipTestCase):
+class BasicMemoryZipTestCase(util.MemoryZipTestCase):
   def runTest(self):
     self.MakeLoaderAndLoad()
     self.accumulator.AssertNoMoreExceptions()
 
-class ZipCompressionTestCase(MemoryZipTestCase):
+class ZipCompressionTestCase(util.MemoryZipTestCase):
   def runTest(self):
     schedule = self.MakeLoaderAndLoad()
     self.zip.close()
@@ -1745,7 +1640,7 @@ class ZipCompressionTestCase(MemoryZipTestCase):
         (write_size, recompressedzip_size))
 
 
-class StopHierarchyTestCase(MemoryZipTestCase):
+class StopHierarchyTestCase(util.MemoryZipTestCase):
   def testParentAtSameLatLon(self):
     self.SetArchiveContents(
         "stops.txt",
@@ -1930,7 +1825,7 @@ class StopHierarchyTestCase(MemoryZipTestCase):
   #  self.accumulator.AssertNoMoreExceptions()
 
 
-class StopSpacesTestCase(MemoryZipTestCase):
+class StopSpacesTestCase(util.MemoryZipTestCase):
   def testFieldsWithSpace(self):
     self.SetArchiveContents(
         "stops.txt",
@@ -1943,7 +1838,7 @@ class StopSpacesTestCase(MemoryZipTestCase):
     self.accumulator.AssertNoMoreExceptions()
 
 
-class StopBlankHeaders(MemoryZipTestCase):
+class StopBlankHeaders(util.MemoryZipTestCase):
   def testBlankHeaderValueAtEnd(self):
     # Modify the stops.txt added by MemoryZipTestCase.setUp. This allows the
     # original stops.txt to be changed without modifying anything in this test.
@@ -2003,7 +1898,7 @@ class StopBlankHeaders(MemoryZipTestCase):
     self.accumulator.AssertNoMoreExceptions()
 
 
-class StopsNearEachOther(MemoryZipTestCase):
+class StopsNearEachOther(util.MemoryZipTestCase):
   def testTooNear(self):
     self.SetArchiveContents(
         "stops.txt",
@@ -2086,7 +1981,7 @@ class BadLatLonInStopUnitTest(ValidationTestCase):
     self.ExpectInvalidFloatValue(stop, "1e2")
 
 
-class BadLatLonInFileUnitTest(MemoryZipTestCase):
+class BadLatLonInFileUnitTest(util.MemoryZipTestCase):
   def runTest(self):
     self.SetArchiveContents(
         "stops.txt",
@@ -2104,7 +1999,7 @@ class BadLatLonInFileUnitTest(MemoryZipTestCase):
     self.accumulator.AssertNoMoreExceptions()
 
 
-class LoadUnknownFileInZipTestCase(MemoryZipTestCase):
+class LoadUnknownFileInZipTestCase(util.MemoryZipTestCase):
   def runTest(self):
     self.SetArchiveContents(
         "stpos.txt",
@@ -2119,7 +2014,7 @@ class LoadUnknownFileInZipTestCase(MemoryZipTestCase):
     self.accumulator.AssertNoMoreExceptions()
 
 
-class TabDelimitedTestCase(MemoryZipTestCase):
+class TabDelimitedTestCase(util.MemoryZipTestCase):
   def runTest(self):
     # Create an extremely corrupt file by replacing each comma with a tab,
     # ignoring csv quoting.
@@ -2132,7 +2027,7 @@ class TabDelimitedTestCase(MemoryZipTestCase):
     # magical future the validator will stop when the csv is obviously hosed.
 
 
-class RouteMemoryZipTestCase(MemoryZipTestCase):
+class RouteMemoryZipTestCase(util.MemoryZipTestCase):
   def assertLoadAndCheckExtraValues(self, schedule_file):
     """Load file-like schedule_file and check for extra route columns."""
     load_problems = GetTestFailureProblemReporter(
@@ -2915,7 +2810,7 @@ class TransferObjectTestCase(ValidationTestCase):
     self.accumulator.AssertNoMoreExceptions()
 
 
-class TransferValidationTestCase(MemoryZipTestCase):
+class TransferValidationTestCase(util.MemoryZipTestCase):
   """Integration test for transfers."""
 
   def testInvalidStopIds(self):
@@ -3121,7 +3016,7 @@ class ServicePeriodDateRangeTestCase(ValidationTestCase):
     self.accumulator.AssertNoMoreExceptions()
 
 
-class NoServiceExceptionsTestCase(MemoryZipTestCase):
+class NoServiceExceptionsTestCase(util.MemoryZipTestCase):
 
   def testNoCalendarDates(self):
     self.RemoveArchive("calendar_dates.txt")
@@ -3305,7 +3200,7 @@ class GetServicePeriodsActiveEachDateTestCase(util.TestCase):
     self.assertEquals([sp1], date_services[1][1])
 
 
-class TripMemoryZipTestCase(MemoryZipTestCase):
+class TripMemoryZipTestCase(util.MemoryZipTestCase):
   def assertLoadAndCheckExtraValues(self, schedule_file):
     """Load file-like schedule_file and check for extra trip columns."""
     load_problems = GetTestFailureProblemReporter(
@@ -4035,7 +3930,7 @@ class OnlyCalendarDatesTestCase(LoadTestCase):
     self.accumulator.AssertNoMoreExceptions()
 
 
-class DuplicateServiceIdDateWarningTestCase(MemoryZipTestCase):
+class DuplicateServiceIdDateWarningTestCase(util.MemoryZipTestCase):
   def runTest(self):
     # Two lines with the same value of service_id and date.
     # Test for the warning.
@@ -4135,7 +4030,7 @@ class FutureServiceStartDateTestCase(util.TestCase):
     accumulator.AssertNoMoreExceptions()
 
 
-class CalendarTxtIntegrationTestCase(MemoryZipTestCase):
+class CalendarTxtIntegrationTestCase(util.MemoryZipTestCase):
   def testBadEndDateFormat(self):
     # A badly formatted end_date used to generate an InvalidValue report from
     # Schedule.Validate and ServicePeriod.Validate. Test for the bug.
@@ -5427,7 +5322,7 @@ class GetFrequencyTimesTestCase(util.TestCase):
             self.assertEqual(getattr(st, name), getattr(st_clone, name))
 
 
-class ServiceGapsTestCase(MemoryZipTestCase):
+class ServiceGapsTestCase(util.MemoryZipTestCase):
 
   def setUp(self):
     super(ServiceGapsTestCase, self).setUp()
