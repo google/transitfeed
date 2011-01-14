@@ -1029,16 +1029,34 @@ class StopValidationTestCase(ValidationTestCase):
     stop.stop_lat = 50.0
 
     # latitude as a string works when it is valid
+    # empty strings or whitespaces should get reported as MissingValue
     stop.stop_lat = '50.0'
     stop.Validate(self.problems)
     self.accumulator.AssertNoMoreExceptions()
     stop.stop_lat = '10f'
     self.ExpectInvalidValue(stop, 'stop_lat')
+    stop.stop_lat = ''
+    self.ExpectMissingValue(stop, 'stop_lat')
+    stop.stop_lat = ' '
+    self.ExpectMissingValue(stop, 'stop_lat')
     stop.stop_lat = 50.0
 
     # longitude too large
     stop.stop_lon = 200.0
     self.ExpectInvalidValue(stop, 'stop_lon')
+    stop.stop_lon = 50.0
+
+    # longitude as a string works when it is valid
+    # empty strings or whitespaces should get reported as MissingValue
+    stop.stop_lon = '50.0'
+    stop.Validate(self.problems)
+    self.accumulator.AssertNoMoreExceptions()
+    stop.stop_lon = '10f'
+    self.ExpectInvalidValue(stop, 'stop_lon')
+    stop.stop_lon = ''
+    self.ExpectMissingValue(stop, 'stop_lon')
+    stop.stop_lon = ' '
+    self.ExpectMissingValue(stop, 'stop_lon')
     stop.stop_lon = 50.0
 
     # lat, lon too close to 0, 0
@@ -1058,6 +1076,8 @@ class StopValidationTestCase(ValidationTestCase):
     stop.stop_id = '45'
 
     stop.stop_name = ''
+    self.ExpectMissingValue(stop, 'stop_name')
+    stop.stop_name = ' '
     self.ExpectMissingValue(stop, 'stop_name')
     stop.stop_name = 'Couch AT End Table'
 
@@ -1837,6 +1857,22 @@ class StopSpacesTestCase(util.MemoryZipTestCase):
     schedule = self.MakeLoaderAndLoad()
     self.accumulator.AssertNoMoreExceptions()
 
+  def testFieldsWithEmptyString(self):
+    self.SetArchiveContents(
+        'stops.txt',
+        'stop_id,stop_name,stop_lat,stop_lon\n'
+        'BEATTY_AIRPORT,Airport,"",-116.784582\n'
+        'BULLFROG,Bullfrog,36.88108,-116.81797\n'
+        'STAGECOACH,Stagecoach Hotel,36.915682,""\n')
+    schedule = self.MakeLoaderAndLoad()
+    e = self.accumulator.PopException('MissingValue')
+    self.assertEquals('stop_lat', e.column_name)
+    self.assertEquals(2, e.row_num)
+    e = self.accumulator.PopException('MissingValue')
+    self.assertEquals('stop_lon', e.column_name)
+    self.assertEquals(4, e.row_num)
+    self.accumulator.AssertNoMoreExceptions()
+
 
 class StopBlankHeaders(util.MemoryZipTestCase):
   def testBlankHeaderValueAtEnd(self):
@@ -2339,7 +2375,7 @@ class ShapeValidationTestCase(ValidationTestCase):
 
     shape.AddPoint(36.925019, -116.764206, 6, self.problems)
     self.accumulator.AssertNoMoreExceptions()
-    
+
     shapepoint = transitfeed.ShapePoint('TEST', 36.915760, -116.7156, 6, 8)
     shape.AddShapePointObjectUnsorted(shapepoint, self.problems)
     shapepoint = transitfeed.ShapePoint('TEST', 36.915760, -116.7156, 5, 10)
@@ -2360,7 +2396,7 @@ class ShapeValidationTestCase(ValidationTestCase):
 class ShapePointValidationTestCase(ValidationTestCase):
   def runTest(self):
     shapepoint = transitfeed.ShapePoint('', 36.915720, -116.7156, 0, 0)
-    self.ExpectMissingValueInClosure('shape_id', 
+    self.ExpectMissingValueInClosure('shape_id',
         lambda: shapepoint.ParseAttributes(self.problems))
 
     shapepoint = transitfeed.ShapePoint('T', '36.9151', '-116.7611', '00', '0')
@@ -2689,7 +2725,7 @@ class TransferObjectTestCase(ValidationTestCase):
       self.assertEquals(e.from_stop_id, stop1.stop_id)
       self.assertEquals(e.to_stop_id, stop2.stop_id)
       self.accumulator.AssertNoMoreExceptions()
-      
+
       # from_stop_id and to_stop_id are present in schedule
       # and too far away (should be error)
       # 11140m appart
@@ -2760,7 +2796,7 @@ class TransferObjectTestCase(ValidationTestCase):
     transfer.from_stop_id = "stop1"
     schedule.AddTransferObject(transfer)
     transfer.attr2 = "foo2"
-    
+
     saved_schedule_file = StringIO()
     schedule.WriteGoogleTransitFeed(saved_schedule_file)
     self.accumulator.AssertNoMoreExceptions()
@@ -2970,7 +3006,7 @@ class ServicePeriodValidationTestCase(ValidationTestCase):
     period = transitfeed.ServicePeriod()
     period.SetDateHasService('20070101', False)
     self.assertTrue(period.HasExceptions())
-    
+
 
 class ServicePeriodDateRangeTestCase(ValidationTestCase):
   def runTest(self):
@@ -3543,8 +3579,8 @@ class ShapeDistTraveledOfStopTimeValidationTestCase(ValidationTestCase):
     stop = transitfeed.Stop(36.421288, -117.133122, "Demo Stop 4", "STOP4")
     schedule.AddStopObject(stop)
     stoptime = transitfeed.StopTime(self.problems, stop,
-                                    arrival_time="5:29:00", 
-                                    departure_time="5:29:00",stop_sequence=3, 
+                                    arrival_time="5:29:00",
+                                    departure_time="5:29:00",stop_sequence=3,
                                     shape_dist_traveled=1.7)
     trip.AddStopTimeObject(stoptime, schedule=schedule)
     self.accumulator.AssertNoMoreExceptions()
@@ -3556,7 +3592,7 @@ class ShapeDistTraveledOfStopTimeValidationTestCase(ValidationTestCase):
     self.assertEqual(e.type, transitfeed.TYPE_ERROR)
     self.accumulator.AssertNoMoreExceptions()
 
-    # Warning if distance remains the same between two stop_times 
+    # Warning if distance remains the same between two stop_times
     stoptime.shape_dist_traveled = 2.0
     trip.ReplaceStopTimeObject(stoptime, schedule=schedule)
     schedule.Validate(self.problems)
@@ -4454,7 +4490,7 @@ class ScheduleBuilderTestCase(TempFileTestCaseBase):
 
   def testBuildSimpleFeed(self):
     """Make a very simple feed using the Schedule class."""
-    problems = GetTestFailureProblemReporter(self, ("ExpirationDate", 
+    problems = GetTestFailureProblemReporter(self, ("ExpirationDate",
                                                     "NoServiceExceptions"))
     schedule = transitfeed.Schedule(problem_reporter=problems)
 
@@ -5367,7 +5403,7 @@ class ServiceGapsTestCase(util.MemoryZipTestCase):
     self.schedule.Validate(today=date(2009, 7, 17),
                            service_gap_interval=13)
     exception = self.accumulator.PopException("TooManyDaysWithoutService")
-    self.assertEquals(date(2009, 7, 5), 
+    self.assertEquals(date(2009, 7, 5),
                       exception.first_day_without_service)
     self.assertEquals(date(2009, 7, 17),
                       exception.last_day_without_service)
@@ -5389,7 +5425,7 @@ class ServiceGapsTestCase(util.MemoryZipTestCase):
 
     # This service gap is the one between FULLW and WE
     exception = self.accumulator.PopException("TooManyDaysWithoutService")
-    self.assertEquals(date(2009, 6, 11), 
+    self.assertEquals(date(2009, 6, 11),
                       exception.first_day_without_service)
     self.assertEquals(date(2009, 7, 17),
                       exception.last_day_without_service)
@@ -5404,7 +5440,7 @@ class ServiceGapsTestCase(util.MemoryZipTestCase):
 
     # This service gap is the one between FULLW and WE
     exception = self.accumulator.PopException("TooManyDaysWithoutService")
-    self.assertEquals(date(2009, 6, 11), 
+    self.assertEquals(date(2009, 6, 11),
                       exception.first_day_without_service)
     self.assertEquals(date(2009, 7, 17),
                       exception.last_day_without_service)
@@ -5413,23 +5449,23 @@ class ServiceGapsTestCase(util.MemoryZipTestCase):
 
   # If we are right in the middle of a big service gap it should be
   # report as starting on "today - 12 days" and lasting until
-  # service resumes 
+  # service resumes
   def testCurrentServiceGapIsDiscovered(self):
     self.schedule.Validate(today=date(2009, 6, 30),
                            service_gap_interval=13)
     exception = self.accumulator.PopException("TooManyDaysWithoutService")
-    self.assertEquals(date(2009, 6, 18), 
+    self.assertEquals(date(2009, 6, 18),
                       exception.first_day_without_service)
     self.assertEquals(date(2009, 7, 17),
                       exception.last_day_without_service)
 
-    self.AssertCommonExceptions(date(2010, 6, 25))    
+    self.AssertCommonExceptions(date(2010, 6, 25))
 
   # Asserts the service gaps that appear towards the end of the calendar
   # and which are common to all the tests
   def AssertCommonExceptions(self, last_exception_date):
     exception = self.accumulator.PopException("TooManyDaysWithoutService")
-    self.assertEquals(date(2009, 8, 10), 
+    self.assertEquals(date(2009, 8, 10),
                       exception.first_day_without_service)
     self.assertEquals(date(2009, 8, 22),
                       exception.last_day_without_service)
@@ -5454,12 +5490,12 @@ class TestGtfsFactory(util.TestCase):
     self._factory = transitfeed.GetGtfsFactory()
 
   def testCanUpdateMapping(self):
-    self._factory.UpdateMapping("agency.txt", 
+    self._factory.UpdateMapping("agency.txt",
                                 {"required": False,
                                  "classes": ["Foo"]})
     self._factory.RemoveClass("Agency")
     self._factory.AddClass("Foo", transitfeed.Stop)
-    self._factory.UpdateMapping("calendar.txt", 
+    self._factory.UpdateMapping("calendar.txt",
                                 {"loading_order": -4, "classes": ["Bar"]})
     self._factory.AddClass("Bar", transitfeed.ServicePeriod)
     self.assertFalse(self._factory.IsFileRequired("agency.txt"))
@@ -5479,8 +5515,8 @@ class TestGtfsFactory(util.TestCase):
                              { "required":True, "classes": ["NewRequiredClass"],
                                "loading_order": -20})
     self._factory.AddClass("NewRequiredClass", transitfeed.Stop)
-    self._factory.AddMapping("newfile.txt", 
-                             { "required": False, "classes": ["NewClass"], 
+    self._factory.AddMapping("newfile.txt",
+                             { "required": False, "classes": ["NewClass"],
                                "loading_order": -10})
     self._factory.AddClass("NewClass", transitfeed.FareAttribute)
     self.assertEqual(self._factory.NewClass, transitfeed.FareAttribute)
@@ -5507,7 +5543,7 @@ class TestGtfsFactory(util.TestCase):
                       "foo.txt",
                       {"required": True,
                        "loading_order": -20})
-  
+
   def testThrowsExceptionWhenUpdatingNonexistentMapping(self):
     self.assertRaises(transitfeed.NonexistentMapping,
                       self._factory.UpdateMapping,
@@ -5516,7 +5552,7 @@ class TestGtfsFactory(util.TestCase):
 
 
   def testCanRemoveFileFromLoadingOrder(self):
-    self._factory.UpdateMapping("agency.txt", 
+    self._factory.UpdateMapping("agency.txt",
                                 {"loading_order": None})
     self.assertTrue("agency.txt" not in self._factory.GetLoadingOrder())
 

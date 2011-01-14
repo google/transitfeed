@@ -145,7 +145,7 @@ class Stop(GtfsObjectBase):
       raise AttributeError(name)
 
   def ValidateStopLatitude(self, problems):
-    if self.stop_lat:
+    if self.stop_lat is not None:
       value = self.stop_lat
       try:
         if not isinstance(value, (float, int)):
@@ -158,7 +158,7 @@ class Stop(GtfsObjectBase):
           problems.InvalidValue('stop_lat', value)
 
   def ValidateStopLongitude(self, problems):
-    if self.stop_lon:
+    if self.stop_lon is not None:
       value = self.stop_lon
       try:
         if not isinstance(value, (float, int)):
@@ -188,7 +188,7 @@ class Stop(GtfsObjectBase):
           del self.location_type
         else:
           if self.location_type not in (0, 1):
-            problems.InvalidValue('location_type', value, 
+            problems.InvalidValue('location_type', value,
                                   type=problems_module.TYPE_WARNING)
 
   def ValidateStopRequiredFields(self, problems):
@@ -197,6 +197,7 @@ class Stop(GtfsObjectBase):
         # TODO: For now I'm keeping the API stable but it would be cleaner to
         # treat whitespace stop_id as invalid, instead of missing
         problems.MissingValue(required)
+        setattr(self, required, None)
 
   def ValidateStopNotTooCloseToOrigin(self, problems):
     if (self.stop_lat is not None and self.stop_lon is not None and
@@ -206,8 +207,7 @@ class Stop(GtfsObjectBase):
                             type=problems_module.TYPE_WARNING)
 
   def ValidateStopDescriptionAndNameAreDifferent(self, problems):
-    if (self.stop_desc is not None and self.stop_name is not None and
-        self.stop_desc and self.stop_name and
+    if (self.stop_desc and self.stop_name and
         not util.IsEmpty(self.stop_desc) and
         self.stop_name.strip().lower() == self.stop_desc.strip().lower()):
       problems.InvalidValue('stop_desc', self.stop_desc,
