@@ -112,7 +112,7 @@ class ProblemReporter(object):
                   context2=self._context, type=type)
     self.AddToAccumulator(e)
 
-  def DuplicateColumn(self, file_name, header, count, type=TYPE_ERROR, 
+  def DuplicateColumn(self, file_name, header, count, type=TYPE_ERROR,
                       context=None):
     e = DuplicateColumn(file_name=file_name,
                         header=header,
@@ -285,7 +285,7 @@ class ProblemReporter(object):
                                 first_day_without_service,
                                 last_day_without_service,
                                 consecutive_days_without_service,
-                                context=None, 
+                                context=None,
                                 type=TYPE_WARNING):
     e = TooManyDaysWithoutService(
         first_day_without_service=first_day_without_service,
@@ -296,7 +296,7 @@ class ProblemReporter(object):
         type=type)
     self.AddToAccumulator(e)
 
-  def MinimumTransferTimeSetWithInvalidTransferType(self, 
+  def MinimumTransferTimeSetWithInvalidTransferType(self,
                                                     transfer_type=None,
                                                     context=None,
                                                     type=TYPE_ERROR):

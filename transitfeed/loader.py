@@ -471,7 +471,7 @@ class Loader:
       return
     shapes = {}  # shape_id to shape object
     for (d, row_num, header, row) in self._ReadCsvDict(
-        file_name, 
+        file_name,
         self._gtfs_factory.Shape._FIELD_NAMES,
         self._gtfs_factory.Shape._REQUIRED_FIELD_NAMES):
       file_context = (file_name, row_num, row, header)
@@ -490,7 +490,7 @@ class Loader:
 
       shape.AddShapePointObjectUnsorted(shapepoint, self._problems)
       self._problems.ClearContext()
-      
+
     for shape_id, shape in shapes.items():
       self._schedule.AddShapeObject(shape, self._problems)
       del shapes[shape_id]
@@ -552,7 +552,7 @@ class Loader:
     self._LoadCalendar()
     self._LoadShapes()
     self._LoadFeed()
-    
+
     if self._load_stop_times:
       self._LoadStopTimes()
 

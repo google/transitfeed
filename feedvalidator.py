@@ -72,7 +72,7 @@ def CalendarSummary(schedule):
 
   if not start_date or not end_date:
     return {}
-  
+
   try:
     start_date_object = transitfeed.DateStringToDateObject(start_date)
     end_date_object = transitfeed.DateStringToDateObject(end_date)
@@ -654,7 +654,7 @@ http://code.google.com/p/googletransitdatafeed/wiki/FeedValidator
                     help='a version number such as 1.2.1 or None to get the '
                     'latest version from code.google.com. Output a warning if '
                     'transitfeed.py is older than this version.')
-  parser.add_option('--service_gap_interval', 
+  parser.add_option('--service_gap_interval',
                     dest='service_gap_interval',
                     action='store',
                     type='int',

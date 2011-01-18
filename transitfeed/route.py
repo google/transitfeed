@@ -242,7 +242,7 @@ class Route(GtfsObjectBase):
                             'to black.  In this case, route_text_color should '
                             'be set to a lighter color like FFFFFF to ensure '
                             'a legible contrast between the two.',
-                            type=problems_module.TYPE_WARNING)  
+                            type=problems_module.TYPE_WARNING)
 
   def ValidateBeforeAdd(self, problems):
     self.ValidateRouteIdIsPresent(problems)

@@ -209,11 +209,11 @@ class ScheduleRequestHandler(BaseHTTPServer.BaseHTTPRequestHandler):
       for trip in trips:
         service_id = trip.service_id
         service_period = schedule.GetServicePeriod(service_id)
-        
+
         if date and not service_period.IsActiveOn(date):
           continue
         trips_with_service.append(trip)
-        
+
         if trip['trip_type'] and trip['trip_type'] != '0':
           has_non_zero_trip_type = True
 
@@ -365,7 +365,7 @@ class ScheduleRequestHandler(BaseHTTPServer.BaseHTTPRequestHandler):
     stop = schedule.GetStop(params.get('stop', None))
     time = int(params.get('time', 0))
     date = params.get('date', "")
-     
+
     time_trips = stop.GetStopTimeTrips(schedule)
     time_trips.sort()  # OPT: use bisect.insort to make this O(N*ln(N)) -> O(N)
     # Keep the first 5 after param 'time'.

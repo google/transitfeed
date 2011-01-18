@@ -153,9 +153,9 @@ class Transfer(GtfsObjectBase):
       return
 
     distance = self.GetTransferDistance()
-    # If min_transfer_time + 120s isn't enough for someone walking very fast 
+    # If min_transfer_time + 120s isn't enough for someone walking very fast
     # (2m/s) then issue a warning.
-    # 
+    #
     # Stops that are close together (less than 240m appart) never trigger this
     # warning, regardless of min_transfer_time.
     FAST_WALKING_SPEED= 2 # 2m/s

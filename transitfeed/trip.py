@@ -144,7 +144,7 @@ class Trip(GtfsObjectBase):
       if new_secs != None and new_secs < prev_secs:
         problems.OtherProblem(
             'out of order stop time for stop_id=%s trip_id=%s %s < %s' %
-            (util.EncodeUnicode(stoptime.stop_id), 
+            (util.EncodeUnicode(stoptime.stop_id),
              util.EncodeUnicode(self.trip_id),
              util.FormatSecondsSinceMidnight(new_secs),
              util.FormatSecondsSinceMidnight(prev_secs)))
@@ -483,7 +483,7 @@ class Trip(GtfsObjectBase):
   def ValidateRouteId(self, problems):
     if util.IsEmpty(self.route_id):
       problems.MissingValue('route_id')
-  
+
   def ValidateServicePeriod(self, problems):
     if 'service_period' in self.__dict__:
       # Some tests assign to the service_period attribute. Patch up self before
@@ -492,11 +492,11 @@ class Trip(GtfsObjectBase):
       del self.service_period
     if util.IsEmpty(self.service_id):
       problems.MissingValue('service_id')
-      
+
   def ValidateTripId(self, problems):
     if util.IsEmpty(self.trip_id):
       problems.MissingValue('trip_id')
-      
+
   def ValidateDirectionId(self, problems):
     if hasattr(self, 'direction_id') and (not util.IsEmpty(self.direction_id)) \
         and (self.direction_id != '0') and (self.direction_id != '1'):
@@ -507,12 +507,12 @@ class Trip(GtfsObjectBase):
     if self._schedule:
       if self.shape_id and self.shape_id not in self._schedule._shapes:
         problems.InvalidValue('shape_id', self.shape_id)
-      
+
   def ValidateRouteIdExistsInRouteList(self, problems):
     if self._schedule:
       if self.route_id and self.route_id not in self._schedule.routes:
         problems.InvalidValue('route_id', self.route_id)
-      
+
   def ValidateServiceIdExistsInServiceList(self, problems):
     if self._schedule:
       if (self.service_id and
@@ -565,7 +565,7 @@ class Trip(GtfsObjectBase):
                                                             stoptimes):
     if stoptimes:
       route_class = self.GetGtfsFactory().Route
-      # Checks that the arrival time for each time point is after the departure 
+      # Checks that the arrival time for each time point is after the departure
       # time of the previous. Assumes a stoptimes sorted by sequence
       prev_departure = 0
       prev_stop = None
@@ -578,7 +578,7 @@ class Trip(GtfsObjectBase):
         # speeds between stops.
         max_speed = route_class._ROUTE_TYPES[0]['max_speed']
       for timepoint in stoptimes:
-        # Distance should be a nonnegative float number, so it should be 
+        # Distance should be a nonnegative float number, so it should be
         # always larger than None.
         distance = timepoint.shape_dist_traveled
         if distance is not None:
@@ -592,7 +592,7 @@ class Trip(GtfsObjectBase):
             problems.InvalidValue('stoptimes.shape_dist_traveled', distance,
                   'For the trip %s the stop %s has shape_dist_traveled=%s, '
                   'which should be larger than the previous ones. In this '
-                  'case, the previous distance was %s.' % 
+                  'case, the previous distance was %s.' %
                   (self.trip_id, timepoint.stop_id, distance, prev_distance),
                   type=type)
 
@@ -610,7 +610,7 @@ class Trip(GtfsObjectBase):
                                   (timepoint.stop_sequence, self.trip_id))
 
   def ValidateShapeDistTraveledSmallerThanMaxShapeDistance(self,
-                                                           problems, 
+                                                           problems,
                                                            stoptimes):
     if stoptimes:
       if self.shape_id and self.shape_id in self._schedule._shapes:
@@ -625,7 +625,7 @@ class Trip(GtfsObjectBase):
               'than the max shape_dist_traveled=%f of the corresponding '
               'shape (shape_id=%s)' %
               (self.trip_id, st.stop_sequence, st.shape_dist_traveled,
-               max_shape_dist, self.shape_id), 
+               max_shape_dist, self.shape_id),
                type=problems_module.TYPE_WARNING)
 
   def ValidateDistanceFromStopToShape(self, problems, stoptimes):
@@ -676,7 +676,7 @@ class Trip(GtfsObjectBase):
                                                               stoptimes)
     self.ValidateDistanceFromStopToShape(problems, stoptimes)
     self.ValidateFrequencies(problems)
-    
+
   def ValidateBeforeAdd(self, problems):
     return True
 

@@ -53,16 +53,16 @@ class GtfsFactory(object):
     }
 
     self._file_mapping = {
-        'agency.txt': { 'required': True, 'loading_order': 0, 
+        'agency.txt': { 'required': True, 'loading_order': 0,
                         'classes': ['Agency'] },
 
-        'calendar.txt': { 'required': False, 'loading_order': None, 
+        'calendar.txt': { 'required': False, 'loading_order': None,
                           'classes': ['ServicePeriod']},
 
-        'calendar_dates.txt': { 'required': False, 'loading_order': None, 
+        'calendar_dates.txt': { 'required': False, 'loading_order': None,
                                 'classes': ['ServicePeriod']},
 
-        'fare_attributes.txt': { 'required': False, 'loading_order': 50, 
+        'fare_attributes.txt': { 'required': False, 'loading_order': 50,
                                  'classes': ['FareAttribute']},
 
         'fare_rules.txt': { 'required': False, 'loading_order': 60,
@@ -71,19 +71,19 @@ class GtfsFactory(object):
         'frequencies.txt': { 'required': False, 'loading_order': 70,
                              'classes': ['Frequency']},
 
-        'shapes.txt': { 'required': False, 'loading_order': None, 
+        'shapes.txt': { 'required': False, 'loading_order': None,
                         'classes': ['Shape', 'ShapePoint']},
 
         'stops.txt': { 'required': True, 'loading_order': 10,
                        'classes': ['Stop']},
 
-        'stop_times.txt': { 'required': True, 'loading_order': None, 
+        'stop_times.txt': { 'required': True, 'loading_order': None,
                             'classes': ['StopTime']},
 
-        'routes.txt': { 'required': True, 'loading_order': 20, 
+        'routes.txt': { 'required': True, 'loading_order': 20,
                         'classes': ['Route']},
 
-        'transfers.txt': { 'required': False, 'loading_order': 30, 
+        'transfers.txt': { 'required': False, 'loading_order': 30,
                            'classes': ['Transfer']},
 
         'trips.txt': { 'required': True, 'loading_order': 40,
@@ -147,15 +147,15 @@ class GtfsFactory(object):
   def RemoveMapping(self, filename):
     """Removes an entry from the list of known filenames.
        An entry is identified by its filename.
-       
+
        filename: The filename whose mapping is to be updated.
     """
     if filename in self._file_mapping:
       del self._file_mapping[filename]
-  
+
   def AddMapping(self, filename, new_mapping):
     """Adds an entry to the list of known filenames.
-       
+
     Args:
         filename: The filename whose mapping is being added.
         new_mapping: A dictionary with the mapping to add. Must contain all
@@ -174,7 +174,7 @@ class GtfsFactory(object):
   def UpdateMapping(self, filename, mapping_update):
     """Updates an entry in the list of known filenames.
        An entry is identified by its filename.
-       
+
     Args:
         filename: The filename whose mapping is to be updated
         mapping_update: A dictionary containing the fields to update and their
@@ -189,7 +189,7 @@ class GtfsFactory(object):
 
   def AddClass(self, class_name, gtfs_class):
     """Adds an entry to the list of known classes.
-       
+
     Args:
         class_name: A string with name through which gtfs_class is to be made
                     accessible.
@@ -203,10 +203,10 @@ class GtfsFactory(object):
 
   def UpdateClass(self, class_name, gtfs_class):
     """Updates an entry in the list of known classes.
-       
+
     Args:
         class_name: A string with the class name that is to be updated.
-        gtfs_class: The new class 
+        gtfs_class: The new class
     Raises:
         NonexistentMapping if there is no class with the specified class_name.
     """
@@ -216,7 +216,7 @@ class GtfsFactory(object):
 
   def RemoveClass(self, class_name):
     """Removes an entry from the list of known classes.
-       
+
     Args:
         class_name: A string with the class name that is to be removed.
     Raises:

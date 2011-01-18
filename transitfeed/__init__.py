@@ -59,7 +59,7 @@ Stop object which has attributes such as stop_lat and stop_name.
 
 # util needs to be imported before problems because otherwise the loading order
 # of this module is Agency -> Problems -> Util -> Trip and trip tries to
-# use problems.default_problem_reporter as a default argument (which fails 
+# use problems.default_problem_reporter as a default argument (which fails
 # because problems.py isn't fully loaded yet). Loading util first solves this as
 # problems.py gets fully loaded right away.
 # TODO: Solve this problem cleanly

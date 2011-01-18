@@ -706,7 +706,7 @@ class Schedule:
     Returns:
       a list of (date object, number of trips, number of departures) tuples
     """
-    
+
     service_id_to_trips = defaultdict(lambda: 0)
     service_id_to_departures = defaultdict(lambda: 0)
     for trip in self.GetTripList():
@@ -730,10 +730,10 @@ class Schedule:
       date_trips.append((date, day_trips, day_departures))
     return date_trips
 
-  def ValidateFeedStartAndExpirationDates(self, 
-                                          problems, 
-                                          first_date, 
-                                          last_date, 
+  def ValidateFeedStartAndExpirationDates(self,
+                                          problems,
+                                          first_date,
+                                          last_date,
                                           today):
     """Validate the start and expiration dates of the feed.
        Issue a warning if it only starts in the future, or if
@@ -761,7 +761,7 @@ class Schedule:
                           validation_end_date,
                           service_gap_interval):
     """Validate consecutive dates without service in the feed.
-       Issue a warning if it finds service gaps of at least 
+       Issue a warning if it finds service gaps of at least
        "service_gap_interval" consecutive days in the date range
        [validation_start_date, last_service_date)
 
@@ -769,9 +769,9 @@ class Schedule:
       problems: The problem reporter object
       validation_start_date: A date object representing the date from which the
                              validation should take place
-      validation_end_date: A date object representing the first day the feed is 
+      validation_end_date: A date object representing the first day the feed is
                         active
-      service_gap_interval: An integer indicating how many consecutive days the 
+      service_gap_interval: An integer indicating how many consecutive days the
                             service gaps need to have for a warning to be issued
 
     Returns:
@@ -787,7 +787,7 @@ class Schedule:
     first_day_without_service = validation_start_date
     # The last day without service of the _current_ gap
     last_day_without_service = validation_start_date
-    
+
     consecutive_days_without_service = 0
 
     for day_date, day_trips, _ in departures:
@@ -798,20 +798,20 @@ class Schedule:
         last_day_without_service = day_date
       else:
         if consecutive_days_without_service >= service_gap_interval:
-            problems.TooManyDaysWithoutService(first_day_without_service, 
-                                               last_day_without_service, 
+            problems.TooManyDaysWithoutService(first_day_without_service,
+                                               last_day_without_service,
                                                consecutive_days_without_service)
 
         consecutive_days_without_service = 0
-    
+
     # We have to check if there is a gap at the end of the specified date range
     if consecutive_days_without_service >= service_gap_interval:
-      problems.TooManyDaysWithoutService(first_day_without_service, 
-                                         last_day_without_service, 
+      problems.TooManyDaysWithoutService(first_day_without_service,
+                                         last_day_without_service,
                                          consecutive_days_without_service)
 
-  def ValidateServiceExceptions(self, 
-                                problems, 
+  def ValidateServiceExceptions(self,
+                                problems,
                                 first_service_day,
                                 last_service_day):
     # good enough approximation
@@ -830,7 +830,7 @@ class Schedule:
     problems.NoServiceExceptions(start=first_service_day,
                                  end=last_service_day)
 
-  def ValidateServiceRangeAndExceptions(self, problems, today, 
+  def ValidateServiceRangeAndExceptions(self, problems, today,
                                         service_gap_interval):
     if today is None:
       today = datetime.date.today()
@@ -919,7 +919,7 @@ class Schedule:
           elif distance > problems_module.MAX_DISTANCE_BETWEEN_STOP_AND_PARENT_STATION_WARNING:
             problems.StopTooFarFromParentStation(
                 stop.stop_id, stop.stop_name, parent_station.stop_id,
-                parent_station.stop_name, distance, 
+                parent_station.stop_name, distance,
                 problems_module.TYPE_WARNING)
 
   def ValidateNearbyStops(self, problems):
@@ -937,7 +937,7 @@ class Schedule:
       index += 1
       while ((index < len(sorted_stops)) and
              ((sorted_stops[index].stop_lat - stop.stop_lat) < TWO_METERS_LAT)):
-        distance  = util.ApproximateDistanceBetweenStops(stop, 
+        distance  = util.ApproximateDistanceBetweenStops(stop,
                                                          sorted_stops[index])
         if distance < 2:
           other_stop = sorted_stops[index]
@@ -949,7 +949,7 @@ class Schedule:
                 util.EncodeUnicode(other_stop.stop_id), distance)
           elif stop.location_type == 1 and other_stop.location_type == 1:
             problems.StationsTooClose(
-                util.EncodeUnicode(stop.stop_name), 
+                util.EncodeUnicode(stop.stop_name),
                 util.EncodeUnicode(stop.stop_id),
                 util.EncodeUnicode(other_stop.stop_name),
                 util.EncodeUnicode(other_stop.stop_id), distance)
@@ -1063,7 +1063,7 @@ class Schedule:
     # Now that we've generated our block trip intervls, we can check for
     # overlaps in the intervals
     self.ValidateBlocks(problems, trip_intervals_by_block_id)
-  
+
   def ValidateBlocks(self, problems, trip_intervals_by_block_id):
     # Expects trip_intervals_by_block_id to be a dict with a key of block ids
     # and a value of lists of tuples
@@ -1092,7 +1092,7 @@ class Schedule:
 
           # We have an overlap between the times in two trip intervals in
           # the same block.  Potentially a problem...
-          
+
           # If they have the same service id, the trips run on the same
           # day, yet have overlapping stop times.  Definitely a problem.
           if trip_a.service_id == trip_b.service_id:
@@ -1155,7 +1155,7 @@ class Schedule:
                               type=problems_module.TYPE_WARNING)
         if len(trip._headways) > 0:  # no stoptimes, but there are headways
           problems.OtherProblem('Frequencies defined, but no stop times given '
-                                'in trip %s' % trip.trip_id, 
+                                'in trip %s' % trip.trip_id,
                                 type=problems_module.TYPE_ERROR)
       elif count_stop_times == 1:
         problems.OtherProblem('The trip with the trip_id "%s" only has one '
@@ -1191,7 +1191,7 @@ class Schedule:
     if not problems:
       problems = self.problem_reporter
 
-    self.ValidateServiceRangeAndExceptions(problems, today, 
+    self.ValidateServiceRangeAndExceptions(problems, today,
                                            service_gap_interval)
     # TODO: Check Trip fields against valid values
     self.ValidateStops(problems, validate_children)

@@ -33,7 +33,7 @@ class GtfsObjectBase(GtfsFactoryUser):
       this function returns True, and is not added if it returns False.
     * ValidateAfterAdd, which is called after an object is added to a Schedule.
       With the default Loader the return value, if any, is not used.
-      
+
   """
   def __getitem__(self, name):
     """Return a unicode or str representation of name or "" if not set."""

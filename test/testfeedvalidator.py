@@ -177,22 +177,22 @@ class FullTests(util.TempDirTestCaseBase):
 # 60 days
 # See http://code.google.com/p/googletransitdatafeed/issues/detail?id=204
 class CalendarSummaryTestCase(util.TestCase):
-  
+
   # Test feeds starting in the future
   def testFutureFeedDoesNotCrashCalendarSummary(self):
       today = datetime.date.today()
       start_date = today + datetime.timedelta(days=20)
       end_date = today + datetime.timedelta(days=80)
-      
+
       schedule = transitfeed.Schedule()
       service_period = schedule.GetDefaultServicePeriod()
 
       service_period.SetStartDate(start_date.strftime("%Y%m%d"))
       service_period.SetEndDate(end_date.strftime("%Y%m%d"))
       service_period.SetWeekdayService(True)
-      
+
       result = feedvalidator.CalendarSummary(schedule)
-      
+
       self.assertEquals(0, result['max_trips'])
       self.assertEquals(0, result['min_trips'])
       self.assertTrue(re.search("40 service dates", result['max_trips_dates']))
@@ -220,16 +220,16 @@ class CalendarSummaryTestCase(util.TestCase):
       today = datetime.date.today()
       start_date = today + datetime.timedelta(days=2)
       end_date = today + datetime.timedelta(days=3)
-      
+
       schedule = transitfeed.Schedule()
       service_period = schedule.GetDefaultServicePeriod()
 
       service_period.SetStartDate(start_date.strftime("%Y%m%d"))
       service_period.SetEndDate(end_date.strftime("%Y%m%d"))
       service_period.SetWeekdayService(True)
-      
+
       result = feedvalidator.CalendarSummary(schedule)
-      
+
       self.assertEquals(0, result['max_trips'])
       self.assertEquals(0, result['min_trips'])
       self.assertTrue(re.search("1 service date", result['max_trips_dates']))
@@ -310,7 +310,7 @@ class LimitPerTypeProblemReporterTestCase(util.TestCase):
         transitfeed.TYPE_WARNING, "OtherProblem")
     error_bounded_list = self.accumulator.ProblemList(
         transitfeed.TYPE_ERROR, "OtherProblem")
-   
+
     self.assertEquals(2, warning_bounded_list.count)
     self.assertEquals(3, error_bounded_list.count)
 
@@ -386,7 +386,7 @@ class LimitPerTypeProblemReporterTestCase(util.TestCase):
     self.assertEquals(0, self.accumulator.ErrorCount())
     self.assertProblemsAttribute(transitfeed.TYPE_WARNING,
         "StopsTooClose", "stop_id_a", "sa5 sa4 sa3")
-    
+
 
 class CheckVersionTestCase(util.TempDirTestCaseBase):
   def setUp(self):

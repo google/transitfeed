@@ -176,7 +176,7 @@ class ServicePeriod(object):
                    This parameter is optional, and present only for performance
                    reasons.
                    If the caller constructs the date string from a date object
-                   that date object can be passed directly, thus avoiding the 
+                   that date object can be passed directly, thus avoiding the
                    costly conversion from string to date object.
 
     Returns:

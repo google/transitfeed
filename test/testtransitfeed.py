@@ -263,8 +263,8 @@ class LoadFromZipTestCase(util.TestCase):
   def runTest(self):
     loader = transitfeed.Loader(
       DataPath('good_feed.zip'),
-      problems = GetTestFailureProblemReporter(self),
-      extra_validation = True)
+      problems=GetTestFailureProblemReporter(self),
+      extra_validation=True)
     loader.Load()
 
     # now try using Schedule.Load
@@ -287,8 +287,8 @@ class LoadFromDirectoryTestCase(util.TestCase):
   def runTest(self):
     loader = transitfeed.Loader(
       DataPath('good_feed'),
-      problems = GetTestFailureProblemReporter(self),
-      extra_validation = True)
+      problems=GetTestFailureProblemReporter(self),
+      extra_validation=True)
     loader.Load()
 
 
@@ -297,8 +297,8 @@ class LoadUnknownFeedTestCase(util.TestCase):
     feed_name = DataPath('unknown_feed')
     loader = transitfeed.Loader(
       feed_name,
-      problems = ExceptionProblemReporterNoExpiration(),
-      extra_validation = True)
+      problems=ExceptionProblemReporterNoExpiration(),
+      extra_validation=True)
     try:
       loader.Load()
       self.fail('FeedNotFound exception expected')
@@ -310,8 +310,8 @@ class LoadUnknownFormatTestCase(util.TestCase):
     feed_name = DataPath('unknown_format.zip')
     loader = transitfeed.Loader(
       feed_name,
-      problems = ExceptionProblemReporterNoExpiration(),
-      extra_validation = True)
+      problems=ExceptionProblemReporterNoExpiration(),
+      extra_validation=True)
     try:
       loader.Load()
       self.fail('UnknownFormat exception expected')
@@ -373,8 +373,8 @@ class LoadUnknownFileTestCase(util.TestCase):
     self.problems = transitfeed.ProblemReporter(self.accumulator)
     loader = transitfeed.Loader(
       feed_name,
-      problems = self.problems,
-      extra_validation = True)
+      problems=self.problems,
+      extra_validation=True)
     loader.Load()
     e = self.accumulator.PopException('UnknownFile')
     self.assertEqual('frecuencias.txt', e.file_name)
@@ -384,8 +384,8 @@ class LoadUTF8BOMTestCase(util.TestCase):
   def runTest(self):
     loader = transitfeed.Loader(
       DataPath('utf8bom'),
-      problems = GetTestFailureProblemReporter(self),
-      extra_validation = True)
+      problems=GetTestFailureProblemReporter(self),
+      extra_validation=True)
     loader.Load()
 
 
@@ -396,8 +396,8 @@ class LoadUTF16TestCase(util.TestCase):
     problem_reporter = transitfeed.ProblemReporter(accumulator)
     loader = transitfeed.Loader(
       DataPath('utf16'),
-      problems = problem_reporter,
-      extra_validation = True)
+      problems=problem_reporter,
+      extra_validation=True)
     try:
       loader.Load()
       # TODO: make sure processing proceeds beyond the problem
@@ -414,8 +414,8 @@ class LoadNullTestCase(util.TestCase):
     problem_reporter = transitfeed.ProblemReporter(accumulator)
     loader = transitfeed.Loader(
       DataPath('contains_null'),
-      problems = problem_reporter,
-      extra_validation = True)
+      problems=problem_reporter,
+      extra_validation=True)
     try:
       loader.Load()
       self.fail('FileFormat exception expected')
@@ -475,8 +475,8 @@ class BadProblemReporterTestCase(RedirectStdOutTestCaseBase):
   def runTest(self):
     loader = transitfeed.Loader(
       DataPath('bad_utf8'),
-      problems = transitfeed.ProblemReporter(),
-      extra_validation = True)
+      problems=transitfeed.ProblemReporter(),
+      extra_validation=True)
     loader.Load()
     # raises exception if not found
     self.this_stdout.getvalue().index('Invalid value')
@@ -529,7 +529,7 @@ class EmptyFileTestCase(util.TestCase):
   def runTest(self):
     loader = transitfeed.Loader(
       DataPath('empty_file'),
-      problems = ExceptionProblemReporterNoExpiration(),
+      problems=ExceptionProblemReporterNoExpiration(),
       extra_validation = True)
     try:
       loader.Load()
@@ -542,7 +542,7 @@ class MissingColumnTestCase(util.TestCase):
   def runTest(self):
     loader = transitfeed.Loader(
       DataPath('missing_column'),
-      problems = ExceptionProblemReporterNoExpiration(),
+      problems=ExceptionProblemReporterNoExpiration(),
       extra_validation = True)
     try:
       loader.Load()
@@ -610,7 +610,7 @@ class OverlappingBlockSchedule(transitfeed.Schedule):
 
   def GetServicePeriod(self, service_id):
     self._get_service_period_call_count += 1
-    return transitfeed.Schedule.GetServicePeriod(self,service_id)
+    return transitfeed.Schedule.GetServicePeriod(self, service_id)
 
   def GetServicePeriodCallCount(self):
     return self._get_service_period_call_count
@@ -746,7 +746,7 @@ class OverlappingBlockTripsTestCase(util.TestCase):
     # If service period overlap calculation caching is working correctly,
     # we expect only two calls to GetServicePeriod(), one each for sp1 and
     # sp2, as oppossed four calls total for the four overlapping trips
-    self.assertEquals(2,schedule.GetServicePeriodCallCount())
+    self.assertEquals(2, schedule.GetServicePeriodCallCount())
 
   def testNoOverlapDifferentServicePeriods(self):
 
@@ -948,7 +948,7 @@ class AgencyValidationTestCase(ValidationTestCase):
     # extra attribute in assigned later is also fine
     agency = transitfeed.Agency(name='Test Agency', url='http://example.com',
                                 timezone='America/Los_Angeles')
-    agency.agency_mission='monorail you there'
+    agency.agency_mission = 'monorail you there'
     self.ExpectNoProblems(agency)
 
     # Multiple problems
@@ -1481,7 +1481,8 @@ class CsvDictTestCase(util.TestCase):
     results = list(self.loader._ReadCsvDict("test.txt",
                                             ["test_id", "test_name"], []))
     self.assertEquals([({"test_id": "id1 ", "test_name": "my name"}, 2,
-                        ["test_id", "test_name"], ["id1 ","my name"])], results)
+                        ["test_id", "test_name"], ["id1 ", "my name"])],
+                        results)
     self.accumulator.AssertNoMoreExceptions()
 
   def testFieldWithOnlySpaces(self):
@@ -1491,7 +1492,7 @@ class CsvDictTestCase(util.TestCase):
     results = list(self.loader._ReadCsvDict("test.txt",
                                             ["test_id", "test_name"], []))
     self.assertEquals([({"test_id": "id1", "test_name": ""}, 2,
-                        ["test_id", "test_name"], ["id1",""])], results)
+                        ["test_id", "test_name"], ["id1", ""])], results)
     self.accumulator.AssertNoMoreExceptions()
 
   def testQuotedFieldWithSpaces(self):
@@ -1558,7 +1559,7 @@ class CsvDictTestCase(util.TestCase):
     results = list(self.loader._ReadCsvDict("test.txt",
                                             ["test_id", "test_name"], []))
     self.assertEquals([({"test_id": "id1", "test_name": "my name"}, 3,
-                        ["test_id", "test_name"], ["id1","my name"])], results)
+                        ["test_id", "test_name"], ["id1", "my name"])], results)
     self.accumulator.AssertNoMoreExceptions()
 
   def testExtraComma(self):
@@ -1568,7 +1569,7 @@ class CsvDictTestCase(util.TestCase):
     results = list(self.loader._ReadCsvDict("test.txt",
                                             ["test_id", "test_name"], []))
     self.assertEquals([({"test_id": "id1", "test_name": "my name"}, 2,
-                        ["test_id", "test_name"], ["id1","my name"])],
+                        ["test_id", "test_name"], ["id1", "my name"])],
                       results)
     e = self.accumulator.PopException("OtherProblem")
     self.assertTrue(e.FormatProblem().find("too many cells") != -1)
@@ -1599,9 +1600,9 @@ class CsvDictTestCase(util.TestCase):
                                   transitfeed.Transfer._FIELD_NAMES,
                                   transitfeed.Transfer._REQUIRED_FIELD_NAMES))
 
-    self.accumulator.PopDuplicateColumn("transfers.txt","min_transfer_time",4)
-    self.accumulator.PopDuplicateColumn("transfers.txt","from_stop_id",2)
-    self.accumulator.PopDuplicateColumn("transfers.txt","unknown",2)
+    self.accumulator.PopDuplicateColumn("transfers.txt", "min_transfer_time", 4)
+    self.accumulator.PopDuplicateColumn("transfers.txt", "from_stop_id", 2)
+    self.accumulator.PopDuplicateColumn("transfers.txt", "unknown", 2)
     e = self.accumulator.PopException("UnrecognizedColumn")
     self.assertEquals("unknown", e.column_name)
     self.accumulator.AssertNoMoreExceptions()
@@ -1630,9 +1631,9 @@ class ReadCsvTestCase(util.TestCase):
                               transitfeed.ServicePeriod._FIELD_NAMES,
                               transitfeed.ServicePeriod._FIELD_NAMES_REQUIRED))
 
-    self.accumulator.PopDuplicateColumn("calendar.txt","end_date",3)
-    self.accumulator.PopDuplicateColumn("calendar.txt","unknown",2)
-    self.accumulator.PopDuplicateColumn("calendar.txt","tuesday",2)
+    self.accumulator.PopDuplicateColumn("calendar.txt", "end_date", 3)
+    self.accumulator.PopDuplicateColumn("calendar.txt", "unknown", 2)
+    self.accumulator.PopDuplicateColumn("calendar.txt", "tuesday", 2)
     e = self.accumulator.PopException("UnrecognizedColumn")
     self.assertEquals("unknown", e.column_name)
     self.accumulator.AssertNoMoreExceptions()
@@ -2514,8 +2515,8 @@ class TransferObjectTestCase(ValidationTestCase):
     transfer = transitfeed.Transfer(field_dict={"ignored": "foo"})
     self.assertEquals(0, transfer.transfer_type)
 
-    transfer = transitfeed.Transfer(from_stop_id = "S1", to_stop_id = "S2",
-                                    transfer_type = "1")
+    transfer = transitfeed.Transfer(from_stop_id="S1", to_stop_id="S2",
+                                    transfer_type="1")
     self.assertEquals("S1", transfer.from_stop_id)
     self.assertEquals("S2", transfer.to_stop_id)
     self.assertEquals(1, transfer.transfer_type)
@@ -3512,7 +3513,7 @@ class TripHasStopTimeValidationTestCase(ValidationTestCase):
 
     # It should trigger a TYPE_ERROR if there are frequencies for the trip
     # but no stops
-    trip.AddFrequency("01:00:00","12:00:00", 600)
+    trip.AddFrequency("01:00:00", "12:00:00", 600)
     schedule.Validate(self.problems)
     self.accumulator.PopException('OtherProblem')  # pop first warning
     e = self.accumulator.PopException('OtherProblem')  # pop frequency error
@@ -3580,7 +3581,7 @@ class ShapeDistTraveledOfStopTimeValidationTestCase(ValidationTestCase):
     schedule.AddStopObject(stop)
     stoptime = transitfeed.StopTime(self.problems, stop,
                                     arrival_time="5:29:00",
-                                    departure_time="5:29:00",stop_sequence=3,
+                                    departure_time="5:29:00", stop_sequence=3,
                                     shape_dist_traveled=1.7)
     trip.AddStopTimeObject(stoptime, schedule=schedule)
     self.accumulator.AssertNoMoreExceptions()
@@ -3693,7 +3694,7 @@ class DuplicateTripTestCase(ValidationTestCase):
     trip1.route_id = 'route_1'
     trip1.trip_id = 't1'
     trip1.trip_headsign = 'via Polish Hill'
-    trip1.direction_id =  '0'
+    trip1.direction_id = '0'
     trip1.service_id = service.service_id
     schedule.AddTripObject(trip1)
 
@@ -3701,7 +3702,7 @@ class DuplicateTripTestCase(ValidationTestCase):
     trip2.route_id = 'route_2'
     trip2.trip_id = 't2'
     trip2.trip_headsign = 'New'
-    trip2.direction_id =  '0'
+    trip2.direction_id = '0'
     trip2.service_id = service.service_id
     schedule.AddTripObject(trip2)
 
@@ -3709,7 +3710,7 @@ class DuplicateTripTestCase(ValidationTestCase):
     trip3.route_id = 'route_1'
     trip3.trip_id = 't3'
     trip3.trip_headsign = 'New Demo'
-    trip3.direction_id =  '0'
+    trip3.direction_id = '0'
     trip3.service_id = service.service_id
     schedule.AddTripObject(trip3)
 
@@ -3811,7 +3812,8 @@ class TripStopTimeAccessorsTestCase(util.TestCase):
     schedule.NewDefaultAgency(agency_name="Test Agency",
                               agency_url="http://example.com",
                               agency_timezone="America/Los_Angeles")
-    route = schedule.AddRoute(short_name="54C", long_name="Polish Hill", route_type=3)
+    route = schedule.AddRoute(short_name="54C", long_name="Polish Hill",
+                              route_type=3)
 
     service_period = schedule.GetDefaultServicePeriod()
     service_period.SetDateHasService("20070101")
@@ -3825,10 +3827,10 @@ class TripStopTimeAccessorsTestCase(util.TestCase):
     trip.AddStopTime(stop2, arrival_time="5:15:00", departure_time="5:16:00")
 
     # Add some more stop times and test GetEndTime does the correct thing
-    self.assertEqual(transitfeed.FormatSecondsSinceMidnight(trip.GetStartTime()),
-        "05:11:00")
-    self.assertEqual(transitfeed.FormatSecondsSinceMidnight(trip.GetEndTime()),
-        "05:16:00")
+    self.assertEqual(transitfeed.FormatSecondsSinceMidnight(
+        trip.GetStartTime()), "05:11:00")
+    self.assertEqual(transitfeed.FormatSecondsSinceMidnight(
+        trip.GetEndTime()), "05:16:00")
 
     trip.AddStopTime(stop1, stop_time="05:20:00")
     self.assertEqual(transitfeed.FormatSecondsSinceMidnight(trip.GetEndTime()),
@@ -4905,7 +4907,7 @@ class DefaultAgencyTestCase(util.TestCase):
     agency.agency_id = 'agencytestid' + ex
     agency.agency_name = 'Foo Bus Line' + ex
     agency.agency_url = 'http://gofoo.com/' + ex
-    agency.agency_timezone='America/Los_Angeles'
+    agency.agency_timezone = 'America/Los_Angeles'
     return agency
 
   def test_SetDefault(self):
@@ -5061,20 +5063,26 @@ class GetTripTimeTestCase(util.TestCase):
     self.route1 = schedule.AddRoute("1", "One", "Bus")
 
     self.trip1 = self.route1.AddTrip(schedule, "trip 1", trip_id='trip1')
-    self.trip1.AddStopTime(self.stop1, schedule=schedule, departure_secs=100, arrival_secs=100)
+    self.trip1.AddStopTime(self.stop1, schedule=schedule, departure_secs=100,
+                           arrival_secs=100)
     self.trip1.AddStopTime(self.stop2, schedule=schedule)
     self.trip1.AddStopTime(self.stop3, schedule=schedule)
     # loop back to stop2 to test that interpolated stops work ok even when
     # a stop between timepoints is further from the timepoint than the
     # preceding
     self.trip1.AddStopTime(self.stop2, schedule=schedule)
-    self.trip1.AddStopTime(self.stop4, schedule=schedule, departure_secs=400, arrival_secs=400)
+    self.trip1.AddStopTime(self.stop4, schedule=schedule, departure_secs=400,
+                           arrival_secs=400)
 
     self.trip2 = self.route1.AddTrip(schedule, "trip 2", trip_id='trip2')
-    self.trip2.AddStopTime(self.stop2, schedule=schedule, departure_secs=500, arrival_secs=500)
-    self.trip2.AddStopTime(self.stop3, schedule=schedule, departure_secs=600, arrival_secs=600)
-    self.trip2.AddStopTime(self.stop4, schedule=schedule, departure_secs=700, arrival_secs=700)
-    self.trip2.AddStopTime(self.stop3, schedule=schedule, departure_secs=800, arrival_secs=800)
+    self.trip2.AddStopTime(self.stop2, schedule=schedule, departure_secs=500,
+                           arrival_secs=500)
+    self.trip2.AddStopTime(self.stop3, schedule=schedule, departure_secs=600,
+                           arrival_secs=600)
+    self.trip2.AddStopTime(self.stop4, schedule=schedule, departure_secs=700,
+                           arrival_secs=700)
+    self.trip2.AddStopTime(self.stop3, schedule=schedule, departure_secs=800,
+                           arrival_secs=800)
 
     self.trip3 = self.route1.AddTrip(schedule, "trip 3", trip_id='trip3')
 
@@ -5298,13 +5306,14 @@ class GetFrequencyTimesTestCase(util.TestCase):
 
     self.trip1 = self.route1.AddTrip(schedule, "trip 1", trip_id="trip1")
     # add different types of stop times
-    self.trip1.AddStopTime(self.stop1, arrival_time="17:00:00", departure_time="17:01:00") # both arrival and departure time
+    self.trip1.AddStopTime(self.stop1, arrival_time="17:00:00",
+        departure_time="17:01:00") # both arrival and departure time
     self.trip1.AddStopTime(self.stop2, schedule=schedule) # non timed
     self.trip1.AddStopTime(self.stop3, stop_time="17:45:00") # only stop_time
 
     # add headways starting before the trip
-    self.trip1.AddFrequency("16:00:00","18:00:00",1800) # each 30 min
-    self.trip1.AddFrequency("18:00:00","20:00:00",2700) # each 45 min
+    self.trip1.AddFrequency("16:00:00", "18:00:00", 1800) # each 30 min
+    self.trip1.AddFrequency("18:00:00", "20:00:00", 2700) # each 45 min
 
   def testGetFrequencyStartTimes(self):
     start_times = self.trip1.GetFrequencyStartTimes()
@@ -5496,7 +5505,7 @@ class TestGtfsFactory(util.TestCase):
     self._factory.RemoveClass("Agency")
     self._factory.AddClass("Foo", transitfeed.Stop)
     self._factory.UpdateMapping("calendar.txt",
-                                {"loading_order": -4, "classes": ["Bar"]})
+                                {"loading_order":-4, "classes": ["Bar"]})
     self._factory.AddClass("Bar", transitfeed.ServicePeriod)
     self.assertFalse(self._factory.IsFileRequired("agency.txt"))
     self.assertFalse(self._factory.IsFileRequired("calendar.txt"))
@@ -5513,11 +5522,11 @@ class TestGtfsFactory(util.TestCase):
   def testCanAddMapping(self):
     self._factory.AddMapping("newrequiredfile.txt",
                              { "required":True, "classes": ["NewRequiredClass"],
-                               "loading_order": -20})
+                               "loading_order":-20})
     self._factory.AddClass("NewRequiredClass", transitfeed.Stop)
     self._factory.AddMapping("newfile.txt",
                              { "required": False, "classes": ["NewClass"],
-                               "loading_order": -10})
+                               "loading_order":-10})
     self._factory.AddClass("NewClass", transitfeed.FareAttribute)
     self.assertEqual(self._factory.NewClass, transitfeed.FareAttribute)
     self.assertEqual(self._factory.NewRequiredClass, transitfeed.Stop)
@@ -5535,14 +5544,14 @@ class TestGtfsFactory(util.TestCase):
                       self._factory.AddMapping,
                       "agency.txt",
                       {"required": True, "classes": ["Stop"],
-                       "loading_order": -20})
+                       "loading_order":-20})
 
   def testThrowsExceptionWhenAddingInvalidMapping(self):
     self.assertRaises(transitfeed.InvalidMapping,
                       self._factory.AddMapping,
                       "foo.txt",
                       {"required": True,
-                       "loading_order": -20})
+                       "loading_order":-20})
 
   def testThrowsExceptionWhenUpdatingNonexistentMapping(self):
     self.assertRaises(transitfeed.NonexistentMapping,

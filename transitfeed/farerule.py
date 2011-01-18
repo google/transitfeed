@@ -74,9 +74,9 @@ class FareRule(GtfsObjectBase):
   def AddToSchedule(self, schedule, problems):
     self._schedule = schedule
     schedule.AddFareRuleObject(self, problems)
-  
+
   def ValidateBeforeAdd(self, problems):
     return True
-  
+
   def ValidateAfterAdd(self, problems):
     return
