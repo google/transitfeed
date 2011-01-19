@@ -800,7 +800,7 @@ class ValidationTestCase(util.TestCase):
     object.Validate(self.problems)
     self.accumulator.AssertNoMoreExceptions()
 
-  # TODO: Get rid of Expect*Closure methods. With the
+  # TODO: think about Expect*Closure methods. With the
   # RecordingProblemAccumulator it is now possible to replace
   # self.ExpectMissingValueInClosure(lambda: o.method(...), foo)
   # with
@@ -809,59 +809,54 @@ class ValidationTestCase(util.TestCase):
   # because problems don't raise an exception. This has the advantage of
   # making it easy and clear to test the return value of o.method(...) and
   # easier to test for a sequence of problems caused by one call.
-  def ExpectMissingValue(self, object, column_name):
-    self.ExpectMissingValueInClosure(column_name,
-                                     lambda: object.Validate(self.problems))
+  # neun@ 2011-01-18: for the moment I don't remove the Expect*InClosure methods
+  # as they allow enforcing an AssertNoMoreExceptions() before validation.
+  # When removing them we do have to make sure that each "logical test block"
+  # before an Expect*InClosure usage really ends with AssertNoMoreExceptions.
+  # See http://codereview.appspot.com/4020041/
+  def ValidateAndExpectMissingValue(self, object, column_name):
+    self.accumulator.AssertNoMoreExceptions()
+    object.Validate(self.problems)
+    self.ExpectException('MissingValue', column_name)
 
   def ExpectMissingValueInClosure(self, column_name, c):
     self.accumulator.AssertNoMoreExceptions()
     rv = c()
-    e = self.accumulator.PopException('MissingValue')
-    self.assertEqual(column_name, e.column_name)
-    # these should not throw any exceptions
-    e.FormatProblem()
-    e.FormatContext()
-    self.accumulator.AssertNoMoreExceptions()
+    self.ExpectException('MissingValue', column_name)
 
-  def ExpectInvalidValue(self, object, column_name, value=INVALID_VALUE):
-    self.ExpectInvalidValueInClosure(column_name, value,
-        lambda: object.Validate(self.problems))
+  def ValidateAndExpectInvalidValue(self, object, column_name,
+                                    value=INVALID_VALUE):
+    self.accumulator.AssertNoMoreExceptions()
+    object.Validate(self.problems)
+    self.ExpectException('InvalidValue', column_name, value)
 
   def ExpectInvalidValueInClosure(self, column_name, value=INVALID_VALUE,
                                   c=None):
     self.accumulator.AssertNoMoreExceptions()
     rv = c()
-    e = self.accumulator.PopException('InvalidValue')
-    self.assertEqual(column_name, e.column_name)
-    if value != INVALID_VALUE:
-      self.assertEqual(value, e.value)
-    # these should not throw any exceptions
-    e.FormatProblem()
-    e.FormatContext()
-    self.accumulator.AssertNoMoreExceptions()
+    self.ExpectException('InvalidValue', column_name, value)
 
-  def ExpectInvalidFloatValue(self, object, value):
-    self.ExpectInvalidFloatValueInClosure(value,
-        lambda: object.Validate(self.problems))
-
-  def ExpectInvalidFloatValueInClosure(self, value,
-                                  c=None):
+  def ValidateAndExpectInvalidFloatValue(self, object, value):
     self.accumulator.AssertNoMoreExceptions()
-    rv = c()
-    e = self.accumulator.PopException('InvalidFloatValue')
-    self.assertEqual(value, e.value)
-    # these should not throw any exceptions
-    e.FormatProblem()
-    e.FormatContext()
-    self.accumulator.AssertNoMoreExceptions()
+    object.Validate(self.problems)
+    self.ExpectException('InvalidFloatValue', None, value)
 
-  def ExpectOtherProblem(self, object):
-    self.ExpectOtherProblemInClosure(lambda: object.Validate(self.problems))
+  def ValidateAndExpectOtherProblem(self, object):
+    self.accumulator.AssertNoMoreExceptions()
+    object.Validate(self.problems)
+    self.ExpectException('OtherProblem')
 
   def ExpectOtherProblemInClosure(self, c):
     self.accumulator.AssertNoMoreExceptions()
     rv = c()
-    e = self.accumulator.PopException('OtherProblem')
+    self.ExpectException('OtherProblem')
+
+  def ExpectException(self, type_name, column_name=None, value=INVALID_VALUE):
+    e = self.accumulator.PopException(type_name)
+    if column_name:
+      self.assertEqual(column_name, e.column_name)
+    if value != INVALID_VALUE:
+      self.assertEqual(value, e.value)
     # these should not throw any exceptions
     e.FormatProblem()
     e.FormatContext()
@@ -900,17 +895,17 @@ class AgencyValidationTestCase(ValidationTestCase):
     # bad agency
     agency = transitfeed.Agency(name='   ', url='http://example.com',
                                 timezone='America/Los_Angeles', id='TA')
-    self.ExpectMissingValue(agency, 'agency_name')
+    self.ValidateAndExpectMissingValue(agency, 'agency_name')
 
     # missing url
     agency = transitfeed.Agency(name='Test Agency',
                                 timezone='America/Los_Angeles', id='TA')
-    self.ExpectMissingValue(agency, 'agency_url')
+    self.ValidateAndExpectMissingValue(agency, 'agency_url')
 
     # bad url
     agency = transitfeed.Agency(name='Test Agency', url='www.example.com',
                                 timezone='America/Los_Angeles', id='TA')
-    self.ExpectInvalidValue(agency, 'agency_url')
+    self.ValidateAndExpectInvalidValue(agency, 'agency_url')
 
     # bad time zone
     agency = transitfeed.Agency(name='Test Agency', url='http://example.com',
@@ -925,13 +920,13 @@ class AgencyValidationTestCase(ValidationTestCase):
     agency = transitfeed.Agency(name='Test Agency', url='http://example.com',
                                 timezone='America/Los_Angeles', id='TA',
                                 lang='English')
-    self.ExpectInvalidValue(agency, 'agency_lang')
+    self.ValidateAndExpectInvalidValue(agency, 'agency_lang')
 
     # bad 2-letter lanugage code
     agency = transitfeed.Agency(name='Test Agency', url='http://example.com',
                                 timezone='America/Los_Angeles', id='TA',
                                 lang='xx')
-    self.ExpectInvalidValue(agency, 'agency_lang')
+    self.ValidateAndExpectInvalidValue(agency, 'agency_lang')
 
     # capitalized language code is OK
     agency = transitfeed.Agency(name='Test Agency', url='http://example.com',
@@ -1025,7 +1020,7 @@ class StopValidationTestCase(ValidationTestCase):
 
     # latitude too large
     stop.stop_lat = 100.0
-    self.ExpectInvalidValue(stop, 'stop_lat')
+    self.ValidateAndExpectInvalidValue(stop, 'stop_lat')
     stop.stop_lat = 50.0
 
     # latitude as a string works when it is valid
@@ -1034,16 +1029,16 @@ class StopValidationTestCase(ValidationTestCase):
     stop.Validate(self.problems)
     self.accumulator.AssertNoMoreExceptions()
     stop.stop_lat = '10f'
-    self.ExpectInvalidValue(stop, 'stop_lat')
+    self.ValidateAndExpectInvalidValue(stop, 'stop_lat')
     stop.stop_lat = ''
-    self.ExpectMissingValue(stop, 'stop_lat')
+    self.ValidateAndExpectMissingValue(stop, 'stop_lat')
     stop.stop_lat = ' '
-    self.ExpectMissingValue(stop, 'stop_lat')
+    self.ValidateAndExpectMissingValue(stop, 'stop_lat')
     stop.stop_lat = 50.0
 
     # longitude too large
     stop.stop_lon = 200.0
-    self.ExpectInvalidValue(stop, 'stop_lon')
+    self.ValidateAndExpectInvalidValue(stop, 'stop_lon')
     stop.stop_lon = 50.0
 
     # longitude as a string works when it is valid
@@ -1052,38 +1047,38 @@ class StopValidationTestCase(ValidationTestCase):
     stop.Validate(self.problems)
     self.accumulator.AssertNoMoreExceptions()
     stop.stop_lon = '10f'
-    self.ExpectInvalidValue(stop, 'stop_lon')
+    self.ValidateAndExpectInvalidValue(stop, 'stop_lon')
     stop.stop_lon = ''
-    self.ExpectMissingValue(stop, 'stop_lon')
+    self.ValidateAndExpectMissingValue(stop, 'stop_lon')
     stop.stop_lon = ' '
-    self.ExpectMissingValue(stop, 'stop_lon')
+    self.ValidateAndExpectMissingValue(stop, 'stop_lon')
     stop.stop_lon = 50.0
 
     # lat, lon too close to 0, 0
     stop.stop_lat = 0.0
     stop.stop_lon = 0.0
-    self.ExpectInvalidValue(stop, 'stop_lat')
+    self.ValidateAndExpectInvalidValue(stop, 'stop_lat')
     stop.stop_lat = 50.0
     stop.stop_lon = 50.0
 
     # invalid stop_url
     stop.stop_url = 'www.example.com'
-    self.ExpectInvalidValue(stop, 'stop_url')
+    self.ValidateAndExpectInvalidValue(stop, 'stop_url')
     stop.stop_url = 'http://example.com'
 
     stop.stop_id = '   '
-    self.ExpectMissingValue(stop, 'stop_id')
+    self.ValidateAndExpectMissingValue(stop, 'stop_id')
     stop.stop_id = '45'
 
     stop.stop_name = ''
-    self.ExpectMissingValue(stop, 'stop_name')
+    self.ValidateAndExpectMissingValue(stop, 'stop_name')
     stop.stop_name = ' '
-    self.ExpectMissingValue(stop, 'stop_name')
+    self.ValidateAndExpectMissingValue(stop, 'stop_name')
     stop.stop_name = 'Couch AT End Table'
 
     # description same as name
     stop.stop_desc = 'Couch AT End Table'
-    self.ExpectInvalidValue(stop, 'stop_desc')
+    self.ValidateAndExpectInvalidValue(stop, 'stop_desc')
     stop.stop_desc = 'Edge of the Couch'
     self.accumulator.AssertNoMoreExceptions()
 
@@ -2009,13 +2004,13 @@ class BadLatLonInStopUnitTest(ValidationTestCase):
                                         "stop_name": "Stop one",
                                         "stop_lat": "0x20",
                                         "stop_lon": "140.01"})
-    self.ExpectInvalidValue(stop, "stop_lat")
+    self.ValidateAndExpectInvalidValue(stop, "stop_lat")
 
     stop = transitfeed.Stop(field_dict={"stop_id": "STOP1",
                                         "stop_name": "Stop one",
                                         "stop_lat": "13.0",
                                         "stop_lon": "1e2"})
-    self.ExpectInvalidFloatValue(stop, "1e2")
+    self.ValidateAndExpectInvalidFloatValue(stop, "1e2")
 
 
 class BadLatLonInFileUnitTest(util.MemoryZipTestCase):
@@ -2248,86 +2243,86 @@ class RouteValidationTestCase(ValidationTestCase):
     # blank short & long names
     route.route_short_name = ''
     route.route_long_name = '    '
-    self.ExpectInvalidValue(route, 'route_short_name')
+    self.ValidateAndExpectInvalidValue(route, 'route_short_name')
 
     # short name too long
     route.route_short_name = 'South Side'
     route.route_long_name = ''
-    self.ExpectInvalidValue(route, 'route_short_name')
+    self.ValidateAndExpectInvalidValue(route, 'route_short_name')
     route.route_short_name = 'M7bis'  # 5 is OK
     route.Validate(self.problems)
 
     # long name contains short name
     route.route_short_name = '54C'
     route.route_long_name = '54C South Side - North Side'
-    self.ExpectInvalidValue(route, 'route_long_name')
+    self.ValidateAndExpectInvalidValue(route, 'route_long_name')
     route.route_long_name = '54C(South Side - North Side)'
-    self.ExpectInvalidValue(route, 'route_long_name')
+    self.ValidateAndExpectInvalidValue(route, 'route_long_name')
     route.route_long_name = '54C-South Side - North Side'
-    self.ExpectInvalidValue(route, 'route_long_name')
+    self.ValidateAndExpectInvalidValue(route, 'route_long_name')
 
     # long name is same as short name
     route.route_short_name = '54C'
     route.route_long_name = '54C'
-    self.ExpectInvalidValue(route, 'route_long_name')
+    self.ValidateAndExpectInvalidValue(route, 'route_long_name')
 
     # route description is same as short name
     route.route_desc = '54C'
     route.route_short_name = '54C'
     route.route_long_name = ''
-    self.ExpectInvalidValue(route, 'route_desc')
+    self.ValidateAndExpectInvalidValue(route, 'route_desc')
     route.route_desc = None
 
     # route description is same as long name
     route.route_desc = 'South Side - North Side'
     route.route_long_name = 'South Side - North Side'
-    self.ExpectInvalidValue(route, 'route_desc')
+    self.ValidateAndExpectInvalidValue(route, 'route_desc')
     route.route_desc = None
 
     # invalid route types
     route.route_type = 8
-    self.ExpectInvalidValue(route, 'route_type')
+    self.ValidateAndExpectInvalidValue(route, 'route_type')
     route.route_type = -1
-    self.ExpectInvalidValue(route, 'route_type')
+    self.ValidateAndExpectInvalidValue(route, 'route_type')
     route.route_type = 7
 
     # invalid route URL
     route.route_url = 'www.example.com'
-    self.ExpectInvalidValue(route, 'route_url')
+    self.ValidateAndExpectInvalidValue(route, 'route_url')
     route.route_url = None
 
     # invalid route color
     route.route_color = 'orange'
-    self.ExpectInvalidValue(route, 'route_color')
+    self.ValidateAndExpectInvalidValue(route, 'route_color')
     route.route_color = None
 
     # invalid route text color
     route.route_text_color = 'orange'
-    self.ExpectInvalidValue(route, 'route_text_color')
+    self.ValidateAndExpectInvalidValue(route, 'route_text_color')
     route.route_text_color = None
 
     # missing route ID
     route.route_id = None
-    self.ExpectMissingValue(route, 'route_id')
+    self.ValidateAndExpectMissingValue(route, 'route_id')
     route.route_id = '054C'
 
     # bad color contrast
     route.route_text_color = None # black
     route.route_color = '0000FF'  # Bad
-    self.ExpectInvalidValue(route, 'route_color')
+    self.ValidateAndExpectInvalidValue(route, 'route_color')
     route.route_color = '00BF00'  # OK
     route.Validate(self.problems)
     route.route_color = '005F00'  # Bad
-    self.ExpectInvalidValue(route, 'route_color')
+    self.ValidateAndExpectInvalidValue(route, 'route_color')
     route.route_color = 'FF00FF'  # OK
     route.Validate(self.problems)
     route.route_text_color = 'FFFFFF' # OK too
     route.Validate(self.problems)
     route.route_text_color = '00FF00' # think of color-blind people!
-    self.ExpectInvalidValue(route, 'route_color')
+    self.ValidateAndExpectInvalidValue(route, 'route_color')
     route.route_text_color = '007F00'
     route.route_color = 'FF0000'
-    self.ExpectInvalidValue(route, 'route_color')
+    self.ValidateAndExpectInvalidValue(route, 'route_color')
     route.route_color = '00FFFF'      # OK
     route.Validate(self.problems)
     route.route_text_color = None # black
@@ -2345,7 +2340,7 @@ class ShapeValidationTestCase(ValidationTestCase):
   def runTest(self):
     shape = transitfeed.Shape('TEST')
     repr(shape)  # shouldn't crash
-    self.ExpectOtherProblem(shape)  # no points!
+    self.ValidateAndExpectOtherProblem(shape)  # no points!
 
     self.ExpectFailedAdd(shape, 36.905019, -116.763207, -1,
                          'shape_dist_traveled', -1)
@@ -2355,7 +2350,7 @@ class ShapeValidationTestCase(ValidationTestCase):
     shape.Validate(self.problems)
 
     shape.shape_id = None
-    self.ExpectMissingValue(shape, 'shape_id')
+    self.ValidateAndExpectMissingValue(shape, 'shape_id')
     shape.shape_id = 'TEST'
 
     self.ExpectFailedAdd(shape, 91, -116.751709, 6, 'shape_pt_lat', 91)
@@ -2440,55 +2435,55 @@ class FareAttributeValidationTestCase(ValidationTestCase):
     fare.Validate(self.problems)
 
     fare.fare_id = None
-    self.ExpectMissingValue(fare, "fare_id")
+    self.ValidateAndExpectMissingValue(fare, "fare_id")
     fare.fare_id = ''
-    self.ExpectMissingValue(fare, "fare_id")
+    self.ValidateAndExpectMissingValue(fare, "fare_id")
     fare.fare_id = "normal"
 
     fare.price = "1.50"
-    self.ExpectInvalidValue(fare, "price")
+    self.ValidateAndExpectInvalidValue(fare, "price")
     fare.price = 1
     fare.Validate(self.problems)
     fare.price = None
-    self.ExpectMissingValue(fare, "price")
+    self.ValidateAndExpectMissingValue(fare, "price")
     fare.price = 0.0
     fare.Validate(self.problems)
     fare.price = -1.50
-    self.ExpectInvalidValue(fare, "price")
+    self.ValidateAndExpectInvalidValue(fare, "price")
     fare.price = 1.50
 
     fare.currency_type = ""
-    self.ExpectMissingValue(fare, "currency_type")
+    self.ValidateAndExpectMissingValue(fare, "currency_type")
     fare.currency_type = None
-    self.ExpectMissingValue(fare, "currency_type")
+    self.ValidateAndExpectMissingValue(fare, "currency_type")
     fare.currency_type = "usd"
-    self.ExpectInvalidValue(fare, "currency_type")
+    self.ValidateAndExpectInvalidValue(fare, "currency_type")
     fare.currency_type = "KML"
-    self.ExpectInvalidValue(fare, "currency_type")
+    self.ValidateAndExpectInvalidValue(fare, "currency_type")
     fare.currency_type = "USD"
 
     fare.payment_method = "0"
-    self.ExpectInvalidValue(fare, "payment_method")
+    self.ValidateAndExpectInvalidValue(fare, "payment_method")
     fare.payment_method = -1
-    self.ExpectInvalidValue(fare, "payment_method")
+    self.ValidateAndExpectInvalidValue(fare, "payment_method")
     fare.payment_method = 1
     fare.Validate(self.problems)
     fare.payment_method = 2
-    self.ExpectInvalidValue(fare, "payment_method")
+    self.ValidateAndExpectInvalidValue(fare, "payment_method")
     fare.payment_method = None
-    self.ExpectMissingValue(fare, "payment_method")
+    self.ValidateAndExpectMissingValue(fare, "payment_method")
     fare.payment_method = ""
-    self.ExpectMissingValue(fare, "payment_method")
+    self.ValidateAndExpectMissingValue(fare, "payment_method")
     fare.payment_method = 0
 
     fare.transfers = "1"
-    self.ExpectInvalidValue(fare, "transfers")
+    self.ValidateAndExpectInvalidValue(fare, "transfers")
     fare.transfers = -1
-    self.ExpectInvalidValue(fare, "transfers")
+    self.ValidateAndExpectInvalidValue(fare, "transfers")
     fare.transfers = 2
     fare.Validate(self.problems)
     fare.transfers = 3
-    self.ExpectInvalidValue(fare, "transfers")
+    self.ValidateAndExpectInvalidValue(fare, "transfers")
     fare.transfers = None
     fare.Validate(self.problems)
     fare.transfers = 1
@@ -2498,13 +2493,13 @@ class FareAttributeValidationTestCase(ValidationTestCase):
     fare.transfer_duration = None
     fare.Validate(self.problems)
     fare.transfer_duration = -3600
-    self.ExpectInvalidValue(fare, "transfer_duration")
+    self.ValidateAndExpectInvalidValue(fare, "transfer_duration")
     fare.transfers = 0  # no transfers allowed and duration specified!
     fare.transfer_duration = 3600
     fare.Validate(self.problems)
     fare.transfers = 1
     fare.transfer_duration = "3600"
-    self.ExpectInvalidValue(fare, "transfer_duration")
+    self.ValidateAndExpectInvalidValue(fare, "transfer_duration")
     fare.transfer_duration = 7200
     self.accumulator.AssertNoMoreExceptions()
 
@@ -2629,18 +2624,18 @@ class TransferObjectTestCase(ValidationTestCase):
 
     # transfer_type is out of range
     transfer.transfer_type = 4
-    self.ExpectInvalidValue(transfer, "transfer_type")
+    self.ValidateAndExpectInvalidValue(transfer, "transfer_type")
     transfer.transfer_type = -1
-    self.ExpectInvalidValue(transfer, "transfer_type")
+    self.ValidateAndExpectInvalidValue(transfer, "transfer_type")
     transfer.transfer_type = "text"
-    self.ExpectInvalidValue(transfer, "transfer_type")
+    self.ValidateAndExpectInvalidValue(transfer, "transfer_type")
     transfer.transfer_type = 2
 
     # invalid min_transfer_time
     transfer.min_transfer_time = -1
-    self.ExpectInvalidValue(transfer, "min_transfer_time")
+    self.ValidateAndExpectInvalidValue(transfer, "min_transfer_time")
     transfer.min_transfer_time = "text"
-    self.ExpectInvalidValue(transfer, "min_transfer_time")
+    self.ValidateAndExpectInvalidValue(transfer, "min_transfer_time")
     transfer.min_transfer_time = 4*3600
     transfer.Validate(self.problems)
     e = self.accumulator.PopInvalidValue("min_transfer_time")
@@ -2655,10 +2650,10 @@ class TransferObjectTestCase(ValidationTestCase):
 
     # missing stop ids
     transfer.from_stop_id = ""
-    self.ExpectMissingValue(transfer, 'from_stop_id')
+    self.ValidateAndExpectMissingValue(transfer, 'from_stop_id')
     transfer.from_stop_id = "S1"
     transfer.to_stop_id = None
-    self.ExpectMissingValue(transfer, 'to_stop_id')
+    self.ValidateAndExpectMissingValue(transfer, 'to_stop_id')
     transfer.to_stop_id = "S2"
 
     # from_stop_id and to_stop_id are present in schedule
@@ -2683,10 +2678,10 @@ class TransferObjectTestCase(ValidationTestCase):
     transfer.to_stop_id = "unexist"
     transfer.transfer_type = 2
     transfer.min_transfer_time = 250
-    self.ExpectInvalidValue(transfer, 'to_stop_id')
+    self.ValidateAndExpectInvalidValue(transfer, 'to_stop_id')
     transfer.from_stop_id = "unexist"
     transfer.to_stop_id = stop1.stop_id
-    self.ExpectInvalidValue(transfer, "from_stop_id")
+    self.ValidateAndExpectInvalidValue(transfer, "from_stop_id")
     self.accumulator.AssertNoMoreExceptions()
 
     # Transfer can only be added to a schedule once because _schedule is set
@@ -2934,48 +2929,48 @@ class ServicePeriodValidationTestCase(ValidationTestCase):
     # generated an error. Instead set it to an empty string, such as when the
     # csv cell is empty. See also comment in ServicePeriod.Validate.
     period.start_date = ''
-    self.ExpectMissingValue(period, 'start_date')
+    self.ValidateAndExpectMissingValue(period, 'start_date')
     period.start_date = '20070101'
 
     # missing end_date
     period.end_date = ''
-    self.ExpectMissingValue(period, 'end_date')
+    self.ValidateAndExpectMissingValue(period, 'end_date')
     period.end_date = '20071231'
 
     # invalid start_date
     period.start_date = '2007-01-01'
-    self.ExpectInvalidValue(period, 'start_date')
+    self.ValidateAndExpectInvalidValue(period, 'start_date')
     period.start_date = '20070101'
 
     # impossible start_date
     period.start_date = '20070229'
-    self.ExpectInvalidValue(period, 'start_date')
+    self.ValidateAndExpectInvalidValue(period, 'start_date')
     period.start_date = '20070101'
 
     # invalid end_date
     period.end_date = '2007/12/31'
-    self.ExpectInvalidValue(period, 'end_date')
+    self.ValidateAndExpectInvalidValue(period, 'end_date')
     period.end_date = '20071231'
 
     # start & end dates out of order
     period.end_date = '20060101'
-    self.ExpectInvalidValue(period, 'end_date')
+    self.ValidateAndExpectInvalidValue(period, 'end_date')
     period.end_date = '20071231'
 
     # no service in period
     period.day_of_week[0] = False
-    self.ExpectOtherProblem(period)
+    self.ValidateAndExpectOtherProblem(period)
     period.day_of_week[0] = True
 
     # invalid exception date
     period.SetDateHasService('2007', False)
-    self.ExpectInvalidValue(period, 'date', '2007')
+    self.ValidateAndExpectInvalidValue(period, 'date', '2007')
     period.ResetDateToNormalService('2007')
 
     period2 = transitfeed.ServicePeriod(
         field_list=['serviceid1', '20060101', '20071231', '1', '0', 'h', '1',
                     '1', '1', '1'])
-    self.ExpectInvalidValue(period2, 'wednesday', 'h')
+    self.ValidateAndExpectInvalidValue(period2, 'wednesday', 'h')
     repr(period)  # shouldn't crash
 
   def testHasExceptions(self):
@@ -3321,22 +3316,22 @@ class TripValidationTestCase(ValidationTestCase):
 
     # missing route ID
     trip.route_id = None
-    self.ExpectMissingValue(trip, 'route_id')
+    self.ValidateAndExpectMissingValue(trip, 'route_id')
     trip.route_id = '054C'
 
     # missing service ID
     trip.service_id = None
-    self.ExpectMissingValue(trip, 'service_id')
+    self.ValidateAndExpectMissingValue(trip, 'service_id')
     trip.service_id = 'WEEK'
 
     # missing trip ID
     trip.trip_id = None
-    self.ExpectMissingValue(trip, 'trip_id')
+    self.ValidateAndExpectMissingValue(trip, 'trip_id')
     trip.trip_id = '054C-00'
 
     # invalid direction ID
     trip.direction_id = 'NORTH'
-    self.ExpectInvalidValue(trip, 'direction_id')
+    self.ValidateAndExpectInvalidValue(trip, 'direction_id')
     trip.direction_id = '0'
 
     # AddTripObject validates that route_id, service_id, .... are found in the
@@ -3373,19 +3368,19 @@ class TripValidationTestCase(ValidationTestCase):
     # overlapping headway periods
     trip.AddFrequency("00:00:00", "12:00:00", 600)
     trip.AddFrequency("06:00:00", "18:00:00", 1200)
-    self.ExpectOtherProblem(trip)
+    self.ValidateAndExpectOtherProblem(trip)
     trip.ClearFrequencies()
     trip.AddFrequency("12:00:00", "20:00:00", 600)
     trip.AddFrequency("06:00:00", "18:00:00", 1200)
-    self.ExpectOtherProblem(trip)
+    self.ValidateAndExpectOtherProblem(trip)
     trip.ClearFrequencies()
     trip.AddFrequency("06:00:00", "12:00:00", 600)
     trip.AddFrequency("00:00:00", "25:00:00", 1200)
-    self.ExpectOtherProblem(trip)
+    self.ValidateAndExpectOtherProblem(trip)
     trip.ClearFrequencies()
     trip.AddFrequency("00:00:00", "20:00:00", 600)
     trip.AddFrequency("06:00:00", "18:00:00", 1200)
-    self.ExpectOtherProblem(trip)
+    self.ValidateAndExpectOtherProblem(trip)
     trip.ClearFrequencies()
     self.accumulator.AssertNoMoreExceptions()
 
@@ -3450,7 +3445,7 @@ class FrequencyValidationTestCase(ValidationTestCase):
                                                 })
     headway_period1.AddToSchedule(self.schedule, self.problems)
     headway_period2.AddToSchedule(self.schedule, self.problems)
-    self.ExpectOtherProblem(self.trip)
+    self.ValidateAndExpectOtherProblem(self.trip)
     self.trip.ClearFrequencies()
     self.accumulator.AssertNoMoreExceptions()
 
@@ -3509,7 +3504,7 @@ class TripHasStopTimeValidationTestCase(ValidationTestCase):
     trip = schedule.GetRoute("054C").AddTrip(trip_id="054C-00")
 
     # We should get an OtherProblem here because the trip has no stops.
-    self.ExpectOtherProblem(schedule)
+    self.ValidateAndExpectOtherProblem(schedule)
 
     # It should trigger a TYPE_ERROR if there are frequencies for the trip
     # but no stops
@@ -3527,7 +3522,7 @@ class TripHasStopTimeValidationTestCase(ValidationTestCase):
     stop = transitfeed.Stop(36.425288, -117.133162, "Demo Stop 1", "STOP1")
     schedule.AddStopObject(stop)
     trip.AddStopTime(stop, arrival_time="5:11:00", departure_time="5:12:00")
-    self.ExpectOtherProblem(schedule)
+    self.ValidateAndExpectOtherProblem(schedule)
 
     # Add another stop, and then validation should be happy.
     stop = transitfeed.Stop(36.424288, -117.133142, "Demo Stop 2", "STOP2")
@@ -4468,7 +4463,8 @@ class ScheduleBuilderTestCase(TempFileTestCaseBase):
     # "u020b i with inverted accent breve" encoded in utf-8
     stop1 = schedule.AddStop(lng=140, lat=48.2, name="\xc8\x8b hub")
     # "u020b i with inverted accent breve" as unicode string
-    stop2 = schedule.AddStop(lng=140.001, lat=48.201, name=u"remote \u020b station")
+    stop2 = schedule.AddStop(lng=140.001, lat=48.201,
+                             name=u"remote \u020b station")
     route = schedule.AddRoute(u"\u03b2", "Beta", "Bus")
     trip = route.AddTrip(schedule, u"to remote \u020b station")
     repr(stop1)
