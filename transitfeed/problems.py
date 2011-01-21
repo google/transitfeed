@@ -101,10 +101,20 @@ class ProblemReporter(object):
                       context=context, context2=self._context)
     self.AddToAccumulator(e)
 
-  def UnrecognizedColumn(self, file_name, column_name, context=None):
+  def UnrecognizedColumn(self, file_name, column_name, context=None,
+                         type=TYPE_WARNING):
     e = UnrecognizedColumn(file_name=file_name, column_name=column_name,
-                           context=context, context2=self._context,
-                           type=TYPE_WARNING)
+                           context=context, context2=self._context, type=type)
+    self.AddToAccumulator(e)
+
+  def DeprecatedColumn(self, file_name, column_name, new_name, context=None,
+                       type=TYPE_WARNING):
+    reason = None
+    if not util.IsEmpty(new_name):
+      reason = 'Please use the new column "%s" instead.' % (new_name)
+    e = DeprecatedColumn(file_name=file_name, column_name=column_name,
+                         reason=reason, context=context, context2=self._context,
+                         type=type)
     self.AddToAccumulator(e)
 
   def CsvSyntax(self, description=None, context=None, type=TYPE_ERROR):
@@ -479,6 +489,11 @@ class UnrecognizedColumn(ExceptionWithContext):
                'proposed feed extension) that the validator doesn\'t know ' \
                'about yet. Extra information is fine; this warning is here ' \
                'to catch misspelled optional column names.'
+
+class DeprecatedColumn(ExceptionWithContext):
+  ERROR_TEXT = 'Column %(column_name)s in file %(file_name)s is deprecated ' \
+               'and support for it will eventually be removed. As such, it  ' \
+               'should not be used in new feeds.'
 
 class CsvSyntax(ExceptionWithContext):
   ERROR_TEXT = '%(description)s'

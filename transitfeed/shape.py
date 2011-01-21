@@ -26,6 +26,8 @@ class Shape(GtfsFactoryUser):
   _REQUIRED_FIELD_NAMES = ['shape_id', 'shape_pt_lat', 'shape_pt_lon',
                            'shape_pt_sequence']
   _FIELD_NAMES = _REQUIRED_FIELD_NAMES + ['shape_dist_traveled']
+  _DEPRECATED_FIELD_NAMES = []
+
   def __init__(self, shape_id):
     # List of shape point tuple (lat, lng, shape_dist_traveled), where lat and
     # lon is the location of the shape point, and shape_dist_traveled is an

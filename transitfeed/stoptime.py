@@ -45,6 +45,7 @@ class StopTime(object):
   _OPTIONAL_FIELD_NAMES = ['stop_headsign', 'pickup_type',
                            'drop_off_type', 'shape_dist_traveled']
   _FIELD_NAMES = _REQUIRED_FIELD_NAMES + _OPTIONAL_FIELD_NAMES
+  _DEPRECATED_FIELD_NAMES = []
   _SQL_FIELD_NAMES = ['trip_id', 'arrival_secs', 'departure_secs',
                       'stop_id', 'stop_sequence', 'stop_headsign',
                       'pickup_type', 'drop_off_type', 'shape_dist_traveled']

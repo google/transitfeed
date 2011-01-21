@@ -1387,7 +1387,7 @@ class CsvDictTestCase(util.TestCase):
 
   def testEmptyFile(self):
     self.zip.writestr("test.txt", "")
-    results = list(self.loader._ReadCsvDict("test.txt", [], []))
+    results = list(self.loader._ReadCsvDict("test.txt", [], [], []))
     self.assertEquals([], results)
     self.accumulator.PopException("EmptyFile")
     self.accumulator.AssertNoMoreExceptions()
@@ -1395,28 +1395,28 @@ class CsvDictTestCase(util.TestCase):
   def testHeaderOnly(self):
     self.zip.writestr("test.txt", "test_id,test_name")
     results = list(self.loader._ReadCsvDict("test.txt",
-                                            ["test_id", "test_name"], []))
+                                            ["test_id", "test_name"], [], []))
     self.assertEquals([], results)
     self.accumulator.AssertNoMoreExceptions()
 
   def testHeaderAndNewLineOnly(self):
     self.zip.writestr("test.txt", "test_id,test_name\n")
     results = list(self.loader._ReadCsvDict("test.txt",
-                                            ["test_id", "test_name"], []))
+                                            ["test_id", "test_name"], [], []))
     self.assertEquals([], results)
     self.accumulator.AssertNoMoreExceptions()
 
   def testHeaderWithSpaceBefore(self):
     self.zip.writestr("test.txt", " test_id, test_name\n")
     results = list(self.loader._ReadCsvDict("test.txt",
-                                            ["test_id", "test_name"], []))
+                                            ["test_id", "test_name"], [], []))
     self.assertEquals([], results)
     self.accumulator.AssertNoMoreExceptions()
 
   def testHeaderWithSpaceBeforeAfter(self):
     self.zip.writestr("test.txt", "test_id , test_name\n")
     results = list(self.loader._ReadCsvDict("test.txt",
-                                            ["test_id", "test_name"], []))
+                                            ["test_id", "test_name"], [], []))
     self.assertEquals([], results)
     e = self.accumulator.PopException("CsvSyntax")
     self.accumulator.AssertNoMoreExceptions()
@@ -1424,14 +1424,14 @@ class CsvDictTestCase(util.TestCase):
   def testHeaderQuoted(self):
     self.zip.writestr("test.txt", "\"test_id\", \"test_name\"\n")
     results = list(self.loader._ReadCsvDict("test.txt",
-                                            ["test_id", "test_name"], []))
+                                            ["test_id", "test_name"], [], []))
     self.assertEquals([], results)
     self.accumulator.AssertNoMoreExceptions()
 
   def testHeaderSpaceAfterQuoted(self):
     self.zip.writestr("test.txt", "\"test_id\" , \"test_name\"\n")
     results = list(self.loader._ReadCsvDict("test.txt",
-                                            ["test_id", "test_name"], []))
+                                            ["test_id", "test_name"], [], []))
     self.assertEquals([], results)
     e = self.accumulator.PopException("CsvSyntax")
     self.accumulator.AssertNoMoreExceptions()
@@ -1439,7 +1439,7 @@ class CsvDictTestCase(util.TestCase):
   def testHeaderSpaceInQuotesAfterValue(self):
     self.zip.writestr("test.txt", "\"test_id \",\"test_name\"\n")
     results = list(self.loader._ReadCsvDict("test.txt",
-                                            ["test_id", "test_name"], []))
+                                            ["test_id", "test_name"], [], []))
     self.assertEquals([], results)
     e = self.accumulator.PopException("CsvSyntax")
     self.accumulator.AssertNoMoreExceptions()
@@ -1447,7 +1447,7 @@ class CsvDictTestCase(util.TestCase):
   def testHeaderSpaceInQuotesBeforeValue(self):
     self.zip.writestr("test.txt", "\"test_id\",\" test_name\"\n")
     results = list(self.loader._ReadCsvDict("test.txt",
-                                            ["test_id", "test_name"], []))
+                                            ["test_id", "test_name"], [], []))
     self.assertEquals([], results)
     e = self.accumulator.PopException("CsvSyntax")
     self.accumulator.AssertNoMoreExceptions()
@@ -1455,7 +1455,7 @@ class CsvDictTestCase(util.TestCase):
   def testHeaderEmptyColumnName(self):
     self.zip.writestr("test.txt", 'test_id,test_name,\n')
     results = list(self.loader._ReadCsvDict("test.txt",
-                                            ["test_id", "test_name"], []))
+                                            ["test_id", "test_name"], [], []))
     self.assertEquals([], results)
     e = self.accumulator.PopException("CsvSyntax")
     self.accumulator.AssertNoMoreExceptions()
@@ -1463,7 +1463,7 @@ class CsvDictTestCase(util.TestCase):
   def testHeaderAllUnknownColumnNames(self):
     self.zip.writestr("test.txt", 'id,nam\n')
     results = list(self.loader._ReadCsvDict("test.txt",
-                                            ["test_id", "test_name"], []))
+                                            ["test_id", "test_name"], [], []))
     self.assertEquals([], results)
     e = self.accumulator.PopException("CsvSyntax")
     self.assertTrue(e.FormatProblem().find("missing the header") != -1)
@@ -1474,7 +1474,7 @@ class CsvDictTestCase(util.TestCase):
                       "test_id,test_name\n"
                       "id1 , my name\n")
     results = list(self.loader._ReadCsvDict("test.txt",
-                                            ["test_id", "test_name"], []))
+                                            ["test_id", "test_name"], [], []))
     self.assertEquals([({"test_id": "id1 ", "test_name": "my name"}, 2,
                         ["test_id", "test_name"], ["id1 ", "my name"])],
                         results)
@@ -1485,7 +1485,7 @@ class CsvDictTestCase(util.TestCase):
                       "test_id,test_name\n"
                       "id1,  \n")  # spaces are skipped to yield empty field
     results = list(self.loader._ReadCsvDict("test.txt",
-                                            ["test_id", "test_name"], []))
+                                            ["test_id", "test_name"], [], []))
     self.assertEquals([({"test_id": "id1", "test_name": ""}, 2,
                         ["test_id", "test_name"], ["id1", ""])], results)
     self.accumulator.AssertNoMoreExceptions()
@@ -1496,7 +1496,7 @@ class CsvDictTestCase(util.TestCase):
                       '"id1" , "my name" , "234 "\n')
     results = list(self.loader._ReadCsvDict("test.txt",
                                             ["test_id", "test_name",
-                                             "test_size"], []))
+                                             "test_size"], [], []))
     self.assertEquals(
         [({"test_id": "id1 ", "test_name": "my name ", "test_size": "234 "}, 2,
           ["test_id", "test_name", "test_size"], ["id1 ", "my name ", "234 "])],
@@ -1508,7 +1508,7 @@ class CsvDictTestCase(util.TestCase):
                       'id,name1,name2\n'
                       '"1", "brown, tom", "brown, ""tom"""\n')
     results = list(self.loader._ReadCsvDict("test.txt",
-                                            ["id", "name1", "name2"], []))
+                                            ["id", "name1", "name2"], [], []))
     self.assertEquals(
         [({"id": "1", "name1": "brown, tom", "name2": "brown, \"tom\""}, 2,
           ["id", "name1", "name2"], ["1", "brown, tom", "brown, \"tom\""])],
@@ -1519,17 +1519,57 @@ class CsvDictTestCase(util.TestCase):
     # A small typo (omitting '_' in a header name) is detected
     self.zip.writestr("test.txt", "test_id,testname\n")
     results = list(self.loader._ReadCsvDict("test.txt",
-                                            ["test_id", "test_name"], []))
+                                            ["test_id", "test_name"], [], []))
     self.assertEquals([], results)
     e = self.accumulator.PopException("UnrecognizedColumn")
     self.assertEquals("testname", e.column_name)
+    self.accumulator.AssertNoMoreExceptions()
+
+  def testDeprecatedColumn(self):
+    self.zip.writestr("test.txt", "test_id,test_old\n")
+    results = list(self.loader._ReadCsvDict("test.txt",
+                                            ["test_id", "test_new"],
+                                            ["test_id"],
+                                            [("test_old", "test_new")]))
+    self.assertEquals([], results)
+    e = self.accumulator.PopException("DeprecatedColumn")
+    self.assertEquals("test_old", e.column_name)
+    self.assertTrue("test_new" in e.reason)
+    self.accumulator.AssertNoMoreExceptions()
+
+  def testDeprecatedColumnWithoutNewColumn(self):
+    self.zip.writestr("test.txt", "test_id,test_old\n")
+    results = list(self.loader._ReadCsvDict("test.txt",
+                                            ["test_id", "test_new"],
+                                            ["test_id"],
+                                            [("test_old", None)]))
+    self.assertEquals([], results)
+    e = self.accumulator.PopException("DeprecatedColumn")
+    self.assertEquals("test_old", e.column_name)
+    self.assertTrue(not e.reason or "use the new column" not in e.reason)
+    self.accumulator.AssertNoMoreExceptions()
+
+  def testDeprecatedValuesBeingRead(self):
+    self.zip.writestr("test.txt",
+                      "test_id,test_old\n"
+                      "1,old_value1\n"
+                      "2,old_value2\n")
+    results = list(self.loader._ReadCsvDict("test.txt",
+                                            ["test_id", "test_new"],
+                                            ["test_id"],
+                                            [("test_old", "test_new")]))
+    self.assertEquals(2, len(results))
+    self.assertEquals('old_value1', results[0][0]['test_old'])
+    self.assertEquals('old_value2', results[1][0]['test_old'])
+    e = self.accumulator.PopException("DeprecatedColumn")
+    self.assertEquals('test_old', e.column_name)
     self.accumulator.AssertNoMoreExceptions()
 
   def testMissingRequiredColumn(self):
     self.zip.writestr("test.txt", "test_id,test_size\n")
     results = list(self.loader._ReadCsvDict("test.txt",
                                             ["test_id", "test_size"],
-                                            ["test_name"]))
+                                            ["test_name"], []))
     self.assertEquals([], results)
     e = self.accumulator.PopException("MissingColumn")
     self.assertEquals("test_name", e.column_name)
@@ -1539,7 +1579,7 @@ class CsvDictTestCase(util.TestCase):
     self.zip.writestr("test.txt", "test_id,test_name,test_size\n")
     results = list(self.loader._ReadCsvDict("test.txt",
                                             ["test_id", "test_size"],
-                                            ["test_name"]))
+                                            ["test_name"], []))
     self.assertEquals([], results)
     e = self.accumulator.PopException("UnrecognizedColumn")
     self.assertEquals("test_name", e.column_name)
@@ -1552,7 +1592,7 @@ class CsvDictTestCase(util.TestCase):
                       "\n"
                       "id1,my name\n")
     results = list(self.loader._ReadCsvDict("test.txt",
-                                            ["test_id", "test_name"], []))
+                                            ["test_id", "test_name"], [], []))
     self.assertEquals([({"test_id": "id1", "test_name": "my name"}, 3,
                         ["test_id", "test_name"], ["id1", "my name"])], results)
     self.accumulator.AssertNoMoreExceptions()
@@ -1562,7 +1602,7 @@ class CsvDictTestCase(util.TestCase):
                       "test_id,test_name\n"
                       "id1,my name,\n")
     results = list(self.loader._ReadCsvDict("test.txt",
-                                            ["test_id", "test_name"], []))
+                                            ["test_id", "test_name"], [], []))
     self.assertEquals([({"test_id": "id1", "test_name": "my name"}, 2,
                         ["test_id", "test_name"], ["id1", "my name"])],
                       results)
@@ -1575,7 +1615,7 @@ class CsvDictTestCase(util.TestCase):
                       "test_id,test_name\n"
                       "id1 my name\n")
     results = list(self.loader._ReadCsvDict("test.txt",
-                                            ["test_id", "test_name"], []))
+                                            ["test_id", "test_name"], [], []))
     self.assertEquals([({"test_id": "id1 my name"}, 2,
                         ["test_id", "test_name"], ["id1 my name"])], results)
     e = self.accumulator.PopException("OtherProblem")
@@ -1593,7 +1633,8 @@ class CsvDictTestCase(util.TestCase):
 
     list(self.loader._ReadCsvDict("transfers.txt",
                                   transitfeed.Transfer._FIELD_NAMES,
-                                  transitfeed.Transfer._REQUIRED_FIELD_NAMES))
+                                  transitfeed.Transfer._REQUIRED_FIELD_NAMES,
+                                  transitfeed.Transfer._DEPRECATED_FIELD_NAMES))
 
     self.accumulator.PopDuplicateColumn("transfers.txt", "min_transfer_time", 4)
     self.accumulator.PopDuplicateColumn("transfers.txt", "from_stop_id", 2)
@@ -1624,13 +1665,39 @@ class ReadCsvTestCase(util.TestCase):
 
     list(self.loader._ReadCSV("calendar.txt",
                               transitfeed.ServicePeriod._FIELD_NAMES,
-                              transitfeed.ServicePeriod._FIELD_NAMES_REQUIRED))
+                              transitfeed.ServicePeriod._REQUIRED_FIELD_NAMES,
+                              transitfeed.ServicePeriod._DEPRECATED_FIELD_NAMES
+                              ))
 
     self.accumulator.PopDuplicateColumn("calendar.txt", "end_date", 3)
     self.accumulator.PopDuplicateColumn("calendar.txt", "unknown", 2)
     self.accumulator.PopDuplicateColumn("calendar.txt", "tuesday", 2)
     e = self.accumulator.PopException("UnrecognizedColumn")
     self.assertEquals("unknown", e.column_name)
+    self.accumulator.AssertNoMoreExceptions()
+
+  def testDeprecatedColumn(self):
+    self.zip.writestr("test.txt", "test_id,test_old\n")
+    results = list(self.loader._ReadCSV("test.txt",
+                                        ["test_id", "test_new"],
+                                        ["test_id"],
+                                        [("test_old", "test_new")]))
+    self.assertEquals([], results)
+    e = self.accumulator.PopException("DeprecatedColumn")
+    self.assertEquals("test_old", e.column_name)
+    self.assertTrue("test_new" in e.reason)
+    self.accumulator.AssertNoMoreExceptions()
+
+  def testDeprecatedColumnWithoutNewColumn(self):
+    self.zip.writestr("test.txt", "test_id,test_old\n")
+    results = list(self.loader._ReadCSV("test.txt",
+                                        ["test_id", "test_new"],
+                                        ["test_id"],
+                                        [("test_old", None)]))
+    self.assertEquals([], results)
+    e = self.accumulator.PopException("DeprecatedColumn")
+    self.assertEquals("test_old", e.column_name)
+    self.assertTrue(not e.reason or "use the new column" not in e.reason)
     self.accumulator.AssertNoMoreExceptions()
 
 

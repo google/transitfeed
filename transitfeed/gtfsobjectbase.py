@@ -26,7 +26,9 @@ class GtfsObjectBase(GtfsFactoryUser):
   Subclasses must:
   * define an __init__ method which sets the _schedule member to None or a
     weakref to a Schedule
-  * Set the _TABLE_NAME class variable to a name such as 'stops', 'agency', ...
+  * set the _TABLE_NAME class variable to a name such as 'stops', 'agency', ...
+  * override the _REQUIRED_FIELD_NAMES, _FIELD_NAMES and _DEPRECATED_FIELD_NAMES
+    variables according to the needs of the GTFS object
   * define methods to validate objects of that type:
     * ValidateBeforeAdd, which is called before an object is added to a
       Schedule. With the default loader the object is added to the Schedule if
@@ -35,6 +37,16 @@ class GtfsObjectBase(GtfsFactoryUser):
       With the default Loader the return value, if any, is not used.
 
   """
+
+  # list of all required field names for the GTFS object
+  _REQUIRED_FIELD_NAMES = []
+  # list of all valid field names including the required ones
+  _FIELD_NAMES = _REQUIRED_FIELD_NAMES + []
+  # list of tuples of all deprecated field names and, optionally, their new name
+  # e.g. [('old_name', 'new_name')]
+  # use None if there is no new name, e.g. [('old_name', None)]
+  _DEPRECATED_FIELD_NAMES = []
+
   def __getitem__(self, name):
     """Return a unicode or str representation of name or "" if not set."""
     if name in self.__dict__ and self.__dict__[name] is not None:

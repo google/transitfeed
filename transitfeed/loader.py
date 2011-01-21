@@ -143,7 +143,7 @@ class Loader:
     contents = contents.lstrip(codecs.BOM_UTF8)
     return contents
 
-  def _ReadCsvDict(self, file_name, all_cols, required):
+  def _ReadCsvDict(self, file_name, cols, required, deprecated):
     """Reads lines from file_name, yielding a dict of unicode values."""
     assert file_name.endswith(".txt")
     table_name = file_name[0:-4]
@@ -194,7 +194,9 @@ class Loader:
     self._schedule._table_columns[table_name] = header
 
     # check for unrecognized columns, which are often misspellings
-    unknown_cols = set(header) - set(all_cols)
+    header_context = (file_name, 1, [''] * len(header), header)
+    valid_cols = cols + [deprecated_name for (deprecated_name, _) in deprecated]
+    unknown_cols = set(header) - set(valid_cols)
     if len(unknown_cols) == len(header):
       self._problems.CsvSyntax(
             description="The header row did not contain any known column "
@@ -206,15 +208,20 @@ class Loader:
       for col in unknown_cols:
         # this is provided in order to create a nice colored list of
         # columns in the validator output
-        context = (file_name, 1, [''] * len(header), header)
-        self._problems.UnrecognizedColumn(file_name, col, context)
+        self._problems.UnrecognizedColumn(file_name, col, header_context)
 
+    # check for missing required columns
     missing_cols = set(required) - set(header)
     for col in missing_cols:
       # this is provided in order to create a nice colored list of
       # columns in the validator output
-      context = (file_name, 1, [''] * len(header), header)
-      self._problems.MissingColumn(file_name, col, context)
+      self._problems.MissingColumn(file_name, col, header_context)
+
+    # check for deprecated columns
+    for (deprecated_name, new_name) in deprecated:
+      if deprecated_name in header:
+        self._problems.DeprecatedColumn(file_name, deprecated_name, new_name,
+                                        header_context)
 
     line_num = 1  # First line read by reader.next() above
     for raw_row in reader:
@@ -269,7 +276,7 @@ class Loader:
       yield (d, line_num, header, valid_values)
 
   # TODO: Add testing for this specific function
-  def _ReadCSV(self, file_name, cols, required):
+  def _ReadCSV(self, file_name, cols, required, deprecated):
     """Reads lines from file_name, yielding a list of unicode values
     corresponding to the column names in cols."""
     contents = self._GetUtf8Contents(file_name)
@@ -294,19 +301,27 @@ class Loader:
             count=count)
 
     # check for unrecognized columns, which are often misspellings
-    unknown_cols = set(header).difference(set(cols))
+    header_context = (file_name, 1, [''] * len(header), header)
+    valid_cols = cols + [deprecated_name for (deprecated_name, _) in deprecated]
+    unknown_cols = set(header).difference(set(valid_cols))
     for col in unknown_cols:
       # this is provided in order to create a nice colored list of
       # columns in the validator output
-      context = (file_name, 1, [''] * len(header), header)
-      self._problems.UnrecognizedColumn(file_name, col, context)
+      self._problems.UnrecognizedColumn(file_name, col, header_context)
 
+    # check for missing required columns
     col_index = [-1] * len(cols)
     for i in range(len(cols)):
       if cols[i] in header:
         col_index[i] = header.index(cols[i])
       elif cols[i] in required:
-        self._problems.MissingColumn(file_name, cols[i])
+        self._problems.MissingColumn(file_name, cols[i], header_context)
+
+    # check for deprecated columns
+    for (deprecated_name, new_name) in deprecated:
+      if deprecated_name in header:
+        self._problems.DeprecatedColumn(file_name, deprecated_name, new_name,
+                                        header_context)
 
     row_num = 1
     for row in reader:
@@ -393,7 +408,8 @@ class Loader:
         for (d, row_num, header, row) in self._ReadCsvDict(
                                        filename,
                                        object_class._FIELD_NAMES,
-                                       object_class._REQUIRED_FIELD_NAMES):
+                                       object_class._REQUIRED_FIELD_NAMES,
+                                       object_class._DEPRECATED_FIELD_NAMES):
           self._problems.SetFileContext(filename, row_num, row, header)
           instance = object_class(field_dict=d)
           instance.SetGtfsFactory(self._gtfs_factory)
@@ -413,17 +429,20 @@ class Loader:
     # map period IDs to (period object, (file_name, row_num, row, cols))
     periods = {}
 
+    service_period_class = self._gtfs_factory.ServicePeriod
+
     # process calendar.txt
     if self._HasFile(file_name):
       has_useful_contents = False
       for (row, row_num, cols) in \
           self._ReadCSV(file_name,
-                        self._gtfs_factory.ServicePeriod._FIELD_NAMES,
-                        self._gtfs_factory.ServicePeriod._FIELD_NAMES_REQUIRED):
+                        service_period_class._FIELD_NAMES,
+                        service_period_class._REQUIRED_FIELD_NAMES,
+                        service_period_class._DEPRECATED_FIELD_NAMES):
         context = (file_name, row_num, row, cols)
         self._problems.SetFileContext(*context)
 
-        period = self._gtfs_factory.ServicePeriod(field_list=row)
+        period = service_period_class(field_list=row)
 
         if period.service_id in periods:
           self._problems.DuplicateID('service_id', period.service_id)
@@ -434,9 +453,11 @@ class Loader:
     # process calendar_dates.txt
     if self._HasFile(file_name_dates):
       # ['service_id', 'date', 'exception_type']
-      fields = self._gtfs_factory.ServicePeriod._FIELD_NAMES_CALENDAR_DATES
-      for (row, row_num, cols) in self._ReadCSV(file_name_dates,
-                                                fields, fields):
+      for (row, row_num, cols) in \
+          self._ReadCSV(file_name_dates,
+              service_period_class._FIELD_NAMES_CALENDAR_DATES,
+              service_period_class._REQUIRED_FIELD_NAMES_CALENDAR_DATES,
+              service_period_class._DEPRECATED_FIELD_NAMES_CALENDAR_DATES):
         context = (file_name_dates, row_num, row, cols)
         self._problems.SetFileContext(*context)
 
@@ -446,7 +467,7 @@ class Loader:
         if service_id in periods:
           period = periods[service_id][0]
         else:
-          period = self._gtfs_factory.ServicePeriod(service_id)
+          period = service_period_class(service_id)
           periods[period.service_id] = (period, context)
 
         exception_type = row[2]
@@ -470,10 +491,14 @@ class Loader:
     if not self._HasFile(file_name):
       return
     shapes = {}  # shape_id to shape object
+
+    shape_class = self._gtfs_factory.Shape
+
     for (d, row_num, header, row) in self._ReadCsvDict(
         file_name,
-        self._gtfs_factory.Shape._FIELD_NAMES,
-        self._gtfs_factory.Shape._REQUIRED_FIELD_NAMES):
+        shape_class._FIELD_NAMES,
+        shape_class._REQUIRED_FIELD_NAMES,
+        shape_class._DEPRECATED_FIELD_NAMES):
       file_context = (file_name, row_num, row, header)
       self._problems.SetFileContext(*file_context)
 
@@ -484,7 +509,7 @@ class Loader:
       if shapepoint.shape_id in shapes:
         shape = shapes[shapepoint.shape_id]
       else:
-        shape = self._gtfs_factory.Shape(shapepoint.shape_id)
+        shape = shape_class(shapepoint.shape_id)
         shape.SetGtfsFactory(self._gtfs_factory)
         shapes[shapepoint.shape_id] = shape
 
@@ -496,9 +521,12 @@ class Loader:
       del shapes[shape_id]
 
   def _LoadStopTimes(self):
+    stop_time_class = self._gtfs_factory.StopTime
+
     for (row, row_num, cols) in self._ReadCSV('stop_times.txt',
-        self._gtfs_factory.StopTime._FIELD_NAMES,
-        self._gtfs_factory.StopTime._REQUIRED_FIELD_NAMES):
+        stop_time_class._FIELD_NAMES,
+        stop_time_class._REQUIRED_FIELD_NAMES,
+        stop_time_class._DEPRECATED_FIELD_NAMES):
       file_context = ('stop_times.txt', row_num, row, cols)
       self._problems.SetFileContext(*file_context)
 
@@ -534,7 +562,7 @@ class Loader:
       # wrap problems and a better solution is to move all validation out of
       # __init__. For now make sure Trip.GetStopTimes gets a problem reporter
       # when called from Trip.Validate.
-      stop_time = self._gtfs_factory.StopTime(self._problems, stop,
+      stop_time = stop_time_class(self._problems, stop,
           arrival_time, departure_time, stop_headsign, pickup_type,
           drop_off_type, shape_dist_traveled, stop_sequence=sequence)
       trip._AddStopTimeObjectUnordered(stop_time, self._schedule)

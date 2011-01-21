@@ -28,11 +28,16 @@ class ServicePeriod(object):
     'monday', 'tuesday', 'wednesday', 'thursday', 'friday',
     'saturday', 'sunday'
     ]
-  _FIELD_NAMES_REQUIRED = [
+  _REQUIRED_FIELD_NAMES = [
     'service_id', 'start_date', 'end_date'
     ] + _DAYS_OF_WEEK
-  _FIELD_NAMES = _FIELD_NAMES_REQUIRED  # no optional fields in this one
-  _FIELD_NAMES_CALENDAR_DATES = ['service_id', 'date', 'exception_type']
+  _FIELD_NAMES = _REQUIRED_FIELD_NAMES  # no optional fields in this one
+  _DEPRECATED_FIELD_NAMES = [] # no deprecated fields so far
+  _REQUIRED_FIELD_NAMES_CALENDAR_DATES = ['service_id', 'date',
+                                          'exception_type']
+  _FIELD_NAMES_CALENDAR_DATES = \
+      _REQUIRED_FIELD_NAMES_CALENDAR_DATES # no optional fields in this one
+  _DEPRECATED_FIELD_NAMES_CALENDAR_DATES = [] # no deprecated fields so far
 
   def __init__(self, id=None, field_list=None):
     self.original_day_values = []
