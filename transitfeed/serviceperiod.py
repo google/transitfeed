@@ -39,6 +39,9 @@ class ServicePeriod(object):
       _REQUIRED_FIELD_NAMES_CALENDAR_DATES # no optional fields in this one
   _DEPRECATED_FIELD_NAMES_CALENDAR_DATES = [] # no deprecated fields so far
 
+  _VALID_DATE_RANGE_FROM = 1900
+  _VALID_DATE_RANGE_TO = 2100
+
   def __init__(self, id=None, field_list=None):
     self.original_day_values = []
     if field_list:
@@ -57,17 +60,9 @@ class ServicePeriod(object):
       self.day_of_week = [False] * 7
       self.start_date = None
       self.end_date = None
-    self.date_exceptions = {}  # Map from 'YYYYMMDD' to 1 (add) or 2 (remove)
-
-  def _IsValidDate(self, date):
-    if re.match('^\d{8}$', date) == None:
-      return False
-
-    try:
-      time.strptime(date, "%Y%m%d")
-      return True
-    except ValueError:
-      return False
+    self.date_exceptions = {} # Map from 'YYYYMMDD' to tuple of
+                              # exception type (1 = add, 2 = remove) and
+                              # its context (used for exceptions)
 
   def HasExceptions(self):
     """Checks if the ServicePeriod has service exceptions."""
@@ -90,8 +85,8 @@ class ServicePeriod(object):
     start = self.start_date
     end = self.end_date
 
-    for date in self.date_exceptions:
-      if self.date_exceptions[date] == 2:
+    for date, (exception_type, _) in self.date_exceptions.items():
+      if exception_type == 2:
         continue
       if not start or (date < start):
         start = date
@@ -113,7 +108,7 @@ class ServicePeriod(object):
   def GenerateCalendarDatesFieldValuesTuples(self):
     """Generates tuples of calendar_dates.txt values. Yield zero tuples if
     this ServicePeriod should not be in calendar_dates.txt ."""
-    for date, exception_type in self.date_exceptions.items():
+    for date, (exception_type, _) in self.date_exceptions.items():
       yield (self.service_id, date, unicode(exception_type))
 
   def GetCalendarDatesFieldValuesTuples(self):
@@ -129,7 +124,10 @@ class ServicePeriod(object):
       problems.DuplicateID(('service_id', 'date'),
                            (self.service_id, date),
                            type=problems_module.TYPE_WARNING)
-    self.date_exceptions[date] = has_service and 1 or 2
+    exception_context_tuple = (has_service and 1 or 2,
+                               problems != None and
+                               problems.GetFileContext() or None)
+    self.date_exceptions[date] = exception_context_tuple
 
   def ResetDateToNormalService(self, date):
     if date in self.date_exceptions:
@@ -188,7 +186,8 @@ class ServicePeriod(object):
       True iff this service is active on date.
     """
     if date in self.date_exceptions:
-      if self.date_exceptions[date] == 1:
+      exception_type, _ = self.date_exceptions[date]
+      if exception_type == 1:
         return True
       else:
         return False
@@ -254,22 +253,12 @@ class ServicePeriod(object):
       problems.MissingValue('service_id')
 
   def ValidateStartDate(self, problems):
-    if self.start_date is not None:
-      if util.IsEmpty(self.start_date):
-        problems.MissingValue('start_date')
-        self.start_date = None
-      elif not self._IsValidDate(self.start_date):
-        problems.InvalidValue('start_date', self.start_date)
-        self.start_date = None
+    if not self.ValidateDate(self.start_date, 'start_date', problems):
+      self.start_date = None
 
   def ValidateEndDate(self, problems):
-    if self.end_date is not None:
-      if util.IsEmpty(self.end_date):
-        problems.MissingValue('end_date')
-        self.end_date = None
-      elif not self._IsValidDate(self.end_date):
-        problems.InvalidValue('end_date', self.end_date)
-        self.end_date = None
+    if not self.ValidateDate(self.end_date, 'end_date', problems):
+      self.end_date = None
 
   def ValidateEndDateAfterStartDate(self, problems):
     if self.start_date and self.end_date and self.end_date < self.start_date:
@@ -291,16 +280,50 @@ class ServicePeriod(object):
 
   def ValidateHasServiceAtLeastOnceAWeek(self, problems):
     if (True not in self.day_of_week and
-        1 not in self.date_exceptions.values()):
+        not self.HasDateExceptionTypeAdded()):
       problems.OtherProblem('Service period with service_id "%s" '
                             'doesn\'t have service on any days '
                             'of the week.' % self.service_id,
                             type=problems_module.TYPE_WARNING)
 
+  def HasDateExceptionTypeAdded(self):
+    for exception_type, _ in self.date_exceptions.values():
+      if exception_type == 1:
+        return True
+    return False
+
   def ValidateDates(self, problems):
-    for date in self.date_exceptions:
-      if not self._IsValidDate(date):
-        problems.InvalidValue('date', date)
+    for date, (exception_type, context) in self.date_exceptions.items():
+      self.ValidateDate(date, 'date', problems, context)
+
+  def ValidateDate(self, date, field_name, problems, context=None):
+    if date is None:
+      # No exception is issued because ServicePeriods can be created using only
+      # calendar_dates.txt. In that case we have a ServicePeriod consisting
+      # entirely of service exceptions, and with no start_date or end_date.
+      return False
+    if util.IsEmpty(date):
+      problems.MissingValue(field_name, date, context)
+      return False
+    if re.match('^\d{8}$', date) == None:
+      problems.InvalidValue(
+          field_name, 'The date must be a string in the YYYYMMDD format.',
+          date, context, problems_module.TYPE_ERROR)
+      return False
+    try:
+      date_value = time.strptime(date, "%Y%m%d")
+      if not (self._VALID_DATE_RANGE_FROM <= date_value.tm_year <=
+              self._VALID_DATE_RANGE_TO):
+        problems.DateOutsideValidRange(field_name, date,
+                                       self._VALID_DATE_RANGE_FROM,
+                                       self._VALID_DATE_RANGE_TO,
+                                       context=context)
+        return False
+      return True
+    except ValueError:
+      problems.InvalidValue(field_name, 'Could not parse date value.',
+                            date, context, problems_module.TYPE_ERROR)
+      return False
 
   def Validate(self, problems=problems_module.default_problem_reporter):
 

@@ -346,19 +346,37 @@ class RecordingProblemAccumulator(transitfeed.ProblemAccumulatorInterface):
     self._test_case.assertFalse(exceptions_as_text,
                                 "\n".join(exceptions_as_text))
 
-  def PopInvalidValue(self, column_name, file_name=None):
-    e = self.PopException("InvalidValue")
+  def PopColumnSpecificException(self, type_name, column_name, file_name=None):
+    """Pops and validates column-specific exceptions from the accumulator.
+
+    Asserts that the exception is of the given type, and originated in the
+    specified file and column.
+
+    Arguments:
+        type_name: the type of the exception as string, e.g. 'InvalidValue'
+        column_name: the name of the field (column) which caused the exception
+        file_name: optional, the name of the file containing the bad field
+
+    Returns:
+        the exception object
+    """
+    e = self.PopException(type_name)
     self._test_case.assertEquals(column_name, e.column_name)
     if file_name:
       self._test_case.assertEquals(file_name, e.file_name)
     return e
 
+  def PopInvalidValue(self, column_name, file_name=None):
+    return self.PopColumnSpecificException("InvalidValue", column_name,
+                                           file_name)
+
   def PopMissingValue(self, column_name, file_name=None):
-    e = self.PopException("MissingValue")
-    self._test_case.assertEquals(column_name, e.column_name)
-    if file_name:
-      self._test_case.assertEquals(file_name, e.file_name)
-    return e
+    return self.PopColumnSpecificException("MissingValue", column_name,
+                                           file_name)
+
+  def PopDateOutsideValidRange(self, column_name, file_name=None):
+    return self.PopColumnSpecificException("DateOutsideValidRange", column_name,
+                                           file_name)
 
   def PopDuplicateColumn(self, file_name, header, count):
     e = self.PopException("DuplicateColumn")

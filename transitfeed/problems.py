@@ -62,7 +62,10 @@ class ProblemReporter(object):
     """
     self._context = (file_name, row_num, row, headers)
 
-  def AddToAccumulator(self,e):
+  def GetFileContext(self):
+    return self._context
+
+  def AddToAccumulator(self, e):
     """Report an exception to the Problem Accumulator"""
     self.accumulator._Report(e)
 
@@ -230,6 +233,15 @@ class ProblemReporter(object):
                       context2=self._context, type=TYPE_WARNING)
     self.AddToAccumulator(e)
 
+  def DateOutsideValidRange(self, column_name, value, range_start_year,
+                            range_end_year, reason=None, context=None,
+                            type=TYPE_ERROR):
+    e = DateOutsideValidRange(column_name=column_name, value=value,
+                              reason=reason, range_start_year=range_start_year,
+                              range_end_year=range_end_year, context=context,
+                              context2=self._context, type=type)
+    self.AddToAccumulator(e)
+
   def NoServiceExceptions(self, start, end, type=TYPE_WARNING, context=None):
     e = NoServiceExceptions(start=start, end=end, context=context,
                             context2=self._context, type=type);
@@ -263,10 +275,11 @@ class ProblemReporter(object):
                       context2=self._context, type=TYPE_WARNING)
     self.AddToAccumulator(e)
 
-  def OverlappingTripsInSameBlock(self,trip_id1,trip_id2,block_id,context=None):
+  def OverlappingTripsInSameBlock(self, trip_id1, trip_id2, block_id,
+                                  context=None):
     e = OverlappingTripsInSameBlock(trip_id1=trip_id1, trip_id2=trip_id2,
                                     block_id=block_id, context=context,
-                                    context2=self._context,type=TYPE_WARNING)
+                                    context2=self._context, type=TYPE_WARNING)
     self.AddToAccumulator(e)
 
   def TransferDistanceTooBig(self, from_stop_id, to_stop_id, distance,
@@ -382,7 +395,8 @@ class ExceptionWithContext(Exception):
   CONTEXT_PARTS = ['file_name', 'row_num', 'row', 'headers']
   @staticmethod
   def ContextTupleToDict(context):
-    """Convert a tuple representing a context into a dict of (key, value) pairs"""
+    """Convert a tuple representing a context into a dict of (key, value) pairs
+    """
     d = {}
     if not context:
       return d
@@ -609,6 +623,12 @@ class FutureService(ExceptionWithContext):
     return ("The earliest service date in this feed is in the future, on %s. "
             "Published feeds must always include the current date." %
             formatted_date)
+
+class DateOutsideValidRange(ExceptionWithContext):
+  ERROR_TEXT = "The date %(value)s in field %(column_name)s is not between " \
+               "the years %(range_start_year)d and %(range_end_year)d. It is " \
+               "advisable to create feeds with shorter validity periods to " \
+               "give feed consumers more confidence in their correctness."
 
 class NoServiceExceptions(ExceptionWithContext):
   ERROR_TEXT = "All services are defined on a weekly basis from %(start)s " \

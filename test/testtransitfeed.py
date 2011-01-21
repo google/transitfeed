@@ -851,6 +851,12 @@ class ValidationTestCase(util.TestCase):
     rv = c()
     self.ExpectException('OtherProblem')
 
+  def ValidateAndExpectDateOutsideValidRange(self, object, column_name,
+                                             value=INVALID_VALUE):
+    self.accumulator.AssertNoMoreExceptions()
+    object.Validate(self.problems)
+    self.ExpectException('DateOutsideValidRange', column_name, value)
+
   def ExpectException(self, type_name, column_name=None, value=INVALID_VALUE):
     e = self.accumulator.PopException(type_name)
     if column_name:
@@ -3070,6 +3076,67 @@ class ServicePeriodValidationTestCase(ValidationTestCase):
     period.SetDateHasService('20070101', False)
     self.assertTrue(period.HasExceptions())
 
+  def testServicePeriodDateOutsideValidRange(self):
+    # regular service, no exceptions, start_date invalid
+    period = transitfeed.ServicePeriod()
+    period.service_id = 'WEEKDAY'
+    period.start_date = '20070101'
+    period.end_date = '21071231'
+    period.day_of_week[0] = True
+    self.ValidateAndExpectDateOutsideValidRange(period, 'end_date', '21071231')
+
+    # regular service, no exceptions, start_date invalid
+    period2 = transitfeed.ServicePeriod()
+    period2.service_id = 'SUNDAY'
+    period2.start_date = '18990101'
+    period2.end_date = '19991231'
+    period2.day_of_week[6] = True
+    self.ValidateAndExpectDateOutsideValidRange(period2, 'start_date',
+                                                '18990101')
+
+    # regular service, no exceptions, both start_date and end_date invalid
+    period3 = transitfeed.ServicePeriod()
+    period3.service_id = 'SATURDAY'
+    period3.start_date = '18990101'
+    period3.end_date = '29991231'
+    period3.day_of_week[5] = True
+    period3.Validate(self.problems)
+    e = self.accumulator.PopDateOutsideValidRange('start_date')
+    self.assertEquals('18990101', e.value)
+    e.FormatProblem() #should not throw any exceptions
+    e.FormatContext() #should not throw any exceptions
+    e = self.accumulator.PopDateOutsideValidRange('end_date')
+    self.assertEqual('29991231', e.value)
+    e.FormatProblem() #should not throw any exceptions
+    e.FormatContext() #should not throw any exceptions
+    self.accumulator.AssertNoMoreExceptions()
+
+  def testServicePeriodExceptionDateOutsideValidRange(self):
+    """ date exceptions of ServicePeriod must be in [1900,2100] """
+    # regular service, 3 exceptions, date of 1st and 3rd invalid
+    period = transitfeed.ServicePeriod()
+    period.service_id = 'WEEKDAY'
+    period.start_date = '20070101'
+    period.end_date = '20071231'
+    period.day_of_week[0] = True
+    period.SetDateHasService('21070101', False) #removed service exception
+    period.SetDateHasService('20070205', False) #removed service exception
+    period.SetDateHasService('10070102', True) #added service exception
+    period.Validate(self.problems)
+
+    # check for error from first date exception
+    e = self.accumulator.PopDateOutsideValidRange('date')
+    self.assertEqual('21070101', e.value)
+    e.FormatProblem() #should not throw any exceptions
+    e.FormatContext() #should not throw any exceptions
+
+    # check for error from third date exception
+    e = self.accumulator.PopDateOutsideValidRange('date')
+    self.assertEqual('10070102', e.value)
+    e.FormatProblem() #should not throw any exceptions
+    e.FormatContext() #should not throw any exceptions
+    self.accumulator.AssertNoMoreExceptions()
+
 
 class ServicePeriodDateRangeTestCase(ValidationTestCase):
   def runTest(self):
@@ -4202,6 +4269,33 @@ class CalendarTxtIntegrationTestCase(util.MemoryZipTestCase):
     self.assertEquals("end_date", e.column_name)
     self.accumulator.AssertNoMoreExceptions()
 
+  def testDateOutsideValidRange(self):
+    """ start_date and end_date values must be in [1900,2100] """
+    self.SetArchiveContents(
+        "calendar.txt",
+        "service_id,monday,tuesday,wednesday,thursday,friday,saturday,sunday,"
+        "start_date,end_date\n"
+        "FULLW,1,1,1,1,1,1,1,20070101,21101231\n"
+        "WE,0,0,0,0,0,1,1,18990101,20101231\n")
+    schedule = self.MakeLoaderAndLoad()
+    e = self.accumulator.PopDateOutsideValidRange('start_date', 'calendar.txt')
+    self.assertEquals('18990101', e.value)
+    e = self.accumulator.PopDateOutsideValidRange('end_date', 'calendar.txt')
+    self.assertEquals('21101231', e.value)
+    self.accumulator.AssertNoMoreExceptions()
+
+
+class CalendarDatesTxtIntegrationTestCase(util.MemoryZipTestCase):
+  def testDateOutsideValidRange(self):
+    """ exception date values in must be in [1900,2100] """
+    self.SetArchiveContents("calendar_dates.txt",
+        "service_id,date,exception_type\n"
+        "WE,18990815,2\n")
+    schedule = self.MakeLoaderAndLoad()
+    e = self.accumulator.PopDateOutsideValidRange('date', 'calendar_dates.txt')
+    self.assertEquals('18990815', e.value)
+    self.accumulator.AssertNoMoreExceptions()
+
 
 class DuplicateTripIDValidationTestCase(util.TestCase):
   def runTest(self):
@@ -4502,7 +4596,8 @@ class AddFrequencyValidationTestCase(ValidationTestCase):
     # now test invalid input
     self.ExpectMissingValue(None, 50, 1200, "start_time")
     self.ExpectMissingValue("", 50, 1200, "start_time")
-    self.ExpectInvalidValue("midnight", 50, 1200, "start_time", "midnight")
+    self.ExpectInvalidValue("midnight", 50, 1200, "start_time",
+                                       "midnight")
     self.ExpectInvalidValue(-50, 50, 1200, "start_time", -50)
     self.ExpectMissingValue(0, None, 1200, "end_time")
     self.ExpectMissingValue(0, "", 1200, "end_time")
@@ -4514,7 +4609,8 @@ class AddFrequencyValidationTestCase(ValidationTestCase):
     self.ExpectInvalidValue(0, 600, "test", "headway_secs", "test")
     self.ExpectInvalidValue(0, 600, -60, "headway_secs", -60)
     self.ExpectInvalidValue(0, 0, 1200, "end_time", 0)
-    self.ExpectInvalidValue("12:00:00", "06:00:00", 1200, "end_time", 21600)
+    self.ExpectInvalidValue("12:00:00", "06:00:00", 1200, "end_time",
+                                       21600)
 
 
 class ScheduleBuilderTestCase(TempFileTestCaseBase):
