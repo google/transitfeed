@@ -172,8 +172,7 @@ class Stop(GtfsObjectBase):
 
   def ValidateStopUrl(self, problems):
       value = self.stop_url
-      if value and not util.IsValidURL(value):
-        problems.InvalidValue('stop_url', value)
+      if value and not util.ValidateURL(value, 'stop_url', problems):
         del self.stop_url
 
   def ValidateStopLocationType(self, problems):

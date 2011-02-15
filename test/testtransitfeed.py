@@ -5351,12 +5351,84 @@ class TimeConversionHelpersTestCase(util.TestCase):
   def testDateStringToDateObject(self):
     self.assertEqual(transitfeed.DateStringToDateObject("20080901"),
                      datetime.date(2008, 9, 1))
-    try:
-      transitfeed.DateStringToDateObject("20080841")
-    except ValueError:
-      pass  # expected
-    else:
-      self.fail("Should have thrown ValueError")
+    self.assertEqual(transitfeed.DateStringToDateObject("20080841"), None)
+
+
+class ValidationUtilsTestCase(util.TestCase):
+  def testIsValidURL(self):
+    self.assertTrue(transitfeed.IsValidURL("http://www.example.com"))
+    self.assertFalse(transitfeed.IsValidURL("ftp://www.example.com"))
+    self.assertFalse(transitfeed.IsValidURL(""))
+
+  def testValidateURL(self):
+    accumulator = RecordingProblemAccumulator(self)
+    problems = transitfeed.ProblemReporter(accumulator)
+    self.assertTrue(transitfeed.ValidateURL("", "col", problems))
+    accumulator.AssertNoMoreExceptions()
+    self.assertTrue(transitfeed.ValidateURL("http://www.example.com", "col",
+                                            problems))
+    accumulator.AssertNoMoreExceptions()
+    self.assertFalse(transitfeed.ValidateURL("ftp://www.example.com", "col",
+                                            problems))
+    e = accumulator.PopInvalidValue("col")
+    accumulator.AssertNoMoreExceptions()
+
+  def testIsValidHexColor(self):
+    self.assertTrue(transitfeed.IsValidHexColor("33FF00"))
+    self.assertFalse(transitfeed.IsValidHexColor("blue"))
+    self.assertFalse(transitfeed.IsValidHexColor(""))
+
+  def testIsValidLanguageCode(self):
+    self.assertTrue(transitfeed.IsValidLanguageCode("de"))
+    self.assertFalse(transitfeed.IsValidLanguageCode("Swiss German"))
+    self.assertFalse(transitfeed.IsValidLanguageCode(""))
+
+  def testValidateLanguageCode(self):
+    accumulator = RecordingProblemAccumulator(self)
+    problems = transitfeed.ProblemReporter(accumulator)
+    self.assertTrue(transitfeed.ValidateLanguageCode("", "col", problems))
+    accumulator.AssertNoMoreExceptions()
+    self.assertTrue(transitfeed.ValidateLanguageCode("de", "col", problems))
+    accumulator.AssertNoMoreExceptions()
+    self.assertFalse(transitfeed.ValidateLanguageCode("Swiss German", "col",
+                                                      problems))
+    e = accumulator.PopInvalidValue("col")
+    accumulator.AssertNoMoreExceptions()
+
+  def testIsValidTimezone(self):
+    self.assertTrue(transitfeed.IsValidTimezone("America/Los_Angeles"))
+    self.assertFalse(transitfeed.IsValidTimezone("Switzerland/Wil"))
+    self.assertFalse(transitfeed.IsValidTimezone(""))
+
+  def testValidateTimezone(self):
+    accumulator = RecordingProblemAccumulator(self)
+    problems = transitfeed.ProblemReporter(accumulator)
+    self.assertTrue(transitfeed.ValidateTimezone("", "col", problems))
+    accumulator.AssertNoMoreExceptions()
+    self.assertTrue(transitfeed.ValidateTimezone("America/Los_Angeles", "col",
+                                                 problems))
+    accumulator.AssertNoMoreExceptions()
+    self.assertFalse(transitfeed.ValidateTimezone("Switzerland/Wil", "col",
+                                                  problems))
+    e = accumulator.PopInvalidValue("col")
+    accumulator.AssertNoMoreExceptions()
+
+  def testIsValidDate(self):
+    self.assertTrue(transitfeed.IsValidDate("20100801"))
+    self.assertFalse(transitfeed.IsValidDate("20100732"))
+    self.assertFalse(transitfeed.IsValidDate(""))
+
+  def testValidateDate(self):
+    accumulator = RecordingProblemAccumulator(self)
+    problems = transitfeed.ProblemReporter(accumulator)
+    self.assertTrue(transitfeed.ValidateDate("", "col", problems))
+    accumulator.AssertNoMoreExceptions()
+    self.assertTrue(transitfeed.ValidateDate("20100801", "col", problems))
+    accumulator.AssertNoMoreExceptions()
+    self.assertFalse(transitfeed.ValidateDate("20100732", "col", problems))
+    e = accumulator.PopInvalidValue("col")
+    accumulator.AssertNoMoreExceptions()
+
 
 class FloatStringToFloatTestCase(util.TestCase):
   def runTest(self):

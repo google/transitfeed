@@ -113,3 +113,6 @@ class GtfsObjectBase(GtfsFactoryUser):
 
   def _ColumnNames(self):
     return self.keys()
+
+  def AddToSchedule(self, schedule, problems):
+    self._schedule = schedule

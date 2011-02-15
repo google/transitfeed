@@ -71,32 +71,15 @@ class Agency(GtfsObjectBase):
     return False
 
   def ValidateAgencyUrl(self, problems):
-    if self.agency_url and not util.IsValidURL(self.agency_url):
-      problems.InvalidValue('agency_url', self.agency_url)
-      return True
-    return False
+    return not util.ValidateURL(self.agency_url, 'agency_url', problems)
 
   def ValidateAgencyLang(self, problems):
-    if (not util.IsEmpty(self.agency_lang) and
-        self.agency_lang.lower() not in util.ISO639.codes_2letter):
-      problems.InvalidValue('agency_lang', self.agency_lang)
-      return True
-    return False
+    return not util.ValidateLanguageCode(self.agency_lang, 'agency_lang',
+                                         problems)
 
   def ValidateAgencyTimezone(self, problems):
-    try:
-      import pytz
-      if self.agency_timezone not in pytz.common_timezones:
-        problems.InvalidValue(
-            'agency_timezone',
-            self.agency_timezone,
-            '"%s" is not a common timezone name according to pytz version %s' %
-            (self.agency_timezone, pytz.VERSION))
-        return True
-    except ImportError:  # no pytz
-      print ("Timezone not checked "
-             "(install pytz package for timezone validation)")
-    return False
+    return not util.ValidateTimezone(self.agency_timezone, 'agency_timezone',
+                                     problems)
 
   def Validate(self, problems=default_problem_reporter):
     """Validate attribute values and this object's internal consistency.

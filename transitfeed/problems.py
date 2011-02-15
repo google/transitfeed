@@ -168,6 +168,13 @@ class ProblemReporter(object):
                     context=context, context2=self._context, type=type)
     self.AddToAccumulator(e)
 
+  def InvalidAgencyID(self, column_name, value, relating_type, relating_id,
+                      context=None, type=TYPE_ERROR):
+    e = InvalidAgencyID(column_name=column_name, value=value,
+                        relating_type=relating_type, relating_id=relating_id,
+                        context=context, context2=self._context, type=type)
+    self.AddToAccumulator(e)
+
   def UnusedStop(self, stop_id, stop_name, context=None):
     e = UnusedStop(stop_id=stop_id, stop_name=stop_name,
                    context=context, context2=self._context, type=TYPE_WARNING)
@@ -537,6 +544,10 @@ class InvalidNonNegativeIntegerValue(ExceptionWithContext):
 
 class DuplicateID(ExceptionWithContext):
   ERROR_TEXT = 'Duplicate ID %(value)s in column %(column_name)s'
+
+class InvalidAgencyID(ExceptionWithContext):
+  ERROR_TEXT = 'The %(relating_type)s with ID %(relating_id)s specifies ' \
+               '%(column_name)s %(value)s which does not exist.'
 
 class UnusedStop(ExceptionWithContext):
   ERROR_TEXT = "%(stop_name)s (ID %(stop_id)s) isn't used in any trips"

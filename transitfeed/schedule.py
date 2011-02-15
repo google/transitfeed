@@ -1136,11 +1136,8 @@ class Schedule:
     for route in self.routes.values():
       if (not util.IsEmpty(route.agency_id) and
           not route.agency_id in self._agencies):
-        problems.InvalidValue('agency_id',
-                              route.agency_id,
-                              'The route with ID "%s" specifies agency_id '
-                              '"%s", which doesn\'t exist.' %
-                              (route.route_id, route.agency_id))
+        problems.InvalidAgencyID('agency_id', route.agency_id,
+                                 'route', route.route_id)
 
   def ValidateTripStopTimes(self, problems):
     # Make sure all trips have stop_times

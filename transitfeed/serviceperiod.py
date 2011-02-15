@@ -305,25 +305,23 @@ class ServicePeriod(object):
     if util.IsEmpty(date):
       problems.MissingValue(field_name, date, context)
       return False
-    if re.match('^\d{8}$', date) == None:
-      problems.InvalidValue(
-          field_name, 'The date must be a string in the YYYYMMDD format.',
-          date, context, problems_module.TYPE_ERROR)
+    elif not util.ValidateDate(date, field_name, problems):
       return False
-    try:
-      date_value = time.strptime(date, "%Y%m%d")
-      if not (self._VALID_DATE_RANGE_FROM <= date_value.tm_year <=
-              self._VALID_DATE_RANGE_TO):
-        problems.DateOutsideValidRange(field_name, date,
-                                       self._VALID_DATE_RANGE_FROM,
-                                       self._VALID_DATE_RANGE_TO,
-                                       context=context)
+    else:
+      try:
+        date_value = time.strptime(date, "%Y%m%d")
+        if not (self._VALID_DATE_RANGE_FROM <= date_value.tm_year <=
+                self._VALID_DATE_RANGE_TO):
+          problems.DateOutsideValidRange(field_name, date,
+                                         self._VALID_DATE_RANGE_FROM,
+                                         self._VALID_DATE_RANGE_TO,
+                                         context=context)
+          return False
+        return True
+      except ValueError:
+        problems.InvalidValue(field_name, 'Could not parse date value.',
+                              date, context, problems_module.TYPE_ERROR)
         return False
-      return True
-    except ValueError:
-      problems.InvalidValue(field_name, 'Could not parse date value.',
-                            date, context, problems_module.TYPE_ERROR)
-      return False
 
   def Validate(self, problems=problems_module.default_problem_reporter):
 

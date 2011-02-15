@@ -194,12 +194,12 @@ class Route(GtfsObjectBase):
                                 type=problems_module.TYPE_WARNING)
 
   def ValidateRouteUrl(self, problems):
-    if self.route_url and not util.IsValidURL(self.route_url):
-      problems.InvalidValue('route_url', self.route_url)
+    if self.route_url:
+      util.ValidateURL(self.route_url, 'route_url', problems)
 
   def ValidateRouteColor(self, problems):
     if self.route_color:
-      if not util.IsValidColor(self.route_color):
+      if not util.IsValidHexColor(self.route_color):
         problems.InvalidValue('route_color', self.route_color,
                               'route_color should be a valid color description '
                               'which consists of 6 hexadecimal characters '
@@ -208,7 +208,7 @@ class Route(GtfsObjectBase):
 
   def ValidateRouteTextColor(self, problems):
     if self.route_text_color:
-      if not util.IsValidColor(self.route_text_color):
+      if not util.IsValidHexColor(self.route_text_color):
         problems.InvalidValue('route_text_color', self.route_text_color,
                               'route_text_color should be a valid color '
                               'description, which consists of 6 hexadecimal '

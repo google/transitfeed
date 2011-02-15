@@ -22,6 +22,7 @@ import optparse
 import random
 import re
 import sys
+import time
 
 import problems
 from trip import Trip
@@ -168,8 +169,6 @@ except:
       return 'defaultdict(%s, %s)' % (self.default_factory,
                                       dict.__repr__(self))
 
-
-
 OUTPUT_ENCODING = 'utf-8'
 
 def EncodeUnicode(text):
@@ -182,22 +181,116 @@ def EncodeUnicode(text):
     return text
 
 def IsValidURL(url):
-  """Checks the validity of a URL value."""
+  """
+  Checks the validity of a URL value:
+    - only checks whether the URL starts with 'http://' or 'https://'
+  """
   # TODO: Add more thorough checking of URL
   return url.startswith(u'http://') or url.startswith(u'https://')
 
+def ValidateURL(url, column_name=None, problems=None):
+  """
+  Validates a non-required URL value using IsValidURL():
+    - if invalid adds InvalidValue error (if problems accumulator is provided)
+    - an empty URL is considered valid and no error or warning is issued.
+  """
+  if IsEmpty(url) or IsValidURL(url):
+    return True
+  else:
+    if problems:
+      problems.InvalidValue(column_name, url)
+    return False
 
-def IsValidColor(color):
-  """Checks the validity of a hex color value."""
+def IsValidHexColor(color):
+  """
+  Checks the validity of a hex color value:
+    - the color string must consist of 6 hexadecimal digits
+  """
   return not re.match('^[0-9a-fA-F]{6}$', color) == None
 
+def IsValidLanguageCode(lang):
+  """
+  Checks the validity of a language code value:
+    - checks whether the code, as lower case, is in the ISO639 codes list
+  """
+  return lang.lower() in ISO639.codes_2letter
+
+def ValidateLanguageCode(lang, column_name=None, problems=None):
+  """
+  Validates a non-required language code value using IsValidLanguageCode():
+    - if invalid adds InvalidValue error (if problems accumulator is provided)
+    - an empty language code is regarded as valid! Otherwise we might end up
+      with many duplicate errors because of the required field checks.
+  """
+  if IsEmpty(lang) or IsValidLanguageCode(lang):
+    return True
+  else:
+    if problems:
+      problems.InvalidValue(column_name, lang)
+    return False
+
+def IsValidTimezone(timezone):
+  """
+  Checks the validity of a timezone string value:
+    - checks whether the timezone is in the pytz common_timezones list
+    - assumes the timezone to be valid if the pytz module is not available
+  """
+  try:
+    import pytz
+    return timezone in pytz.common_timezones
+  except ImportError:  # no pytz
+    print ("Timezone not checked "
+           "(install pytz package for timezone validation)")
+    return True
+
+def ValidateTimezone(timezone, column_name=None, problems=None):
+  """
+  Validates a non-required timezone string value using IsValidTimezone():
+    - if invalid adds InvalidValue error (if problems accumulator is provided)
+    - an empty timezone string is regarded as valid! Otherwise we might end up
+      with many duplicate errors because of the required field checks.
+  """
+  if IsEmpty(timezone) or IsValidTimezone(timezone):
+    return True
+  else:
+    if problems:
+      # if we get here pytz has already been imported successfully in
+      # IsValidTimezone(). So a try-except block is not needed here.
+      import pytz
+      problems.InvalidValue(
+          column_name, timezone,
+          '"%s" is not a common timezone name according to pytz version %s' %
+          (timezone, pytz.VERSION))
+    return False
+
+def IsValidDate(date):
+  """
+  Checks the validity of a date string value:
+    - checks whether the date string consists of 8 digits in the form "YYYYMMDD"
+    - checks whether the date string can be converted to a valid datetime object
+  """
+  return DateStringToDateObject(date) is not None
+
+def ValidateDate(date, column_name=None, problems=None):
+  """
+  Validates a non-required date string value using IsValidDate():
+    - if invalid adds InvalidValue error (if problems accumulator is provided)
+    - an empty date string is regarded as valid! Otherwise we might end up
+      with many duplicate errors because of the required field checks.
+  """
+  if IsEmpty(date) or IsValidDate(date):
+    return True
+  else:
+    if problems:
+      problems.InvalidValue(column_name, date)
+    return False
 
 def ColorLuminance(color):
   """Compute the brightness of an sRGB color using the formula from
   http://www.w3.org/TR/2000/WD-AERT-20000426#color-contrast.
 
   Args:
-    color: a string of six hex digits in the format verified by IsValidColor().
+    color: a string of 6 hex digits in the format verified by IsValidHexColor().
 
   Returns:
     A floating-point number between 0.0 (black) and 255.0 (white). """
@@ -241,8 +334,13 @@ def FormatSecondsSinceMidnight(s):
 def DateStringToDateObject(date_string):
   """Return a date object for a string "YYYYMMDD"."""
   # If this becomes a bottleneck date objects could be cached
-  return datetime.date(int(date_string[0:4]), int(date_string[4:6]),
-                       int(date_string[6:8]))
+  if re.match('^\d{8}$', date_string) == None:
+    return None
+  try:
+    return datetime.date(int(date_string[0:4]), int(date_string[4:6]),
+                         int(date_string[6:8]))
+  except ValueError:
+    return None
 
 
 def FloatStringToFloat(float_string, problems=None):

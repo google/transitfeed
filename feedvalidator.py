@@ -73,10 +73,9 @@ def CalendarSummary(schedule):
   if not start_date or not end_date:
     return {}
 
-  try:
-    start_date_object = transitfeed.DateStringToDateObject(start_date)
-    end_date_object = transitfeed.DateStringToDateObject(end_date)
-  except ValueError:
+  start_date_object = transitfeed.DateStringToDateObject(start_date)
+  end_date_object = transitfeed.DateStringToDateObject(end_date)
+  if not start_date_object or not end_date_object:
     return {}
 
   # Get the list of trips only during the period the feed is active.
