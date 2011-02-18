@@ -69,39 +69,41 @@ class ProblemReporter(object):
     """Report an exception to the Problem Accumulator"""
     self.accumulator._Report(e)
 
-  def FeedNotFound(self, feed_name, context=None):
+  def FeedNotFound(self, feed_name, context=None, type=TYPE_ERROR):
     e = FeedNotFound(feed_name=feed_name, context=context,
-                     context2=self._context)
+                     context2=self._context, type=type)
     self.AddToAccumulator(e)
 
-  def UnknownFormat(self, feed_name, context=None):
+  def UnknownFormat(self, feed_name, context=None, type=TYPE_ERROR):
     e = UnknownFormat(feed_name=feed_name, context=context,
-                      context2=self._context)
+                      context2=self._context, type=type)
     self.AddToAccumulator(e)
 
-  def FileFormat(self, problem, context=None):
+  def FileFormat(self, problem, context=None, type=TYPE_ERROR):
     e = FileFormat(problem=problem, context=context,
-                   context2=self._context)
+                   context2=self._context, type=type)
     self.AddToAccumulator(e)
 
-  def MissingFile(self, file_name, context=None):
+  def MissingFile(self, file_name, context=None, type=TYPE_ERROR):
     e = MissingFile(file_name=file_name, context=context,
-                    context2=self._context)
+                    context2=self._context, type=type)
     self.AddToAccumulator(e)
 
-  def UnknownFile(self, file_name, context=None):
+  def UnknownFile(self, file_name, context=None, type=TYPE_WARNING):
     e = UnknownFile(file_name=file_name, context=context,
-                  context2=self._context, type=TYPE_WARNING)
+                  context2=self._context, type=type)
     self.AddToAccumulator(e)
 
-  def EmptyFile(self, file_name, context=None):
+  def EmptyFile(self, file_name, context=None, type=TYPE_ERROR):
     e = EmptyFile(file_name=file_name, context=context,
-                  context2=self._context)
+                  context2=self._context, type=type)
     self.AddToAccumulator(e)
 
-  def MissingColumn(self, file_name, column_name, context=None):
+  def MissingColumn(self, file_name, column_name, context=None,
+                    type=TYPE_ERROR):
     e = MissingColumn(file_name=file_name, column_name=column_name,
-                      context=context, context2=self._context)
+                      context=context, context2=self._context,
+                      type=type)
     self.AddToAccumulator(e)
 
   def UnrecognizedColumn(self, file_name, column_name, context=None,
@@ -135,9 +137,10 @@ class ProblemReporter(object):
                         context2=self._context)
     self.AddToAccumulator(e)
 
-  def MissingValue(self, column_name, reason=None, context=None):
+  def MissingValue(self, column_name, reason=None, context=None,
+                   type=TYPE_ERROR):
     e = MissingValue(column_name=column_name, reason=reason, context=context,
-                     context2=self._context)
+                     context2=self._context, type=type)
     self.AddToAccumulator(e)
 
   def InvalidValue(self, column_name, value, reason=None, context=None,
@@ -175,14 +178,14 @@ class ProblemReporter(object):
                         context=context, context2=self._context, type=type)
     self.AddToAccumulator(e)
 
-  def UnusedStop(self, stop_id, stop_name, context=None):
+  def UnusedStop(self, stop_id, stop_name, context=None, type=TYPE_WARNING):
     e = UnusedStop(stop_id=stop_id, stop_name=stop_name,
-                   context=context, context2=self._context, type=TYPE_WARNING)
+                   context=context, context2=self._context, type=type)
     self.AddToAccumulator(e)
 
-  def UsedStation(self, stop_id, stop_name, context=None):
+  def UsedStation(self, stop_id, stop_name, context=None, type=TYPE_ERROR):
     e = UsedStation(stop_id=stop_id, stop_name=stop_name,
-                    context=context, context2=self._context, type=TYPE_ERROR)
+                    context=context, context2=self._context, type=type)
     self.AddToAccumulator(e)
 
   def StopTooFarFromParentStation(self, stop_id, stop_name, parent_stop_id,
@@ -230,14 +233,14 @@ class ProblemReporter(object):
         distance=distance, max_distance=max_distance, type=type)
     self.AddToAccumulator(e)
 
-  def ExpirationDate(self, expiration, context=None):
+  def ExpirationDate(self, expiration, context=None, type=TYPE_WARNING):
     e = ExpirationDate(expiration=expiration, context=context,
-                       context2=self._context, type=TYPE_WARNING)
+                       context2=self._context, type=type)
     self.AddToAccumulator(e)
 
-  def FutureService(self, start_date, context=None):
+  def FutureService(self, start_date, context=None, type=TYPE_WARNING):
     e = FutureService(start_date=start_date, context=context,
-                      context2=self._context, type=TYPE_WARNING)
+                      context2=self._context, type=type)
     self.AddToAccumulator(e)
 
   def DateOutsideValidRange(self, column_name, value, range_start_year,
@@ -254,10 +257,10 @@ class ProblemReporter(object):
                             context2=self._context, type=type);
     self.AddToAccumulator(e)
 
-  def InvalidLineEnd(self, bad_line_end, context=None):
+  def InvalidLineEnd(self, bad_line_end, context=None, type=TYPE_WARNING):
     """bad_line_end is a human readable string."""
     e = InvalidLineEnd(bad_line_end=bad_line_end, context=context,
-                       context2=self._context, type=TYPE_WARNING)
+                       context2=self._context, type=type)
     self.AddToAccumulator(e)
 
   def TooFastTravel(self, trip_id, prev_stop, next_stop, dist, time, speed,
@@ -268,25 +271,25 @@ class ProblemReporter(object):
     self.AddToAccumulator(e)
 
   def StopWithMultipleRouteTypes(self, stop_name, stop_id, route_id1, route_id2,
-                                 context=None):
+                                 context=None, type=TYPE_WARNING):
     e = StopWithMultipleRouteTypes(stop_name=stop_name, stop_id=stop_id,
                                    route_id1=route_id1, route_id2=route_id2,
                                    context=context, context2=self._context,
-                                   type=TYPE_WARNING)
+                                   type=type)
     self.AddToAccumulator(e)
 
   def DuplicateTrip(self, trip_id1, route_id1, trip_id2, route_id2,
-                    context=None):
+                    context=None, type=TYPE_WARNING):
     e = DuplicateTrip(trip_id1=trip_id1, route_id1=route_id1, trip_id2=trip_id2,
                       route_id2=route_id2, context=context,
-                      context2=self._context, type=TYPE_WARNING)
+                      context2=self._context, type=type)
     self.AddToAccumulator(e)
 
   def OverlappingTripsInSameBlock(self, trip_id1, trip_id2, block_id,
-                                  context=None):
+                                  context=None, type=TYPE_WARNING):
     e = OverlappingTripsInSameBlock(trip_id1=trip_id1, trip_id2=trip_id2,
                                     block_id=block_id, context=context,
-                                    context2=self._context, type=TYPE_WARNING)
+                                    context2=self._context, type=type);
     self.AddToAccumulator(e)
 
   def TransferDistanceTooBig(self, from_stop_id, to_stop_id, distance,
