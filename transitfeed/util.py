@@ -285,6 +285,21 @@ def ValidateDate(date, column_name=None, problems=None):
       problems.InvalidValue(column_name, date)
     return False
 
+def ValidateRequiredFieldsAreNotEmpty(gtfs_object, required_field_names,
+                                      problems=None):
+  """
+  Validates whether all required fields of an object have a value:
+    - if value empty adds MissingValue errors (if problems accumulator is
+      provided)
+  """
+  no_missing_value = True
+  for name in required_field_names:
+    if IsEmpty(getattr(gtfs_object, name, None)):
+      if problems:
+        problems.MissingValue(name)
+      no_missing_value = False
+  return no_missing_value
+
 def ColorLuminance(color):
   """Compute the brightness of an sRGB color using the formula from
   http://www.w3.org/TR/2000/WD-AERT-20000426#color-contrast.
@@ -299,10 +314,8 @@ def ColorLuminance(color):
   b = int(color[4:6], 16)
   return (299*r + 587*g + 114*b) / 1000.0
 
-
 def IsEmpty(value):
   return value is None or (isinstance(value, basestring) and not value.strip())
-
 
 def FindUniqueId(dic):
   """Return a string not used as a key in the dictionary dic"""
@@ -311,7 +324,6 @@ def FindUniqueId(dic):
     # Use bigger numbers so it is obvious when an id is picked randomly.
     name = str(random.randint(1000000, 999999999))
   return name
-
 
 def TimeToSecondsSinceMidnight(time_string):
   """Convert HHH:MM:SS into seconds since midnight.
@@ -324,12 +336,10 @@ def TimeToSecondsSinceMidnight(time_string):
     raise problems.Error, 'Bad HH:MM:SS "%s"' % time_string
   return int(m.group(1)) * 3600 + int(m.group(2)) * 60 + int(m.group(3))
 
-
 def FormatSecondsSinceMidnight(s):
   """Formats an int number of seconds past midnight into a string
   as "HH:MM:SS"."""
   return "%02d:%02d:%02d" % (s / 3600, (s / 60) % 60, s % 60)
-
 
 def DateStringToDateObject(date_string):
   """Return a date object for a string "YYYYMMDD"."""
@@ -341,7 +351,6 @@ def DateStringToDateObject(date_string):
                          int(date_string[6:8]))
   except ValueError:
     return None
-
 
 def FloatStringToFloat(float_string, problems=None):
   """Convert a float as a string to a float or raise an exception"""
@@ -390,7 +399,6 @@ def ApproximateDistance(degree_lat1, degree_lng1, degree_lat2, degree_lng2):
   x = dlat * dlat + dlng * dlng * math.cos(lat1) * math.cos(lat2)
   return EARTH_RADIUS * (2 * math.atan2(math.sqrt(x),
       math.sqrt(max(0.0, 1.0 - x))))
-
 
 def ApproximateDistanceBetweenStops(stop1, stop2):
   """Compute approximate distance between two stops in meters. Assumes the

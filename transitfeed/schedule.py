@@ -38,7 +38,7 @@ import problems as problems_module
 from transitfeed.util import defaultdict
 import util
 
-class Schedule:
+class Schedule(object):
   """Represents a Schedule, a collection of stops, routes, trips and
   an agency.  This is the main class for this module."""
 
@@ -246,17 +246,41 @@ class Schedule:
     return self.service_periods.values()
 
   def GetDateRange(self):
-    """Returns a tuple of (earliest, latest) dates on which the service
-    periods in the schedule define service, in YYYYMMDD form."""
+    """Returns a tuple of (earliest, latest) dates on which the service periods
+    in the schedule define service, in YYYYMMDD form.
+    """
+    (minvalue, maxvalue, minorigin, maxorigin) = self.GetDateRangeWithOrigins()
+    return (minvalue, maxvalue)
 
-    ranges = [period.GetDateRange() for period in self.GetServicePeriodList()]
+  def GetDateRangeWithOrigins(self):
+    """Returns a tuple of (earliest, latest, earliest_origin, latest_origin)
+    dates on which the service periods in the schedule define service, in
+    YYYYMMDD form.
+    The origins specify where the earliest or latest dates come from. In
+    particular, whether the date is a regular ServicePeriod start_date or
+    end_date or as service exception of type add.
+    """
+
+    period_list = self.GetServicePeriodList()
+    ranges = [period.GetDateRange() for period in period_list]
     starts = filter(lambda x: x, [item[0] for item in ranges])
     ends = filter(lambda x: x, [item[1] for item in ranges])
 
     if not starts or not ends:
-      return (None, None)
+      return (None, None, None, None)
 
-    return (min(starts), max(ends))
+    minvalue, minindex = min(itertools.izip(starts, itertools.count()))
+    maxvalue, maxindex = max(itertools.izip(ends, itertools.count()))
+
+    minreason = (period_list[minindex].HasDateExceptionOn(minvalue) and
+                 "earliest service exception date in calendar_dates.txt" or
+                 "earliest service date in calendar.txt")
+
+    maxreason = (period_list[maxindex].HasDateExceptionOn(maxvalue) and
+                 "last service exception date in calendar_dates.txt" or
+                 "last service date in calendar.txt")
+
+    return (minvalue, maxvalue, minreason, maxreason)
 
   def GetServicePeriodsActiveEachDate(self, date_start, date_end):
     """Return a list of tuples (date, [period1, period2, ...]).
@@ -730,10 +754,8 @@ class Schedule:
       date_trips.append((date, day_trips, day_departures))
     return date_trips
 
-  def ValidateFeedStartAndExpirationDates(self,
-                                          problems,
-                                          first_date,
-                                          last_date,
+  def ValidateFeedStartAndExpirationDates(self, problems, first_date, last_date,
+                                          first_date_origin, last_date_origin,
                                           today):
     """Validate the start and expiration dates of the feed.
        Issue a warning if it only starts in the future, or if
@@ -750,10 +772,12 @@ class Schedule:
     """
     warning_cutoff = today + datetime.timedelta(days=60)
     if last_date < warning_cutoff:
-        problems.ExpirationDate(time.mktime(last_date.timetuple()))
+        problems.ExpirationDate(time.mktime(last_date.timetuple()),
+                                last_date_origin)
 
     if first_date > today:
-      problems.FutureService(time.mktime(first_date.timetuple()))
+      problems.FutureService(time.mktime(first_date.timetuple()),
+                             first_date_origin)
 
   def ValidateServiceGaps(self,
                           problems,
@@ -834,7 +858,8 @@ class Schedule:
                                         service_gap_interval):
     if today is None:
       today = datetime.date.today()
-    (start_date, end_date) = self.GetDateRange()
+    (start_date, end_date,
+     start_date_origin, end_date_origin) = self.GetDateRangeWithOrigins()
     if not end_date or not start_date:
       problems.OtherProblem('This feed has no effective service dates!',
                             type=problems_module.TYPE_WARNING)
@@ -856,6 +881,8 @@ class Schedule:
           self.ValidateFeedStartAndExpirationDates(problems,
                                                    first_service_day,
                                                    last_service_day,
+                                                   start_date_origin,
+                                                   end_date_origin,
                                                    today)
 
           # We start checking for service gaps a bit in the past if the

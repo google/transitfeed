@@ -1,0 +1,22 @@
+This folder's subfolders contain extensions which modify the transitfeed
+package to adapt it to more specific requirements.
+
+Each subfolder has to be a valid Python module and its name should be the same
+as the extension name, e.g. googletransit. This name will be used to import the
+extension as a Python module. The Python module must expose at least the
+GetGtfsFactory() method at the module level. All classes from the transitfeed
+module, inheriting the GtfsObjectBase and being instantiated via the GtfsFactory
+can be extended (overridden). Extended classes can be registered in the
+GtfsFactory via the UpdateClass(). New classes can be registered in the
+GtfsFactory via the AddMapping() method.
+
+For more information see
+http://code.google.com/p/googletransitdatafeed/wiki/FeedValidatorExtensions
+
+You can tell FeedValidator to use an extension while validating a feed. Running
+FeedValidator with an extension is done with the "--extension" option, e.g.
+./feedvalidator.py <feed_filename> --extension extensions.<extension_name>
+
+If you are developing your own program, and want to use an extension from your
+code, you can do so by calling extensions.<extension name>.GetGtfsFactory()
+instead of transitfeed.GetGtfsFactory().

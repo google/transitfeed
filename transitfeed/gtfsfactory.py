@@ -18,10 +18,10 @@ from agency import Agency
 from fareattribute import FareAttribute
 from farerule import FareRule
 from frequency import Frequency
-import loader
+from loader import Loader
 import problems
 from route import Route
-import schedule
+from schedule import Schedule
 from serviceperiod import ServicePeriod
 from shape import Shape
 from shapepoint import ShapePoint
@@ -50,6 +50,8 @@ class GtfsFactory(object):
       'Route': Route,
       'Transfer': Transfer,
       'Trip': Trip,
+      'Schedule': Schedule,
+      'Loader': Loader
     }
 
     self._file_mapping = {
@@ -92,12 +94,6 @@ class GtfsFactory(object):
         }
 
   def __getattr__(self, name):
-    if name == 'Schedule':
-      return schedule.Schedule
-
-    if name == 'Loader':
-      return loader.Loader
-
     if name in self._class_mapping:
       return self._class_mapping[name]
 

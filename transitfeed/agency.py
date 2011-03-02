@@ -63,13 +63,6 @@ class Agency(GtfsObjectBase):
 
     self.__dict__.update(field_dict)
 
-  def ValidateRequiredFieldNames(self, problems):
-    for required in self._REQUIRED_FIELD_NAMES:
-      if util.IsEmpty(getattr(self, required, None)):
-        problems.MissingValue(required)
-        return True
-    return False
-
   def ValidateAgencyUrl(self, problems):
     return not util.ValidateURL(self.agency_url, 'agency_url', problems)
 
@@ -88,7 +81,9 @@ class Agency(GtfsObjectBase):
       True iff all validation checks passed.
     """
     found_problem = False
-    found_problem = self.ValidateRequiredFieldNames(problems) or found_problem
+    found_problem = ((not util.ValidateRequiredFieldsAreNotEmpty(
+                          self, self._REQUIRED_FIELD_NAMES, problems))
+                          or found_problem)
     found_problem = self.ValidateAgencyUrl(problems) or found_problem
     found_problem = self.ValidateAgencyLang(problems) or found_problem
     found_problem = self.ValidateAgencyTimezone(problems) or found_problem

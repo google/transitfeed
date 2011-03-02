@@ -42,6 +42,9 @@ class ServicePeriod(object):
   _VALID_DATE_RANGE_FROM = 1900
   _VALID_DATE_RANGE_TO = 2100
 
+  _EXCEPTION_TYPE_ADD = 1
+  _EXCEPTION_TYPE_REMOVE = 2
+
   def __init__(self, id=None, field_list=None):
     self.original_day_values = []
     if field_list:
@@ -86,7 +89,7 @@ class ServicePeriod(object):
     end = self.end_date
 
     for date, (exception_type, _) in self.date_exceptions.items():
-      if exception_type == 2:
+      if exception_type == self._EXCEPTION_TYPE_REMOVE:
         continue
       if not start or (date < start):
         start = date
@@ -124,8 +127,8 @@ class ServicePeriod(object):
       problems.DuplicateID(('service_id', 'date'),
                            (self.service_id, date),
                            type=problems_module.TYPE_WARNING)
-    exception_context_tuple = (has_service and 1 or 2,
-                               problems != None and
+    exception_context_tuple = (has_service and self._EXCEPTION_TYPE_ADD or
+                               self._EXCEPTION_TYPE_REMOVE, problems != None and
                                problems.GetFileContext() or None)
     self.date_exceptions[date] = exception_context_tuple
 
@@ -170,6 +173,21 @@ class ServicePeriod(object):
     suffice so you won't need to call this method."""
     self.service_id = service_id
 
+  def HasDateExceptionOn(self, date, exception_type=_EXCEPTION_TYPE_ADD):
+    """Test if this service period has a date exception of the given type.
+
+    Args:
+      date: a string of form "YYYYMMDD"
+      exception_type: the exception type the date should have. Defaults to
+                      _EXCEPTION_TYPE_ADD
+
+    Returns:
+      True iff this service has service exception of specified type at date.
+    """
+    if date in self.date_exceptions:
+      return exception_type == self.date_exceptions[date][0]
+    return False
+
   def IsActiveOn(self, date, date_object=None):
     """Test if this service period is active on a date.
 
@@ -187,7 +205,7 @@ class ServicePeriod(object):
     """
     if date in self.date_exceptions:
       exception_type, _ = self.date_exceptions[date]
-      if exception_type == 1:
+      if exception_type == self._EXCEPTION_TYPE_ADD:
         return True
       else:
         return False
@@ -288,7 +306,7 @@ class ServicePeriod(object):
 
   def HasDateExceptionTypeAdded(self):
     for exception_type, _ in self.date_exceptions.values():
-      if exception_type == 1:
+      if exception_type == self._EXCEPTION_TYPE_ADD:
         return True
     return False
 

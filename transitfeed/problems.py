@@ -233,14 +233,18 @@ class ProblemReporter(object):
         distance=distance, max_distance=max_distance, type=type)
     self.AddToAccumulator(e)
 
-  def ExpirationDate(self, expiration, context=None, type=TYPE_WARNING):
-    e = ExpirationDate(expiration=expiration, context=context,
-                       context2=self._context, type=type)
+  def ExpirationDate(self, expiration, expiration_origin_file, context=None):
+    e = ExpirationDate(expiration=expiration,
+                       expiration_origin_file=expiration_origin_file,
+                       context=context, context2=self._context,
+                       type=TYPE_WARNING)
     self.AddToAccumulator(e)
 
-  def FutureService(self, start_date, context=None, type=TYPE_WARNING):
-    e = FutureService(start_date=start_date, context=context,
-                      context2=self._context, type=type)
+  def FutureService(self, start_date, start_date_origin_file, context=None):
+    e = FutureService(start_date=start_date,
+                      start_date_origin_file=start_date_origin_file,
+                      context=context, context2=self._context,
+                      type=TYPE_WARNING)
     self.AddToAccumulator(e)
 
   def DateOutsideValidRange(self, column_name, value, range_start_year,
@@ -621,22 +625,26 @@ class ExpirationDate(ExceptionWithContext):
   def FormatProblem(self, d=None):
     if not d:
       d = self.GetDictToFormat()
+    expiration_origin_file = d['expiration_origin_file']
     expiration = d['expiration']
     formatted_date = time.strftime("%B %d, %Y",
                                    time.localtime(expiration))
     if (expiration < time.mktime(time.localtime())):
-      return "This feed expired on %s" % formatted_date
+      return "This feed expired on %s (%s)" % (formatted_date,
+                                               expiration_origin_file)
     else:
-      return "This feed will soon expire, on %s" % formatted_date
+      return "This feed will soon expire, on %s (%s)" % (formatted_date,
+                                                         expiration_origin_file)
 
 class FutureService(ExceptionWithContext):
   def FormatProblem(self, d=None):
     if not d:
       d = self.GetDictToFormat()
+    start_date_origin_file = d['start_date_origin_file']
     formatted_date = time.strftime("%B %d, %Y", time.localtime(d['start_date']))
-    return ("The earliest service date in this feed is in the future, on %s. "
+    return ("The %s in this feed is in the future, on %s. "
             "Published feeds must always include the current date." %
-            formatted_date)
+            (start_date_origin_file, formatted_date))
 
 class DateOutsideValidRange(ExceptionWithContext):
   ERROR_TEXT = "The date %(value)s in field %(column_name)s is not between " \

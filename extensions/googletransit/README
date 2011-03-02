@@ -1,0 +1,28 @@
+README file for the googletransit extension
+
+
+This extension modifies the transitfeed package to adapt it to the requirements
+and features specific to Google Transit.
+
+List of changes to the default behavior:
+* extensions.googletransit.FareAttribute:
+  - extension of transitfeed.FareAttribute
+  - adds new field 'agency_id' and function ValidateAgencyId()
+* extensions.googletransit.FeedInfo:
+  - new class for validating feedinfo.txt
+  - validates fields 'feed_publisher_name', 'feed_publisher_url', 'feed_lang',
+    'feed_timezone', 'feed_valid_from' and 'feed_valid_until'
+  - recognizes field 'feed_version'
+  - The valid dates range specified by 'feed_valid_from' and 'feed_valid_until'
+    is only used to check the feed validity. It's not used for other purposes.
+    In particular, services and service exceptions are not dropped or reduced if
+    they are defined outside this valid dates range.
+* extensions.googletransit.Schedule:
+  - extension of transitfeed.Schedule
+  - new feed_info variable and AddFeedInfoObject() method in order to be able to
+    register a extensions.googletransit.FeedInfo object in the Schedule
+  - validates FeedInfo.feed_lang against Agency.agency_lang
+  - validates FeedInfo.feed_timezone against Agency.agency_timezone
+  - checks that all Agencies have the same timezone
+  - overrides ValidateFeedStartAndExpirationDates() in order to take
+    FeedInfo.feed_valid_from and FeedInfo.feed_valid_until into account
