@@ -18,7 +18,9 @@ import transitfeed
 import weakref
 
 class Schedule(transitfeed.Schedule):
-  """ extension of transitfeed.Schedule:
+  """ extension of transitfeed.Schedule for being able to validate
+      interrelationships between the new fields and data sets introduced in this
+      extension:
       - adding variable to hold the feed_info
       - adding AddFeedInfoObject which is called from FeedInfo.AddToSchedule
       - validates FeedInfo.feed_lang against Agency.agency_lang

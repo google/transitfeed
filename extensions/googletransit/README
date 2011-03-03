@@ -6,10 +6,13 @@ and features specific to Google Transit.
 
 List of changes to the default behavior:
 * extensions.googletransit.FareAttribute:
-  - extension of transitfeed.FareAttribute
+  - extension of transitfeed.FareAttribute as in the open proposal
+    "add agency_id column to fare_attributes.txt" at
+    http://groups.google.com/group/gtfs-changes/browse_frm/thread/4e74c23bb1f80480
   - adds new field 'agency_id' and function ValidateAgencyId()
 * extensions.googletransit.FeedInfo:
-  - new class for validating feedinfo.txt
+  - new class for validating feedinfo.txt as poposed in
+    https://sites.google.com/site/gtfschanges/spec-changes-summary#feed_info
   - validates fields 'feed_publisher_name', 'feed_publisher_url', 'feed_lang',
     'feed_timezone', 'feed_valid_from' and 'feed_valid_until'
   - recognizes field 'feed_version'
@@ -18,7 +21,9 @@ List of changes to the default behavior:
     In particular, services and service exceptions are not dropped or reduced if
     they are defined outside this valid dates range.
 * extensions.googletransit.Schedule:
-  - extension of transitfeed.Schedule
+  - extension of transitfeed.Schedule for being able to validate
+    interrelationships between the new fields and data sets introduced in this
+    extension
   - new feed_info variable and AddFeedInfoObject() method in order to be able to
     register a extensions.googletransit.FeedInfo object in the Schedule
   - validates FeedInfo.feed_lang against Agency.agency_lang
@@ -26,3 +31,7 @@ List of changes to the default behavior:
   - checks that all Agencies have the same timezone
   - overrides ValidateFeedStartAndExpirationDates() in order to take
     FeedInfo.feed_valid_from and FeedInfo.feed_valid_until into account
+* extensions.googletransit.Frequency
+  - extension of transitfeed.Frequency as proposed in
+    https://sites.google.com/site/gtfschanges/spec-changes-summary#frequencies
+  - adding field 'exact_times' and function ValidateExactTimes()

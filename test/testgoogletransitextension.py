@@ -14,16 +14,18 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Unit tests for the transitfeed extensions, e.g. extensions.googletransit
+# Unit tests for the googletransit extension (extensions.googletransit)
+
+import extensions.googletransit
 
 import time
 import transitfeed
 from util import MemoryZipTestCase
 from util import RecordingProblemAccumulator
+from testtransitfeed import ValidationTestCase
 
 
 class FareAttributeAgencyIdTestCase(MemoryZipTestCase):
-  import extensions.googletransit
   gtfs_factory = extensions.googletransit.GetGtfsFactory()
 
   def testNoErrorsWithOneAgencyAndNoIdAndAgencyIdColumnNotPresent(self):
@@ -123,7 +125,6 @@ class FareAttributeAgencyIdTestCase(MemoryZipTestCase):
 
 
 class FeedInfoExtensionTestCase(MemoryZipTestCase):
-  import extensions.googletransit
   gtfs_factory = extensions.googletransit.GetGtfsFactory()
 
   def setUp(self):
@@ -203,7 +204,6 @@ class FeedInfoExtensionTestCase(MemoryZipTestCase):
 
 
 class ScheduleTestCase(MemoryZipTestCase):
-  import extensions.googletransit
   gtfs_factory = extensions.googletransit.GetGtfsFactory()
 
   def testNoErrorsWithAgenciesHavingSameTimeZone(self):
@@ -225,7 +225,6 @@ class ScheduleTestCase(MemoryZipTestCase):
 
 
 class ScheduleStartAndExpirationDatesTestCase(MemoryZipTestCase):
-  import extensions.googletransit
   gtfs_factory = extensions.googletransit.GetGtfsFactory()
 
   #init dates to be close to now
@@ -383,3 +382,81 @@ class ScheduleStartAndExpirationDatesTestCase(MemoryZipTestCase):
     self.assertTrue("feed_info.txt" in e.start_date_origin_file)
     self.accumulator.AssertNoMoreExceptions()
 
+
+class FrequencyExtensionTestCase(ValidationTestCase):
+  gtfs_factory = extensions.googletransit.GetGtfsFactory()
+
+  def testExactTimesStringValueConversion(self):
+    frequency_class = self.gtfs_factory.Frequency
+    # test that no exact_times converts to 0
+    frequency = frequency_class(
+        field_dict={"trip_id": "AB1,10", "start_time": "10:00:00",
+                    "end_time": "23:01:00", "headway_secs": "1800"})
+    frequency.ValidateBeforeAdd(self.problems)
+    self.assertEquals(frequency.ExactTimes(), 0)
+    # test that empty exact_times converts to 0
+    frequency = frequency_class(
+        field_dict={"trip_id": "AB1,10", "start_time": "10:00:00",
+                    "end_time": "23:01:00", "headway_secs": "1800",
+                    "exact_times": ""})
+    frequency.ValidateBeforeAdd(self.problems)
+    self.assertEquals(frequency.ExactTimes(), 0)
+    # test that exact_times "0" converts to 0
+    frequency = frequency_class(
+        field_dict={"trip_id": "AB1,10", "start_time": "10:00:00",
+                    "end_time": "23:01:00", "headway_secs": "1800",
+                    "exact_times": "0"})
+    frequency.ValidateBeforeAdd(self.problems)
+    self.assertEquals(frequency.ExactTimes(), 0)
+    # test that exact_times "1" converts to 1
+    frequency = frequency_class(
+        field_dict={"trip_id": "AB1,10", "start_time": "10:00:00",
+                    "end_time": "23:01:00", "headway_secs": "1800",
+                    "exact_times": "1"})
+    frequency.ValidateBeforeAdd(self.problems)
+    self.assertEquals(frequency.ExactTimes(), 1)
+    self.accumulator.AssertNoMoreExceptions()
+
+  def testExactTimesAsIntValue(self):
+    frequency_class = self.gtfs_factory.Frequency
+    # test that exact_times None converts to 0
+    frequency = frequency_class(
+        field_dict={"trip_id": "AB1,10", "start_time": "10:00:00",
+                    "end_time": "23:01:00", "headway_secs": "1800",
+                    "exact_times": None})
+    frequency.ValidateBeforeAdd(self.problems)
+    self.assertEquals(frequency.ExactTimes(), 0)
+    # test that exact_times 0 remains 0
+    frequency = frequency_class(
+        field_dict={"trip_id": "AB1,10", "start_time": "10:00:00",
+                    "end_time": "23:01:00", "headway_secs": "1800",
+                    "exact_times": 0})
+    frequency.ValidateBeforeAdd(self.problems)
+    self.assertEquals(frequency.ExactTimes(), 0)
+    # test that exact_times 1 remains 1
+    frequency = frequency_class(
+        field_dict={"trip_id": "AB1,10", "start_time": "10:00:00",
+                    "end_time": "23:01:00", "headway_secs": "1800",
+                    "exact_times": 1})
+    frequency.ValidateBeforeAdd(self.problems)
+    self.assertEquals(frequency.ExactTimes(), 1)
+    self.accumulator.AssertNoMoreExceptions()
+
+  def testExactTimesInvalidValues(self):
+    frequency_class = self.gtfs_factory.Frequency
+    # test that exact_times 15 raises error
+    frequency = frequency_class(
+        field_dict={"trip_id": "AB1,10", "start_time": "10:00:00",
+                    "end_time": "23:01:00", "headway_secs": "1800",
+                    "exact_times": 15})
+    frequency.ValidateBeforeAdd(self.problems)
+    self.accumulator.PopInvalidValue("exact_times")
+    self.accumulator.AssertNoMoreExceptions()
+    # test that exact_times "yes" raises error
+    frequency = frequency_class(
+        field_dict={"trip_id": "AB1,10", "start_time": "10:00:00",
+                    "end_time": "23:01:00", "headway_secs": "1800",
+                    "exact_times": "yes"})
+    frequency.ValidateBeforeAdd(self.problems)
+    self.accumulator.PopInvalidValue("exact_times")
+    self.accumulator.AssertNoMoreExceptions()
