@@ -37,6 +37,18 @@ def check_call(cmd, expected_retcode=0, stdin_str="", **kwargs):
   try:
     if 'stdout' in kwargs or 'stderr' in kwargs or 'stdin' in kwargs:
       raise Exception("Don't pass stdout or stderr")
+
+    # If a custom 'env' is in kwargs this will be passed to subprocess.Popen and
+    # will prevent the subprocess from inheriting the parent's 'env'.
+    # On Windows 7 we have to make sure that our custom 'env' contains
+    # 'SystemRoot' as some code here is using os.urandom() which requires this
+    # system variable. See review at http://codereview.appspot.com/4240085/ and
+    # thread "is this a bug? no environment variables" at
+    # http://www.gossamer-threads.com/lists/python/dev/878941
+    if 'SystemRoot' in os.environ:
+      if 'env' in kwargs:
+        kwargs['env'].setdefault('SystemRoot', os.environ['SystemRoot'])
+
     p = subprocess.Popen(cmd, stdout=subprocess.PIPE,
                          stderr=subprocess.PIPE, stdin=subprocess.PIPE,
                          **kwargs)
