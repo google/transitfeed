@@ -139,10 +139,8 @@ class Stop(GtfsObjectBase):
       return 0
     elif name == "trip_index":
       return self._GetTripIndex()
-    elif name in self._FIELD_NAMES:
-      return None
     else:
-      raise AttributeError(name)
+      return super(Stop, self).__getattr__(name)
 
   def ValidateStopLatitude(self, problems):
     if self.stop_lat is not None:

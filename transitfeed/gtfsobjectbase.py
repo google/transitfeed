@@ -61,6 +61,8 @@ class GtfsObjectBase(GtfsFactoryUser):
     """
     if name in self.__class__._FIELD_NAMES:
       return None
+    elif name in [dfn[0] for dfn in self.__class__._DEPRECATED_FIELD_NAMES]:
+      return None
     else:
       raise AttributeError(name)
 
