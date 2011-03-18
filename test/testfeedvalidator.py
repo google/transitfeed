@@ -31,6 +31,10 @@ import zipfile
 
 
 class FullTests(util.TempDirTestCaseBase):
+
+  extension_message = 'FeedValidator extension used: '
+  extension_name = 'None'
+
   def testGoodFeed(self):
     (out, err) = self.CheckCallWithPath(
         [self.GetPath('feedvalidator.py'), '-n', '--latest_version',
@@ -38,6 +42,8 @@ class FullTests(util.TempDirTestCaseBase):
     self.assertTrue(re.search(r'feed validated successfully', out))
     self.assertFalse(re.search(r'ERROR', out))
     htmlout = open('validation-results.html').read()
+    self.assertMatchesRegex(
+        self.extension_message + self.extension_name, htmlout)
     self.assertTrue(re.search(r'feed validated successfully', htmlout))
     self.assertFalse(re.search(r'ERROR', htmlout))
     self.assertFalse(os.path.exists('transitfeedcrash.txt'))
@@ -48,6 +54,8 @@ class FullTests(util.TempDirTestCaseBase):
          transitfeed.__version__,
          '--output=CONSOLE', self.GetPath('test', 'data', 'good_feed')])
     self.assertTrue(re.search(r'feed validated successfully', out))
+    self.assertMatchesRegex(
+        self.extension_message + self.extension_name, out)
     self.assertFalse(re.search(r'ERROR', out))
     self.assertFalse(os.path.exists('validation-results.html'))
     self.assertFalse(os.path.exists('transitfeedcrash.txt'))
@@ -61,6 +69,8 @@ class FullTests(util.TempDirTestCaseBase):
     self.assertTrue(re.search(r'ERROR', out))
     self.assertFalse(re.search(r'feed validated successfully', out))
     htmlout = open('validation-results.html').read()
+    self.assertMatchesRegex(
+        self.extension_message + self.extension_name, htmlout)
     self.assertTrue(re.search(r'Invalid value BEATTY_AIRPORT', htmlout))
     self.assertFalse(re.search(r'feed validated successfully', htmlout))
     self.assertFalse(os.path.exists('transitfeedcrash.txt'))
@@ -71,6 +81,8 @@ class FullTests(util.TempDirTestCaseBase):
          '--latest_version', transitfeed.__version__,
          self.GetPath('test', 'data', 'missing_stops')],
         expected_retcode=1)
+    self.assertMatchesRegex(
+        self.extension_message + self.extension_name, out)
     self.assertTrue(re.search(r'ERROR', out))
     self.assertFalse(re.search(r'feed validated successfully', out))
     self.assertTrue(re.search(r'Invalid value BEATTY_AIRPORT', out))
@@ -86,6 +98,8 @@ class FullTests(util.TempDirTestCaseBase):
     self.assertTrue(re.search(r'ERROR', out))
     self.assertFalse(re.search(r'feed validated successfully', out))
     htmlout = open('validation-results.html').read()
+    self.assertMatchesRegex(
+        self.extension_message + self.extension_name, htmlout)
     self.assertEquals(2, len(re.findall(r'class="problem">stop_id<', htmlout)))
     self.assertFalse(os.path.exists('transitfeedcrash.txt'))
 
@@ -98,6 +112,8 @@ class FullTests(util.TempDirTestCaseBase):
     self.assertTrue(re.search(r'ERROR', out))
     self.assertFalse(re.search(r'feed validated successfully', out))
     htmlout = open('validation-results.html').read()
+    self.assertMatchesRegex(
+        self.extension_message + self.extension_name, htmlout)
     self.assertTrue(re.search(r'in field <code>start_date', htmlout))
     self.assertTrue(re.search(r'in field <code>date', htmlout))
     self.assertFalse(re.search(r'feed validated successfully', htmlout))
@@ -111,6 +127,8 @@ class FullTests(util.TempDirTestCaseBase):
     self.assertTrue(re.search(r'ERROR', out))
     self.assertFalse(re.search(r'feed validated successfully', out))
     htmlout = open('validation-results.html').read()
+    self.assertMatchesRegex(
+        self.extension_message + self.extension_name, htmlout)
     self.assertTrue(re.search(r'Unicode error', htmlout))
     self.assertFalse(re.search(r'feed validated successfully', htmlout))
     self.assertFalse(os.path.exists('transitfeedcrash.txt'))
@@ -148,6 +166,8 @@ class FullTests(util.TempDirTestCaseBase):
     self.assertTrue(re.search(r'feed validated successfully', out))
     self.assertTrue(re.search(r'A new version 100.100.100', out))
     htmlout = open('validation-results.html').read()
+    self.assertMatchesRegex(
+        self.extension_message + self.extension_name, htmlout)
     self.assertTrue(re.search(r'A new version 100.100.100', htmlout))
     self.assertFalse(re.search(r'ERROR', htmlout))
     self.assertFalse(os.path.exists('transitfeedcrash.txt'))

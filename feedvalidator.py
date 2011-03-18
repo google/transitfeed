@@ -336,7 +336,7 @@ class HTMLCountingProblemAccumulator(LimitPerTypeProblemAccumulator):
     output.append('</table>')
     return ''.join(output)
 
-  def WriteOutput(self, feed_location, f, schedule, other_problems):
+  def WriteOutput(self, feed_location, f, schedule, other_problems, extension):
     """Write the html output to f."""
     if self.HasIssues():
       if self.ErrorCount() + self.WarningCount() == 1:
@@ -413,7 +413,8 @@ th.header {text-align: right; font-weight: normal; color: gray}
 </head>
 <body>
 GTFS validation results for feed:<br>
-<code><span class="path">%(feed_dir)s</span><b>%(feed_file)s</b></code>
+<code><span class="path">%(feed_dir)s</span><b>%(feed_file)s</b></code><br>
+FeedValidator extension used: %(extension)s
 <br><br>
 <table>
 <tr><th class="header">Agencies:</th><td class="header">%(agencies)s</td></tr>
@@ -436,7 +437,8 @@ GTFS validation results for feed:<br>
         "shapes": len(schedule.GetShapeList()),
         "dates": dates,
         "problem_summary": summary,
-        "calendar_summary": calendar_summary_html}
+        "calendar_summary": calendar_summary_html,
+        "extension": extension}
 
 # In output_suffix string
 # time.strftime() returns a regular local time string (not a Unicode one) with
@@ -504,7 +506,7 @@ def RunValidationOutputToFile(feed, options, output_file):
   else:
     feed_location = getattr(feed, 'name', repr(feed))
   accumulator.WriteOutput(feed_location, output_file, schedule,
-                       other_problems_string)
+                          other_problems_string, options.extension)
   return exit_code
 
 
@@ -549,6 +551,7 @@ def RunValidation(feed, options, problems):
   gtfs_factory = extension_module.GetGtfsFactory()
 
   print 'validating %s' % feed
+  print 'FeedValidator extension used: %s' % options.extension
   loader = gtfs_factory.Loader(feed, problems=problems, extra_validation=False,
                                memory_db=options.memory_db,
                                check_duplicate_trips=\
