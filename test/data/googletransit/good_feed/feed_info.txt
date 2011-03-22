@@ -1,0 +1,2 @@
+feed_publisher_name,feed_publisher_url,feed_lang,feed_timezone,feed_valid_from,feed_valid_until
+Autorité de passage de démonstration,http://google.com,en,America/Los_Angeles,20070101,20111231

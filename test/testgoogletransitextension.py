@@ -18,11 +18,37 @@
 
 import extensions.googletransit
 
+import os
+import re
 import time
 import transitfeed
 from util import MemoryZipTestCase
 from util import RecordingProblemAccumulator
+from testfeedvalidator import FullTests
 from testtransitfeed import ValidationTestCase
+
+
+class ExtensionFullTests(FullTests):
+  """Inherits FullTests from testfeedvalidator.py to test the extension
+  executable feedvalidator_googletransit.py. Tests the extension executable with
+  new good_feed test data which uses extension capabilities."""
+
+  feedvalidator_executable = 'feedvalidator_googletransit.py'
+  extension_name = 'extensions.googletransit'
+
+  def testGoogleTransitGoodFeed(self):
+    (out, err) = self.CheckCallWithPath(
+        [self.GetPath(self.feedvalidator_executable), '-n', '--latest_version',
+         transitfeed.__version__, self.GetPath('test', 'data', 'googletransit',
+                                               'good_feed')])
+    self.assertTrue(re.search(r'feed validated successfully', out))
+    self.assertFalse(re.search(r'ERROR', out))
+    htmlout = open('validation-results.html').read()
+    self.assertMatchesRegex(
+        self.extension_message + self.extension_name, htmlout)
+    self.assertTrue(re.search(r'feed validated successfully', htmlout))
+    self.assertFalse(re.search(r'ERROR', htmlout))
+    self.assertFalse(os.path.exists('transitfeedcrash.txt'))
 
 
 class FareAttributeAgencyIdTestCase(MemoryZipTestCase):

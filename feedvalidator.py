@@ -614,6 +614,11 @@ def CheckVersion(latest_version=''):
 
 
 def main():
+  (feed, options) = ParseCommandLineArguments()
+  return RunValidationFromOptions(feed, options)
+
+
+def ParseCommandLineArguments():
   usage = \
 '''%prog [options] [<input GTFS.zip>]
 
@@ -683,9 +688,13 @@ http://code.google.com/p/googletransitdatafeed/wiki/FeedValidator
       parser.error('You must provide the path of a single feed')
   else:
     feed = args[0]
-
   feed = feed.strip('"')
 
+  return (feed, options)
+
+
+def RunValidationFromOptions(feed, options):
+  """Validate feed, run in profiler if in options, and return an exit code."""
   if options.performance:
     return ProfileRunValidationOutputFromOptions(feed, options)
   else:
