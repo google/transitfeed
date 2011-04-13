@@ -17,10 +17,10 @@
 import transitfeed
 
 class FareAttribute(transitfeed.FareAttribute):
-  """ extension of transitfeed.FareAttribute:
-  - adding field 'agency_id' and ValidateAgencyId() function
-  - overriding ValidateAfterAdd() in order to call ValidateAgencyId()
-  - see open proposal "add agency_id column to fare_attributes.txt" at
+  """Extension of transitfeed.FareAttribute:
+  - Adding field 'agency_id' and ValidateAgencyId() function.
+  - Overriding ValidateAfterAdd() in order to call ValidateAgencyId().
+  - See open proposal "add agency_id column to fare_attributes.txt" at
   http://groups.google.com/group/gtfs-changes/browse_frm/thread/4e74c23bb1f80480
   """
 

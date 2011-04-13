@@ -20,6 +20,19 @@ List of changes to the default behavior:
     is only used to check the feed validity. It's not used for other purposes.
     In particular, services and service exceptions are not dropped or reduced if
     they are defined outside this valid dates range.
+* extensions.googletransit.Frequency
+  - extension of transitfeed.Frequency as proposed in
+    https://sites.google.com/site/gtfschanges/spec-changes-summary#frequencies
+  - adding field 'exact_times' and function ValidateExactTimes()
+* extensions.googletransit.Route
+  - extension of transitfeed.Route as proposed in
+    https://sites.google.com/site/gtfschanges/spec-changes-summary#routes and
+    https://sites.google.com/site/gtfschanges/open-proposals
+  - adding field 'co2_per_km' and ValidateCo2PerKm() function
+  - adding HVT (Hierarchical Vehicle Type) route types, also used in
+    extensions.googletransit.Stop for validating field vehicle_type.
+    The HVT values are derived from the European TPEG standard, see discussion
+    at http://groups.google.com/group/gtfs-changes/msg/ed917a69cf8c5bef
 * extensions.googletransit.Schedule:
   - extension of transitfeed.Schedule for being able to validate
     interrelationships between the new fields and data sets introduced in this
@@ -31,7 +44,9 @@ List of changes to the default behavior:
   - checks that all Agencies have the same timezone
   - overrides ValidateFeedStartAndExpirationDates() in order to take
     FeedInfo.feed_valid_from and FeedInfo.feed_valid_until into account
-* extensions.googletransit.Frequency
-  - extension of transitfeed.Frequency as proposed in
-    https://sites.google.com/site/gtfschanges/spec-changes-summary#frequencies
-  - adding field 'exact_times' and function ValidateExactTimes()
+* extensions.googletransit.Stop
+  - extension of transitfeed.Stop as proposed in
+    https://sites.google.com/site/gtfschanges/spec-changes-summary#stops
+  - adding and validating fields 'stop_timezone', 'vehicle_type' and
+    'wheelchair_boarding'
+  - overriding ValidateStopLocationType(), adding location_type 2 (entrance)

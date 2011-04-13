@@ -22,6 +22,7 @@ import os
 import re
 import time
 import transitfeed
+import transitfeed.problems as problems_module
 from util import MemoryZipTestCase
 from util import RecordingProblemAccumulator
 from testfeedvalidator import FullTests
@@ -155,7 +156,7 @@ class FeedInfoExtensionTestCase(MemoryZipTestCase):
 
   def setUp(self):
     super(FeedInfoExtensionTestCase, self).setUp()
-    #modify agency.txt for all tests in this test case
+    # Modify agency.txt for all tests in this test case
     self.SetArchiveContents("agency.txt",
         "agency_id,agency_name,agency_url,agency_timezone,agency_lang\n"
         "DTA,Demo Agency,http://google.com,America/Los_Angeles,en\n")
@@ -253,7 +254,7 @@ class ScheduleTestCase(MemoryZipTestCase):
 class ScheduleStartAndExpirationDatesTestCase(MemoryZipTestCase):
   gtfs_factory = extensions.googletransit.GetGtfsFactory()
 
-  #init dates to be close to now
+  # Init dates to be close to now
   now = time.mktime(time.localtime())
   seconds_per_day = 60 * 60 * 24
   date_format = "%Y%m%d"
@@ -270,7 +271,7 @@ class ScheduleStartAndExpirationDatesTestCase(MemoryZipTestCase):
 
   def setUp(self):
     super(ScheduleStartAndExpirationDatesTestCase, self).setUp()
-    #re-init the accumulator without ignore_types = ("ExpirationDate",)
+    # Re-init the accumulator without ignore_types = ("ExpirationDate",)
     self.accumulator = RecordingProblemAccumulator(self)
     self.problems = transitfeed.ProblemReporter(self.accumulator)
 
@@ -302,27 +303,27 @@ class ScheduleStartAndExpirationDatesTestCase(MemoryZipTestCase):
 
   def testNoErrors(self):
     self.prepareArchiveContents(
-        self.two_weeks_ago, self.two_months, #calendar
-        self.two_weeks,                      #calendar_dates
-        "", "")                              #feed_info
+        self.two_weeks_ago, self.two_months, # calendar
+        self.two_weeks,                      # calendar_dates
+        "", "")                              # feed_info
     self.MakeLoaderAndLoad(self.problems, gtfs_factory=self.gtfs_factory)
     self.accumulator.AssertNoMoreExceptions()
 
   def testExpirationDateCausedByServicePeriod(self):
     # test with no validity dates specified in feed_info.txt
     self.prepareArchiveContents(
-        self.two_weeks_ago, self.two_weeks, #calendar
-        self.one_week,                      #calendar_dates
-        "", "")                             #feed_info
+        self.two_weeks_ago, self.two_weeks, # calendar
+        self.one_week,                      # calendar_dates
+        "", "")                             # feed_info
     self.MakeLoaderAndLoad(self.problems, gtfs_factory=self.gtfs_factory)
     e = self.accumulator.PopException("ExpirationDate")
     self.assertTrue("calendar.txt" in e.expiration_origin_file)
     self.accumulator.AssertNoMoreExceptions()
     # test with good validity dates specified in feed_info.txt
     self.prepareArchiveContents(
-        self.two_weeks_ago, self.two_weeks,  #calendar
-        self.one_week,                       #calendar_dates
-        self.two_weeks_ago, self.two_months) #feed_info
+        self.two_weeks_ago, self.two_weeks,  # calendar
+        self.one_week,                       # calendar_dates
+        self.two_weeks_ago, self.two_months) # feed_info
     self.MakeLoaderAndLoad(self.problems, gtfs_factory=self.gtfs_factory)
     e = self.accumulator.PopException("ExpirationDate")
     self.assertTrue("calendar.txt" in e.expiration_origin_file)
@@ -331,58 +332,58 @@ class ScheduleStartAndExpirationDatesTestCase(MemoryZipTestCase):
   def testFutureServiceCausedByServicePeriod(self):
     # test with no validity dates specified in feed_info.txt
     self.prepareArchiveContents(
-        self.one_week, self.two_months, #calendar
-        self.two_weeks,                 #calendar_dates
-        "", "")                         #feed_info
+        self.one_week, self.two_months, # calendar
+        self.two_weeks,                 # calendar_dates
+        "", "")                         # feed_info
     self.MakeLoaderAndLoad(self.problems, gtfs_factory=self.gtfs_factory)
     e = self.accumulator.PopException("FutureService")
     self.assertTrue("calendar.txt" in e.start_date_origin_file)
     self.accumulator.AssertNoMoreExceptions()
-    # test with good validity dates specified in feed_info.txt
+    # Test with good validity dates specified in feed_info.txt
     self.prepareArchiveContents(
-        self.one_week, self.two_months,      #calendar
-        self.two_weeks,                      #calendar_dates
-        self.two_weeks_ago, self.two_months) #feed_info
+        self.one_week, self.two_months,      # calendar
+        self.two_weeks,                      # calendar_dates
+        self.two_weeks_ago, self.two_months) # feed_info
     self.MakeLoaderAndLoad(self.problems, gtfs_factory=self.gtfs_factory)
     e = self.accumulator.PopException("FutureService")
     self.assertTrue("calendar.txt" in e.start_date_origin_file)
     self.accumulator.AssertNoMoreExceptions()
 
   def testExpirationDateCausedByServicePeriodDateException(self):
-    # test with no validity dates specified in feed_info.txt
+    # Test with no validity dates specified in feed_info.txt
     self.prepareArchiveContents(
-        self.two_weeks_ago, self.one_week, #calendar
-        self.two_weeks,                    #calendar_dates
-        "", "")                            #feed_info
+        self.two_weeks_ago, self.one_week, # calendar
+        self.two_weeks,                    # calendar_dates
+        "", "")                            # feed_info
     self.MakeLoaderAndLoad(self.problems, gtfs_factory=self.gtfs_factory)
     e = self.accumulator.PopException("ExpirationDate")
     self.assertTrue("calendar_dates.txt" in e.expiration_origin_file)
     self.accumulator.AssertNoMoreExceptions()
-    # test with good validity dates specified in feed_info.txt
+    # Test with good validity dates specified in feed_info.txt
     self.prepareArchiveContents(
-        self.two_weeks_ago, self.one_week,   #calendar
-        self.two_weeks,                      #calendar_dates
-        self.two_weeks_ago, self.two_months) #feed_info
+        self.two_weeks_ago, self.one_week,   # calendar
+        self.two_weeks,                      # calendar_dates
+        self.two_weeks_ago, self.two_months) # feed_info
     self.MakeLoaderAndLoad(self.problems, gtfs_factory=self.gtfs_factory)
     e = self.accumulator.PopException("ExpirationDate")
     self.assertTrue("calendar_dates.txt" in e.expiration_origin_file)
     self.accumulator.AssertNoMoreExceptions()
 
   def testFutureServiceCausedByServicePeriodDateException(self):
-    # test with no validity dates specified in feed_info.txt
+    # Test with no validity dates specified in feed_info.txt
     self.prepareArchiveContents(
-        self.two_weeks, self.two_months, #calendar
-        self.one_week,                   #calendar_dates
-        "", "")                          #feed_info
+        self.two_weeks, self.two_months, # calendar
+        self.one_week,                   # calendar_dates
+        "", "")                          # feed_info
     self.MakeLoaderAndLoad(self.problems, gtfs_factory=self.gtfs_factory)
     e = self.accumulator.PopException("FutureService")
     self.assertTrue("calendar_dates.txt" in e.start_date_origin_file)
     self.accumulator.AssertNoMoreExceptions()
-    # test with good validity dates specified in feed_info.txt
+    # Test with good validity dates specified in feed_info.txt
     self.prepareArchiveContents(
-        self.two_weeks, self.two_months,     #calendar
-        self.one_week,                       #calendar_dates
-        self.two_weeks_ago, self.two_months) #feed_info
+        self.two_weeks, self.two_months,     # calendar
+        self.one_week,                       # calendar_dates
+        self.two_weeks_ago, self.two_months) # feed_info
     self.MakeLoaderAndLoad(self.problems, gtfs_factory=self.gtfs_factory)
     e = self.accumulator.PopException("FutureService")
     self.assertTrue("calendar_dates.txt" in e.start_date_origin_file)
@@ -390,9 +391,9 @@ class ScheduleStartAndExpirationDatesTestCase(MemoryZipTestCase):
 
   def testExpirationDateCausedByFeedInfo(self):
     self.prepareArchiveContents(
-        self.two_weeks_ago, self.two_months, #calendar
-        self.one_week,                       #calendar_dates
-        "", self.two_weeks)                  #feed_info
+        self.two_weeks_ago, self.two_months, # calendar
+        self.one_week,                       # calendar_dates
+        "", self.two_weeks)                  # feed_info
     self.MakeLoaderAndLoad(self.problems, gtfs_factory=self.gtfs_factory)
     e = self.accumulator.PopException("ExpirationDate")
     self.assertTrue("feed_info.txt" in e.expiration_origin_file)
@@ -400,9 +401,9 @@ class ScheduleStartAndExpirationDatesTestCase(MemoryZipTestCase):
 
   def testFutureServiceCausedByFeedInfo(self):
     self.prepareArchiveContents(
-        self.two_weeks_ago, self.two_months, #calendar
-        self.one_week_ago,                   #calendar_dates
-        self.one_week, self.two_months)      #feed_info
+        self.two_weeks_ago, self.two_months, # calendar
+        self.one_week_ago,                   # calendar_dates
+        self.one_week, self.two_months)      # feed_info
     self.MakeLoaderAndLoad(self.problems, gtfs_factory=self.gtfs_factory)
     e = self.accumulator.PopException("FutureService")
     self.assertTrue("feed_info.txt" in e.start_date_origin_file)
@@ -414,27 +415,27 @@ class FrequencyExtensionTestCase(ValidationTestCase):
 
   def testExactTimesStringValueConversion(self):
     frequency_class = self.gtfs_factory.Frequency
-    # test that no exact_times converts to 0
+    # Test that no exact_times converts to 0
     frequency = frequency_class(
         field_dict={"trip_id": "AB1,10", "start_time": "10:00:00",
                     "end_time": "23:01:00", "headway_secs": "1800"})
     frequency.ValidateBeforeAdd(self.problems)
     self.assertEquals(frequency.ExactTimes(), 0)
-    # test that empty exact_times converts to 0
+    # Test that empty exact_times converts to 0
     frequency = frequency_class(
         field_dict={"trip_id": "AB1,10", "start_time": "10:00:00",
                     "end_time": "23:01:00", "headway_secs": "1800",
                     "exact_times": ""})
     frequency.ValidateBeforeAdd(self.problems)
     self.assertEquals(frequency.ExactTimes(), 0)
-    # test that exact_times "0" converts to 0
+    # Test that exact_times "0" converts to 0
     frequency = frequency_class(
         field_dict={"trip_id": "AB1,10", "start_time": "10:00:00",
                     "end_time": "23:01:00", "headway_secs": "1800",
                     "exact_times": "0"})
     frequency.ValidateBeforeAdd(self.problems)
     self.assertEquals(frequency.ExactTimes(), 0)
-    # test that exact_times "1" converts to 1
+    # Test that exact_times "1" converts to 1
     frequency = frequency_class(
         field_dict={"trip_id": "AB1,10", "start_time": "10:00:00",
                     "end_time": "23:01:00", "headway_secs": "1800",
@@ -445,21 +446,21 @@ class FrequencyExtensionTestCase(ValidationTestCase):
 
   def testExactTimesAsIntValue(self):
     frequency_class = self.gtfs_factory.Frequency
-    # test that exact_times None converts to 0
+    # Test that exact_times None converts to 0
     frequency = frequency_class(
         field_dict={"trip_id": "AB1,10", "start_time": "10:00:00",
                     "end_time": "23:01:00", "headway_secs": "1800",
                     "exact_times": None})
     frequency.ValidateBeforeAdd(self.problems)
     self.assertEquals(frequency.ExactTimes(), 0)
-    # test that exact_times 0 remains 0
+    # Test that exact_times 0 remains 0
     frequency = frequency_class(
         field_dict={"trip_id": "AB1,10", "start_time": "10:00:00",
                     "end_time": "23:01:00", "headway_secs": "1800",
                     "exact_times": 0})
     frequency.ValidateBeforeAdd(self.problems)
     self.assertEquals(frequency.ExactTimes(), 0)
-    # test that exact_times 1 remains 1
+    # Test that exact_times 1 remains 1
     frequency = frequency_class(
         field_dict={"trip_id": "AB1,10", "start_time": "10:00:00",
                     "end_time": "23:01:00", "headway_secs": "1800",
@@ -470,7 +471,7 @@ class FrequencyExtensionTestCase(ValidationTestCase):
 
   def testExactTimesInvalidValues(self):
     frequency_class = self.gtfs_factory.Frequency
-    # test that exact_times 15 raises error
+    # Test that exact_times 15 raises error
     frequency = frequency_class(
         field_dict={"trip_id": "AB1,10", "start_time": "10:00:00",
                     "end_time": "23:01:00", "headway_secs": "1800",
@@ -478,11 +479,202 @@ class FrequencyExtensionTestCase(ValidationTestCase):
     frequency.ValidateBeforeAdd(self.problems)
     self.accumulator.PopInvalidValue("exact_times")
     self.accumulator.AssertNoMoreExceptions()
-    # test that exact_times "yes" raises error
+    # Test that exact_times "yes" raises error
     frequency = frequency_class(
         field_dict={"trip_id": "AB1,10", "start_time": "10:00:00",
                     "end_time": "23:01:00", "headway_secs": "1800",
                     "exact_times": "yes"})
     frequency.ValidateBeforeAdd(self.problems)
     self.accumulator.PopInvalidValue("exact_times")
+    self.accumulator.AssertNoMoreExceptions()
+
+
+class StopExtensionIntegrationTestCase(MemoryZipTestCase):
+  gtfs_factory = extensions.googletransit.GetGtfsFactory()
+
+  def testNoErrors(self):
+    self.SetArchiveContents("stops.txt",
+        "stop_id,stop_name,stop_lat,stop_lon,stop_timezone,location_type,"
+        "parent_station,vehicle_type,wheelchair_boarding\n"
+        "BEATTY,Beatty,36.868446,-116.784582,,1,,1100,\n"
+        "BEATTY_AIRPORT,Airport West,36.868446,-116.784582,,2,BEATTY,,\n"
+        "BULLFROG,Bullfrog,36.88108,-116.81797,,,,3,\n"
+        "STAGECOACH,Stagecoach Hotel,36.915682,-116.751677,America/Los_Angeles,"
+        ",,204,\n")
+    self.MakeLoaderAndLoad(self.problems, gtfs_factory=self.gtfs_factory)
+    self.accumulator.AssertNoMoreExceptions()
+
+  def testInvalidVehicleType(self):
+    self.SetArchiveContents("stops.txt",
+        "stop_id,stop_name,stop_lat,stop_lon,stop_timezone,location_type,"
+        "parent_station,vehicle_type,wheelchair_boarding\n"
+        "BEATTY,Beatty,36.868446,-116.784582,,1,,2557,\n"  # bad vehicle type
+        "BEATTY_AIRPORT,Airport West,36.868446,-116.784582,,2,BEATTY,,\n"
+        "BULLFROG,Bullfrog,36.88108,-116.81797,,,,3,\n"
+        "STAGECOACH,Stagecoach Hotel,36.915682,-116.751677,America/Los_Angeles,"
+        ",,204,\n")
+    self.MakeLoaderAndLoad(self.problems, gtfs_factory=self.gtfs_factory)
+    self.accumulator.PopInvalidValue("vehicle_type")
+    self.accumulator.AssertNoMoreExceptions()
+
+
+class StopExtensionTestCase(ValidationTestCase):
+  gtfs_factory = extensions.googletransit.GetGtfsFactory()
+
+  def setUp(self):
+    super(StopExtensionTestCase, self).setUp()
+
+    self._stop = self.gtfs_factory.Stop(
+        lng=1.00, lat=48.1, name="a stop", stop_id="stop")
+    self._stop._gtfs_factory = self.gtfs_factory
+
+    self._parent_stop = self.gtfs_factory.Stop(
+        lng=1.00, lat=48.2, name="parent stop", stop_id="parent_stop")
+    self._parent_stop._gtfs_factory = self.gtfs_factory
+
+    self._child_stop = self.gtfs_factory.Stop(
+         lng=1.00, lat=48.2, name="child stop", stop_id="child stop")
+    self._child_stop.parent_station = self._parent_stop.stop_id
+    self._child_stop._gtfs_factory = self.gtfs_factory
+
+    self._entrance = self.gtfs_factory.Stop(
+         lng=1.00, lat=48.2, name="an entrance", stop_id="entrance")
+    self._entrance.location_type = 2
+    self._entrance.parent_station = self._parent_stop.stop_id
+    self._entrance._gtfs_factory = self.gtfs_factory
+
+  def testValidateStopTimezone(self):
+    self._stop.stop_timezone = 'TestTimeZone/Wrong_Place'
+    self._stop.Validate(self.problems)
+    e = self.accumulator.PopInvalidValue('stop_timezone')
+    self.accumulator.AssertNoMoreExceptions()
+
+  def testValidateVehicleType(self):
+    # Test with non-integer value
+    self._stop.vehicle_type = 'abc'
+    self._stop.Validate(self.problems)
+    e = self.accumulator.PopInvalidValue('vehicle_type')
+    self.accumulator.AssertNoMoreExceptions()
+
+    # Test with not known value
+    self._stop.vehicle_type = 2547
+    self._stop.Validate(self.problems)
+    e = self.accumulator.PopInvalidValue('vehicle_type')
+    self.accumulator.AssertNoMoreExceptions()
+
+  def testEntranceExceptions(self):
+    # There should be no error validating _entrance
+    self._entrance.Validate(self.problems)
+    self.accumulator.AssertNoMoreExceptions()
+
+    # An entrance must not have a stop_timezone
+    self._entrance.stop_timezone = 'America/Los_Angeles'
+    self._entrance.Validate(self.problems)
+    e = self.accumulator.PopInvalidValue('location_type')
+    self.assertMatchesRegex(r'stop_timezone', e.FormatProblem())
+    self.accumulator.AssertNoMoreExceptions()
+    self._entrance.stop_timezone = None
+
+    # An entrance must not have a vehicle type
+    self._entrance.vehicle_type = 200
+    self._entrance.Validate(self.problems)
+    e = self.accumulator.PopInvalidValue('vehicle_type')
+    self.accumulator.AssertNoMoreExceptions()
+    self._entrance.vehicle_type = None
+
+    # An entrance should have a parent station
+    self._entrance.parent_station = None
+    self._entrance.Validate(self.problems)
+    e = self.accumulator.PopInvalidValue('location_type')
+    self.assertMatchesRegex(r'parent_station', e.FormatProblem())
+    self.accumulator.AssertNoMoreExceptions()
+
+  def testChildExceptions(self):
+    # There should be no error validating _child_stop
+    self._child_stop.Validate(self.problems)
+    self.accumulator.AssertNoMoreExceptions()
+
+    # A _child_stop must not have a stop_timezone
+    self._child_stop.stop_timezone = 'America/Los_Angeles'
+    self._child_stop.Validate(self.problems)
+    e = self.accumulator.PopInvalidValue('location_type')
+    self.assertMatchesRegex(r'stop_timezone', e.FormatProblem())
+    self.assertTrue(e.IsWarning())
+    self.accumulator.AssertNoMoreExceptions()
+    self._child_stop.stop_timezone = None
+
+    # Adding vehicle_type, Google transit doesn't read child stop vehicle types
+    self._child_stop.vehicle_type = 200
+    self._child_stop.Validate(self.problems)
+    e = self.accumulator.PopInvalidValue('vehicle_type')
+    self.assertTrue(e.IsWarning())
+    self.accumulator.AssertNoMoreExceptions()
+    self._child_stop.vehicle_type = None
+
+  def testAllowEmptyStopNameIfEntrance(self):
+    # Empty stop_name with default location_type=0 should report MissingValue
+    self._stop.stop_name = ''
+    self._stop.Validate(self.problems)
+    e = self.accumulator.PopMissingValue('stop_name')
+    self.accumulator.AssertNoMoreExceptions()
+
+    # Empty stop_name in a child stop should report MissingValue
+    self._child_stop.stop_name = ''
+    self._child_stop.Validate(self.problems)
+    e = self.accumulator.PopMissingValue('stop_name')
+    self.accumulator.AssertNoMoreExceptions()
+
+    # Empty stop_name with location_type=2 should report no errors
+    self._entrance.stop_name = ''
+    self._entrance.Validate(self.problems)
+    self.accumulator.AssertNoMoreExceptions()
+
+  def testValidateValidateWheelchairBoarding(self):
+    # Test empty value defaults to 0
+    self._stop.wheelchair_boarding = ''
+    self._stop.Validate(self.problems)
+    self.assertEquals(self._stop.wheelchair_boarding, 0)
+    self.accumulator.AssertNoMoreExceptions()
+
+    # Test with non-integer value
+    self._stop.wheelchair_boarding = 'abc'
+    self._stop.Validate(self.problems)
+    e = self.accumulator.PopInvalidValue('wheelchair_boarding')
+    self.accumulator.AssertNoMoreExceptions()
+
+    # Test with not known value
+    self._stop.wheelchair_boarding = 11
+    self._stop.Validate(self.problems)
+    e = self.accumulator.PopInvalidValue('wheelchair_boarding')
+    self.accumulator.AssertNoMoreExceptions()
+
+
+class RouteExtensionIntegrationTestCase(MemoryZipTestCase):
+  gtfs_factory = extensions.googletransit.GetGtfsFactory()
+
+  def testNoErrors(self):
+    self.SetArchiveContents(
+        "routes.txt",
+        "route_id,agency_id,route_short_name,route_long_name,route_type,"
+        "co2_per_km\n"
+        "AB,DTA,,Airport Bullfrog,201,15.5\n")
+    self.MakeLoaderAndLoad(self.problems, gtfs_factory=self.gtfs_factory)
+    self.accumulator.AssertNoMoreExceptions()
+
+  def testInvalidCo2PerKm(self):
+    self.SetArchiveContents(
+        "routes.txt",
+        "route_id,route_short_name,route_long_name,route_type,co2_per_km\n"
+        "AB,,Airport Bullfrog,201,15.5mg\n")
+    self.MakeLoaderAndLoad(self.problems, gtfs_factory=self.gtfs_factory)
+    self.accumulator.PopInvalidValue("co2_per_km")
+    self.accumulator.AssertNoMoreExceptions()
+
+  def testInvalidRouteType(self):
+    self.SetArchiveContents(
+        "routes.txt",
+        "route_id,route_short_name,route_long_name,route_type,co2_per_km\n"
+        "AB,,Airport Bullfrog,2557,15.5\n")
+    self.MakeLoaderAndLoad(self.problems, gtfs_factory=self.gtfs_factory)
+    self.accumulator.PopInvalidValue("route_type")
     self.accumulator.AssertNoMoreExceptions()

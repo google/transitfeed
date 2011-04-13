@@ -24,7 +24,7 @@ import re
 import sys
 import time
 
-import problems
+import problems as problems_module
 from trip import Trip
 
 class OptionParserLongError(optparse.OptionParser):
@@ -300,6 +300,42 @@ def ValidateRequiredFieldsAreNotEmpty(gtfs_object, required_field_names,
       no_missing_value = False
   return no_missing_value
 
+# TODO(neun): use it everywhere it makes sense (stop_times, transfers ...)
+def ValidateAndReturnIntValue(value, allowed_values, default, allow_empty,
+                              column_name=None, problems=None):
+  """
+  Validates a value to be a valid integer in the list of allowed values:
+    - if no integer value adds InvalidValue error and returns the default value
+    - if integer but not in allowed_values addes InvalidValue warning
+    - returns the default value if empty and allow_empty = True
+
+  Args:
+    value: a string or integer value
+    allowed_values: a list of allowed integer values
+    default: a default value for invalid string vlaues
+    allow_empty: a bool indicating whether an empty value is allowed and
+                 defaults to the default value
+    column_name: the column name the value comes from
+    problems: the problems accumulator
+
+  Returns:
+    An integer value.
+  """
+  if allow_empty and IsEmpty(value):
+    return default
+  try:
+    int_value = int(value)
+  except (ValueError, TypeError):
+    if problems and column_name:
+      problems.InvalidValue(column_name, value)
+    return default
+  else:
+    if int_value not in allowed_values:
+      if problems and column_name:
+        problems.InvalidValue(column_name, value,
+                              type=problems_module.TYPE_WARNING)
+    return int_value
+
 def ColorLuminance(color):
   """Compute the brightness of an sRGB color using the formula from
   http://www.w3.org/TR/2000/WD-AERT-20000426#color-contrast.
@@ -333,7 +369,7 @@ def TimeToSecondsSinceMidnight(time_string):
   m = re.match(r'(\d{1,3}):([0-5]\d):([0-5]\d)$', time_string)
   # ignored: matching for leap seconds
   if not m:
-    raise problems.Error, 'Bad HH:MM:SS "%s"' % time_string
+    raise problems_module.Error, 'Bad HH:MM:SS "%s"' % time_string
   return int(m.group(1)) * 3600 + int(m.group(2)) * 60 + int(m.group(3))
 
 def FormatSecondsSinceMidnight(s):

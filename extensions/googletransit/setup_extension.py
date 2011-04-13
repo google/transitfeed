@@ -19,7 +19,9 @@ import transitfeed
 import fareattribute
 import feedinfo
 import frequency
+import route
 import schedule
+import stop
 
 def GetGtfsFactory(factory = None):
   if not factory:
@@ -37,7 +39,13 @@ def GetGtfsFactory(factory = None):
   # Frequency class extension
   factory.UpdateClass('Frequency', frequency.Frequency)
 
+  # Route class extension
+  factory.UpdateClass('Route', route.Route)
+
   # Schedule class extension
   factory.UpdateClass('Schedule', schedule.Schedule)
+
+  # Stop class extension
+  factory.UpdateClass('Stop', stop.Stop)
 
   return factory

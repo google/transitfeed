@@ -191,10 +191,13 @@ class Stop(GtfsObjectBase):
   def ValidateStopRequiredFields(self, problems):
     for required in self._REQUIRED_FIELD_NAMES:
       if util.IsEmpty(getattr(self, required, None)):
-        # TODO: For now I'm keeping the API stable but it would be cleaner to
-        # treat whitespace stop_id as invalid, instead of missing
-        problems.MissingValue(required)
-        setattr(self, required, None)
+        self._ReportMissingRequiredField(problems, required)
+
+  def _ReportMissingRequiredField(self, problems, required):
+    # TODO: For now we are keeping the API stable but it would be cleaner to
+    # treat whitespace stop_id as invalid, instead of missing
+    problems.MissingValue(required)
+    setattr(self, required, None)
 
   def ValidateStopNotTooCloseToOrigin(self, problems):
     if (self.stop_lat is not None and self.stop_lon is not None and

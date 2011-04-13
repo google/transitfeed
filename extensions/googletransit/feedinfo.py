@@ -80,8 +80,8 @@ class FeedInfo(transitfeed.GtfsObjectBase):
     return True # none of the above validations is blocking
 
   def ValidateAfterAdd(self, problems):
-    # validation after add is done in extensions.googletransit.Schedule because
-    # it has to do cross checks with other files, e.g. feed_lang vs. agency_lang
+    # Validation after add is done in extensions.googletransit.Schedule because
+    # it has to cross check with other files, e.g. feed_lang vs. agency_lang.
     pass
 
   def AddToSchedule(self, schedule, problems):
