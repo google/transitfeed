@@ -17,9 +17,9 @@
 import transitfeed
 
 class Frequency(transitfeed.Frequency):
-  """ extension of transitfeed.Frequency:
-  - adding field 'exact_times' and ValidateExactTimes() function
-  - see proposal at
+  """Extension of transitfeed.Frequency:
+  - Adding field 'exact_times' and ValidateExactTimes() function
+  - See proposal at
     https://sites.google.com/site/gtfschanges/spec-changes-summary#frequencies
   """
 

@@ -35,11 +35,13 @@ class FullTests(util.TempDirTestCaseBase):
   feedvalidator_executable = 'feedvalidator.py'
   extension_message = 'FeedValidator extension used: '
   extension_name = 'None'
+  additional_arguments = []
 
   def testGoodFeed(self):
     (out, err) = self.CheckCallWithPath(
         [self.GetPath(self.feedvalidator_executable), '-n', '--latest_version',
-         transitfeed.__version__, self.GetPath('test', 'data', 'good_feed')])
+         transitfeed.__version__] + self.additional_arguments +
+         [self.GetPath('test', 'data', 'good_feed')])
     self.assertTrue(re.search(r'feed validated successfully', out))
     self.assertFalse(re.search(r'ERROR', out))
     htmlout = open('validation-results.html').read()
@@ -52,8 +54,8 @@ class FullTests(util.TempDirTestCaseBase):
   def testGoodFeedConsoleOutput(self):
     (out, err) = self.CheckCallWithPath(
         [self.GetPath(self.feedvalidator_executable), '-n', '--latest_version',
-         transitfeed.__version__,
-         '--output=CONSOLE', self.GetPath('test', 'data', 'good_feed')])
+         transitfeed.__version__] + self.additional_arguments +
+         ['--output=CONSOLE', self.GetPath('test', 'data', 'good_feed')])
     self.assertTrue(re.search(r'feed validated successfully', out))
     self.assertMatchesRegex(
         self.extension_message + self.extension_name, out)
@@ -64,8 +66,8 @@ class FullTests(util.TempDirTestCaseBase):
   def testMissingStops(self):
     (out, err) = self.CheckCallWithPath(
         [self.GetPath(self.feedvalidator_executable), '-n', '--latest_version',
-         transitfeed.__version__,
-         self.GetPath('test', 'data', 'missing_stops')],
+         transitfeed.__version__] + self.additional_arguments +
+         [self.GetPath('test', 'data', 'missing_stops')],
         expected_retcode=1)
     self.assertTrue(re.search(r'ERROR', out))
     self.assertFalse(re.search(r'feed validated successfully', out))
@@ -79,8 +81,9 @@ class FullTests(util.TempDirTestCaseBase):
   def testMissingStopsConsoleOutput(self):
     (out, err) = self.CheckCallWithPath(
         [self.GetPath(self.feedvalidator_executable), '-n', '-o', 'console',
-         '--latest_version', transitfeed.__version__,
-         self.GetPath('test', 'data', 'missing_stops')],
+         '--latest_version', transitfeed.__version__] +
+         self.additional_arguments +
+         [self.GetPath('test', 'data', 'missing_stops')],
         expected_retcode=1)
     self.assertMatchesRegex(
         self.extension_message + self.extension_name, out)
@@ -93,8 +96,9 @@ class FullTests(util.TempDirTestCaseBase):
   def testLimitedErrors(self):
     (out, err) = self.CheckCallWithPath(
         [self.GetPath(self.feedvalidator_executable), '-l', '2', '-n',
-         '--latest_version', transitfeed.__version__,
-         self.GetPath('test', 'data', 'missing_stops')],
+         '--latest_version', transitfeed.__version__] +
+         self.additional_arguments +
+         [self.GetPath('test', 'data', 'missing_stops')],
         expected_retcode=1)
     self.assertTrue(re.search(r'ERROR', out))
     self.assertFalse(re.search(r'feed validated successfully', out))
@@ -107,8 +111,8 @@ class FullTests(util.TempDirTestCaseBase):
   def testBadDateFormat(self):
     (out, err) = self.CheckCallWithPath(
         [self.GetPath(self.feedvalidator_executable), '-n', '--latest_version',
-         transitfeed.__version__,
-         self.GetPath('test', 'data', 'bad_date_format')],
+         transitfeed.__version__] + self.additional_arguments +
+         [self.GetPath('test', 'data', 'bad_date_format')],
         expected_retcode=1)
     self.assertTrue(re.search(r'ERROR', out))
     self.assertFalse(re.search(r'feed validated successfully', out))
@@ -123,7 +127,8 @@ class FullTests(util.TempDirTestCaseBase):
   def testBadUtf8(self):
     (out, err) = self.CheckCallWithPath(
         [self.GetPath(self.feedvalidator_executable), '-n', '--latest_version',
-         transitfeed.__version__, self.GetPath('test', 'data', 'bad_utf8')],
+         transitfeed.__version__] + self.additional_arguments +
+         [self.GetPath('test', 'data', 'bad_utf8')],
         expected_retcode=1)
     self.assertTrue(re.search(r'ERROR', out))
     self.assertFalse(re.search(r'feed validated successfully', out))
@@ -152,7 +157,8 @@ class FullTests(util.TempDirTestCaseBase):
   def testCrashHandler(self):
     (out, err) = self.CheckCallWithPath(
         [self.GetPath(self.feedvalidator_executable), '-n', '--latest_version',
-         transitfeed.__version__, 'IWantMyvalidation-crash.txt'],
+         transitfeed.__version__] + self.additional_arguments +
+         ['IWantMyvalidation-crash.txt'],
         expected_retcode=127)
     self.assertTrue(re.search(r'Yikes', out))
     self.assertFalse(re.search(r'feed validated successfully', out))
@@ -163,7 +169,8 @@ class FullTests(util.TempDirTestCaseBase):
   def testCheckVersionIsRun(self):
     (out, err) = self.CheckCallWithPath(
         [self.GetPath(self.feedvalidator_executable), '-n', '--latest_version',
-         '100.100.100', self.GetPath('test', 'data', 'good_feed')])
+         '100.100.100'] + self.additional_arguments +
+         [self.GetPath('test', 'data', 'good_feed')])
     self.assertTrue(re.search(r'feed validated successfully', out))
     self.assertTrue(re.search(r'A new version 100.100.100', out))
     htmlout = open('validation-results.html').read()
@@ -176,8 +183,8 @@ class FullTests(util.TempDirTestCaseBase):
   def testCheckVersionIsRunConsoleOutput(self):
     (out, err) = self.CheckCallWithPath(
         [self.GetPath(self.feedvalidator_executable), '-n', '-o', 'console',
-         '--latest_version=100.100.100',
-         self.GetPath('test', 'data', 'good_feed')])
+         '--latest_version=100.100.100'] + self.additional_arguments +
+         [self.GetPath('test', 'data', 'good_feed')])
     self.assertTrue(re.search(r'feed validated successfully', out))
     self.assertTrue(re.search(r'A new version 100.100.100', out))
     self.assertFalse(os.path.exists('validation-results.html'))
@@ -275,6 +282,7 @@ class MockOptions:
     self.manual_entry = False
     self.service_gap_interval = None
     self.extension = None
+    self.error_types_ignore_list = None
 
 
 class FeedValidatorTestCase(util.TempDirTestCaseBase):

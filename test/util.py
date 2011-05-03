@@ -190,8 +190,10 @@ class MemoryZipTestCase(TestCase):
   difficult to add new stops to the default stops.txt because a new stop will
   break tests in StopHierarchyTestCase and StopsNearEachOther."""
 
+  _IGNORE_TYPES = ["ExpirationDate"]
+
   def setUp(self):
-    self.accumulator = RecordingProblemAccumulator(self, ("ExpirationDate",))
+    self.accumulator = RecordingProblemAccumulator(self, self._IGNORE_TYPES)
     self.problems = transitfeed.ProblemReporter(self.accumulator)
     self.zip_contents = {}
     self.SetArchiveContents(

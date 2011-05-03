@@ -36,12 +36,14 @@ class ExtensionFullTests(FullTests):
 
   feedvalidator_executable = 'feedvalidator_googletransit.py'
   extension_name = 'extensions.googletransit'
+  additional_arguments = ['--error_types_ignore_list',
+                                      'DeprecatedColumn']
 
   def testGoogleTransitGoodFeed(self):
     (out, err) = self.CheckCallWithPath(
         [self.GetPath(self.feedvalidator_executable), '-n', '--latest_version',
-         transitfeed.__version__, self.GetPath('test', 'data', 'googletransit',
-                                               'good_feed')])
+         transitfeed.__version__] + self.additional_arguments +
+         [self.GetPath('test', 'data', 'googletransit', 'good_feed')])
     self.assertTrue(re.search(r'feed validated successfully', out))
     self.assertFalse(re.search(r'ERROR', out))
     htmlout = open('validation-results.html').read()
@@ -52,7 +54,19 @@ class ExtensionFullTests(FullTests):
     self.assertFalse(os.path.exists('transitfeedcrash.txt'))
 
 
-class FareAttributeAgencyIdTestCase(MemoryZipTestCase):
+class ExtensionMemoryZipTestCase(MemoryZipTestCase):
+  """ExtendMemoryZipTestCase to also ignore DeprecatedColumn errors.
+
+     In this extension a couple of columns are set to be 'Deprecated'.
+     The 'normal' transitfeed test data used in some of the test cases here
+     however still uses these columns. As we can/should not modify the 'normal'
+     test data we are adding the 'DeprecatedColumn' to the _IGNORE_TYPES list.
+  """
+
+  _IGNORE_TYPES = MemoryZipTestCase._IGNORE_TYPES + ["DeprecatedColumn"]
+
+
+class FareAttributeAgencyIdTestCase(ExtensionMemoryZipTestCase):
   gtfs_factory = extensions.googletransit.GetGtfsFactory()
 
   def testNoErrorsWithOneAgencyAndNoIdAndAgencyIdColumnNotPresent(self):
@@ -151,7 +165,7 @@ class FareAttributeAgencyIdTestCase(MemoryZipTestCase):
     self.accumulator.AssertNoMoreExceptions()
 
 
-class FeedInfoExtensionTestCase(MemoryZipTestCase):
+class FeedInfoExtensionTestCase(ExtensionMemoryZipTestCase):
   gtfs_factory = extensions.googletransit.GetGtfsFactory()
 
   def setUp(self):
@@ -230,7 +244,7 @@ class FeedInfoExtensionTestCase(MemoryZipTestCase):
     self.accumulator.AssertNoMoreExceptions()
 
 
-class ScheduleTestCase(MemoryZipTestCase):
+class ScheduleTestCase(ExtensionMemoryZipTestCase):
   gtfs_factory = extensions.googletransit.GetGtfsFactory()
 
   def testNoErrorsWithAgenciesHavingSameTimeZone(self):
@@ -251,8 +265,13 @@ class ScheduleTestCase(MemoryZipTestCase):
     self.accumulator.AssertNoMoreExceptions()
 
 
-class ScheduleStartAndExpirationDatesTestCase(MemoryZipTestCase):
+class ScheduleStartAndExpirationDatesTestCase(ExtensionMemoryZipTestCase):
   gtfs_factory = extensions.googletransit.GetGtfsFactory()
+
+  # Remove "ExpirationDate" from the accumulator _IGNORE_TYPES to get the
+  # expiration errors.
+  _IGNORE_TYPES = ExtensionMemoryZipTestCase._IGNORE_TYPES[:]
+  _IGNORE_TYPES.remove("ExpirationDate")
 
   # Init dates to be close to now
   now = time.mktime(time.localtime())
@@ -268,12 +287,6 @@ class ScheduleStartAndExpirationDatesTestCase(MemoryZipTestCase):
                             time.localtime(now + 14 * seconds_per_day))
   two_months = time.strftime(date_format,
                              time.localtime(now + 60 * seconds_per_day))
-
-  def setUp(self):
-    super(ScheduleStartAndExpirationDatesTestCase, self).setUp()
-    # Re-init the accumulator without ignore_types = ("ExpirationDate",)
-    self.accumulator = RecordingProblemAccumulator(self)
-    self.problems = transitfeed.ProblemReporter(self.accumulator)
 
   def prepareArchiveContents(self, calendar_start, calendar_end,
                              exception_date, feed_info_start, feed_info_end):
@@ -489,7 +502,7 @@ class FrequencyExtensionTestCase(ValidationTestCase):
     self.accumulator.AssertNoMoreExceptions()
 
 
-class StopExtensionIntegrationTestCase(MemoryZipTestCase):
+class StopExtensionIntegrationTestCase(ExtensionMemoryZipTestCase):
   gtfs_factory = extensions.googletransit.GetGtfsFactory()
 
   def testNoErrors(self):
@@ -649,7 +662,7 @@ class StopExtensionTestCase(ValidationTestCase):
     self.accumulator.AssertNoMoreExceptions()
 
 
-class RouteExtensionIntegrationTestCase(MemoryZipTestCase):
+class RouteExtensionIntegrationTestCase(ExtensionMemoryZipTestCase):
   gtfs_factory = extensions.googletransit.GetGtfsFactory()
 
   def testNoErrors(self):
@@ -677,4 +690,54 @@ class RouteExtensionIntegrationTestCase(MemoryZipTestCase):
         "AB,,Airport Bullfrog,2557,15.5\n")
     self.MakeLoaderAndLoad(self.problems, gtfs_factory=self.gtfs_factory)
     self.accumulator.PopInvalidValue("route_type")
+    self.accumulator.AssertNoMoreExceptions()
+
+
+class AgencyLangTestCase(ExtensionMemoryZipTestCase):
+  gtfs_factory = extensions.googletransit.GetGtfsFactory()
+
+  def testNotWellFormedAgencyLang(self):
+    self.SetArchiveContents(
+        "agency.txt",
+        "agency_id,agency_name,agency_url,agency_timezone,agency_lang\n"
+        "DTA,Demo Agency,http://google.com,America/Los_Angeles,lang123456789\n")
+    self.MakeLoaderAndLoad(self.problems,
+                           gtfs_factory=self.gtfs_factory)
+    e = self.accumulator.PopInvalidValue("agency_lang")
+    e_msg = e.FormatProblem()
+    self.assertTrue(e_msg.find('not well-formed') != -1,
+                    '%s should not be well-formed, is: %s' % (e.value, e_msg))
+    self.accumulator.AssertNoMoreExceptions()
+
+  def testNotValidAgencyLang(self):
+    self.SetArchiveContents(
+        "agency.txt",
+        "agency_id,agency_name,agency_url,agency_timezone,agency_lang\n"
+        "DTA,Demo Agency,http://google.com,America/Los_Angeles,fra-XY\n")
+
+    self.MakeLoaderAndLoad(self.problems,
+                           gtfs_factory=self.gtfs_factory)
+    e = self.accumulator.PopInvalidValue("agency_lang")
+    e_msg = e.FormatProblem()
+    self.assertTrue(e_msg.find('not valid') != -1,
+                    '%s should not be valid, is: %s' % (e.value, e_msg))
+    self.accumulator.AssertNoMoreExceptions()
+
+
+class DeprecatedColumnsTestCase(MemoryZipTestCase):
+  """Check that Deprecated Fields are getting handled correctly."""
+  gtfs_factory = extensions.googletransit.GetGtfsFactory()
+
+  def testAgencyDeprecatedColumns(self):
+    self.SetArchiveContents(
+        "agency.txt",
+        "agency_id,agency_name,agency_url,agency_timezone,agency_lang\n"
+        "DTA,Demo Agency,http://google.com,America/Los_Angeles,en\n")
+
+    self.MakeLoaderAndLoad(self.problems,
+                           gtfs_factory=self.gtfs_factory)
+    e = self.accumulator.PopException("DeprecatedColumn")
+    self.assertEquals(e.column_name, 'agency_lang')
+    e = self.accumulator.PopException("DeprecatedColumn")
+    self.assertEquals(e.column_name, 'agency_timezone')
     self.accumulator.AssertNoMoreExceptions()

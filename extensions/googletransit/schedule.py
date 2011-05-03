@@ -56,7 +56,7 @@ class Schedule(transitfeed.Schedule):
       return
     agencies = self.GetAgencyList()
     for agency in agencies:
-      if (not transitfeed.IsEmpty(agency.agency_lang)) and (
+      if not transitfeed.IsEmpty(agency.agency_lang) and (
           not self.feed_info.feed_lang == agency.agency_lang):
         problems.InvalidValue("feed_lang",
                               "The languages specified in feedinfo.txt and in "
@@ -70,7 +70,8 @@ class Schedule(transitfeed.Schedule):
       return
     agencies = self.GetAgencyList()
     for agency in agencies:
-      if not self.feed_info.feed_timezone == agency.agency_timezone:
+      if not transitfeed.IsEmpty(agency.agency_timezone) and (
+          not self.feed_info.feed_timezone == agency.agency_timezone):
         problems.InvalidValue("feed_timezone",
                               "Only one timezone per feed is supported. " \
                               "However, the timezone %s specified in " \

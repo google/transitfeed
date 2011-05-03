@@ -139,11 +139,21 @@ def MaxVersion(versions):
 
 
 class CountingConsoleProblemAccumulator(transitfeed.SimpleProblemAccumulator):
-  def __init__(self):
+  """Accumulate problems and count errors and warnings.
+
+  Args:
+    ignore_types: list of error type names that will be ignored. E.g.
+                  ['ExpirationDate', 'UnusedStop']
+  """
+
+  def __init__(self, ignore_types=None):
     self._error_count = 0
     self._warning_count = 0
+    self._ignore_types = ignore_types or set()
 
   def _Report(self, e):
+    if e.__class__.__name__ in self._ignore_types:
+      return
     transitfeed.SimpleProblemAccumulator._Report(self, e)
     if e.IsError():
       self._error_count += 1
@@ -198,18 +208,29 @@ class BoundedProblemList(object):
 
 
 class LimitPerTypeProblemAccumulator(transitfeed.ProblemAccumulatorInterface):
-  def __init__(self, limit_per_type):
+  """Accumulate problems up to a maximum number per type.
+
+  Args:
+    limit_per_type: maximum number of errors and warnings to keep of each type
+    ignore_types: list of error type names that will be ignored. E.g.
+                  ['ExpirationDate', 'UnusedStop']
+  """
+
+  def __init__(self, limit_per_type, ignore_types=None):
     # {TYPE_WARNING: {"ClassName": BoundedProblemList()}}
     self._type_to_name_to_problist = {
       TYPE_WARNING: defaultdict(lambda: BoundedProblemList(limit_per_type)),
       TYPE_ERROR: defaultdict(lambda: BoundedProblemList(limit_per_type))
     }
+    self._ignore_types = ignore_types or set()
 
   def HasIssues(self):
     return (self._type_to_name_to_problist[TYPE_ERROR] or
             self._type_to_name_to_problist[TYPE_WARNING])
 
   def _Report(self, e):
+    if e.__class__.__name__ in self._ignore_types:
+      return
     self._type_to_name_to_problist[e.GetType()][e.__class__.__name__].Add(e)
 
   def ErrorCount(self):
@@ -497,7 +518,8 @@ def RunValidationOutputToFilename(feed, options, output_filename):
 
 def RunValidationOutputToFile(feed, options, output_file):
   """Validate feed, write HTML to output_file and return an exit code."""
-  accumulator = HTMLCountingProblemAccumulator(options.limit_per_type)
+  accumulator = HTMLCountingProblemAccumulator(options.limit_per_type,
+                                               options.error_types_ignore_list)
   problems = transitfeed.ProblemReporter(accumulator)
   schedule, exit_code, other_problems_string = RunValidation(feed, options,
                                                              problems)
@@ -512,7 +534,8 @@ def RunValidationOutputToFile(feed, options, output_file):
 
 def RunValidationOutputToConsole(feed, options):
   """Validate feed, print reports and return an exit code."""
-  accumulator = CountingConsoleProblemAccumulator()
+  accumulator = CountingConsoleProblemAccumulator(
+      options.error_types_ignore_list)
   problems = transitfeed.ProblemReporter(accumulator)
   _, exit_code, _ = RunValidation(feed, options, problems)
   return exit_code
@@ -674,6 +697,12 @@ http://code.google.com/p/googletransitdatafeed/wiki/FeedValidator
                     help='the name of the Python module that containts a GTFS '
                     'extension that is to be loaded and used while validating '
                     'the specified feed.')
+  parser.add_option('--error_types_ignore_list',
+                    dest='error_types_ignore_list',
+                    help='a comma-separated list of error and warning type '
+                    'names to be ignored during validation (e.g. '
+                    '"ExpirationDate,UnusedStop"). Bad error type names will '
+                    'be silently ignored!')
 
   parser.set_defaults(manual_entry=True, output='validation-results.html',
                       memory_db=False, check_duplicate_trips=False,
@@ -689,6 +718,12 @@ http://code.google.com/p/googletransitdatafeed/wiki/FeedValidator
   else:
     feed = args[0]
   feed = feed.strip('"')
+
+  # transform options.error_types_ignore_list into a valid list
+  if options.error_types_ignore_list:
+    options.error_types_ignore_list = options.error_types_ignore_list.split(',')
+  else:
+    options.error_types_ignore_list = None
 
   return (feed, options)
 

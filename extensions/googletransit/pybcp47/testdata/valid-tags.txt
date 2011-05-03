@@ -1,0 +1,67 @@
+ch
+gsw
+ab-x-abc-a-a
+ab-x-abc-x-abc
+aed
+apa
+apa-CA
+apa-Latn # ISO 639 can be 3-letters
+ar-afb
+az-Arab-x-AZE-derbend
+de
+de-015
+de-a-value
+de-AT
+de-Bopo-DE
+de-CH
+de-CH-1901
+de-CH-1996
+de-DE-1901
+de-Latg-1996
+en
+en-a-bbb-x-a-ccc
+en-GB-boont-r-extended-sequence-x-private
+en-GB-oed
+en-Latn-GB-boont-r-extended-sequence-x-private
+en-US
+en-US-boont
+en-US-x-twain
+en-x-US
+es-419
+es-Latn-CO-x-private
+fr
+fr-FR
+fr-Latn
+fr-Latn-419
+fr-Latn-CA
+fr-Latn-FR
+fr-y-myext-myext2
+hy-Latn-IT-arevela
+i-default # grandfathered
+i-enochian # Grand fathered
+i-klingon # grandfathered
+I-kLINgon # tags are case-insensitive...
+mn-Cyrl-MN
+mN-cYrL-Mn
+mn-Cyrl-MN
+mN-cYrL-Mn
+no
+no-bok
+sgn-aed
+sl-IT-nedis
+sl-Latn-IT-rozaj
+sl-nedis
+sr-Cyrl
+sr-Cyrl-CS
+sr-Cyrl-DE
+sr-Latn
+sr-Latn-CS
+x-fr-CH
+zh-cdo
+zh-cmn
+zh-cmn-Hans
+zh-cmn-Hant
+zh-cmn-Hant-HK
+zh-gan
+zh-yue
+zh-yue-Hant-HK

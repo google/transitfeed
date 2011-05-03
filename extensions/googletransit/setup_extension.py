@@ -16,6 +16,7 @@
 
 import transitfeed
 
+import agency
 import fareattribute
 import feedinfo
 import frequency
@@ -26,6 +27,9 @@ import stop
 def GetGtfsFactory(factory = None):
   if not factory:
     factory = transitfeed.GetGtfsFactory()
+
+  # Agency class extension
+  factory.UpdateClass('Agency', agency.Agency)
 
   # FareAttribute class extension
   factory.UpdateClass('FareAttribute', fareattribute.FareAttribute)

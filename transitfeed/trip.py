@@ -634,8 +634,7 @@ class Trip(GtfsObjectBase):
         shape = self._schedule.GetShape(self.shape_id)
         max_shape_dist = shape.max_distance
         st = stoptimes[-1]
-        # shape_dist_traveled is valid in shape if max_shape_dist larger than
-        # 0.
+        # shape_dist_traveled is valid in shape if max_shape_dist larger than 0.
         if max_shape_dist > 0:
           for st in stoptimes:
             if st.shape_dist_traveled is None:

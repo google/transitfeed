@@ -1,0 +1,22 @@
+ax-TZ
+xr-lxs-qut
+xr-lqt-qu
+xr-p-lze
+AaBbCcDd
+AaBbCcDd-x-y-any-x
+abcd-Latn
+ax-TZ
+zh-ab
+xz
+xz-CH
+fra
+fra-FX
+fra-Latn
+zh-Latm-CN # Typo
+de-DE-1902 # Wrong variant
+fr-shadok # Variant
+AaBbCcDd-x-y-any-x # Language of 5-8 chars, registered
+abcd-Latn # Language of 4 chars reserved for future use
+fr-fra # Extended tag
+fr-Lat # Extended
+fr-shadok # Variant
