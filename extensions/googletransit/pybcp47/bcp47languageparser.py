@@ -15,8 +15,9 @@
 # limitations under the License.
 
 import codecs
-import re
 import os
+from pkg_resources import resource_string
+import re
 import string
 
 class FileParseError(Exception):
@@ -50,14 +51,13 @@ class Bcp47LanguageParser(object):
     # Formatting rules of this file can be found at page 20 of
     # http://tools.ietf.org/html/rfc5646
     file_name = 'language-subtag-registry.txt'
-    full_filename = os.path.join(os.path.dirname(__file__), file_name)
     # Read Unicode string from the UTF-8 bytes in the file.
-    fileObj = codecs.open(full_filename, "r", "utf-8")
+    file_string_utf8 = resource_string(__name__, file_name).decode('utf-8')
     # Yield the lines from the file. Handle "folding" indicated by two leading
     # whitespaces.
     accumulated_line_parts = None
     line_number = 0
-    for line in fileObj.xreadlines():
+    for line in file_string_utf8.splitlines():
       line_number += 1
       if line[:2] == '  ':
         accumulated_line_parts.append(line.strip())
