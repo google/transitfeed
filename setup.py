@@ -94,7 +94,7 @@ setup(
     )
 
 if has_py2exe:
-  # Some data files are not copied automatically by py2exe into the 
+  # Some data files are not copied automatically by py2exe into the
   # library.zip file. This concerns mainly files which are loaded by modules
   # using pkg_resources.
   import zipfile
@@ -111,7 +111,7 @@ if has_py2exe:
   # read in the py2exe executable.
   # This manually copies zoneinfo into the zip. See also
   # http://code.google.com/p/googletransitdatafeed/issues/detail?id=121
-  import pytz  
+  import pytz
   # Make sure the layout of pytz hasn't changed
   assert (pytz.__file__.endswith('__init__.pyc') or
           pytz.__file__.endswith('__init__.py')), pytz.__file__
