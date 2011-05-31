@@ -1036,6 +1036,8 @@ class StopValidationTestCase(ValidationTestCase):
     self.accumulator.AssertNoMoreExceptions()
     stop.stop_lat = '10f'
     self.ValidateAndExpectInvalidValue(stop, 'stop_lat')
+    stop.stop_lat = 'None'
+    self.ValidateAndExpectInvalidValue(stop, 'stop_lat')
     stop.stop_lat = ''
     self.ValidateAndExpectMissingValue(stop, 'stop_lat')
     stop.stop_lat = ' '
@@ -1053,6 +1055,8 @@ class StopValidationTestCase(ValidationTestCase):
     stop.Validate(self.problems)
     self.accumulator.AssertNoMoreExceptions()
     stop.stop_lon = '10f'
+    self.ValidateAndExpectInvalidValue(stop, 'stop_lon')
+    stop.stop_lon = 'None'
     self.ValidateAndExpectInvalidValue(stop, 'stop_lon')
     stop.stop_lon = ''
     self.ValidateAndExpectMissingValue(stop, 'stop_lon')
@@ -3630,6 +3634,37 @@ class TripServiceIDValidationTestCase(ValidationTestCase):
                                      value="WEEKDAY",
                                      c=lambda: schedule.AddTripObject(trip1,
                                                             validate=True))
+
+
+class TripDistanceFromStopToShapeValidationTestCase(ValidationTestCase):
+  def runTest(self):
+    schedule = self.SimpleSchedule()
+    stop1 = schedule.stops["stop1"]
+    stop2 = schedule.stops["stop2"]
+    stop3 = schedule.stops["stop3"]
+
+    # Set shape_dist_traveled
+    trip = schedule.trips["CITY1"]
+    trip.ClearStopTimes()
+    trip.AddStopTime(stop1, stop_time="12:00:00", shape_dist_traveled=0)
+    trip.AddStopTime(stop2, stop_time="12:00:45", shape_dist_traveled=500)
+    trip.AddStopTime(stop3, stop_time="12:02:30", shape_dist_traveled=1500)
+    trip.shape_id = "shape1"
+
+    # Add a valid shape for the trip to the current schedule.
+    shape = transitfeed.Shape("shape1")
+    shape.AddPoint(48.2, 1.00, 0)
+    shape.AddPoint(48.2, 1.01, 500)
+    shape.AddPoint(48.2, 1.03, 1500)
+    shape.max_distance = 1500
+    schedule.AddShapeObject(shape)
+
+    # The schedule should validate with no problems.
+    self.ExpectNoProblems(schedule)
+
+    # Delete a stop latitude. This should not crash validation.
+    stop1.stop_lat = None
+    self.ValidateAndExpectMissingValue(schedule, "stop_lat")
 
 
 class TripHasStopTimeValidationTestCase(ValidationTestCase):

@@ -642,13 +642,15 @@ class Trip(GtfsObjectBase):
             pt = shape.GetPointWithDistanceTraveled(st.shape_dist_traveled)
             if pt:
               stop = self._schedule.GetStop(st.stop_id)
-              distance = util.ApproximateDistance(stop.stop_lat, stop.stop_lon,
-                                             pt[0], pt[1])
-              if distance > problems_module.MAX_DISTANCE_FROM_STOP_TO_SHAPE:
-                problems.StopTooFarFromShapeWithDistTraveled(
-                    self.trip_id, stop.stop_name, stop.stop_id, pt[2],
-                    self.shape_id, distance,
-                    problems_module.MAX_DISTANCE_FROM_STOP_TO_SHAPE)
+              if stop.stop_lat and stop.stop_lon:
+                distance = util.ApproximateDistance(stop.stop_lat,
+                                                    stop.stop_lon,
+                                                    pt[0], pt[1])
+                if distance > problems_module.MAX_DISTANCE_FROM_STOP_TO_SHAPE:
+                  problems.StopTooFarFromShapeWithDistTraveled(
+                      self.trip_id, stop.stop_name, stop.stop_id, pt[2],
+                      self.shape_id, distance,
+                      problems_module.MAX_DISTANCE_FROM_STOP_TO_SHAPE)
 
   def ValidateFrequencies(self, problems):
     # O(n^2), but we don't anticipate many headway periods per trip
