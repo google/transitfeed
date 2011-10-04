@@ -1036,6 +1036,7 @@ class Schedule(object):
       route_type = self.GetRoute(trip.route_id).route_type
       stop_ids = []
       stop_times = trip.GetStopTimes(problems)
+      self.ValidateStopTimesForTrip(problems, trip, stop_times)
       for index, st in enumerate(stop_times):
         stop_id = st.stop.stop_id
         stop_ids.append(stop_id)
@@ -1090,6 +1091,37 @@ class Schedule(object):
     # Now that we've generated our block trip intervls, we can check for
     # overlaps in the intervals
     self.ValidateBlocks(problems, trip_intervals_by_block_id)
+
+  def ValidateStopTimesForTrip(self, problems, trip, stop_times):
+    """Checks for the stop times of a trip.
+    
+    Ensure that a trip does not have too many consecutive stop times with the
+    same departure/arrival time."""
+    prev_departure_secs = -1
+    consecutive_stop_times_with_same_time = 1
+    
+    def CheckSameTimeCount():
+      # More than three consecutive stop times with the same time?  Seems not
+      # very likely.
+      if (prev_departure_secs != -1 and
+          consecutive_stop_times_with_same_time > 3):
+        problems.TooManyConsecutiveStopTimesWithSameTime(trip.trip_id,
+            consecutive_stop_times_with_same_time,
+            prev_departure_secs)
+    for index, st in enumerate(stop_times):
+      if st.arrival_secs is None or st.departure_secs is None:
+        consecutive_stop_times_with_same_time += 1
+        continue
+      if (prev_departure_secs == st.arrival_secs and
+        st.arrival_secs == st.departure_secs):
+        consecutive_stop_times_with_same_time += 1
+      else:
+        CheckSameTimeCount()
+        consecutive_stop_times_with_same_time = 1
+      prev_departure_secs = st.departure_secs
+    
+    # Make sure to check one last time at the end
+    CheckSameTimeCount()
 
   def ValidateBlocks(self, problems, trip_intervals_by_block_id):
     # Expects trip_intervals_by_block_id to be a dict with a key of block ids

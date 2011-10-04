@@ -342,6 +342,19 @@ class ProblemReporter(object):
     self.AddToAccumulator(e)
 
 
+  def TooManyConsecutiveStopTimesWithSameTime(self,
+      trip_id,
+      number_of_stop_times,
+      time_in_secs,
+      type=TYPE_ERROR):
+    e = TooManyConsecutiveStopTimesWithSameTime(trip_id=trip_id,
+        number_of_stop_times=number_of_stop_times,
+        stop_time=util.FormatSecondsSinceMidnight(time_in_secs),
+        context=None,
+        context2=self._context,
+        type=type)
+    self.AddToAccumulator(e)
+
 class ProblemAccumulatorInterface(object):
   """The base class for Problem Accumulators, which defines their interface."""
 
@@ -699,6 +712,11 @@ class TransferWalkingSpeedTooFast(ExceptionWithContext):
   ERROR_TEXT = "Riders transfering from stop %(from_stop_id)s to stop " \
                "%(to_stop_id)s would need to walk %(distance)s meters in " \
                "%(transfer_time)s seconds."
+
+class TooManyConsecutiveStopTimesWithSameTime(ExceptionWithContext):
+  ERROR_TEXT = "Trip %(trip_id)s has %(number_of_stop_times)d consecutive " \
+               "stop times all with the same arrival/departure time: " \
+               "%(stop_time)s."
 
 class OtherProblem(ExceptionWithContext):
   ERROR_TEXT = '%(description)s'

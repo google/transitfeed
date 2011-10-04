@@ -6005,5 +6005,103 @@ class TestGtfsFactoryUser(util.TestCase):
       self.AssertFactoryIsSavedAndReturned(instance, FakeGtfsFactory())
 
 
+class TooManyConsecutiveStopTimesWithSameTime(util.TestCase):
+  """Check for too many consecutive stop times with same time"""
+
+  def setUp(self):
+  
+    # We ignore the lack of service dates ("OtherProblem")
+    self.accumulator = RecordingProblemAccumulator(
+        self, ("OtherProblem"))
+    self.problems = transitfeed.ProblemReporter(self.accumulator)
+
+    self.schedule = transitfeed.Schedule(problem_reporter=self.problems)
+    self.schedule.AddAgency("Demo Transit Authority", "http://dta.org",
+                            "America/Los_Angeles")
+
+    self.stop1 = self.schedule.AddStop(lng=-116.75167,
+                                       lat=36.915682,
+                                       name="Stagecoach Hotel & Casino",
+                                       stop_id="S1")
+
+    self.stop2 = self.schedule.AddStop(lng=-116.76218,
+                                       lat=36.905697,
+                                       name="E Main St / S Irving St",
+                                       stop_id="S2")
+    
+    route = self.schedule.AddRoute("", "City", "Bus", route_id="CITY")
+
+    self.trip = route.AddTrip(self.schedule, trip_id="CITY1")
+    
+  def testTooManyConsecutiveStopTimesWithSameTime(self):
+    trip = self.trip    
+    trip.AddStopTime(self.stop1, stop_time="6:00:00")
+    trip.AddStopTime(self.stop2, stop_time="6:05:00")
+    trip.AddStopTime(self.stop1, stop_time="6:05:00")
+    trip.AddStopTime(self.stop2, stop_time="6:05:00")
+    trip.AddStopTime(self.stop1, stop_time="6:05:00")
+    trip.AddStopTime(self.stop2, stop_time="6:05:00")
+    trip.AddStopTime(self.stop1, stop_time="6:10:00")
+
+    self.schedule.Validate(self.problems)
+    
+    e = self.accumulator.PopException('TooManyConsecutiveStopTimesWithSameTime')
+    self.assertEqual(e.trip_id, 'CITY1')
+    self.assertEqual(e.number_of_stop_times, 5)
+    self.assertEqual(e.stop_time, '06:05:00')
+        
+    self.assertEqual(e.FormatProblem(),
+        "Trip CITY1 has 5 consecutive stop times all with the same " \
+        "arrival/departure time: 06:05:00.")
+
+    self.accumulator.AssertNoMoreExceptions()
+    
+  def testNotTooManyConsecutiveStopTimesWithSameTime(self):
+    trip = self.trip    
+    trip.AddStopTime(self.stop1, stop_time="6:00:00")
+    trip.AddStopTime(self.stop2, stop_time="6:05:00")
+    trip.AddStopTime(self.stop1, stop_time="6:05:00")
+    trip.AddStopTime(self.stop2, stop_time="6:05:00")
+    trip.AddStopTime(self.stop1, stop_time="6:10:00")
+
+    self.schedule.Validate(self.problems)
+    
+    self.accumulator.AssertNoMoreExceptions()
+    
+  def testTooManyConsecutiveStopTimesWithSameTimeAtStart(self):
+    trip = self.trip    
+    trip.AddStopTime(self.stop1, stop_time="6:05:00")
+    trip.AddStopTime(self.stop2, stop_time="6:05:00")
+    trip.AddStopTime(self.stop1, stop_time="6:05:00")
+    trip.AddStopTime(self.stop2, stop_time="6:05:00")
+    trip.AddStopTime(self.stop1, stop_time="6:10:00")
+
+    self.schedule.Validate(self.problems)
+    
+    e = self.accumulator.PopException('TooManyConsecutiveStopTimesWithSameTime')
+    self.assertEqual(e.trip_id, 'CITY1')
+    self.assertEqual(e.number_of_stop_times, 4)
+    self.assertEqual(e.stop_time, '06:05:00')
+    
+    self.accumulator.AssertNoMoreExceptions()
+
+  def testTooManyConsecutiveStopTimesWithSameTimeAtEnd(self):
+    trip = self.trip    
+    trip.AddStopTime(self.stop1, stop_time="6:00:00")
+    trip.AddStopTime(self.stop2, stop_time="6:05:00")
+    trip.AddStopTime(self.stop1, stop_time="6:05:00")
+    trip.AddStopTime(self.stop2, stop_time="6:05:00")
+    trip.AddStopTime(self.stop1, stop_time="6:05:00")
+
+    self.schedule.Validate(self.problems)
+    
+    e = self.accumulator.PopException('TooManyConsecutiveStopTimesWithSameTime')
+    self.assertEqual(e.trip_id, 'CITY1')
+    self.assertEqual(e.number_of_stop_times, 4)
+    self.assertEqual(e.stop_time, '06:05:00')
+    
+    self.accumulator.AssertNoMoreExceptions()    
+
+
 if __name__ == '__main__':
   unittest.main()
