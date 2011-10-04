@@ -15,6 +15,7 @@
 # limitations under the License.
 
 from gtfsobjectbase import GtfsObjectBase
+import util
 
 class Frequency(GtfsObjectBase):
     """This class represents a period of a trip during which the vehicle travels
@@ -22,7 +23,7 @@ class Frequency(GtfsObjectBase):
 
     _REQUIRED_FIELD_NAMES = ['trip_id', 'start_time', 'end_time',
                              'headway_secs']
-    _FIELD_NAMES = _REQUIRED_FIELD_NAMES
+    _FIELD_NAMES = _REQUIRED_FIELD_NAMES + ['exact_times']
     _TABLE_NAME = "frequencies"
 
     def __init__(self, field_dict=None):
@@ -33,6 +34,7 @@ class Frequency(GtfsObjectBase):
       self._start_time = field_dict['start_time']
       self._end_time = field_dict['end_time']
       self._headway_secs = field_dict['headway_secs']
+      self._exact_times = field_dict.setdefault('exact_times')
 
     def StartTime(self):
       return self._start_time
@@ -46,7 +48,30 @@ class Frequency(GtfsObjectBase):
     def HeadwaySecs(self):
       return self._headway_secs
 
+    def ExactTimes(self):
+      return self._exact_times
+
+    def ValidateExactTimes(self, problems):
+      if util.IsEmpty(self._exact_times):
+        self._exact_times = 0
+        return
+      try:
+        self._exact_times = int(self._exact_times)
+      except (ValueError, TypeError):
+        problems.InvalidValue('exact_times', self._exact_times,
+            'Should be 0 (no fixed schedule) or 1 (fixed and ' \
+            'regular schedule, shortcut for a repetitive ' \
+            'stop_times file).')
+        del self._exact_times
+        return
+      if self._exact_times not in (0, 1):
+        problems.InvalidValue('exact_times', self._exact_times,
+            'Should be 0 (no fixed schedule) or 1 (fixed and ' \
+            'regular schedule, shortcut for a repetitive ' \
+            'stop_times file).')
+
     def ValidateBeforeAdd(self, problems):
+      self.ValidateExactTimes(problems)
       return True
 
     def ValidateAfterAdd(self, problems):

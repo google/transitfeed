@@ -3598,6 +3598,78 @@ class FrequencyValidationTestCase(ValidationTestCase):
     self.assertEqual('trip_id', e.column_name)
     self.trip.ClearFrequencies()
 
+  def testExactTimesStringValueConversion(self):
+    # Test that no exact_times converts to 0
+    frequency = transitfeed.Frequency(
+        field_dict={"trip_id": "AB1,10", "start_time": "10:00:00",
+                    "end_time": "23:01:00", "headway_secs": "1800"})
+    frequency.ValidateBeforeAdd(self.problems)
+    self.assertEquals(frequency.ExactTimes(), 0)
+    # Test that empty exact_times converts to 0
+    frequency = transitfeed.Frequency(
+        field_dict={"trip_id": "AB1,10", "start_time": "10:00:00",
+                    "end_time": "23:01:00", "headway_secs": "1800",
+                    "exact_times": ""})
+    frequency.ValidateBeforeAdd(self.problems)
+    self.assertEquals(frequency.ExactTimes(), 0)
+    # Test that exact_times "0" converts to 0
+    frequency = transitfeed.Frequency(
+        field_dict={"trip_id": "AB1,10", "start_time": "10:00:00",
+                    "end_time": "23:01:00", "headway_secs": "1800",
+                    "exact_times": "0"})
+    frequency.ValidateBeforeAdd(self.problems)
+    self.assertEquals(frequency.ExactTimes(), 0)
+    # Test that exact_times "1" converts to 1
+    frequency = transitfeed.Frequency(
+        field_dict={"trip_id": "AB1,10", "start_time": "10:00:00",
+                    "end_time": "23:01:00", "headway_secs": "1800",
+                    "exact_times": "1"})
+    frequency.ValidateBeforeAdd(self.problems)
+    self.assertEquals(frequency.ExactTimes(), 1)
+    self.accumulator.AssertNoMoreExceptions()
+
+  def testExactTimesAsIntValue(self):
+    # Test that exact_times None converts to 0
+    frequency = transitfeed.Frequency(
+        field_dict={"trip_id": "AB1,10", "start_time": "10:00:00",
+                    "end_time": "23:01:00", "headway_secs": "1800",
+                    "exact_times": None})
+    frequency.ValidateBeforeAdd(self.problems)
+    self.assertEquals(frequency.ExactTimes(), 0)
+    # Test that exact_times 0 remains 0
+    frequency = transitfeed.Frequency(
+        field_dict={"trip_id": "AB1,10", "start_time": "10:00:00",
+                    "end_time": "23:01:00", "headway_secs": "1800",
+                    "exact_times": 0})
+    frequency.ValidateBeforeAdd(self.problems)
+    self.assertEquals(frequency.ExactTimes(), 0)
+    # Test that exact_times 1 remains 1
+    frequency = transitfeed.Frequency(
+        field_dict={"trip_id": "AB1,10", "start_time": "10:00:00",
+                    "end_time": "23:01:00", "headway_secs": "1800",
+                    "exact_times": 1})
+    frequency.ValidateBeforeAdd(self.problems)
+    self.assertEquals(frequency.ExactTimes(), 1)
+    self.accumulator.AssertNoMoreExceptions()
+
+  def testExactTimesInvalidValues(self):
+    # Test that exact_times 15 raises error
+    frequency = transitfeed.Frequency(
+        field_dict={"trip_id": "AB1,10", "start_time": "10:00:00",
+                    "end_time": "23:01:00", "headway_secs": "1800",
+                    "exact_times": 15})
+    frequency.ValidateBeforeAdd(self.problems)
+    self.accumulator.PopInvalidValue("exact_times")
+    self.accumulator.AssertNoMoreExceptions()
+    # Test that exact_times "yes" raises error
+    frequency = transitfeed.Frequency(
+        field_dict={"trip_id": "AB1,10", "start_time": "10:00:00",
+                    "end_time": "23:01:00", "headway_secs": "1800",
+                    "exact_times": "yes"})
+    frequency.ValidateBeforeAdd(self.problems)
+    self.accumulator.PopInvalidValue("exact_times")
+    self.accumulator.AssertNoMoreExceptions()
+
 
 class TripSequenceValidationTestCase(ValidationTestCase):
   def runTest(self):
@@ -4620,12 +4692,12 @@ class AddFrequencyValidationTestCase(ValidationTestCase):
     trip.AddFrequency(u"02:00:00", u"03:00:00", u"1800")
     headways = trip.GetFrequencyTuples()
     self.assertEqual(3, len(headways))
-    self.assertEqual((0, 50, 1200), headways[0])
-    self.assertEqual((3600, 7200, 600), headways[1])
-    self.assertEqual((7200, 10800, 1800), headways[2])
-    self.assertEqual([("SAMPLE_ID", "00:00:00", "00:00:50", "1200"),
-                      ("SAMPLE_ID", "01:00:00", "02:00:00", "600"),
-                      ("SAMPLE_ID", "02:00:00", "03:00:00", "1800")],
+    self.assertEqual((0, 50, 1200, 0), headways[0])
+    self.assertEqual((3600, 7200, 600, 0), headways[1])
+    self.assertEqual((7200, 10800, 1800, 0), headways[2])
+    self.assertEqual([("SAMPLE_ID", "00:00:00", "00:00:50", "1200", "0"),
+                      ("SAMPLE_ID", "01:00:00", "02:00:00", "600", "0"),
+                      ("SAMPLE_ID", "02:00:00", "03:00:00", "1800", "0")],
                      trip.GetFrequencyOutputTuples())
 
     # now test invalid input
@@ -4984,7 +5056,7 @@ class WriteSampleFeedTestCase(TempFileTestCaseBase):
       (trip_id, start_time, end_time, headway) = headway_entry
       headway_trips[trip_id] = []  # adding to set to check later
       trip = schedule.GetTrip(trip_id)
-      trip.AddFrequency(start_time, end_time, headway, problems)
+      trip.AddFrequency(start_time, end_time, headway, 0, problems)
     for trip_id in headway_trips:
       headway_trips[trip_id] = \
           schedule.GetTrip(trip_id).GetFrequencyTuples()

@@ -27,10 +27,6 @@ List of changes to the default behavior:
     is only used to check the feed validity. It's not used for other purposes.
     In particular, services and service exceptions are not dropped or reduced if
     they are defined outside this valid dates range.
-* extensions.googletransit.Frequency
-  - extension of transitfeed.Frequency as proposed in
-    https://sites.google.com/site/gtfschanges/spec-changes-summary#frequencies
-  - adding field 'exact_times' and function ValidateExactTimes()
 * extensions.googletransit.Route
   - extension of transitfeed.Route as proposed in
     https://sites.google.com/site/gtfschanges/spec-changes-summary#routes and

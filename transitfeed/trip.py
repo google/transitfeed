@@ -323,7 +323,8 @@ class Trip(GtfsObjectBase):
       this trip doesn't have headways returns an empty list."""
     start_times = []
     # for each headway period of the trip
-    for start_secs, end_secs, headway_secs in self.GetFrequencyTuples():
+    for freq_tuple in self.GetFrequencyTuples():
+      (start_secs, end_secs, headway_secs) = freq_tuple[0:3]
       # reset run secs to the start of the timeframe
       run_secs = start_secs
       while run_secs < end_secs:
@@ -379,6 +380,7 @@ class Trip(GtfsObjectBase):
       self.AddFrequency(frequency.StartTime(),
                         frequency.EndTime(),
                         frequency.HeadwaySecs(),
+                        frequency.ExactTimes(),
                         problem_reporter)
 
   def AddHeadwayPeriod(self, start_time, end_time, headway_secs,
@@ -389,7 +391,7 @@ class Trip(GtfsObjectBase):
                   "accordingly.", DeprecationWarning)
     self.AddFrequency(start_time, end_time, headway_secs, problem_reporter)
 
-  def AddFrequency(self, start_time, end_time, headway_secs,
+  def AddFrequency(self, start_time, end_time, headway_secs, exact_times=0,
       problem_reporter=problems_module.default_problem_reporter):
     """Adds a period to this trip during which the vehicle travels
     at regular intervals (rather than specifying exact times for each stop).
@@ -402,6 +404,8 @@ class Trip(GtfsObjectBase):
           This value should be larger than start_time.
       headway_secs: The amount of time, in seconds, between occurences of
           this trip.
+      exact_times: If 1, indicates that frequency trips should be scheduled
+          exactly as determined by their start time and headway.  Default is 0.
       problem_reporter: Optional parameter that can be used to select
           how any errors in the other input parameters will be reported.
     Returns:
@@ -449,7 +453,13 @@ class Trip(GtfsObjectBase):
       problem_reporter.InvalidValue('end_time', end_time,
                                     'should be greater than start_time')
 
-    self._headways.append((start_time, end_time, headway_secs))
+    if not exact_times:
+      exact_times = 0      
+    if exact_times not in (0, 1):
+      problem_reporter.InvalidValue('exact_times', exact_times,
+          'Should be 0 (no fixed schedule) or 1 (fixed and regular schedule)')
+
+    self._headways.append((start_time, end_time, headway_secs, exact_times))
 
   def ClearFrequencies(self):
     self._headways = []
@@ -458,7 +468,8 @@ class Trip(GtfsObjectBase):
       return (self.trip_id,
               util.FormatSecondsSinceMidnight(headway[0]),
               util.FormatSecondsSinceMidnight(headway[1]),
-              unicode(headway[2]))
+              unicode(headway[2]),
+              unicode(headway[3]))
 
   def GetFrequencyOutputTuples(self):
     tuples = []

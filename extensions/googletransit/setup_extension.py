@@ -19,7 +19,6 @@ import transitfeed
 import agency
 import fareattribute
 import feedinfo
-import frequency
 import route
 import schedule
 import stop
@@ -39,9 +38,6 @@ def GetGtfsFactory(factory = None):
                      {'required': False, 'loading_order': 100,
                       'classes': ['FeedInfo']})
   factory.AddClass('FeedInfo', feedinfo.FeedInfo)
-
-  # Frequency class extension
-  factory.UpdateClass('Frequency', frequency.Frequency)
 
   # Route class extension
   factory.UpdateClass('Route', route.Route)

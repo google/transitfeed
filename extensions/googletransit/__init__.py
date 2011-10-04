@@ -17,7 +17,6 @@
 from agency import *
 from fareattribute import *
 from feedinfo import *
-from frequency import *
 from route import *
 from schedule import *
 from setup_extension import *
