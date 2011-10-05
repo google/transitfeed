@@ -952,6 +952,20 @@ class AgencyValidationTestCase(ValidationTestCase):
     agency.agency_mission = 'monorail you there'
     self.ExpectNoProblems(agency)
 
+     # good agency_fare_url url
+    agency = transitfeed.Agency(name='Test Agency',
+                                url='http://www.example.com',
+                                timezone='America/Los_Angeles',
+                                agency_fare_url="http://www.example.com/fares")
+    self.ExpectNoProblems(agency)
+
+    # bad agency_fare_url url
+    agency = transitfeed.Agency(name='Test Agency',
+                                url='http://www.example.com',
+                                timezone='America/Los_Angeles',
+                                agency_fare_url="www.example.com/fares")
+    self.ValidateAndExpectInvalidValue(agency, 'agency_fare_url')
+
     # Multiple problems
     agency = transitfeed.Agency(name='Test Agency', url='www.example.com',
                                 timezone='America/West Coast', id='TA')
@@ -1009,6 +1023,20 @@ class AgencyAttributesTestCase(ValidationTestCase):
                        "agency_url": "http://example.com",
                        "agency_timezone": "America/Los_Angeles"},
                       dict(agency.iteritems()))
+
+
+class DeprecatedAgencyFieldsTestCase(util.MemoryZipTestCase):
+
+  def testDeprectatedFieldNames(self):
+    self.SetArchiveContents(
+        "agency.txt",
+        "agency_id,agency_name,agency_timezone,agency_url,agency_ticket_url\n"
+        "DTA,Demo Agency,America/Los_Angeles,http://google.com,"
+        "http://google.com/tickets\n")
+    self.MakeLoaderAndLoad(self.problems)
+    e = self.accumulator.PopException("DeprecatedColumn")
+    self.assertEquals("agency_ticket_url", e.column_name)
+    self.accumulator.AssertNoMoreExceptions()
 
 
 class StopValidationTestCase(ValidationTestCase):

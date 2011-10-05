@@ -30,7 +30,8 @@ class Agency(GtfsObjectBase):
   """
   _REQUIRED_FIELD_NAMES = ['agency_name', 'agency_url', 'agency_timezone']
   _FIELD_NAMES = _REQUIRED_FIELD_NAMES + ['agency_id', 'agency_lang',
-                                          'agency_phone']
+                                          'agency_phone', 'agency_fare_url']
+  _DEPRECATED_FIELD_NAMES = [('agency_ticket_url','agency_fare_url')]
   _TABLE_NAME = 'agency'
 
   def __init__(self, name=None, url=None, timezone=None, id=None,
@@ -74,6 +75,10 @@ class Agency(GtfsObjectBase):
     return not util.ValidateTimezone(self.agency_timezone, 'agency_timezone',
                                      problems)
 
+  def ValidateAgencyFareUrl(self, problems):
+    return not util.ValidateURL(
+        self.agency_fare_url, 'agency_fare_url', problems)
+
   def Validate(self, problems=default_problem_reporter):
     """Validate attribute values and this object's internal consistency.
 
@@ -87,6 +92,7 @@ class Agency(GtfsObjectBase):
     found_problem = self.ValidateAgencyUrl(problems) or found_problem
     found_problem = self.ValidateAgencyLang(problems) or found_problem
     found_problem = self.ValidateAgencyTimezone(problems) or found_problem
+    found_problem = self.ValidateAgencyFareUrl(problems) or found_problem
 
     return not found_problem
 

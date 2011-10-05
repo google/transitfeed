@@ -7,8 +7,6 @@ and features specific to Google Transit.
 List of changes to the default behavior:
 * extensions.googletransit.Agency:
   - extension of transitfeed.Agency
-  - deprecating field 'agency_ticket_url', adding field 'agency_fare_url' as in
-    https://sites.google.com/site/gtfschanges/spec-changes-summary#agency
   - deprecating field 'agency_lang' and 'agency_timezone' in favor of feed_info
     'feed_lang' and 'feed_timezone'.
   - adding pybcp47 module for supporting BCP-47 language code validation
