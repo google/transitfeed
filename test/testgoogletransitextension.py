@@ -643,22 +643,3 @@ class AgencyLangTestCase(ExtensionMemoryZipTestCase):
     self.assertTrue(e_msg.find('not valid') != -1,
                     '%s should not be valid, is: %s' % (e.value, e_msg))
     self.accumulator.AssertNoMoreExceptions()
-
-
-class DeprecatedColumnsTestCase(MemoryZipTestCase):
-  """Check that Deprecated Fields are getting handled correctly."""
-  gtfs_factory = extensions.googletransit.GetGtfsFactory()
-
-  def testAgencyDeprecatedColumns(self):
-    self.SetArchiveContents(
-        "agency.txt",
-        "agency_id,agency_name,agency_url,agency_timezone,agency_lang\n"
-        "DTA,Demo Agency,http://google.com,America/Los_Angeles,en\n")
-
-    self.MakeLoaderAndLoad(self.problems,
-                           gtfs_factory=self.gtfs_factory)
-    e = self.accumulator.PopException("DeprecatedColumn")
-    self.assertEquals(e.column_name, 'agency_lang')
-    e = self.accumulator.PopException("DeprecatedColumn")
-    self.assertEquals(e.column_name, 'agency_timezone')
-    self.accumulator.AssertNoMoreExceptions()
