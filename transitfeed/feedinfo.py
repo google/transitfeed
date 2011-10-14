@@ -17,23 +17,15 @@
 import transitfeed
 
 class FeedInfo(transitfeed.GtfsObjectBase):
-  """New class FeedInfo for validating feed_info.txt
-
-  There is a proposal for adding feed_info.txt to the general GTFS spec (see
-  https://sites.google.com/site/gtfschanges/spec-changes-summary#feed_info).
-  The motivation comes from the fact that the publisher of the feed is sometimes
-  a different entity than any of the operators described in agency.txt. There
-  are some fields in agency.txt that are really feed-wide rather than
-  agency-wide settings and it would be useful for a feed publisher to have an
-  identifier to determine which version of their feed is currently being used
-  by a client.
-
-  """
+  """Model and validation for feed_info.txt."""
 
   _REQUIRED_FIELD_NAMES = ["feed_publisher_name", "feed_publisher_url",
-                           "feed_timezone", "feed_lang"]
-  _FIELD_NAMES = _REQUIRED_FIELD_NAMES + ["feed_valid_from", "feed_valid_until",
+                           "feed_lang"]
+  _FIELD_NAMES = _REQUIRED_FIELD_NAMES + ["feed_start_date", "feed_end_date",
                                           "feed_version"]
+  _DEPRECATED_FIELD_NAMES = [('feed_valid_from', 'feed_start_date'),
+                             ('feed_valid_until', 'feed_end_date'),
+                             ('feed_timezone', None)]
   _TABLE_NAME = 'feed_info'
 
   def __init__(self, field_dict=None):
@@ -45,10 +37,6 @@ class FeedInfo(transitfeed.GtfsObjectBase):
     return not transitfeed.ValidateLanguageCode(self.feed_lang, 'feed_lang',
                                                 problems)
 
-  def ValidateFeedInfoTimezone(self, problems):
-    return not transitfeed.ValidateTimezone(self.feed_timezone, 'feed_timezone',
-                                            problems)
-
   def ValidateFeedInfoPublisherUrl(self, problems):
     return not transitfeed.ValidateURL(self.feed_publisher_url,
                                        'feed_publisher_url', problems)
@@ -56,25 +44,24 @@ class FeedInfo(transitfeed.GtfsObjectBase):
   def ValidateDates(self, problems):
     # Both validity dates are currently set to optional, thus they don't have
     # to be provided and it's currently OK to provide one but not the other.
-    from_date_valid = transitfeed.ValidateDate(self.feed_valid_from,
-                                               'feed_valid_from', problems)
+    start_date_valid = transitfeed.ValidateDate(self.feed_start_date,
+                                               'feed_start_date', problems)
 
-    until_date_valid = transitfeed.ValidateDate(self.feed_valid_until,
-                                                'feed_valid_until', problems)
+    end_date_valid = transitfeed.ValidateDate(self.feed_end_date,
+                                                'feed_end_date', problems)
 
-    if (from_date_valid and until_date_valid and
-        self.feed_valid_until < self.feed_valid_from):
-        problems.InvalidValue('feed_valid_until', self.feed_valid_until,
-                              'feed_valid_until %s is earlier than '
-                              'feed_valid_from "%s"' %
-                              (self.feed_valid_until, self.feed_valid_from))
+    if (start_date_valid and end_date_valid and
+        self.feed_end_date < self.feed_start_date):
+        problems.InvalidValue('feed_end_date', self.feed_end_date,
+                              'feed_end_date %s is earlier than '
+                              'feed_start_date "%s"' %
+                              (self.feed_end_date, self.feed_start_date))
 
   def ValidateBeforeAdd(self, problems):
     transitfeed.ValidateRequiredFieldsAreNotEmpty(self,
                                                   self._REQUIRED_FIELD_NAMES,
                                                   problems)
     self.ValidateFeedInfoLang(problems)
-    self.ValidateFeedInfoTimezone(problems)
     self.ValidateFeedInfoPublisherUrl(problems)
     self.ValidateDates(problems)
     return True # none of the above validations is blocking

@@ -59,6 +59,7 @@ class Schedule(object):
     self.service_periods = {}
     self.fares = {}
     self.fare_zones = {}  # represents the set of all known fare zones
+    self.feed_info = None
     self._shapes = {}  # shape_id to Shape
     # A map from transfer._ID() to a list of transfers. A list is used so
     # there can be more than one transfer with each ID. Once GTFS explicitly
@@ -258,8 +259,10 @@ class Schedule(object):
     YYYYMMDD form.
     The origins specify where the earliest or latest dates come from. In
     particular, whether the date is a regular ServicePeriod start_date or
-    end_date or as service exception of type add.
+    end_date in calendar.txt, a service exception of type add in
+    calendar_dates.txt, or feed start/end date defined in feed_info.txt.
     """
+    
 
     period_list = self.GetServicePeriodList()
     ranges = [period.GetDateRange() for period in period_list]
@@ -279,6 +282,15 @@ class Schedule(object):
     maxreason = (period_list[maxindex].HasDateExceptionOn(maxvalue) and
                  "last service exception date in calendar_dates.txt" or
                  "last service date in calendar.txt")
+
+    # Override with feed_info.txt feed_start_date and feed_end_date values, if
+    # defined
+    if self.feed_info and self.feed_info.feed_start_date:
+      minvalue = self.feed_info.feed_start_date
+      minreason = "feed_start_date in feed_info.txt"
+    if self.feed_info and self.feed_info.feed_end_date:
+      maxvalue = self.feed_info.feed_end_date
+      maxreason = "feed_end_date in feed_info.txt"
 
     return (minvalue, maxvalue, minreason, maxreason)
 
@@ -507,6 +519,18 @@ class Schedule(object):
                                     '(This fare_id doesn\'t correspond to any '
                                     'of the IDs defined in the '
                                     'fare attributes.)')
+
+  def AddFeedInfoObject(self, feed_info, problem_reporter=None, validate=False):
+    assert feed_info._schedule is None
+
+    if not problem_reporter:
+      problem_reporter = self.problem_reporter
+
+    feed_info._schedule = weakref.proxy(self)
+
+    if validate:
+      feed_info.Validate(problem_reporter)
+    self.feed_info = feed_info
 
   def AddTransferObject(self, transfer, problem_reporter=None):
     assert transfer._schedule is None, "only add Transfer to a schedule once"
@@ -753,6 +777,29 @@ class Schedule(object):
           service_id_to_departures[s.service_id] for s in services)
       date_trips.append((date, day_trips, day_departures))
     return date_trips
+
+  def ValidateAgenciesHaveSameAgencyTimezone(self, problems):
+    timezones_set = set(map(lambda agency:agency.agency_timezone,
+                            self.GetAgencyList()))
+    if len(timezones_set) > 1:
+      timezones_str = '"%s"' % ('", "'.join(timezones_set))
+      problems.InvalidValue('agency_timezone', timezones_str,
+                            'All agencies should have the same time zone. ' \
+                            'Please review agency.txt.')
+
+  def ValidateFeedInfoLangMatchesAgencyLang(self, problems):
+    if self.feed_info is None:
+      return
+    if self.feed_info.feed_lang is None:
+      return
+    agencies = self.GetAgencyList()
+    for agency in agencies:
+      if not util.IsEmpty(agency.agency_lang) and (
+          not self.feed_info.feed_lang == agency.agency_lang):
+        problems.InvalidValue("feed_lang",
+                              "The languages specified in feedinfo.txt and in "
+                              "agency.txt for agency with ID %s differ." %
+                              agency.agency_id)
 
   def ValidateFeedStartAndExpirationDates(self, problems, first_date, last_date,
                                           first_date_origin, last_date_origin,
@@ -1247,6 +1294,8 @@ class Schedule(object):
     if not problems:
       problems = self.problem_reporter
 
+    self.ValidateAgenciesHaveSameAgencyTimezone(problems)
+    self.ValidateFeedInfoLangMatchesAgencyLang(problems)
     self.ValidateServiceRangeAndExceptions(problems, today,
                                            service_gap_interval)
     # TODO: Check Trip fields against valid values

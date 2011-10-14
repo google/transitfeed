@@ -4432,6 +4432,155 @@ class CalendarDatesTxtIntegrationTestCase(util.MemoryZipTestCase):
     self.accumulator.AssertNoMoreExceptions()
 
 
+class ScheduleStartAndExpirationDatesTestCase(util.MemoryZipTestCase):
+
+  # Remove "ExpirationDate" from the accumulator _IGNORE_TYPES to get the
+  # expiration errors.
+  _IGNORE_TYPES = util.MemoryZipTestCase._IGNORE_TYPES[:]
+  _IGNORE_TYPES.remove("ExpirationDate")
+
+  # Init dates to be close to now
+  now = time.mktime(time.localtime())
+  seconds_per_day = 60 * 60 * 24
+  date_format = "%Y%m%d"
+  two_weeks_ago = time.strftime(date_format,
+                                time.localtime(now - 14 * seconds_per_day))
+  one_week_ago = time.strftime(date_format,
+                               time.localtime(now - 7 * seconds_per_day))
+  one_week = time.strftime(date_format,
+                            time.localtime(now + 7 * seconds_per_day))
+  two_weeks = time.strftime(date_format,
+                            time.localtime(now + 14 * seconds_per_day))
+  two_months = time.strftime(date_format,
+                             time.localtime(now + 60 * seconds_per_day))
+
+  def prepareArchiveContents(self, calendar_start, calendar_end,
+                             exception_date, feed_info_start, feed_info_end):
+    self.SetArchiveContents(
+        "calendar.txt",
+        "service_id,monday,tuesday,wednesday,thursday,friday,saturday,sunday,"
+        "start_date,end_date\n"
+        "FULLW,1,1,1,1,1,1,1,%s,%s\n"
+        "WE,0,0,0,0,0,1,1,%s,%s\n" % (calendar_start, calendar_end,
+                                      calendar_start, calendar_end))
+    self.SetArchiveContents(
+        "calendar_dates.txt",
+        "service_id,date,exception_type\n"
+        "FULLW,%s,1\n" % (exception_date))
+    from_column = ""
+    if feed_info_start:
+      from_column = ",feed_start_date"
+      feed_info_start = "," + feed_info_start
+    until_column = ""
+    if feed_info_end:
+      until_column = ",feed_end_date"
+      feed_info_end = "," + feed_info_end
+    self.SetArchiveContents("feed_info.txt",
+        "feed_publisher_name,feed_publisher_url,feed_lang%s%s\n"
+        "DTA,http://google.com,en%s%s" % (
+          from_column, until_column, feed_info_start, feed_info_end))
+
+  def testNoErrors(self):
+    self.prepareArchiveContents(
+        self.two_weeks_ago, self.two_months, # calendar
+        self.two_weeks,                      # calendar_dates
+        "", "")                              # feed_info
+    self.MakeLoaderAndLoad(self.problems)
+    self.accumulator.AssertNoMoreExceptions()
+
+  def testExpirationDateCausedByServicePeriod(self):
+    # test with no validity dates specified in feed_info.txt
+    self.prepareArchiveContents(
+        self.two_weeks_ago, self.two_weeks, # calendar
+        self.one_week,                      # calendar_dates
+        "", "")                             # feed_info
+    self.MakeLoaderAndLoad(self.problems)
+    e = self.accumulator.PopException("ExpirationDate")
+    self.assertTrue("calendar.txt" in e.expiration_origin_file)
+    self.accumulator.AssertNoMoreExceptions()
+    # test with good validity dates specified in feed_info.txt
+    self.prepareArchiveContents(
+        self.two_weeks_ago, self.two_weeks,  # calendar
+        self.one_week,                       # calendar_dates
+        self.two_weeks_ago, self.two_months) # feed_info
+    self.MakeLoaderAndLoad(self.problems)
+    self.accumulator.AssertNoMoreExceptions()
+
+  def testFutureServiceCausedByServicePeriod(self):
+    # test with no validity dates specified in feed_info.txt
+    self.prepareArchiveContents(
+        self.one_week, self.two_months, # calendar
+        self.two_weeks,                 # calendar_dates
+        "", "")                         # feed_info
+    self.MakeLoaderAndLoad(self.problems)
+    e = self.accumulator.PopException("FutureService")
+    self.assertTrue("calendar.txt" in e.start_date_origin_file)
+    self.accumulator.AssertNoMoreExceptions()
+    # Test with good validity dates specified in feed_info.txt
+    self.prepareArchiveContents(
+        self.one_week, self.two_months,      # calendar
+        self.two_weeks,                      # calendar_dates
+        self.two_weeks_ago, self.two_months) # feed_info
+    self.MakeLoaderAndLoad(self.problems)
+    self.accumulator.AssertNoMoreExceptions()
+
+  def testExpirationDateCausedByServicePeriodDateException(self):
+    # Test with no validity dates specified in feed_info.txt
+    self.prepareArchiveContents(
+        self.two_weeks_ago, self.one_week, # calendar
+        self.two_weeks,                    # calendar_dates
+        "", "")                            # feed_info
+    self.MakeLoaderAndLoad(self.problems)
+    e = self.accumulator.PopException("ExpirationDate")
+    self.assertTrue("calendar_dates.txt" in e.expiration_origin_file)
+    self.accumulator.AssertNoMoreExceptions()
+    # Test with good validity dates specified in feed_info.txt
+    self.prepareArchiveContents(
+        self.two_weeks_ago, self.one_week,   # calendar
+        self.two_weeks,                      # calendar_dates
+        self.two_weeks_ago, self.two_months) # feed_info
+    self.MakeLoaderAndLoad(self.problems)
+    self.accumulator.AssertNoMoreExceptions()
+
+  def testFutureServiceCausedByServicePeriodDateException(self):
+    # Test with no validity dates specified in feed_info.txt
+    self.prepareArchiveContents(
+        self.two_weeks, self.two_months, # calendar
+        self.one_week,                   # calendar_dates
+        "", "")                          # feed_info
+    self.MakeLoaderAndLoad(self.problems)
+    e = self.accumulator.PopException("FutureService")
+    self.assertTrue("calendar_dates.txt" in e.start_date_origin_file)
+    self.accumulator.AssertNoMoreExceptions()
+    # Test with good validity dates specified in feed_info.txt
+    self.prepareArchiveContents(
+        self.two_weeks, self.two_months,     # calendar
+        self.one_week,                       # calendar_dates
+        self.two_weeks_ago, self.two_months) # feed_info
+    self.MakeLoaderAndLoad(self.problems)
+    self.accumulator.AssertNoMoreExceptions()
+
+  def testExpirationDateCausedByFeedInfo(self):
+    self.prepareArchiveContents(
+        self.two_weeks_ago, self.two_months, # calendar
+        self.one_week,                       # calendar_dates
+        "", self.two_weeks)                  # feed_info
+    self.MakeLoaderAndLoad(self.problems)
+    e = self.accumulator.PopException("ExpirationDate")
+    self.assertTrue("feed_info.txt" in e.expiration_origin_file)
+    self.accumulator.AssertNoMoreExceptions()
+
+  def testFutureServiceCausedByFeedInfo(self):
+    self.prepareArchiveContents(
+        self.two_weeks_ago, self.two_months, # calendar
+        self.one_week_ago,                   # calendar_dates
+        self.one_week, self.two_months)      # feed_info
+    self.MakeLoaderAndLoad(self.problems)
+    e = self.accumulator.PopException("FutureService")
+    self.assertTrue("feed_info.txt" in e.start_date_origin_file)
+    self.accumulator.AssertNoMoreExceptions()
+
+
 class DuplicateTripIDValidationTestCase(util.TestCase):
   def runTest(self):
     schedule = transitfeed.Schedule(
@@ -5861,6 +6010,44 @@ class ServiceGapsTestCase(util.MemoryZipTestCase):
     self.accumulator.AssertNoMoreExceptions()
 
 
+class FeedInfoServiceGapsTestCase(util.MemoryZipTestCase):
+  """Test for service gaps introduced by feed_info.txt start end dates."""
+  
+  def setUp(self):
+    super(FeedInfoServiceGapsTestCase, self).setUp()
+    self.SetArchiveContents("calendar.txt",
+                      "service_id,monday,tuesday,wednesday,thursday,friday,"
+                      "saturday,sunday,start_date,end_date\n"
+                      "FULLW,1,1,1,1,1,1,1,20090601,20090610\n")
+    self.SetArchiveContents("trips.txt",
+                      "route_id,service_id,trip_id\n"
+                      "AB,FULLW,AB1\n")
+    self.SetArchiveContents(
+        "stop_times.txt",
+        "trip_id,arrival_time,departure_time,stop_id,stop_sequence\n"
+        "AB1,10:00:00,10:00:00,BEATTY_AIRPORT,1\n"
+        "AB1,10:20:00,10:20:00,BULLFROG,2\n"
+        "AB1,10:25:00,10:25:00,STAGECOACH,3\n")
+    self.SetArchiveContents("feed_info.txt",
+        "feed_publisher_name,feed_publisher_url,feed_lang,"
+        "feed_start_date,feed_end_date\n"
+        "DTA,http://google.com,en,20090515,20090620")
+
+    self.schedule = self.MakeLoaderAndLoad(extra_validation=False)
+
+  # If there is a service gap starting before today, and today has no service,
+  # it should be found - even if tomorrow there is service
+  def testServiceGapBeforeTodayIsDiscovered(self):
+    self.schedule.Validate(today=date(2009, 6, 5),
+                           service_gap_interval=7)
+    exception = self.accumulator.PopException("TooManyDaysWithoutService")
+    self.assertEquals(date(2009, 6, 11),
+                      exception.first_day_without_service)
+    self.assertEquals(date(2009, 6, 19),
+                      exception.last_day_without_service)
+    self.accumulator.AssertNoMoreExceptions()
+
+
 class DeprecatedFieldNamesTestCase(util.MemoryZipTestCase):
 
   # create class extensions and change fields to be deprecated
@@ -6201,6 +6388,100 @@ class TooManyConsecutiveStopTimesWithSameTime(util.TestCase):
     self.assertEqual(e.stop_time, '06:05:00')
     
     self.accumulator.AssertNoMoreExceptions()    
+
+
+class FeedInfoTestCase(util.MemoryZipTestCase):
+
+  def setUp(self):
+    super(FeedInfoTestCase, self).setUp()
+    # Modify agency.txt for all tests in this test case
+    self.SetArchiveContents("agency.txt",
+        "agency_id,agency_name,agency_url,agency_timezone,agency_lang\n"
+        "DTA,Demo Agency,http://google.com,America/Los_Angeles,en\n")
+
+  def testNoErrors(self):
+    self.SetArchiveContents("feed_info.txt",
+        "feed_publisher_name,feed_publisher_url,feed_lang\n"
+        "DTA,http://google.com,en")
+    self.MakeLoaderAndLoad(self.problems)
+    self.accumulator.AssertNoMoreExceptions()
+
+  def testDifferentLanguage(self):
+    self.SetArchiveContents("feed_info.txt",
+        "feed_publisher_name,feed_publisher_url,feed_lang\n"
+        "DTA,http://google.com,pt")
+    self.MakeLoaderAndLoad(self.problems)
+    self.accumulator.PopInvalidValue("feed_lang")
+    self.accumulator.AssertNoMoreExceptions()
+
+  def testInvalidPublisherUrl(self):
+    self.SetArchiveContents("feed_info.txt",
+        "feed_publisher_name,feed_publisher_url,feed_lang\n"
+        "DTA,htttp://google.com,en")
+    self.MakeLoaderAndLoad(self.problems)
+    self.accumulator.PopInvalidValue("feed_publisher_url")
+    self.accumulator.AssertNoMoreExceptions()
+
+  def testValidityDatesNoErrors(self):
+    self.SetArchiveContents("feed_info.txt",
+        "feed_publisher_name,feed_publisher_url,feed_lang,"
+        "feed_start_date,feed_end_date\n"
+        "DTA,http://google.com,en,20101201,20101231")
+    self.MakeLoaderAndLoad(self.problems)
+    self.accumulator.AssertNoMoreExceptions()
+
+  def testValidityDatesInvalid(self):
+    self.SetArchiveContents("feed_info.txt",
+        "feed_publisher_name,feed_publisher_url,feed_lang,"
+        "feed_start_date,feed_end_date\n"
+        "DTA,http://google.com,en,10/01/12,10/31/12")
+    self.MakeLoaderAndLoad(self.problems)
+    self.accumulator.PopInvalidValue("feed_start_date")
+    self.accumulator.PopInvalidValue("feed_end_date")
+    self.accumulator.AssertNoMoreExceptions()
+
+  def testValidityDatesInverted(self):
+    self.SetArchiveContents("feed_info.txt",
+        "feed_publisher_name,feed_publisher_url,feed_lang,"
+        "feed_start_date,feed_end_date\n"
+        "DTA,http://google.com,en,20101231,20101201")
+    self.MakeLoaderAndLoad(self.problems)
+    self.accumulator.PopInvalidValue("feed_end_date")
+    self.accumulator.AssertNoMoreExceptions()
+
+  def testDeprectatedFieldNames(self):
+    self.SetArchiveContents("feed_info.txt",
+        "feed_publisher_name,feed_publisher_url,feed_timezone,feed_lang,"
+        "feed_valid_from,feed_valid_until\n"
+        "DTA,http://google.com,America/Los_Angeles,en,20101201,20101231")
+    self.MakeLoaderAndLoad(self.problems)
+    e = self.accumulator.PopException("DeprecatedColumn")
+    self.assertEquals("feed_valid_from", e.column_name)
+    e = self.accumulator.PopException("DeprecatedColumn")
+    self.assertEquals("feed_valid_until", e.column_name)
+    e = self.accumulator.PopException("DeprecatedColumn")
+    self.assertEquals("feed_timezone", e.column_name)        
+    self.accumulator.AssertNoMoreExceptions()
+
+
+class MultiAgencyTimeZoneTestCase(util.MemoryZipTestCase):
+  
+  def testNoErrorsWithAgenciesHavingSameTimeZone(self):
+    self.SetArchiveContents("agency.txt",
+        "agency_id,agency_name,agency_url,agency_timezone,agency_lang\n"
+        "DTA,Demo Agency,http://google.com,America/Los_Angeles,en\n"
+        "DTA2,Demo Agency 2,http://google.com,America/Los_Angeles,en\n")
+    self.MakeLoaderAndLoad(self.problems)
+    self.accumulator.AssertNoMoreExceptions()
+
+  def testAgenciesWithDifferentTimeZone(self):
+    self.SetArchiveContents("agency.txt",
+        "agency_id,agency_name,agency_url,agency_timezone,agency_lang\n"
+        "DTA,Demo Agency,http://google.com,America/Los_Angeles,en\n"
+        "DTA2,Demo Agency 2,http://google.com,America/New_York,en\n")
+    self.MakeLoaderAndLoad(self.problems)
+    self.accumulator.PopInvalidValue("agency_timezone")
+    self.accumulator.AssertNoMoreExceptions()
 
 
 if __name__ == '__main__':

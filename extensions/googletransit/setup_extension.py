@@ -18,9 +18,7 @@ import transitfeed
 
 import agency
 import fareattribute
-import feedinfo
 import route
-import schedule
 import stop
 
 def GetGtfsFactory(factory = None):
@@ -33,17 +31,8 @@ def GetGtfsFactory(factory = None):
   # FareAttribute class extension
   factory.UpdateClass('FareAttribute', fareattribute.FareAttribute)
 
-  # FeedInfo class
-  factory.AddMapping('feed_info.txt',
-                     {'required': False, 'loading_order': 100,
-                      'classes': ['FeedInfo']})
-  factory.AddClass('FeedInfo', feedinfo.FeedInfo)
-
   # Route class extension
   factory.UpdateClass('Route', route.Route)
-
-  # Schedule class extension
-  factory.UpdateClass('Schedule', schedule.Schedule)
 
   # Stop class extension
   factory.UpdateClass('Stop', stop.Stop)

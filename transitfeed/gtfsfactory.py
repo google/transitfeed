@@ -17,6 +17,7 @@
 from agency import Agency
 from fareattribute import FareAttribute
 from farerule import FareRule
+from feedinfo import FeedInfo
 from frequency import Frequency
 from loader import Loader
 import problems
@@ -43,6 +44,7 @@ class GtfsFactory(object):
       'FareAttribute': FareAttribute,
       'FareRule': FareRule,
       'Frequency': Frequency,
+      'FeedInfo': FeedInfo,
       'Shape': Shape,
       'ShapePoint': ShapePoint,
       'Stop': Stop,
@@ -69,6 +71,9 @@ class GtfsFactory(object):
 
         'fare_rules.txt': { 'required': False, 'loading_order': 60,
                             'classes': ['FareRule']},
+
+        'feed_info.txt': { 'required': False, 'loading_order': 100, 
+                           'classes': ['FeedInfo']},
 
         'frequencies.txt': { 'required': False, 'loading_order': 70,
                              'classes': ['Frequency']},
