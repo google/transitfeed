@@ -346,7 +346,7 @@ class ProblemReporter(object):
       trip_id,
       number_of_stop_times,
       time_in_secs,
-      type=TYPE_ERROR):
+      type=TYPE_WARNING):
     e = TooManyConsecutiveStopTimesWithSameTime(trip_id=trip_id,
         number_of_stop_times=number_of_stop_times,
         stop_time=util.FormatSecondsSinceMidnight(time_in_secs),
