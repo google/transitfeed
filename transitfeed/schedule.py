@@ -262,8 +262,6 @@ class Schedule(object):
     end_date in calendar.txt, a service exception of type add in
     calendar_dates.txt, or feed start/end date defined in feed_info.txt.
     """
-    
-
     period_list = self.GetServicePeriodList()
     ranges = [period.GetDateRange() for period in period_list]
     starts = filter(lambda x: x, [item[0] for item in ranges])
@@ -1141,12 +1139,12 @@ class Schedule(object):
 
   def ValidateStopTimesForTrip(self, problems, trip, stop_times):
     """Checks for the stop times of a trip.
-    
+
     Ensure that a trip does not have too many consecutive stop times with the
     same departure/arrival time."""
     prev_departure_secs = -1
     consecutive_stop_times_with_same_time = 1
-    
+
     def CheckSameTimeCount():
       # More than three consecutive stop times with the same time?  Seems not
       # very likely.
@@ -1166,7 +1164,7 @@ class Schedule(object):
         CheckSameTimeCount()
         consecutive_stop_times_with_same_time = 1
       prev_departure_secs = st.departure_secs
-    
+
     # Make sure to check one last time at the end
     CheckSameTimeCount()
 
