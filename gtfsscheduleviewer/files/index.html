@@ -539,7 +539,7 @@
       }
       var stopsTimes = eval(data);
       if (!stopsTimes) return;
-      displayTripStopTimes(stopsTimes[0], stopsTimes[1]);
+      displayTripStopTimes(stopsTimes[0], stopsTimes[1], stopsTimes[2]);
     }
 
     function fetchTripPolyLine(tripId) {
@@ -584,14 +584,19 @@
       map.setCenter(boundsOfPolyLine.getCenter(), map.getBoundsZoomLevel(boundsOfPolyLine));
     }
 
-    function displayTripStopTimes(stops, times) {
+    function displayTripStopTimes(stops, arrivalTimes, departureTimes) {
       for (i = 0; i < stops.length; ++i) {
         var marker;
-        if (times && times[i] != null) {
-          marker = addStopMarkerFromList(stops[i], true, formatTime(times[i]));
+        if (arrivalTimes && arrivalTimes[i] != null) {
+          label = formatTime(arrivalTimes[i])
+          if (departureTimes && departureTimes[i] != null &&
+              arrivalTimes[i] != departureTimes[i]) {
+            label += '-' + formatTime(departureTimes[i])    
+          }
+          marker = addStopMarkerFromList(stops[i], true, label);
         } else {
-	  marker = addStopMarkerFromList(stops[i], true);
-	}
+          marker = addStopMarkerFromList(stops[i], true);
+        }
         expandBoundingBox(marker.getPoint());
       }
       map.setCenter(boundsOfPolyLine.getCenter(), map.getBoundsZoomLevel(boundsOfPolyLine));

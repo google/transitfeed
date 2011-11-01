@@ -303,11 +303,13 @@ class ScheduleRequestHandler(BaseHTTPServer.BaseHTTPRequestHandler):
       return
     time_stops = trip.GetTimeStops()
     stops = []
-    times = []
+    arrival_times = []
+    departure_times = []
     for arr,dep,stop in time_stops:
       stops.append(StopToTuple(stop))
-      times.append(arr)
-    return [stops, times]
+      arrival_times.append(arr)
+      departure_times.append(dep)
+    return [stops, arrival_times, departure_times]
 
   def handle_json_GET_tripshape(self, params):
     schedule = self.server.schedule
