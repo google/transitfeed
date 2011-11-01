@@ -6296,7 +6296,7 @@ class TooManyConsecutiveStopTimesWithSameTime(util.TestCase):
   """Check for too many consecutive stop times with same time"""
 
   def setUp(self):
-  
+
     # We ignore the lack of service dates ("OtherProblem")
     self.accumulator = RecordingProblemAccumulator(
         self, ("OtherProblem"))
@@ -6315,79 +6315,98 @@ class TooManyConsecutiveStopTimesWithSameTime(util.TestCase):
                                        lat=36.905697,
                                        name="E Main St / S Irving St",
                                        stop_id="S2")
-    
+
     route = self.schedule.AddRoute("", "City", "Bus", route_id="CITY")
 
     self.trip = route.AddTrip(self.schedule, trip_id="CITY1")
-    
+
   def testTooManyConsecutiveStopTimesWithSameTime(self):
-    trip = self.trip    
+    trip = self.trip
     trip.AddStopTime(self.stop1, stop_time="6:00:00")
-    trip.AddStopTime(self.stop2, stop_time="6:05:00")
-    trip.AddStopTime(self.stop1, stop_time="6:05:00")
-    trip.AddStopTime(self.stop2, stop_time="6:05:00")
-    trip.AddStopTime(self.stop1, stop_time="6:05:00")
-    trip.AddStopTime(self.stop2, stop_time="6:05:00")
+    for _ in range(6):
+      trip.AddStopTime(self.stop2, stop_time="6:05:00")
     trip.AddStopTime(self.stop1, stop_time="6:10:00")
 
     self.schedule.Validate(self.problems)
-    
+
     e = self.accumulator.PopException('TooManyConsecutiveStopTimesWithSameTime')
     self.assertEqual(e.trip_id, 'CITY1')
-    self.assertEqual(e.number_of_stop_times, 5)
+    self.assertEqual(e.number_of_stop_times, 6)
     self.assertEqual(e.stop_time, '06:05:00')
-        
+
     self.assertEqual(e.FormatProblem(),
-        "Trip CITY1 has 5 consecutive stop times all with the same " \
+        "Trip CITY1 has 6 consecutive stop times all with the same " \
         "arrival/departure time: 06:05:00.")
 
     self.accumulator.AssertNoMoreExceptions()
-    
+
   def testNotTooManyConsecutiveStopTimesWithSameTime(self):
-    trip = self.trip    
+    trip = self.trip
     trip.AddStopTime(self.stop1, stop_time="6:00:00")
-    trip.AddStopTime(self.stop2, stop_time="6:05:00")
-    trip.AddStopTime(self.stop1, stop_time="6:05:00")
-    trip.AddStopTime(self.stop2, stop_time="6:05:00")
+    for _ in range(5):
+      trip.AddStopTime(self.stop2, stop_time="6:05:00")
     trip.AddStopTime(self.stop1, stop_time="6:10:00")
 
     self.schedule.Validate(self.problems)
-    
+
     self.accumulator.AssertNoMoreExceptions()
-    
+
   def testTooManyConsecutiveStopTimesWithSameTimeAtStart(self):
-    trip = self.trip    
-    trip.AddStopTime(self.stop1, stop_time="6:05:00")
-    trip.AddStopTime(self.stop2, stop_time="6:05:00")
-    trip.AddStopTime(self.stop1, stop_time="6:05:00")
-    trip.AddStopTime(self.stop2, stop_time="6:05:00")
+    trip = self.trip
+    for _ in range(6):
+      trip.AddStopTime(self.stop2, stop_time="6:05:00")
     trip.AddStopTime(self.stop1, stop_time="6:10:00")
 
     self.schedule.Validate(self.problems)
-    
+
     e = self.accumulator.PopException('TooManyConsecutiveStopTimesWithSameTime')
     self.assertEqual(e.trip_id, 'CITY1')
-    self.assertEqual(e.number_of_stop_times, 4)
+    self.assertEqual(e.number_of_stop_times, 6)
     self.assertEqual(e.stop_time, '06:05:00')
-    
+
     self.accumulator.AssertNoMoreExceptions()
 
   def testTooManyConsecutiveStopTimesWithSameTimeAtEnd(self):
-    trip = self.trip    
+    trip = self.trip
     trip.AddStopTime(self.stop1, stop_time="6:00:00")
-    trip.AddStopTime(self.stop2, stop_time="6:05:00")
+    for _ in range(6):
+      trip.AddStopTime(self.stop2, stop_time="6:05:00")
+
+    self.schedule.Validate(self.problems)
+
+    e = self.accumulator.PopException('TooManyConsecutiveStopTimesWithSameTime')
+    self.assertEqual(e.trip_id, 'CITY1')
+    self.assertEqual(e.number_of_stop_times, 6)
+    self.assertEqual(e.stop_time, '06:05:00')
+
+    self.accumulator.AssertNoMoreExceptions()
+
+  def testTooManyConsecutiveStopTimesWithUnspecifiedTimes(self):
+    trip = self.trip
     trip.AddStopTime(self.stop1, stop_time="6:05:00")
-    trip.AddStopTime(self.stop2, stop_time="6:05:00")
+    for _ in range(4):
+      trip.AddStopTime(self.stop2)
     trip.AddStopTime(self.stop1, stop_time="6:05:00")
 
     self.schedule.Validate(self.problems)
-    
+
     e = self.accumulator.PopException('TooManyConsecutiveStopTimesWithSameTime')
     self.assertEqual(e.trip_id, 'CITY1')
-    self.assertEqual(e.number_of_stop_times, 4)
+    self.assertEqual(e.number_of_stop_times, 6)
     self.assertEqual(e.stop_time, '06:05:00')
-    
-    self.accumulator.AssertNoMoreExceptions()    
+
+    self.accumulator.AssertNoMoreExceptions()
+
+  def testNotTooManyConsecutiveStopTimesWithUnspecifiedTimes(self):
+    trip = self.trip
+    trip.AddStopTime(self.stop1, stop_time="6:00:00")
+    for _ in range(4):
+      trip.AddStopTime(self.stop2)
+    trip.AddStopTime(self.stop1, stop_time="6:05:00")
+
+    self.schedule.Validate(self.problems)
+
+    self.accumulator.AssertNoMoreExceptions()
 
 
 class FeedInfoTestCase(util.MemoryZipTestCase):
