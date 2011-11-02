@@ -197,14 +197,14 @@
     function addStopMarker(stopId, stopName, stopLat, stopLon, locationType, selected, text) {
       if (stopMarkersSelected[stopId]) {
         // stop was selected
-	var marker = stopMarkersSelected[stopId];
-	if (text) {
+        var marker = stopMarkersSelected[stopId];
+        if (text) {
           oldText = marker.getText();
           if (oldText) {
             oldText = oldText + "<br>";
           }
           marker.setText(oldText + text);
-	}
+        }
         return marker;
       }
       if (stopMarkersBackground[stopId]) {
@@ -264,7 +264,7 @@
      */
     function changeStopLocation(marker) {
       var url = "/json/setstoplocation?id=" +
-      			encodeURIComponent(marker.stopId) +
+                encodeURIComponent(marker.stopId) +
                 "&lat=" + encodeURIComponent(marker.getLatLng().lat()) + 
                 "&lng=" + encodeURIComponent(marker.getLatLng().lng());
       GDownloadUrl(url, function(data, responseCode) {
@@ -591,7 +591,7 @@
           label = formatTime(arrivalTimes[i])
           if (departureTimes && departureTimes[i] != null &&
               arrivalTimes[i] != departureTimes[i]) {
-            label += '-' + formatTime(departureTimes[i])    
+            label += '-' + formatTime(departureTimes[i])
           }
           marker = addStopMarkerFromList(stops[i], true, label);
         } else {
@@ -722,17 +722,17 @@
 <div id="agencyHeader">[agency]</div>
 </div>
 <div id='content'>
-	<div id='sidebar-wrapper'><div id='sidebar'>
-	Time:&nbsp;<input type="text" value="8:00" width="9" id="timeInput"><br>
-	Date:&nbsp;<input type="text" value="" size="8" id="startDateInput" name="startDateInput"> <a href="#" onclick="calStartDate.select(document.getElementById('startDateInput'),'startDateInput','yyyyMMdd'); return false;">select</a><br>
-	<form onSubmit="stopTextSearchSubmit(); return false;">
-	Find Station: <input type="text" id="stopTextSearchInput"><input value="Search" type="submit"></form><br>
-	<form onSubmit="tripTextSearchSubmit(); return false;">
-	Find Trip ID: <input type="text" id="tripTextSearchInput"><input value="Search" type="submit"></form><br>
+        <div id='sidebar-wrapper'><div id='sidebar'>
+        Time:&nbsp;<input type="text" value="8:00" width="9" id="timeInput"><br>
+        Date:&nbsp;<input type="text" value="" size="8" id="startDateInput" name="startDateInput"> <a href="#" onclick="calStartDate.select(document.getElementById('startDateInput'),'startDateInput','yyyyMMdd'); return false;">select</a><br>
+        <form onSubmit="stopTextSearchSubmit(); return false;">
+        Find Station: <input type="text" id="stopTextSearchInput"><input value="Search" type="submit"></form><br>
+        <form onSubmit="tripTextSearchSubmit(); return false;">
+        Find Trip ID: <input type="text" id="tripTextSearchInput"><input value="Search" type="submit"></form><br>
         <div id="routeList">routelist</div>
-	</div></div>
+        </div></div>
 
-	<div id='map-wrapper'> <div id='map'></div> </div>
+        <div id='map-wrapper'> <div id='map'></div> </div>
 </div>
 
 <div id='bottombar'>bottom bar</div>
