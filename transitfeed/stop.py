@@ -41,6 +41,8 @@ class Stop(GtfsObjectBase):
                   'location_type', 'parent_station']
   _TABLE_NAME = 'stops'
 
+  LOCATION_TYPE_STATION = 1
+
   def __init__(self, lat=None, lng=None, name=None, stop_id=None,
                field_dict=None, stop_code=None):
     """Initialize a new Stop object.

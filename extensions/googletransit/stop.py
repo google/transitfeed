@@ -32,6 +32,8 @@ class Stop(transitfeed.Stop):
                                                   'vehicle_type',
                                                   'wheelchair_boarding']
 
+  LOCATION_TYPE_ENTRANCE = 2
+
   # New validation function for field 'stop_timezone'.
   def ValidateStopTimezone(self, problems):
     util.ValidateTimezone(self.stop_timezone, 'stop_timezone', problems)

@@ -73,6 +73,7 @@ try:
   import xml.etree.ElementTree as ET  # python 2.5
 except ImportError, e:
   import elementtree.ElementTree as ET  # older pythons
+import extensions.googletransit as googletransit
 import optparse
 import os.path
 import sys
@@ -88,7 +89,8 @@ class KMLWriter(object):
 
   Attributes:
     show_trips: True if the individual trips should be included in the routes.
-    show_trips: True if the individual trips should be placed on ground.
+    show_stop_hierarhcy: True if station-stop hierarchy details should be
+      included.
     split_routes: True if the routes should be split by type.
     shape_points: True if individual shape points should be plotted.
   """
@@ -96,6 +98,7 @@ class KMLWriter(object):
   def __init__(self):
     """Initialise."""
     self.show_trips = False
+    self.show_stop_hierarchy = False
     self.split_routes = False
     self.shape_points = False
     self.altitude_per_sec = 0.0
@@ -267,22 +270,169 @@ class KMLWriter(object):
     if not schedule.GetStopList():
       return None
     stop_folder = self._CreateFolder(doc, 'Stops')
+    stop_folder_selection = self._StopFolderSelectionMethod(stop_folder)
+    stop_style_selection = self._StopStyleSelectionMethod(doc)
     stops = list(schedule.GetStopList())
     stops.sort(key=lambda x: x.stop_name)
     for stop in stops:
-      desc_items = []
-      if stop.stop_desc:
-        desc_items.append(stop.stop_desc)
-      if stop.stop_url:
-        desc_items.append('Stop info page: <a href="%s">%s</a>' % (
-            stop.stop_url, stop.stop_url))
-      description = '<br/>'.join(desc_items) or None
-      placemark = self._CreatePlacemark(stop_folder, stop.stop_name,
-                                        description=description)
-      point = ET.SubElement(placemark, 'Point')
-      coordinates = ET.SubElement(point, 'coordinates')
-      coordinates.text = '%.6f,%.6f' % (stop.stop_lon, stop.stop_lat)
+      (folder, pathway_folder) = stop_folder_selection(stop)
+      (style_id, pathway_style_id) = stop_style_selection(stop)
+      self._CreateStopPlacemark(folder, stop, style_id)
+      if (self.show_stop_hierarchy and
+          stop.location_type != transitfeed.Stop.LOCATION_TYPE_STATION and
+          stop.parent_station and stop.parent_station in schedule.stops):
+        placemark = self._CreatePlacemark(
+            pathway_folder, stop.stop_name, pathway_style_id)
+        parent_station = schedule.stops[stop.parent_station]
+        coordinates = [(stop.stop_lon, stop.stop_lat),
+                       (parent_station.stop_lon, parent_station.stop_lat)]
+        self._CreateLineString(placemark, coordinates)
     return stop_folder
+
+  def _StopFolderSelectionMethod(self, stop_folder):
+    """Create a method to determine which KML folder a stop should go in.
+
+    Args:
+      stop_folder: the parent folder element for all stops.
+
+    Returns:
+      A function that should accept a Stop argument and return a tuple of
+      (stop KML folder, pathways KML folder).
+
+    Given a Stop, we need to determine which folder the stop should go in.  In
+    the most basic case, that's the root Stops folder.  However, if
+    show_stop_hierarchy is enabled, we put a stop in a separate sub-folder
+    depending on if the stop is a station, a platform, an entrance, or just a
+    plain-old stand-alone stop.  This method returns a function that is used
+    to pick which folder a stop stop should go in.  It also optionally returns
+    a folder where any line-string connections associated with a stop (eg. to
+    show the pathway between an entrance and a station) should be added.
+    """
+    if not self.show_stop_hierarchy:
+      return lambda stop: (stop_folder, None)
+
+    # Create the various sub-folders for showing the stop hierarchy
+    station_folder = self._CreateFolder(stop_folder, 'Stations')
+    platform_folder = self._CreateFolder(stop_folder, 'Platforms')
+    platform_connections = self._CreateFolder(platform_folder, 'Connections')
+    entrance_folder = self._CreateFolder(stop_folder, 'Entrances')
+    entrance_connections = self._CreateFolder(entrance_folder, 'Connections')
+    standalone_folder = self._CreateFolder(stop_folder, 'Stand-Alone')
+
+    def FolderSelectionMethod(stop):
+      if stop.location_type == transitfeed.Stop.LOCATION_TYPE_STATION:
+        return (station_folder, None)
+      elif stop.location_type == googletransit.Stop.LOCATION_TYPE_ENTRANCE:
+        return (entrance_folder, entrance_connections)
+      elif stop.parent_station:
+        return (platform_folder, platform_connections)
+      return (standalone_folder, None)
+
+    return FolderSelectionMethod
+
+  def _StopStyleSelectionMethod(self, doc):
+    """Create a method to determine which style to apply to a stop placemark.
+
+    Args:
+      doc: the KML document.
+
+    Returns:
+      A function that should accept a Stop argument and return a tuple of
+      (stop placemark style id, pathway placemark style id).  Either style id
+      can be None, indicating no style should be set.
+
+    Given a Stop, we need to determine what KML style to apply to the stops'
+    placemark.  In the most basic case, no styling is applied.  However, if
+    show_stop_hierarchy is enabled, we style each type of stop differently
+    depending on if the stop is a station, platform, entrance, etc.  This method
+    returns a function that is used to pick which style id should be associated
+    with a stop placemark, or None if no style should be applied.  It also
+    optionally returns a style id to associate with any line-string connections
+    associated with a stop (eg. to show the pathway between an entrance and a
+    station).
+    """
+    if not self.show_stop_hierarchy:
+      return lambda stop: (None, None)
+
+    # Create the various styles for showing the stop hierarchy
+    self._CreateStyle(
+        doc, 'stop_entrance', {'IconStyle': {'color': 'ff0000ff'}})
+    self._CreateStyle(
+        doc,
+        'entrance_connection',
+        {'LineStyle': {'color': 'ff0000ff', 'width': '2'}})
+    self._CreateStyle(
+        doc, 'stop_platform', {'IconStyle': {'color': 'ffff0000'}})
+    self._CreateStyle(
+        doc,
+        'platform_connection',
+        {'LineStyle': {'color': 'ffff0000', 'width': '2'}})
+    self._CreateStyle(
+        doc, 'stop_standalone', {'IconStyle': {'color': 'ff00ff00'}})
+
+    def StyleSelectionMethod(stop):
+      if stop.location_type == transitfeed.Stop.LOCATION_TYPE_STATION:
+        return ('stop_station', None)
+      elif stop.location_type == googletransit.Stop.LOCATION_TYPE_ENTRANCE:
+        return ('stop_entrance', 'entrance_connection')
+      elif stop.parent_station:
+        return ('stop_platform', 'platform_connection')
+      return ('stop_standalone', None)
+
+    return StyleSelectionMethod
+
+  def _CreateStyle(self, doc, style_id, style_dict):
+    """Helper method to create a <Style/> element in a KML document.
+
+    Args:
+      doc: the parent KML document.
+      style_id: the style id to include for the <Style/> element.
+      style_dict: a dict of sub-elements and values to add to the <Style/>.
+
+    Returns:
+      The newly created <Style/> element.
+
+    Each key of the style_dict argument is used to create a sub-element of the
+    parent <Style/> element.  If the value associated with that key is a string,
+    then it will be used to set the text value of the sub-element.  If the value
+    is another dict, it will be used to recursively construct a sub-sub-element
+    with the same semantics.
+    """
+
+    def CreateElements(current_element, current_dict):
+      for (key, value) in current_dict.iteritems():
+        element = ET.SubElement(current_element, key)
+        if isinstance(value,dict):
+          CreateElements(element, value)
+        else:
+          element.text = value
+
+    style = ET.SubElement(doc, 'Style', {'id': style_id})
+    CreateElements(style, style_dict)
+    return style
+
+  def _CreateStopPlacemark(self, stop_folder, stop, style_id):
+    """Creates a new stop <Placemark/> element.
+
+    Args:
+      stop_folder: the KML folder the placemark will be added to.
+      stop: the actual Stop to create a placemark for.
+      style_id: optional argument indicating a style id to add to the placemark.
+    """
+    desc_items = []
+    desc_items.append("Stop id: %s" % stop.stop_id)
+    if stop.stop_desc:
+      desc_items.append(stop.stop_desc)
+    if stop.stop_url:
+      desc_items.append('Stop info page: <a href="%s">%s</a>' % (
+          stop.stop_url, stop.stop_url))
+    description = '<br/>'.join(desc_items) or None
+    placemark = self._CreatePlacemark(stop_folder, stop.stop_name,
+                                        description=description,
+                                        style_id=style_id)
+    point = ET.SubElement(placemark, 'Point')
+    coordinates = ET.SubElement(point, 'coordinates')
+    coordinates.text = '%.6f,%.6f' % (stop.stop_lon, stop.stop_lat)
 
   def _CreateRoutePatternsFolder(self, parent, route,
                                    style_id=None, visible=True):
@@ -612,6 +762,9 @@ http://code.google.com/p/googletransitdatafeed/wiki/KMLWriter
   parser.add_option('-p', '--display_shape_points', action='store_true',
                     dest='shape_points',
                     help='shows the actual points along shapes')
+  parser.add_option('--show_stop_hierarchy', action='store_true',
+                    dest='show_stop_hierarchy',
+                    help='include station-stop hierarchy info in output')
 
   parser.set_defaults(altitude_per_sec=1.0)
   options, args = parser.parse_args()
@@ -643,6 +796,7 @@ http://code.google.com/p/googletransitdatafeed/wiki/KMLWriter
   writer.split_routes = options.split_routes
   writer.date_filter = options.date_filter
   writer.shape_points = options.shape_points
+  writer.show_stop_hierarchy = options.show_stop_hierarchy
   writer.Write(feed, output_path)
 
 
