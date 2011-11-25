@@ -234,6 +234,10 @@ class Trip(GtfsObjectBase):
         'trip_id=? ORDER BY stop_sequence', (self.trip_id,))
     stop_times = []
     stoptime_class = self.GetGtfsFactory().StopTime
+    if problems is None:
+      # TODO: delete this branch when StopTime.__init__ doesn't need a
+      # ProblemReporter
+      problems = problems_module.default_problem_reporter
     for row in cursor.fetchall():
       stop = self._schedule.GetStop(row[6])
       stop_times.append(stoptime_class(problems=problems,
