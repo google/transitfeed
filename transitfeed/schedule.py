@@ -1219,6 +1219,15 @@ class Schedule(object):
             # If the serivce_id_pair_key is not in the cache, we do the
             # full service period comparison
             if service_id_pair_key not in service_period_overlap_cache:
+              
+              # If the trip references an unknown service id, then we bail,
+              # since we can't effectively determine block overlap and an
+              # error will have already been registered for the missing
+              # service id.
+              if trip_a.service_id not in self.service_periods:
+                return
+              if trip_b.service_id not in self.service_periods:
+                return
 
               service_period_a = self.GetServicePeriod(trip_a.service_id)
               service_period_b = self.GetServicePeriod(trip_b.service_id)
