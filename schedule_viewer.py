@@ -526,6 +526,10 @@ http://code.google.com/p/googletransitdatafeed/wiki/ScheduleViewer
 
   if options.key and os.path.isfile(options.key):
     options.key = open(options.key).read().strip()
+    
+  # This key is registered to gtfs.schedule.viewer@gmail.com
+  if not options.key:
+    options.key = 'AIzaSyAZTTRO6RC6LQyKCD3JODhxbClsZl95P9U'
 
   schedule = transitfeed.Schedule(problem_reporter=transitfeed.ProblemReporter())
   print 'Loading data from feed "%s"...' % options.feed_filename
