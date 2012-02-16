@@ -85,4 +85,4 @@ from stoptime import *
 from transfer import *
 from trip import *
 
-__version__ = '1.2.10'
+__version__ = '1.2.11'
