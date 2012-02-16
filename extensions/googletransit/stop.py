@@ -17,8 +17,6 @@
 import transitfeed
 import transitfeed.util as util
 import transitfeed.problems as problems_module
-import route as route_extension
-import re
 
 class Stop(transitfeed.Stop):
   """Extension of transitfeed.Stop:
@@ -28,15 +26,10 @@ class Stop(transitfeed.Stop):
   - Overriding ValidateStopLocationType(), adding location_type 2 (entrance).
   """
 
-  _FIELD_NAMES = transitfeed.Stop._FIELD_NAMES + ['stop_timezone',
-                                                  'vehicle_type',
+  _FIELD_NAMES = transitfeed.Stop._FIELD_NAMES + ['vehicle_type',
                                                   'wheelchair_boarding']
 
   LOCATION_TYPE_ENTRANCE = 2
-
-  # New validation function for field 'stop_timezone'.
-  def ValidateStopTimezone(self, problems):
-    util.ValidateTimezone(self.stop_timezone, 'stop_timezone', problems)
 
   # New validation function for field 'vehicle_type'.
   def ValidateVehicleType(self, problems):
@@ -63,7 +56,6 @@ class Stop(transitfeed.Stop):
   # Overriding transitfeed.Stop.ValidateBeforeAdd().
   def ValidateBeforeAdd(self, problems):
     super(Stop, self).ValidateBeforeAdd(problems)
-    self.ValidateStopTimezone(problems)
     self.ValidateVehicleType(problems)
     self.ValidateWheelchairBoarding(problems)
     return True # None of these checks are blocking
@@ -77,14 +69,6 @@ class Stop(transitfeed.Stop):
     if self.location_type == 2 and util.IsEmpty(self.parent_station):
       problems.InvalidValue('location_type', self.location_type,
           reason='an entrance must have a parent_station')
-    # Entrances or other child stops (having a parent station) must not have a
-    # stop_timezone.
-    if (not util.IsEmpty(self.parent_station) and
-        not util.IsEmpty(self.stop_timezone)):
-      problems.InvalidValue('location_type', self.location_type,
-          reason='an entrance or a stop having a parent stop must not have a '
-          'stop_timezone', type=problems_module.TYPE_WARNING)
-
 
   # Overriding _ReportMissingRequiredField() in order to allow empty stop_name
   # if location_type=2 (entrance).

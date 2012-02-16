@@ -219,12 +219,6 @@ class StopExtensionTestCase(ValidationTestCase):
     self._entrance.parent_station = self._parent_stop.stop_id
     self._entrance._gtfs_factory = self.gtfs_factory
 
-  def testValidateStopTimezone(self):
-    self._stop.stop_timezone = 'TestTimeZone/Wrong_Place'
-    self._stop.Validate(self.problems)
-    e = self.accumulator.PopInvalidValue('stop_timezone')
-    self.accumulator.AssertNoMoreExceptions()
-
   def testValidateVehicleType(self):
     # Test with non-integer value
     self._stop.vehicle_type = 'abc'
@@ -246,7 +240,7 @@ class StopExtensionTestCase(ValidationTestCase):
     # An entrance must not have a stop_timezone
     self._entrance.stop_timezone = 'America/Los_Angeles'
     self._entrance.Validate(self.problems)
-    e = self.accumulator.PopInvalidValue('location_type')
+    e = self.accumulator.PopInvalidValue('stop_timezone')
     self.assertMatchesRegex(r'stop_timezone', e.FormatProblem())
     self.accumulator.AssertNoMoreExceptions()
     self._entrance.stop_timezone = None
@@ -273,7 +267,7 @@ class StopExtensionTestCase(ValidationTestCase):
     # A _child_stop must not have a stop_timezone
     self._child_stop.stop_timezone = 'America/Los_Angeles'
     self._child_stop.Validate(self.problems)
-    e = self.accumulator.PopInvalidValue('location_type')
+    e = self.accumulator.PopInvalidValue('stop_timezone')
     self.assertMatchesRegex(r'stop_timezone', e.FormatProblem())
     self.assertTrue(e.IsWarning())
     self.accumulator.AssertNoMoreExceptions()

@@ -38,7 +38,7 @@ class Stop(GtfsObjectBase):
   _REQUIRED_FIELD_NAMES = ['stop_id', 'stop_name', 'stop_lat', 'stop_lon']
   _FIELD_NAMES = _REQUIRED_FIELD_NAMES + \
                  ['stop_desc', 'zone_id', 'stop_url', 'stop_code',
-                  'location_type', 'parent_station']
+                  'location_type', 'parent_station', 'stop_timezone']
   _TABLE_NAME = 'stops'
 
   LOCATION_TYPE_STATION = 1
@@ -221,6 +221,16 @@ class Stop(GtfsObjectBase):
                             'Stop row with location_type=1 (a station) must '
                             'not have a parent_station')
 
+  def ValidateStopTimezone(self, problems):
+    # Entrances or other child stops (having a parent station) must not have a
+    # stop_timezone.
+    util.ValidateTimezone(self.stop_timezone, 'stop_timezone', problems)
+    if (not util.IsEmpty(self.parent_station) and
+        not util.IsEmpty(self.stop_timezone)):
+      problems.InvalidValue('stop_timezone', self.stop_timezone,
+          reason='a stop having a parent stop must not have a stop_timezone',
+          type=problems_module.TYPE_WARNING)
+
   def ValidateBeforeAdd(self, problems):
     # First check that all required fields are present because ParseAttributes
     # may remove invalid attributes.
@@ -233,6 +243,7 @@ class Stop(GtfsObjectBase):
     self.ValidateStopLongitude(problems)
     self.ValidateStopUrl(problems)
     self.ValidateStopLocationType(problems)
+    self.ValidateStopTimezone(problems)
 
     # Check that this object is consistent with itself
     self.ValidateStopNotTooCloseToOrigin(problems)

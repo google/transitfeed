@@ -1119,6 +1119,12 @@ class StopValidationTestCase(ValidationTestCase):
     self.ValidateAndExpectInvalidValue(stop, 'stop_desc')
     stop.stop_desc = 'Edge of the Couch'
     self.accumulator.AssertNoMoreExceptions()
+    
+    stop.stop_timezone = 'This_Timezone/Does_Not_Exist'
+    self.ValidateAndExpectInvalidValue(stop, 'stop_timezone')
+    stop.stop_timezone = 'America/Los_Angeles'
+    stop.Validate(self.problems)
+    self.accumulator.AssertNoMoreExceptions()
 
 
 class StopAttributes(ValidationTestCase):
@@ -1928,6 +1934,23 @@ class StopHierarchyTestCase(util.MemoryZipTestCase):
     self.assertTrue(e.FormatProblem().find(
         "Stagecoach (ID STAGECOACH) is too far from its parent"
         " station Bullfrog (ID BULLFROG_ST)") != -1)
+    self.accumulator.AssertNoMoreExceptions()
+
+  def testStopTimeZone(self):
+    self.SetArchiveContents(
+        "stops.txt",
+        "stop_id,stop_name,stop_lat,stop_lon,location_type,parent_station,"
+        "stop_timezone\n"
+        "BEATTY_AIRPORT,Airport,36.868446,-116.784582,,STATION,"
+        "America/New_York\n"
+        "STATION,Airport,36.868446,-116.784582,1,,\n"
+        "BULLFROG,Bullfrog,36.88108,-116.81797,,,\n"
+        "STAGECOACH,Stagecoach Hotel,36.915682,-116.751677,,,\n")    
+    self.MakeLoaderAndLoad()
+    e = self.accumulator.PopException("InvalidValue")
+    self.assertEqual(1, e.type)  # Warning
+    self.assertEquals(2, e.row_num)
+    self.assertEquals("stop_timezone", e.column_name)
     self.accumulator.AssertNoMoreExceptions()
 
   #Uncomment once validation is implemented
