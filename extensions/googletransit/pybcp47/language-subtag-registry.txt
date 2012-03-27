@@ -43865,6 +43865,11 @@ Description: Suriname
 Added: 2005-10-16
 %%
 Type: region
+Subtag: SS
+Description: South Sudan
+Added: 2011-08-25
+%%
+Type: region
 Subtag: ST
 Description: Sao Tome and Principe
 Added: 2005-10-16
