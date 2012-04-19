@@ -1984,10 +1984,11 @@ class StopSpacesTestCase(util.MemoryZipTestCase):
   def testFieldsWithEmptyString(self):
     self.SetArchiveContents(
         'stops.txt',
-        'stop_id,stop_name,stop_lat,stop_lon\n'
-        'BEATTY_AIRPORT,Airport,"",-116.784582\n'
-        'BULLFROG,Bullfrog,36.88108,-116.81797\n'
-        'STAGECOACH,Stagecoach Hotel,36.915682,""\n')
+        'stop_id,stop_name,stop_lat,stop_lon,location_type,parent_station\n'
+        'BEATTY_AIRPORT,Airport,"",-116.784582,,\n'
+        'BULLFROG,Bullfrog,36.88108,-116.81797,,\n'
+        'STAGECOACH,Stagecoach Hotel,36.915682,"",,STAGECOACH-STA\n'
+        'STAGECOACH-STA,Stagecoach Hotel Station,36.915682,-116.751677,1,\n')
     schedule = self.MakeLoaderAndLoad()
     e = self.accumulator.PopException('MissingValue')
     self.assertEquals('stop_lat', e.column_name)

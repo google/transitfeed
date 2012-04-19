@@ -708,11 +708,10 @@ class Trip(GtfsObjectBase):
       except TypeError:
         return
 
-      try:
-        dist_between_stops = \
-          util.ApproximateDistanceBetweenStops(next_stop, prev_stop)
-      except TypeError, e:
-          return
+      dist_between_stops = \
+        util.ApproximateDistanceBetweenStops(next_stop, prev_stop)
+      if dist_between_stops is None:
+        return
 
       if time_between_stops == 0:
         # HASTUS makes it hard to output GTFS with times to the nearest second;

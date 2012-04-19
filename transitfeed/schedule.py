@@ -984,15 +984,16 @@ class Schedule(object):
         else:
           parent_station = self.stops[stop.parent_station]
           distance = util.ApproximateDistanceBetweenStops(stop, parent_station)
-          if distance > problems_module.MAX_DISTANCE_BETWEEN_STOP_AND_PARENT_STATION_ERROR:
-            problems.StopTooFarFromParentStation(
-                stop.stop_id, stop.stop_name, parent_station.stop_id,
-                parent_station.stop_name, distance, problems_module.TYPE_ERROR)
-          elif distance > problems_module.MAX_DISTANCE_BETWEEN_STOP_AND_PARENT_STATION_WARNING:
-            problems.StopTooFarFromParentStation(
-                stop.stop_id, stop.stop_name, parent_station.stop_id,
-                parent_station.stop_name, distance,
-                problems_module.TYPE_WARNING)
+          if distance is not None:
+            if distance > problems_module.MAX_DISTANCE_BETWEEN_STOP_AND_PARENT_STATION_ERROR:
+              problems.StopTooFarFromParentStation(
+                  stop.stop_id, stop.stop_name, parent_station.stop_id,
+                  parent_station.stop_name, distance, problems_module.TYPE_ERROR)
+            elif distance > problems_module.MAX_DISTANCE_BETWEEN_STOP_AND_PARENT_STATION_WARNING:
+              problems.StopTooFarFromParentStation(
+                  stop.stop_id, stop.stop_name, parent_station.stop_id,
+                  parent_station.stop_name, distance,
+                  problems_module.TYPE_WARNING)
 
   def ValidateNearbyStops(self, problems):
     # Check for stops that might represent the same location (specifically,
@@ -1011,7 +1012,7 @@ class Schedule(object):
              ((sorted_stops[index].stop_lat - stop.stop_lat) < TWO_METERS_LAT)):
         distance  = util.ApproximateDistanceBetweenStops(stop,
                                                          sorted_stops[index])
-        if distance < 2:
+        if distance is not None and distance < 2:
           other_stop = sorted_stops[index]
           if stop.location_type == 0 and other_stop.location_type == 0:
             problems.StopsTooClose(

@@ -439,6 +439,9 @@ def ApproximateDistance(degree_lat1, degree_lng1, degree_lat2, degree_lng2):
 def ApproximateDistanceBetweenStops(stop1, stop2):
   """Compute approximate distance between two stops in meters. Assumes the
   Earth is a sphere."""
+  if (stop1.stop_lat is None or stop1.stop_lon is None or
+      stop2.stop_lat is None or stop2.stop_lon is None):
+    return None
   return ApproximateDistance(stop1.stop_lat, stop1.stop_lon,
                              stop2.stop_lat, stop2.stop_lon)
 
