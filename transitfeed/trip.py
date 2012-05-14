@@ -558,11 +558,12 @@ class Trip(GtfsObjectBase):
 
   def ValidateNoDuplicateStopSequences(self, problems):
     cursor = self._schedule._connection.cursor()
-    cursor.execute("SELECT COUNT(stop_sequence) AS a FROM stop_times "
+    cursor.execute("SELECT COUNT(stop_sequence) AS a, stop_sequence "
+                   "FROM stop_times "
                    "WHERE trip_id=? GROUP BY stop_sequence HAVING a > 1",
                    (self.trip_id,))
     for row in cursor:
-      problems.InvalidValue('stop_sequence', row[0],
+      problems.InvalidValue('stop_sequence', row[1],
                             'Duplicate stop_sequence in trip_id %s' %
                             self.trip_id)
 

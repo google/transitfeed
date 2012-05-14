@@ -576,6 +576,7 @@ class DuplicateStopSequenceTestCase(util.TestCase):
     schedule.Load(DataPath('duplicate_stop_sequence'), extra_validation=True)
     e = accumulator.PopException('InvalidValue')
     self.assertEqual('stop_sequence', e.column_name)
+    self.assertEqual(10, e.value)
     accumulator.AssertNoMoreExceptions()
 
 
