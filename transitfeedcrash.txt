@@ -1,0 +1,91 @@
+Yikes, the program threw an unexpected exception!
+
+Hopefully a complete report has been saved to transitfeedcrash.txt,
+though if you are seeing this message we've already disappointed you once
+today. Please include the report in a new issue at
+http://code.google.com/p/googletransitdatafeed/issues/entry
+or an email to the public group googletransitdatafeed@googlegroups.com. Sorry!
+
+------------------------------------------------------------
+transitfeed version 1.2.11
+
+File "/usr/local/google/users/bdferris/eclipse/workspaces/bdferris-opensource/googletransitdatafeed/python/feedvalidator_googletransit.py", line 28, in main
+       options.extension = 'extensions.googletransit'
+ -->   return feedvalidator.RunValidationFromOptions(feed, options)
+     
+    feed = /home/bdferris/Downloads/gtfs/test-stm-qc-ca
+    options = {'check_duplicate_trips': False, 'manual_entry': True, 'extension': 'extensions.googletransit', 'error_types_ignore_list': None, 'memory_db': False, 'service_gap_interval': 13, 'latest_version': '', 'limit_per_type': 5, 'performance': None, 'output': 'validation-results.html'}
+
+File "/usr/local/google/users/bdferris/eclipse/workspaces/bdferris-opensource/googletransitdatafeed/python/feedvalidator.py", line 736, in RunValidationFromOptions
+       else:
+ -->     return RunValidationOutputFromOptions(feed, options)
+     
+    feed = /home/bdferris/Downloads/gtfs/test-stm-qc-ca
+    options = {'check_duplicate_trips': False, 'manual_entry': True, 'extension': 'extensions.googletransit', 'error_types_ignore_list': None, 'memory_db': False, 'service_gap_interval': 13, 'latest_version': '', 'limit_per_type': 5, 'performance': None, 'output': 'validation-results.html'}
+
+File "/usr/local/google/users/bdferris/eclipse/workspaces/bdferris-opensource/googletransitdatafeed/python/feedvalidator.py", line 499, in RunValidationOutputFromOptions
+       else:
+ -->     return RunValidationOutputToFilename(feed, options, options.output)
+     
+    feed = /home/bdferris/Downloads/gtfs/test-stm-qc-ca
+    options = {'check_duplicate_trips': False, 'manual_entry': True, 'extension': 'extensions.googletransit', 'error_types_ignore_list': None, 'memory_db': False, 'service_gap_interval': 13, 'latest_version': '', 'limit_per_type': 5, 'performance': None, 'output': 'validation-results.html'}
+
+File "/usr/local/google/users/bdferris/eclipse/workspaces/bdferris-opensource/googletransitdatafeed/python/feedvalidator.py", line 506, in RunValidationOutputToFilename
+         output_file = open(output_filename, 'w')
+ -->     exit_code = RunValidationOutputToFile(feed, options, output_file)
+         output_file.close()
+    feed = /home/bdferris/Downloads/gtfs/test-stm-qc-ca
+    output_file = <open file 'validation-results.html', mode 'w' at 0x32f5f60>
+    options = {'check_duplicate_trips': False, 'manual_entry': True, 'extension': 'extensions.googletransit', 'error_types_ignore_list': None, 'memory_db': False, 'service_gap_interval': 13, 'latest_version': '', 'limit_per_type': 5, 'performance': None, 'output': 'validation-results.html'}
+    output_filename = validation-results.html
+
+File "/usr/local/google/users/bdferris/eclipse/workspaces/bdferris-opensource/googletransitdatafeed/python/feedvalidator.py", line 525, in RunValidationOutputToFile
+       schedule, exit_code, other_problems_string = RunValidation(feed, options,
+ -->                                                              problems)
+       if isinstance(feed, basestring):
+    feed = /home/bdferris/Downloads/gtfs/test-stm-qc-ca
+    accumulator = <feedvalidator.HTMLCountingProblemAccumulator object at 0x30ca890>
+    output_file = <open file 'validation-results.html', mode 'w' at 0x32f5f60>
+    problems = <transitfeed.problems.ProblemReporter object at 0x30dd250>
+    options = {'check_duplicate_trips': False, 'manual_entry': True, 'extension': 'extensions.googletransit', 'error_types_ignore_list': None, 'memory_db': False, 'service_gap_interval': 13, 'latest_version': '', 'limit_per_type': 5, 'performance': None, 'output': 'validation-results.html'}
+
+File "/usr/local/google/users/bdferris/eclipse/workspaces/bdferris-opensource/googletransitdatafeed/python/feedvalidator.py", line 583, in RunValidation
+                                    gtfs_factory=gtfs_factory)
+ -->   schedule = loader.Load()
+       # Start validation: children are already validated by the loader.
+    feed = /home/bdferris/Downloads/gtfs/test-stm-qc-ca
+    problems = <transitfeed.problems.ProblemReporter object at 0x30dd250>
+    loader = <transitfeed.loader.Loader instance at 0x30fe950>
+    extension_module = <module 'extensions.googletransit' from '/usr/local/google/users/bdferris/eclipse/workspaces/bdferris-opensource/googletransitdatafeed/python/extensions/googletransit/__init__.pyc'>
+    options = {'check_duplicate_trips': False, 'manual_entry': True, 'extension': 'extensions.googletransit', 'error_types_ignore_list': None, 'memory_db': False, 'service_gap_interval': 13, 'latest_version': '', 'limit_per_type': 5, 'performance': None, 'output': 'validation-results.html'}
+    other_problems_string = None
+    gtfs_factory = <transitfeed.gtfsfactory.GtfsFactory object at 0x30f6310>
+
+File "/usr/local/google/users/bdferris/eclipse/workspaces/bdferris-opensource/googletransitdatafeed/python/transitfeed/loader.py", line 582, in Load
+         self._LoadShapes()
+ -->     self._LoadFeed()
+     
+    self = <transitfeed.loader.Loader instance at 0x30fe950>
+
+File "/usr/local/google/users/bdferris/eclipse/workspaces/bdferris-opensource/googletransitdatafeed/python/transitfeed/loader.py", line 414, in _LoadFeed
+               self._problems.SetFileContext(filename, row_num, row, header)
+ -->           instance = object_class(field_dict=d)
+               instance.SetGtfsFactory(self._gtfs_factory)
+    row_num = 2
+    d = {'12M_12M_S_1_10_0.27292': u'12M_12M_S_1_19_0.31528', '06:33:30': u'07:43:30', '06:25:30': u'07:07:30', '480': u'180'}
+    header = ['12M_12M_S_1_10_0.27292', '06:25:30', '06:33:30', '480']
+    self = <transitfeed.loader.Loader instance at 0x30fe950>
+    filename = frequencies.txt
+    instance = <FareRule [('contains_id', None), ('destination_id', None), ('fare_id', u'tarif_regulier'), ('origin_id', None), ('route_id', u'935')]>
+    loading_order = ['agency.txt', 'stops.txt', 'routes.txt', 'transfers.txt', 'trips.txt', 'fare_attributes.txt', 'fare_rules.txt', 'frequencies.txt', 'feed_info.txt']
+    object_class = <class 'transitfeed.frequency.Frequency'>
+    row = [u'12M_12M_S_1_19_0.31528', u'07:07:30', u'07:43:30', u'180']
+
+File "/usr/local/google/users/bdferris/eclipse/workspaces/bdferris-opensource/googletransitdatafeed/python/transitfeed/frequency.py", line 33, in __init__
+             return
+ -->       self._trip_id = field_dict['trip_id']
+           self._start_time = field_dict['start_time']
+    self = <Frequency []>
+    field_dict = {'12M_12M_S_1_10_0.27292': u'12M_12M_S_1_19_0.31528', '06:33:30': u'07:43:30', '06:25:30': u'07:07:30', '480': u'180'}
+
+KeyError: 'trip_id'

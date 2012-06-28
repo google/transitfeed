@@ -1,0 +1,138 @@
+
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<title>FeedValidator: test-stm-qc-ca</title>
+<style>
+body {font-family: Georgia, serif; background-color: white}
+.path {color: gray}
+div.problem {max-width: 500px}
+table.dump td,th {background-color: khaki; padding: 2px; font-family:monospace}
+table.dump td.problem,th.problem {background-color: dc143c; color: white; padding: 2px; font-family:monospace}
+table.count_outside td {vertical-align: top}
+table.count_outside {border-spacing: 0px; }
+table {border-spacing: 5px 0px; margin-top: 3px}
+h3.issueHeader {padding-left: 0.5em}
+h4.issueHeader {padding-left: 1em}
+.pass {background-color: lightgreen}
+.fail {background-color: yellow}
+.pass, .fail {font-size: 16pt}
+.header {background-color: white; font-family: Georgia, serif; padding: 0px}
+th.header {text-align: right; font-weight: normal; color: gray}
+.footer {font-size: 10pt}
+</style>
+</head>
+<body>
+GTFS validation results for feed:<br>
+<code><span class="path">/home/bdferris/Downloads/gtfs/</span><b>test-stm-qc-ca</b></code><br>
+FeedValidator extension used: extensions.googletransit
+<br><br>
+<table>
+<tr><th class="header">Agencies:</th><td class="header"><a href="http://www.stm.info/">Société de transport de Montréal</a></td></tr>
+<tr><th class="header">Routes:</th><td class="header">220</td></tr>
+<tr><th class="header">Stops:</th><td class="header">9439</td></tr>
+<tr><th class="header">Trips:</th><td class="header">172814</td></tr>
+<tr><th class="header">Shapes:</th><td class="header">998</td></tr>
+<tr><th class="header">Effective:</th><td class="header">April 02, 2012 to September 02, 2012</td></tr>
+</table>
+<br>
+During the upcoming service dates Fri Jun 22 to Mon Aug 20:
+<table>
+<tr><th class="header">Average trips per date:</th><td class="header">17793</td></tr>
+<tr><th class="header">Most trips on a date:</th><td class="header">20986, on 1 service date (Fri Jun 22)</td></tr>
+<tr><th class="header">Least trips on a date:</th><td class="header">13069, on 8 service dates (Sun Jul 01, Sun Jul 08, Sun Jul 15, ...)</td></tr>
+</table>
+<br>
+<span class="fail">Found these problems:</span>
+<table class="count_outside">
+<tr><td><span class="fail">13365 errors</span></td><td><span class="fail">2268 warnings</span></td></tr>
+<tr><td>
+<table><tr><td>1</td><td><a href="#ErrorCsvSyntax">Csv Syntax</a></td></tr>
+<tr><td>13360</td><td><a href="#ErrorInvalidValue">Invalid Values</a></td></tr>
+<tr><td>4</td><td><a href="#ErrorMissingColumn">Missing Columns</a></td></tr>
+</table>
+</td>
+<td>
+<table><tr><td>1</td><td><a href="#WarningOtherProblem">Other Problem</a></td></tr>
+<tr><td>96</td><td><a href="#WarningStopsTooClose">Stops Too Closes</a></td></tr>
+<tr><td>1573</td><td><a href="#WarningTooFastTravel">Too Fast Travels</a></td></tr>
+<tr><td>598</td><td><a href="#WarningUnusedStop">Unused Stops</a></td></tr>
+</table>
+</td>
+</table>
+<br><br>
+<h3 class="issueHeader">Errors:</h3><h4 class="issueHeader"><a name="ErrorCsvSyntax">Csv Syntax</a></h4><ul>
+<li><div class="problem">The header row did not contain any known column names. The file is most likely missing the header row or not in the expected CSV format.</div>in line 1 of <code>frequencies.txt</code><br>
+<br></li>
+</ul>
+<h4 class="issueHeader"><a name="ErrorInvalidValue">Invalid Value</a></h4><ul>
+<li><div class="problem">Invalid value None in field <code>trip_id</code></div>in line 2 of <code>frequencies.txt</code><br>
+<table class="dump"><tr><th>12M_12M_S_1_10_0.27292</th><th>06:25:30</th><th>06:33:30</th><th>480</th></tr>
+<tr><td>12M_12M_S_1_19_0.31528</td><td>07:07:30</td><td>07:43:30</td><td>180</td></tr></table>
+<br></li>
+<li><div class="problem">Invalid value None in field <code>trip_id</code></div>in line 3 of <code>frequencies.txt</code><br>
+<table class="dump"><tr><th>12M_12M_S_1_10_0.27292</th><th>06:25:30</th><th>06:33:30</th><th>480</th></tr>
+<tr><td>12M_12M_S_1_29_0.35903</td><td>08:33:30</td><td>08:53:30</td><td>240</td></tr></table>
+<br></li>
+<li><div class="problem">Invalid value None in field <code>trip_id</code></div>in line 4 of <code>frequencies.txt</code><br>
+<table class="dump"><tr><th>12M_12M_S_1_10_0.27292</th><th>06:25:30</th><th>06:33:30</th><th>480</th></tr>
+<tr><td>12M_12M_S_1_37_0.40000</td><td>09:21:30</td><td>09:46:30</td><td>300</td></tr></table>
+<br></li>
+<li><div class="problem">Invalid value None in field <code>trip_id</code></div>in line 5 of <code>frequencies.txt</code><br>
+<table class="dump"><tr><th>12M_12M_S_1_10_0.27292</th><th>06:25:30</th><th>06:33:30</th><th>480</th></tr>
+<tr><td>12M_12M_S_1_1_0.44028</td><td>08:58:30</td><td>14:46:30</td><td>360</td></tr></table>
+<br></li>
+<li><div class="problem">Invalid value None in field <code>trip_id</code></div>in line 6 of <code>frequencies.txt</code><br>
+<table class="dump"><tr><th>12M_12M_S_1_10_0.27292</th><th>06:25:30</th><th>06:33:30</th><th>480</th></tr>
+<tr><td>12M_12M_S_1_8_0.47778</td><td>09:46:30</td><td>15:04:30</td><td>360</td></tr></table>
+<br></li>
+<li>and 13355 more of this type.</ul>
+<h4 class="issueHeader"><a name="ErrorMissingColumn">Missing Column</a></h4><ul>
+<li><div class="problem">Missing column <code>trip_id</code> in file <code>frequencies.txt</code></div>in line 1 of <code>frequencies.txt</code><br>
+<table class="dump"><tr><th>12M_12M_S_1_10_0.27292</th><th>06:25:30</th><th>06:33:30</th><th>480</th></tr>
+<tr><td></td><td></td><td></td><td></td></tr></table>
+<br></li>
+<li><div class="problem">Missing column <code>start_time</code> in file <code>frequencies.txt</code></div>in line 1 of <code>frequencies.txt</code><br>
+<table class="dump"><tr><th>12M_12M_S_1_10_0.27292</th><th>06:25:30</th><th>06:33:30</th><th>480</th></tr>
+<tr><td></td><td></td><td></td><td></td></tr></table>
+<br></li>
+<li><div class="problem">Missing column <code>headway_secs</code> in file <code>frequencies.txt</code></div>in line 1 of <code>frequencies.txt</code><br>
+<table class="dump"><tr><th>12M_12M_S_1_10_0.27292</th><th>06:25:30</th><th>06:33:30</th><th>480</th></tr>
+<tr><td></td><td></td><td></td><td></td></tr></table>
+<br></li>
+<li><div class="problem">Missing column <code>end_time</code> in file <code>frequencies.txt</code></div>in line 1 of <code>frequencies.txt</code><br>
+<table class="dump"><tr><th>12M_12M_S_1_10_0.27292</th><th>06:25:30</th><th>06:33:30</th><th>480</th></tr>
+<tr><td></td><td></td><td></td><td></td></tr></table>
+<br></li>
+</ul>
+<h3 class="issueHeader">Warnings:</h3><h4 class="issueHeader"><a name="WarningOtherProblem">Other Problem</a></h4><ul>
+<li><div class="problem">The shapes with the following shape_ids aren't used by any trips: 12M-205-01-E, 12U-491-AM-E, 12M-769-AC-S, 12M-365-01-S, 12M-205-01-O, 12M-407-01-O, 12U-401-AM-S, 12U-401-AM-N, 12M-370-01-E, 12U-115-AM-O, 12U-102-01-O, 12M-370-01-O, 12M-365-01-N, 12M-769-AC-N, 12U-102-01-E, 12U-115-AM-E, 12M-11-01-O, 12M-201-SO-S, 12M-18-JO-O, 12M-11-01-E, 12U-370-01-O, 12U-166-PM-N, 12U-68-AC-O, 12U-166-PM-S, 12M-97-JO-O, 12M-201-SO-N, 12U-12-01-S, 12U-165-JO-S, 12M-378-01-O, 12U-166-JO-S, 12U-78-01-E, 12M-61-01-E, 12M-160-01-O, 12U-78-01-O, 12M-486-PM-E, 12M-160-01-E, 12M-71-01-S, 12M-61-01-O, 12M-432-AM-S, 12M-407-L2-E, 12U-27-LC-E, 12U-86-01-E, 12M-135-AM-S, 12U-86-01-O, 12U-25-01-N, 12U-86-SO-O, 12M-401-AM-S, 12M-420-PM-O, 12U-25-01-S, 12M-44-01-S, 12M-432-AM-N, 12U-419-01-O, 12M-170-JO-N, 12U-68-L2-O, 12U-63-01-N, 12U-68-SO-E, 12M-361-01-N, 12U-460-AM-E, 12U-380-LC-E, 12U-419-01-E, 12U-124-01-N, 12U-124-01-S, 12M-29-LC-E, 12M-15-SO-E, 12U-420-AM-E, 12U-63-01-S, 12M-361-01-S, 12U-205-01-O, 12U-26-01-E, 12M-37-01-S, 12U-18-JO-E, 12M-124-01-N, 12U-18-JO-O, 12U-175-01-O, 12U-197-HP-E, 12M-37-01-N, 12M-124-01-S, 12M-439-AM-S, 12M-99-01-O, 12M-141-JO-E, 12U-27-JO-E, 12M-30-01-N, 12U-121-01-O, 12U-80-01-S, 12U-27-JO-O, 12M-99-01-E, 12M-141-JO-O, 12M-102-01-O, 12U-121-01-E, 12M-188-PM-O, 12M-215-01-E, 12M-200-01-E, 12M-353-01-O, 12U-64-01-N, 12M-30-01-S, 12M-188-PM-E, 12M-215-01-O, 12M-178-AM-S, 12U-427-AM-O, 12U-71-01-S, 12M-31-01-N, 12M-162-01-O, 12M-162-01-E, 12U-139-JO-S, 12U-29-LC-E, 12M-31-01-S, 12U-71-01-N, 12U-47-01-O, 12M-86-01-O, 12U-128-01-S, 12M-189-JO-O, 12U-47-01-E, 12M-34-JO-E, 12M-189-JO-E, 12M-86-01-E, 12M-18-JO-E, 12U-105-01-E, 12M-470-PM-E, 12U-110-01-E, 12U-21-AM-S, 12U-358-01-O, 12M-113-01-E, 12M-470-PM-O, 12U-110-01-O, 12U-105-01-O, 12M-113-01-O, 12U-131-HP-S, 12M-409-PM-S, 12M-97-JO-E, 12M-209-01-S, 12U-185-01-O, 12U-491-PM-O, 12U-66-JO-N, 12U-185-01-E, 12U-101-01-O, 12U-74-01-N, 12M-34-JO-O, 12M-777-JO-O, 12U-74-01-S, 12U-171-01-E, 12U-171-01-O, 12U-66-JO-S, 12M-409-PM-N, 12M-209-01-N, 12U-364-01-O, 12M-10-01-N, 12M-211-01-O, 12U-364-01-E, 12U-487-PM-O, 12U-769-AC-S, 12U-470-AM-E, 12U-769-AC-N, 12U-203-01-O, 12M-10-01-S, 12U-64-01-S, 12M-460-PM-E, 12U-211-01-E, 12U-357-01-N, 12M-460-PM-O, 12M-66-JO-N, 12U-487-PM-E, 12M-66-JO-S, 12U-141-JO-O, 12U-357-01-S, 12M-28-01-S, 12U-141-JO-E, 12M-440-AM-O, 12M-406-01-E, 12M-80-01-N, 12M-406-01-O, 12M-32-01-S, 12U-101-01-E, 12U-131-HP-N, 12U-449-HC-N, 12U-115-PM-E, 12M-146-SW-O, 12M-32-01-N, 12M-80-01-S, 12U-191-01-O, 12M-146-SW-E, 12U-146-JO-E, 12U-365-01-N, 12U-358-01-E, 12M-188-AM-O, 12U-141-AM-O, 12U-146-JO-O, 12U-75-01-N, 12M-188-AM-E, 12U-211-01-O, 12M-411-01-O, 12U-48-GB-E, 12M-469-01-E, 12U-160-01-E, 12U-115-PM-O, 12M-22-01-O, 12M-86-SO-O, 12U-48-GB-O, 12M-411-01-E, 12M-22-01-E, 12M-86-SO-E, 12U-160-01-O, 12U-365-01-S, 12U-131-01-S, 12M-449-AM-S, 12M-103-AC-O, 12M-432-HC-N, 12U-166-L2-N, 12M-110-01-O, 12U-166-L2-S, 12M-193-01-O, 12M-110-01-E, 12U-131-01-N, 12M-193-01-E, 12U-460-TA-E, 12U-448-PM-O, 12U-409-PM-N, 12U-448-PM-E, 12M-123-01-N, 12M-55-JO-S, 12U-361-01-N, 12U-19-01-O, 12M-55-JO-N, 12U-52-AM-O, 12U-487-AM-E, 12M-94-01-S, 12M-123-01-S, 12U-52-AM-E, 12U-19-01-E, 12U-49-01-E, 12M-208-01-O, 12U-371-01-S, 12M-204-JO-O, 12M-201-01-S, 12M-208-01-E, 12M-129-JO-N, 12U-15-SO-E, 12M-129-JO-S, 12M-40-01-O, 12M-138-01-E, 12U-487-AM-O, 12M-40-01-E, 12U-105-LC-E, 12M-138-01-O, 12U-180-JO-O, 12U-183-01-O, 12U-125-LC-O, 12M-33-SO-N, 12U-31-01-S, 12U-125-LC-E, 12U-209-01-S, 12U-183-01-E, 12U-411-TR-E, 12M-410-PM-E, 12U-380-01-E, 12U-188-AM-E, 12U-48-AC-O, 12U-470-PM-E, 12U-31-01-N, 12U-48-AC-E, 12U-380-01-O, 12U-188-AM-O, 12U-401-PM-S, 12U-125-JO-O, 12U-107-JO-S, 12U-75-01-S, 12M-372-SO-E, 12U-448-AM-O, 12M-371-01-S, 12U-125-JO-E, 12M-372-SO-O, 12U-747-01-E, 12M-101-01-E, 12U-61-01-O, 12U-747-TR-E, 12U-61-01-E, 12U-86-SO-E, 12U-109-01-N, 12U-119-01-S, 12U-215-01-O, 12U-93-01-E, 12M-460-TA-E, 12U-215-01-E, 12U-13-01-S, 12M-44-01-N, 12U-93-01-O, 12M-468-01-O, 12U-94-01-S, 12M-41-01-O, 12U-13-01-N, 12M-67-JO-S, 12M-432-PM-S, 12M-468-01-E, 12U-202-JO-E, 12U-119-01-N, 12U-212-01-E, 12U-161-01-O, 12U-427-PM-E, 12M-14-01-S, 12M-362-01-O, 12U-24-01-E, 12U-161-01-E, 12U-24-01-O, 12U-136-01-S, 12U-27-LC-O, 12M-14-01-N, 12U-363-01-N, 12U-432-AM-S, 12M-203-01-O, 12U-369-01-N, 12M-71-01-N, 12U-356-SO-O, 12U-170-AC-N, 12U-51-JO-O, 12U-359-01-N, 12M-203-01-E, 12M-68-SO-E, 12U-211-TR-O, 12U-378-01-E, 12U-170-AC-S, 12M-187-01-E, 12U-371-01-N, 12U-378-01-O, 12U-211-TR-E, 12U-369-01-S, 12U-363-01-S, 12M-131-HP-N, 12U-440-PM-E, 12U-201-01-S, 12M-353-01-E, 12U-382-01-E, 12M-11-SO-E, 12U-139-JO-N, 12U-440-PM-O, 12U-382-01-O, 12M-448-AM-E, 12M-48-GB-O, 12M-68-AB-E, 12U-432-AM-N, 12U-28-01-N, 12M-68-AB-O, 12M-48-GB-E, 12M-131-HP-S, 12U-201-01-N, 12M-21-AM-N, 12U-360-01-E, 12U-410-AM-O, 12U-49-AM-O, 12M-72-01-O, 12U-360-01-O, 12M-460-L2-O, 12M-195-01-E, 12U-491-TR-E, 12M-192-JO-E, 12M-146-LC-O, 12U-107-JO-N, 12M-195-01-O, 12M-21-AM-S, 12U-430-PM-E, 12M-192-JO-O, 12M-439-LC-N, 12U-715-01-E, 12M-11-SO-O, 12U-136-01-N, 12M-48-GC-E, 12U-715-01-O, 12M-196-01-N, 12M-109-01-S, 12M-48-GC-O, 12U-94-01-N, 12M-206-01-E, 12U-99-01-E, 12M-105-01-O, 12M-405-01-O, 12M-109-01-N, 12M-196-01-S, 12U-99-01-O, 12M-105-01-E, 12M-401-AM-N, 12M-206-01-O, 12M-405-01-E, 12M-26-01-O, 12U-204-HP-O, 12U-220-01-O, 12M-26-01-E, 12U-220-01-E, 12U-48-AB-O, 12M-449-AM-N, 12U-192-JO-O, 12U-48-AB-E, 12U-192-JO-E, 12U-14-01-S, 12M-48-AC-E, 12M-64-01-N, 12U-97-JO-O, 12M-48-AC-O, 12M-376-01-E, 12U-48-GC-O, 12M-485-01-E, 12U-372-LC-E, 12U-68-SO-O, 12M-485-01-O, 12U-48-GC-E, 12U-213-01-O, 12M-128-01-N, 12M-144-01-O, 12U-203-01-E, 12U-350-01-O, 12U-213-01-E, 12U-350-01-E, 12M-144-01-E, 12U-97-JO-E, 12M-364-01-E, 12U-208-01-E, 12U-57-01-E, 12M-747-TR-E, 12M-36-JO-O, 12M-364-01-O, 12U-208-01-O, 12M-36-JO-E, 12U-141-L2-E, 12U-370-01-E, 12U-218-01-O, 12M-69-01-O, 12M-449-PM-N, 12M-69-01-E, 12U-218-01-E, 12M-449-PM-S, 12M-175-01-E, 12M-175-01-O, 12M-202-JO-E, 12U-406-01-E, 12M-425-01-E, 12M-440-AM-E, 12M-46-AB-E, 12U-409-AM-S, 12M-136-01-N, 12M-475-AM-E, 12M-46-AB-O, 12M-425-01-O, 12U-11-01-E, 12U-361-01-S, 12M-24-01-O, 12M-33-JO-S, 12U-409-AM-N, 12M-24-01-E, 12M-125-LC-E, 12U-368-01-O, 12U-16-01-O, 12U-197-JO-O, 12U-170-JO-N, 12M-125-LC-O, 12M-139-JO-S, 12U-368-01-E, 12U-123-01-S, 12M-139-JO-N, 12U-123-01-N, 12U-206-01-O, 12U-372-SO-E, 12M-202-JO-O, 12M-15-JO-E, 12U-17-01-N, 12U-113-01-O, 12M-70-AC-E, 12U-179-01-S, 12U-68-AB-E, 12M-427-AM-O, 12M-63-01-N, 12U-113-01-E, 12U-43-AB-E, 12M-356-SO-O, 12U-33-SO-S, 12M-68-AC-O, 12U-486-AM-O, 12U-206-01-E, 12M-356-SO-E, 12U-43-AB-O, 12U-17-01-S, 12M-68-AC-E, 12U-103-JO-E, 12U-95-01-O, 12M-496-TR-E, 12U-103-JO-O, 12M-100-JO-O, 12U-440-AM-O, 12M-220-01-E, 12M-100-JO-E, 12U-80-01-N, 12U-440-AM-E, 12M-220-01-O, 12U-470-AM-O, 12M-376-01-O, 12M-27-JO-O, 12U-468-01-O, 12U-430-AM-O, 12M-355-01-S, 12M-49-AM-O, 12U-135-PM-N, 12M-355-01-N, 12U-186-01-O, 12U-103-AC-O, 12U-53-01-S, 12U-29-JO-O, 12U-186-01-E, 12U-29-JO-E, 12M-48-AB-E, 12U-207-01-N, 12U-432-PM-S, 12U-72-01-O, 12U-435-JO-E, 12U-449-AM-N, 12U-58-01-O, 12U-72-01-E, 12M-48-AB-O, 12M-491-AM-E, 12U-58-01-E, 12U-435-JO-O, 12M-350-01-E, 12M-46-AC-O, 12U-116-01-N, 12U-449-AM-S, 12U-207-01-S, 12U-449-HC-S, 12U-432-PM-N, 12U-196-01-N, 12U-28-01-S, 12U-189-JO-E, 12M-131-01-S, 12U-219-01-O, 12U-189-JO-O, 12U-354-01-E, 12U-104-01-E, 12M-747-01-O, 12M-131-01-N, 12U-104-01-O, 12M-747-01-E, 12U-354-01-O, 12U-196-01-S, 12M-204-HP-O, 12M-136-01-S, 12U-70-AC-O, 12M-45-01-S, 12M-185-01-E, 12M-204-HP-E, 12M-201-01-N, 12M-107-JO-N, 12U-70-AC-E, 12U-219-01-E, 12M-107-JO-S, 12U-485-01-O, 12M-112-01-E, 12U-14-01-N, 12U-146-SW-E, 12M-45-01-N, 12M-102-01-E, 12M-27-JO-E, 12U-53-01-N, 12U-146-SW-O, 12U-485-01-E, 12M-112-01-O, 12U-76-SO-O, 12U-407-L2-E, 12U-495-01-O, 12U-193-01-E, 12U-10-01-S, 12M-74-01-S, 12U-112-01-O, 12U-193-01-O, 12M-12-01-S, 12U-495-01-E, 12M-12-01-N, 12M-52-PM-O, 12U-777-JO-E, 12M-74-01-N, 12M-94-01-N, 12U-777-JO-O, 12U-178-AM-S, 12U-10-01-N, 12M-52-PM-E, 12U-401-PM-N, 12U-213-PM-E, 12M-185-01-O, 12M-178-PM-N, 12U-144-01-E, 12M-435-JO-O, 12M-25-01-S, 12U-144-01-O, 12U-112-01-E, 12M-435-JO-E, 12M-496-01-O, 12M-197-JO-O, 12U-187-01-O, 12U-405-01-E, 12U-410-PM-E, 12U-405-01-O, 12U-76-SO-E, 12M-197-JO-E, 12U-187-01-E, 12U-33-JO-S, 12U-376-01-O, 12U-129-JO-N, 12U-22-01-O, 12U-376-01-E, 12U-39-JO-O, 12U-449-PM-S, 12U-166-JO-N, 12M-225-01-O, 12U-449-PM-N, 12M-85-JO-O, 12U-52-PM-E, 12M-128-01-S, 12U-129-JO-S, 12M-225-01-E, 12U-180-JO-E, 12U-54-HE-E, 12M-183-01-E, 12M-25-01-N, 12U-67-JO-S, 12M-183-01-O, 12M-475-PM-O, 12M-179-01-N, 12U-135-AM-S, 12U-164-01-O, 12M-105-LC-E, 12M-51-JO-O, 12U-217-01-O, 12M-380-LC-E, 12U-204-JO-E, 12U-164-01-E, 12M-354-01-E, 12U-36-JO-O, 12U-204-JO-O, 12U-168-JO-S, 12U-217-01-E, 12U-140-01-O, 12M-104-01-O, 12U-85-JO-E, 12M-57-01-O, 12M-166-PM-S, 12U-85-JO-O, 12U-140-01-E, 12M-150-01-E, 12M-15-JO-O, 12U-32-01-N, 12M-19-01-O, 12U-32-01-S, 12M-166-PM-N, 12M-125-JO-O, 12U-66-PM-S, 12U-39-JO-E, 12U-209-01-N, 12U-353-01-E, 12M-75-01-S, 12M-150-01-O, 12M-487-AM-O, 12M-75-01-N, 12U-68-AC-E, 12M-487-AM-E, 12M-104-01-E, 12M-54-01-E, 12U-73-JO-E, 12U-46-AB-O, 12U-69-01-E, 12U-486-PM-E, 12U-73-JO-O, 12M-54-01-O, 12M-117-01-S, 12U-45-01-S, 12U-46-AB-E, 12U-69-01-O, 12U-45-01-N, 12M-117-01-N, 12U-216-01-O, 12U-90-01-O, 12U-407-01-E, 12U-150-01-O, 12U-216-01-E, 12U-90-01-E, 12U-26-01-O, 12U-165-JO-N, 12U-150-01-E, 12M-72-01-E, 12M-177-01-E, 12M-219-01-E, 12M-115-PM-O, 12M-495-01-E, 12M-467-JO-S, 12M-115-PM-E, 12M-495-01-O, 12M-177-01-O, 12M-219-01-O, 12U-70-AB-O, 12U-225-01-E, 12M-213-01-E, 12M-467-JO-N, 12U-225-01-O, 12M-213-01-O, 12U-70-AB-E, 12U-200-01-O, 12U-44-01-S, 12M-170-AC-N, 12U-162-01-E, 12M-66-PM-S, 12M-410-AM-O, 12M-359-01-S, 12U-200-01-E, 12M-141-AM-O, 12M-29-JO-E, 12M-70-AB-E, 12M-359-01-N, 12M-66-PM-N, 12M-170-AC-S, 12U-44-01-N, 12M-216-01-E, 12M-76-SO-E, 12M-378-01-E, 12U-355-01-S, 12M-363-01-S, 12M-191-01-O, 12M-76-SO-O, 12U-201-SO-S, 12M-216-01-O, 12M-191-01-E, 12M-369-01-N, 12M-369-01-S, 12U-201-SO-N, 12U-177-01-O, 12U-52-PM-O, 12M-363-01-N, 12U-355-01-N, 12U-177-01-E, 12M-33-JO-N, 12U-179-01-N, 12M-13-01-S, 12M-129-SO-S, 12M-380-01-O, 12M-92-JO-E, 12M-106-01-E, 12U-191-01-E, 12M-166-L2-S, 12M-380-01-E, 12M-92-JO-O, 12U-33-JO-N, 12M-115-AM-E, 12U-197-JO-E, 12M-166-L2-N, 12U-470-PM-O, 12M-64-01-S, 12M-54-HE-E, 12M-13-01-N, 12U-106-01-E, 12M-90-01-E, 12M-39-JO-O, 12M-470-AM-E, 12M-213-AM-O, 12U-439-LC-N, 12M-165-JO-S, 12U-106-01-O, 12M-121-01-E, 12M-470-AM-O, 12U-49-01-O, 12U-168-JO-N, 12M-165-JO-N, 12U-138-01-O, 12M-161-01-O, 12U-138-01-E, 12M-52-AM-E, 12U-36-JO-E, 12U-460-L2-O, 12M-16-01-E, 12M-52-AM-O, 12M-16-01-O, 12M-121-01-O, 12M-140-01-E, 12M-767-L3-O, 12U-21-AM-N, 12M-140-01-O, 12M-108-01-O, 12M-101-01-O, 12M-164-01-E, 12U-468-01-E, 12M-217-01-E, 12M-164-01-O, 12M-217-01-O, 12M-116-01-S, 12U-496-01-O, 12U-11-01-O, 12M-116-01-N, 12M-166-JO-S, 12U-425-01-O, 12M-67-JO-N, 12U-496-01-E, 12M-372-LC-E, 12U-425-01-E, 12M-186-01-O, 12U-188-PM-E, 12U-129-SO-N, 12M-207-01-S, 12U-432-HC-N, 12M-49-01-E, 12U-188-PM-O, 12M-432-PM-N, 12M-49-01-O, 12U-460-AM-O, 12M-161-01-E, 12U-46-AC-O, 12U-11-SO-O, 12M-382-01-O, 12M-108-01-E, 12U-11-SO-E, 12M-119-01-S, 12U-356-SO-E, 12M-382-01-E, 12M-90-01-O, 12U-146-LC-O, 12M-218-01-E, 12M-358-01-O, 12M-218-01-O, 12M-448-PM-E, 12U-175-01-E, 12U-97-LC-E, 12M-448-PM-O, 12U-407-01-O, 12M-439-L2-S, 12M-180-JO-E, 12U-128-01-N, 12U-117-01-S, 12U-469-01-O, 12U-12-01-N, 12U-420-PM-O, 12M-17-01-N, 12U-469-01-E, 12U-15-JO-E, 12M-358-01-E, 12U-100-JO-E, 12M-51-JO-E, 12M-17-01-S, 12U-100-JO-O, 12U-117-01-N, 12U-359-01-S, 12M-125-JO-E, 12U-54-01-O, 12M-95-01-O, 12M-368-01-E, 12M-371-01-N, 12U-54-01-E, 12U-202-JO-O, 12M-368-01-O, 12M-95-01-E, 12U-109-01-S, 12U-92-JO-O, 12M-207-01-N, 12U-16-01-E, 12M-200-01-O, 12M-491-PM-O, 12U-92-JO-E, 12U-467-JO-S, 12M-33-LC-S, 12M-197-HP-E, 12U-95-01-E, 12U-41-01-E, 12U-406-01-O, 12M-168-JO-N, 12U-41-01-O, 12M-29-JO-O, 12U-34-JO-O, 12M-168-JO-S, 12M-135-PM-N, 12U-475-PM-O, 12M-41-01-E, 12U-467-JO-N, 12U-34-JO-E, 12U-460-PM-O, 12U-448-AM-E, 12M-57-01-E, 12U-767-L3-O, 12M-407-01-E, 12U-66-PM-N, 12U-460-PM-E, 12M-179-01-S, 12M-174-01-E, 12M-141-L2-E, 12M-68-SO-O, 12M-33-SO-S, 12M-362-01-E, 12M-115-AM-O, 12M-174-01-O, 12M-715-01-O, 12U-30-01-S, 12M-39-JO-E, 12M-28-01-N, 12M-715-01-E, 12M-85-JO-E, 12U-475-AM-E, 12M-27-LC-E, 12M-78-01-O, 12M-440-PM-O, 12M-350-01-O, 12M-440-PM-E, 12M-78-01-E, 12U-30-01-N, 12M-496-01-E, 12U-178-PM-N, 12M-146-JO-O, 12M-419-01-E, 12U-372-SO-O, 12M-401-PM-N, 12M-93-01-O, 12U-174-01-O, 12M-146-JO-E, 12M-419-01-O, 12M-93-01-E, 12U-174-01-E, 12U-33-SO-N, 12U-411-01-E, 12U-485-LC-E, 12M-70-AB-O, 12M-401-PM-S, 12U-411-01-O, 12M-777-JO-E, 12U-485-LC-O, 12U-57-01-O, 12M-19-01-E, 12M-43-AB-O, 12M-97-LC-E, 12M-449-HC-S, 12M-354-01-O, 12M-43-AB-E, 12U-40-01-O, 12U-37-01-S, 12M-486-AM-O, 12M-73-JO-O, 12U-37-01-N, 12U-195-01-O, 12M-129-SO-N, 12M-430-PM-E, 12U-195-01-E, 12M-73-JO-E, 12M-449-HC-N, 12U-162-01-O, 12M-103-JO-O, 12M-70-AC-O, 12M-103-JO-E, 12M-469-01-O, 12M-487-PM-E, 12U-496-TR-E, 12M-448-AM-O, 12M-58-01-E, 12M-213-PM-E, 12M-487-PM-O, 12U-67-JO-N, 12U-212-01-O, 12M-58-01-O, 12M-47-01-E, 12M-360-01-O, 12M-166-JO-N, 12U-129-SO-S, 12M-63-01-S, 12M-420-AM-E, 12M-47-01-O, 12M-360-01-E, 12M-106-01-O, 12M-186-01-E, 12U-204-HP-E, 12U-439-AM-S, 12M-430-AM-O, 12U-205-01-E, 12U-116-01-S, 12M-119-01-N, 12U-213-AM-O, 12M-187-01-O, 12U-22-01-E, 12U-353-01-O, 12U-108-01-E, 12U-108-01-O, 12M-53-01-S, 12M-211-01-E, 12U-409-PM-S, 12M-53-01-N, 12U-362-01-E, 12U-40-01-E, 12M-212-01-O, 12U-15-JO-O, 12M-427-PM-E, 12M-212-01-E, 12U-362-01-O, 12M-204-JO-E, 12M-357-01-N, 12U-51-JO-E, 12U-55-JO-N, 12M-409-AM-S, 12M-171-01-O, 12M-180-JO-O, 12M-409-AM-N, 12U-55-JO-S, 12M-460-AM-O, 12M-171-01-E, 12M-460-AM-E, 12M-357-01-S</div><br></li>
+</ul>
+<h4 class="issueHeader"><a name="WarningStopsTooClose">Stops Too Close</a></h4><ul>
+<li><div class="problem">The stops "George / Raymond" (ID 2802492) and "George / Raymond" (ID 2805002) are 0.00m apart and probably represent the same location.</div><br></li>
+<li><div class="problem">The stops "Parkhaven / Trinity" (ID 2400981) and "Parkhaven / No 5790" (ID 2400710) are 0.00m apart and probably represent the same location.</div><br></li>
+<li><div class="problem">The stops "Saint-Antoine / Greene" (ID 2200492) and "Saint-Antoine / Greene" (ID 140922) are 0.00m apart and probably represent the same location.</div><br></li>
+<li><div class="problem">The stops "Vanden-Abeele / Halpern" (ID 1909314) and "Halpern / Vanden-Abeele" (ID 1906773) are 0.00m apart and probably represent the same location.</div><br></li>
+<li><div class="problem">The stops "Station Atwater (Tupper / Atwater)" (ID 2200629) and "Station Atwater (Tupper / Atwater)" (ID 2200732) are 0.00m apart and probably represent the same location.</div><br></li>
+<li>and 91 more of this type.</ul>
+<h4 class="issueHeader"><a name="WarningTooFastTravel">Too Fast Travel</a></h4><ul>
+<li><div class="problem">High speed travel detected in trip 12U_I_141_23_5_141: Louis-H. La Fontaine / No 7755 to Les Galeries d'Anjou / Autoroute 25. 9383554 meters in 60 seconds. (563013 km/h).</div><br></li>
+<li><div class="problem">High speed travel detected in trip 12U_A_141_8_23_141: Louis-H. La Fontaine / No 7755 to Les Galeries d'Anjou / Autoroute 25. 9383554 meters in 60 seconds. (563013 km/h).</div><br></li>
+<li><div class="problem">High speed travel detected in trip 12U_F2_141_8_8_141: Louis-H. La Fontaine / No 7755 to Les Galeries d'Anjou / Autoroute 25. 9383554 meters in 60 seconds. (563013 km/h).</div><br></li>
+<li><div class="problem">High speed travel detected in trip 12U_A_141_33_26_141: Louis-H. La Fontaine / No 7755 to Les Galeries d'Anjou / Autoroute 25. 9383554 meters in 60 seconds. (563013 km/h).</div><br></li>
+<li><div class="problem">High speed travel detected in trip 12U_I_141_9_32_141: Louis-H. La Fontaine / No 7755 to Les Galeries d'Anjou / Autoroute 25. 9383554 meters in 60 seconds. (563013 km/h).</div><br></li>
+<li>and 1568 more of this type.</ul>
+<h4 class="issueHeader"><a name="WarningUnusedStop">Unused Stop</a></h4><ul>
+<li><div class="problem">De Maisonneuve / Marlowe (ID 110554) isn't used in any trips</div><br></li>
+<li><div class="problem">Remembrance / Lac des Castors Est (ID 130460) isn't used in any trips</div><br></li>
+<li><div class="problem">Décarie / cour du C.P. (ID 127479) isn't used in any trips</div><br></li>
+<li><div class="problem">Décarie / Édouard-Laurin (ID 1907183) isn't used in any trips</div><br></li>
+<li><div class="problem">Lapierre / No 1411 (ID 2805499) isn't used in any trips</div><br></li>
+<li>and 593 more of this type.</ul>
+
+<div class="footer">
+Generated by <a href="http://code.google.com/p/googletransitdatafeed/wiki/FeedValidator">
+FeedValidator</a> version 1.2.11 on June 22, 2012 at 10:45 AM CEST.
+</div>
+</body>
+</html>
