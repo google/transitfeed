@@ -28,43 +28,44 @@ class Frequency(GtfsObjectBase):
 
     def __init__(self, field_dict=None):
       self._schedule = None
-      if field_dict:
-        if isinstance(field_dict, self.__class__):
-          for k, v in field_dict.iteritems():
-            self.__dict__[k] = v
-        else:
-          self.__dict__.update(field_dict)
+      if not field_dict:
+        return
+      self._trip_id = field_dict['trip_id']
+      self._start_time = field_dict['start_time']
+      self._end_time = field_dict['end_time']
+      self._headway_secs = field_dict['headway_secs']
+      self._exact_times = field_dict.setdefault('exact_times')
 
     def StartTime(self):
-      return self.start_time
+      return self._start_time
 
     def EndTime(self):
-      return self.end_time
+      return self._end_time
 
     def TripId(self):
-      return self.trip_id
+      return self._trip_id
 
     def HeadwaySecs(self):
-      return self.headway_secs
+      return self._headway_secs
 
     def ExactTimes(self):
-      return self.exact_times
+      return self._exact_times
 
     def ValidateExactTimes(self, problems):
-      if util.IsEmpty(self.exact_times):
-        self.exact_times = 0
+      if util.IsEmpty(self._exact_times):
+        self._exact_times = 0
         return
       try:
-        self.exact_times = int(self.exact_times)
+        self._exact_times = int(self._exact_times)
       except (ValueError, TypeError):
-        problems.InvalidValue('exact_times', self.exact_times,
+        problems.InvalidValue('exact_times', self._exact_times,
             'Should be 0 (no fixed schedule) or 1 (fixed and ' \
             'regular schedule, shortcut for a repetitive ' \
             'stop_times file).')
-        del self.exact_times
+        del self._exact_times
         return
-      if self.exact_times not in (0, 1):
-        problems.InvalidValue('exact_times', self.exact_times,
+      if self._exact_times not in (0, 1):
+        problems.InvalidValue('exact_times', self._exact_times,
             'Should be 0 (no fixed schedule) or 1 (fixed and ' \
             'regular schedule, shortcut for a repetitive ' \
             'stop_times file).')
@@ -77,15 +78,15 @@ class Frequency(GtfsObjectBase):
       return
 
     def Validate(self, problems=None):
-      returns
+      return
 
     def AddToSchedule(self, schedule=None, problems=None):
       if schedule is None:
         return
       self._schedule = schedule
       try:
-        trip = schedule.GetTrip(self.trip_id)
+        trip = schedule.GetTrip(self._trip_id)
       except KeyError:
-        problems.InvalidValue('trip_id', self.trip_id)
+        problems.InvalidValue('trip_id', self._trip_id)
         return
       trip.AddFrequencyObject(self, problems)
