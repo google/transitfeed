@@ -141,7 +141,8 @@ class StopTime(object):
       problems.InvalidValue('departure_time', departure_time,
                             'The departure time at this stop (%s) is before '
                             'the arrival time (%s).  This is often caused by '
-                            'problems in the feed exporter\'s time conversion')
+                            'problems in the feed exporter\'s time conversion'
+                            % (departure_time, arrival_time))
 
     # If the caller passed a valid arrival time but didn't attempt to pass a
     # departure time complain
