@@ -780,15 +780,25 @@ http://code.google.com/p/googletransitdatafeed/wiki/KMLWriter
     output_path = args[1]
   else:
     path = os.path.normpath(input_path)
-    (feed_dir, feed) = os.path.split(path)
-    if '.' in feed:
-      feed = feed.rsplit('.', 1)[0]  # strip extension
-    output_filename = '%s.kml' % feed
+    (feed_dir, feed_name) = os.path.split(path)
+    if '.' in feed_name:
+      feed_name = feed_name.rsplit('.', 1)[0]  # strip extension
+    output_filename = '%s.kml' % feed_name
     output_path = os.path.join(feed_dir, output_filename)
 
-  loader = transitfeed.Loader(input_path,
-                              problems=transitfeed.ProblemReporter())
-  feed = loader.Load()
+  feed = None
+  try:
+    loader = transitfeed.Loader(input_path)
+    feed = loader.Load()
+  except transitfeed.ExceptionWithContext, e:
+    print >>sys.stderr, (
+        "\n\nGTFS feed must load without any errors.\n"
+        "While loading %s the following error was found:\n%s\n%s\n" %
+        (input_path,
+         e.FormatContext(),
+         transitfeed.EncodeUnicode(e.FormatProblem())))
+    sys.exit(1)
+                         
   print "Writing %s" % output_path
   writer = KMLWriter()
   writer.show_trips = options.show_trips
