@@ -213,7 +213,8 @@ class Stop(GtfsObjectBase):
         not util.IsEmpty(self.stop_desc) and
         self.stop_name.strip().lower() == self.stop_desc.strip().lower()):
       problems.InvalidValue('stop_desc', self.stop_desc,
-                            'stop_desc should not be the same as stop_name')
+                            'stop_desc should not be the same as stop_name',
+                            type=problems_module.TYPE_WARNING)
 
   def ValidateStopIsNotStationWithParent(self, problems):
     if self.parent_station and self.location_type == 1:
