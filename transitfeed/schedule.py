@@ -1004,7 +1004,8 @@ class Schedule(object):
     # index.
     sorted_stops = filter(lambda s: s.stop_lat and s.stop_lon,
                           self.GetStopList())
-    sorted_stops.sort(key=(lambda x: x.stop_lat))
+    sorted_stops.sort(
+        key=(lambda x: [x.stop_lat, x.stop_lon, getattr(x, 'stop_id', None)]))
     TWO_METERS_LAT = 0.000018
     for index, stop in enumerate(sorted_stops[:-1]):
       index += 1

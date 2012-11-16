@@ -306,6 +306,7 @@ class RecordingProblemAccumulator(transitfeed.ProblemAccumulatorInterface):
     self.exceptions = []
     self._test_case = test_case
     self._ignore_types = ignore_types or set()
+    self._sorted = False
 
   def _Report(self, e):
     # Ensure that these don't crash
@@ -321,6 +322,9 @@ class RecordingProblemAccumulator(transitfeed.ProblemAccumulatorInterface):
 
   def PopException(self, type_name):
     """Return the first exception, which must be a type_name."""
+    if not self._sorted:
+      self._SortExceptionGroups()
+      self._sorted = True
     e = self.exceptions.pop(0)
     e_name = e[0].__class__.__name__
     self._test_case.assertEqual(e_name, type_name,
@@ -398,3 +402,34 @@ class RecordingProblemAccumulator(transitfeed.ProblemAccumulatorInterface):
     self._test_case.assertEquals(header, e.header)
     self._test_case.assertEquals(count, e.count)
     return e
+
+  def _SortExceptionGroups(self):
+    """Applies a consistent order to exceptions for repeatable testing.
+
+    Exceptions are only sorted when multiple exceptions of the same type appear
+    consecutively within the full exception list.  For example, if the exception
+    list is ['B2', 'B1', 'A2', 'A1', 'A3', 'B3'], where A B and C are distinct
+    exception types, the resulting order is ['B1', 'B2', 'A1', 'A2', 'A3', 'B3']
+    Notice the order of exception types does not change, but grouped exceptions
+    of the same type are sorted within their group.
+
+    The ExceptionWithContext.GetOrderKey method id used for generating the sort
+    key for exceptions.
+    """
+    sorted_exceptions = []
+    exception_group = []
+    current_exception_type = None
+
+    def ProcessExceptionGroup():
+      exception_group.sort(key=lambda x: x[0].GetOrderKey())
+      sorted_exceptions.extend(exception_group)
+
+    for e_tuple in self.exceptions:
+      e = e_tuple[0]
+      if e.__class__ != current_exception_type:
+        current_exception_type = e.__class__
+        ProcessExceptionGroup()
+        exception_group = []
+      exception_group.append(e_tuple)
+    ProcessExceptionGroup()
+    self.exceptions = sorted_exceptions

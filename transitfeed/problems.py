@@ -496,6 +496,35 @@ class ExceptionWithContext(Exception):
     """
     raise TypeError("__cmp__ not defined")
 
+  def GetOrderKey(self):
+    """Return a tuple that can be used to sort problems into a consistent order.
+
+    Returns:
+      A list of values.
+    """
+    context_attributes = ['_type']
+    context_attributes.extend(ExceptionWithContext.CONTEXT_PARTS)
+    context_attributes.extend(self._GetExtraOrderAttributes())
+
+    tokens = []
+    for context_attribute in context_attributes:
+      tokens.append(getattr(self, context_attribute, None))
+    return tokens
+
+  def _GetExtraOrderAttributes(self):
+    """Return a list of extra attributes that should be used by GetOrderKey().
+
+    The GetOrderkey method uses the list of class attributes defined in
+    CONTEXT_PARTS to generate a list value that can be used as a comparison
+    key for sorting problems in a consistent order.  Some specific problem
+    types may which to define additional attributes that should be used
+    when generating the order key.  They can override this method to do so.
+
+    Returns:
+      A list of class attribute names.
+    """
+    return []
+
 
 class MissingFile(ExceptionWithContext):
   ERROR_TEXT = "File %(file_name)s is not found"
@@ -542,11 +571,19 @@ class CsvSyntax(ExceptionWithContext):
 class DuplicateColumn(ExceptionWithContext):
   ERROR_TEXT = 'Column %(header)s appears %(count)i times in file %(file_name)s'
 
+  def _GetExtraOrderAttributes(self):
+    return ['header']
+
+
 class MissingValue(ExceptionWithContext):
   ERROR_TEXT = 'Missing value for column %(column_name)s'
 
 class InvalidValue(ExceptionWithContext):
   ERROR_TEXT = 'Invalid value %(value)s in field %(column_name)s'
+
+  def _GetExtraOrderAttributes(self):
+    return ['column_name']
+
 
 class InvalidFloatValue(ExceptionWithContext):
   ERROR_TEXT = (
@@ -664,6 +701,10 @@ class DateOutsideValidRange(ExceptionWithContext):
                "the years %(range_start_year)d and %(range_end_year)d. It is " \
                "advisable to create feeds with shorter validity periods to " \
                "give feed consumers more confidence in their correctness."
+
+  def _GetExtraOrderAttributes(self):
+    return ['value']
+
 
 class NoServiceExceptions(ExceptionWithContext):
   ERROR_TEXT = "All services are defined on a weekly basis from %(start)s " \

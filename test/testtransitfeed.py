@@ -487,11 +487,11 @@ class BadUtf8TestCase(LoadTestCase):
     self.Load('bad_utf8')
     self.accumulator.PopException("UnrecognizedColumn")
     self.accumulator.PopInvalidValue("agency_name", "agency.txt")
-    self.accumulator.PopInvalidValue("stop_name", "stops.txt")
-    self.accumulator.PopInvalidValue("route_short_name", "routes.txt")
     self.accumulator.PopInvalidValue("route_long_name", "routes.txt")
-    self.accumulator.PopInvalidValue("trip_headsign", "trips.txt")
+    self.accumulator.PopInvalidValue("route_short_name", "routes.txt")
     self.accumulator.PopInvalidValue("stop_headsign", "stop_times.txt")
+    self.accumulator.PopInvalidValue("stop_name", "stops.txt")
+    self.accumulator.PopInvalidValue("trip_headsign", "trips.txt")
     self.accumulator.AssertNoMoreExceptions()
 
 
@@ -582,14 +582,15 @@ class DuplicateStopSequenceTestCase(util.TestCase):
 
 class MissingEndpointTimesTestCase(util.TestCase):
   def runTest(self):
-    problems = ExceptionProblemReporterNoExpiration()
+    accumulator = RecordingProblemAccumulator(self, ('ExpirationDate',
+                                                     'NoServiceExceptions'))
+    problems = transitfeed.ProblemReporter(accumulator)
     schedule = transitfeed.Schedule(problem_reporter=problems)
-    try:
-      schedule.Load(DataPath('missing_endpoint_times'), extra_validation=True)
-      self.fail('InvalidValue exception expected')
-    except transitfeed.InvalidValue, e:
-      self.assertEqual('departure_time', e.column_name)
-      self.assertEqual('', e.value)
+    schedule.Load(DataPath('missing_endpoint_times'), extra_validation=True)
+    e = accumulator.PopInvalidValue('arrival_time')
+    self.assertEqual('', e.value)
+    e = accumulator.PopInvalidValue('departure_time')
+    self.assertEqual('', e.value)
 
 
 class DuplicateScheduleIDTestCase(util.TestCase):
@@ -1681,8 +1682,8 @@ class CsvDictTestCase(util.TestCase):
                                   transitfeed.Transfer._REQUIRED_FIELD_NAMES,
                                   transitfeed.Transfer._DEPRECATED_FIELD_NAMES))
 
-    self.accumulator.PopDuplicateColumn("transfers.txt", "min_transfer_time", 4)
     self.accumulator.PopDuplicateColumn("transfers.txt", "from_stop_id", 2)
+    self.accumulator.PopDuplicateColumn("transfers.txt", "min_transfer_time", 4)
     self.accumulator.PopDuplicateColumn("transfers.txt", "unknown", 2)
     e = self.accumulator.PopException("UnrecognizedColumn")
     self.assertEquals("unknown", e.column_name)
@@ -1715,8 +1716,8 @@ class ReadCsvTestCase(util.TestCase):
                               ))
 
     self.accumulator.PopDuplicateColumn("calendar.txt", "end_date", 3)
-    self.accumulator.PopDuplicateColumn("calendar.txt", "unknown", 2)
     self.accumulator.PopDuplicateColumn("calendar.txt", "tuesday", 2)
+    self.accumulator.PopDuplicateColumn("calendar.txt", "unknown", 2)
     e = self.accumulator.PopException("UnrecognizedColumn")
     self.assertEquals("unknown", e.column_name)
     self.accumulator.AssertNoMoreExceptions()
@@ -1792,12 +1793,12 @@ class StopHierarchyTestCase(util.MemoryZipTestCase):
     schedule = self.MakeLoaderAndLoad()
     e = self.accumulator.PopException("InvalidValue")
     self.assertEquals("location_type", e.column_name)
-    self.assertEquals(2, e.row_num)
-    self.assertEquals(1, e.type)
-    e = self.accumulator.PopException("InvalidValue")
-    self.assertEquals("location_type", e.column_name)
     self.assertEquals(3, e.row_num)
     self.assertEquals(0, e.type)
+    e = self.accumulator.PopException("InvalidValue")
+    self.assertEquals("location_type", e.column_name)
+    self.assertEquals(2, e.row_num)
+    self.assertEquals(1, e.type)
     self.accumulator.AssertNoMoreExceptions()
 
   def testBadLocationTypeAtSameLatLon(self):
@@ -1810,10 +1811,10 @@ class StopHierarchyTestCase(util.MemoryZipTestCase):
         "STAGECOACH,Stagecoach Hotel,36.915682,-116.751677,,\n")
     schedule = self.MakeLoaderAndLoad()
     e = self.accumulator.PopException("InvalidValue")
+    self.assertEquals("parent_station", e.column_name)
+    e = self.accumulator.PopException("InvalidValue")
     self.assertEquals("location_type", e.column_name)
     self.assertEquals(3, e.row_num)
-    e = self.accumulator.PopException("InvalidValue")
-    self.assertEquals("parent_station", e.column_name)
     self.accumulator.AssertNoMoreExceptions()
 
   def testStationUsed(self):
@@ -1860,10 +1861,10 @@ class StopHierarchyTestCase(util.MemoryZipTestCase):
         "STAGECOACH,Stagecoach Hotel,36.915682,-116.751677,,\n")
     schedule = self.MakeLoaderAndLoad()
     e = self.accumulator.PopException("InvalidValue")
-    self.assertEquals("location_type", e.column_name)
-    e = self.accumulator.PopException("InvalidValue")
     self.assertEquals("parent_station", e.column_name)
     self.assertTrue(e.FormatProblem().find("location_type=1") != -1)
+    e = self.accumulator.PopException("InvalidValue")
+    self.assertEquals("location_type", e.column_name)
     self.accumulator.AssertNoMoreExceptions()
 
   def testStationWithParent(self):
@@ -1904,9 +1905,6 @@ class StopHierarchyTestCase(util.MemoryZipTestCase):
         "BULLFROG_ST,Bullfrog,36.868446,-116.784582,1,\n"
         "STAGECOACH,Stagecoach Hotel,36.915682,-116.751677,,\n")
     schedule = self.MakeLoaderAndLoad()
-    e = self.accumulator.PopException("DifferentStationTooClose")
-    self.assertMatchesRegex(
-        "The parent_station of stop \"Bullfrog\"", e.FormatProblem())
     e = self.accumulator.PopException("StopsTooClose")
     self.assertMatchesRegex("BEATTY_AIRPORT", e.FormatProblem())
     self.assertMatchesRegex("BULLFROG", e.FormatProblem())
@@ -1914,6 +1912,9 @@ class StopHierarchyTestCase(util.MemoryZipTestCase):
     e = self.accumulator.PopException("DifferentStationTooClose")
     self.assertMatchesRegex(
         "The parent_station of stop \"Airport\"", e.FormatProblem())
+    e = self.accumulator.PopException("DifferentStationTooClose")
+    self.assertMatchesRegex(
+        "The parent_station of stop \"Bullfrog\"", e.FormatProblem())
     self.accumulator.AssertNoMoreExceptions()
 
   def testStopTooFarFromParentStation(self):
@@ -1926,14 +1927,14 @@ class StopHierarchyTestCase(util.MemoryZipTestCase):
         "STAGECOACH,Stagecoach,36.915,-116.751,,BULLFROG_ST\n")   # > 3km far
     schedule = self.MakeLoaderAndLoad()
     e = self.accumulator.PopException("StopTooFarFromParentStation")
-    self.assertEqual(1, e.type)  # Warning
-    self.assertTrue(e.FormatProblem().find(
-        "Bullfrog (ID BULLFROG) is too far from its parent"
-        " station Bullfrog (ID BULLFROG_ST)") != -1)
-    e = self.accumulator.PopException("StopTooFarFromParentStation")
     self.assertEqual(0, e.type)  # Error
     self.assertTrue(e.FormatProblem().find(
         "Stagecoach (ID STAGECOACH) is too far from its parent"
+        " station Bullfrog (ID BULLFROG_ST)") != -1)
+    e = self.accumulator.PopException("StopTooFarFromParentStation")
+    self.assertEqual(1, e.type)  # Warning
+    self.assertTrue(e.FormatProblem().find(
+        "Bullfrog (ID BULLFROG) is too far from its parent"
         " station Bullfrog (ID BULLFROG_ST)") != -1)
     self.accumulator.AssertNoMoreExceptions()
 
@@ -3183,13 +3184,13 @@ class ServicePeriodValidationTestCase(ValidationTestCase):
 
     # check for error from first date exception
     e = self.accumulator.PopDateOutsideValidRange('date')
-    self.assertEqual('21070101', e.value)
+    self.assertEqual('10070102', e.value)
     e.FormatProblem() #should not throw any exceptions
     e.FormatContext() #should not throw any exceptions
 
     # check for error from third date exception
     e = self.accumulator.PopDateOutsideValidRange('date')
-    self.assertEqual('10070102', e.value)
+    self.assertEqual('21070101', e.value)
     e.FormatProblem() #should not throw any exceptions
     e.FormatContext() #should not throw any exceptions
     self.accumulator.AssertNoMoreExceptions()
@@ -4438,10 +4439,10 @@ class CalendarTxtIntegrationTestCase(util.MemoryZipTestCase):
         "FULLW,1,1,1,1,1,1,1,20070101,21101231\n"
         "WE,0,0,0,0,0,1,1,18990101,20101231\n")
     schedule = self.MakeLoaderAndLoad()
-    e = self.accumulator.PopDateOutsideValidRange('start_date', 'calendar.txt')
-    self.assertEquals('18990101', e.value)
     e = self.accumulator.PopDateOutsideValidRange('end_date', 'calendar.txt')
     self.assertEquals('21101231', e.value)
+    e = self.accumulator.PopDateOutsideValidRange('start_date', 'calendar.txt')
+    self.assertEquals('18990101', e.value)
     self.accumulator.AssertNoMoreExceptions()
 
 
@@ -6480,8 +6481,8 @@ class FeedInfoTestCase(util.MemoryZipTestCase):
         "feed_start_date,feed_end_date\n"
         "DTA,http://google.com,en,10/01/12,10/31/12")
     self.MakeLoaderAndLoad(self.problems)
-    self.accumulator.PopInvalidValue("feed_start_date")
     self.accumulator.PopInvalidValue("feed_end_date")
+    self.accumulator.PopInvalidValue("feed_start_date")
     self.accumulator.AssertNoMoreExceptions()
 
   def testValidityDatesInverted(self):
