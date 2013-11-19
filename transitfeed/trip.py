@@ -23,7 +23,7 @@ import util
 class Trip(GtfsObjectBase):
   _REQUIRED_FIELD_NAMES = ['route_id', 'service_id', 'trip_id']
   _FIELD_NAMES = _REQUIRED_FIELD_NAMES + [
-    'trip_headsign', 'direction_id', 'block_id', 'shape_id'
+    'trip_headsign', 'direction_id', 'block_id', 'shape_id', 'bikes_allowed'
     ]
   _TABLE_NAME= "trips"
 
@@ -534,6 +534,10 @@ class Trip(GtfsObjectBase):
           self.service_id not in self._schedule.service_periods):
         problems.InvalidValue('service_id', self.service_id)
 
+  def ValidateBikesAllowed(self, problems):
+    if self.bikes_allowed:
+      util.ValidateYesNoUnknown(self.bikes_allowed, 'bikes_allowed', problems)
+
   def Validate(self, problems, validate_children=True):
     """Validate attributes of this object.
 
@@ -553,6 +557,7 @@ class Trip(GtfsObjectBase):
     self.ValidateShapeIdsExistInShapeList(problems)
     self.ValidateRouteIdExistsInRouteList(problems)
     self.ValidateServiceIdExistsInServiceList(problems)
+    self.ValidateBikesAllowed(problems)
     if self._schedule and validate_children:
       self.ValidateChildren(problems)
 

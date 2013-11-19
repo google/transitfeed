@@ -25,7 +25,8 @@ class Route(GtfsObjectBase):
     'route_id', 'route_short_name', 'route_long_name', 'route_type'
     ]
   _FIELD_NAMES = _REQUIRED_FIELD_NAMES + [
-    'agency_id', 'route_desc', 'route_url', 'route_color', 'route_text_color'
+    'agency_id', 'route_desc', 'route_url', 'route_color', 'route_text_color',
+    'bikes_allowed'
     ]
   _ROUTE_TYPES = {
     0: {'name':'Tram', 'max_speed':100},
@@ -244,6 +245,10 @@ class Route(GtfsObjectBase):
                             'a legible contrast between the two.',
                             type=problems_module.TYPE_WARNING)
 
+  def ValidateBikesAllowed(self, problems):
+    if self.bikes_allowed:
+      util.ValidateYesNoUnknown(self.bikes_allowed, 'bikes_allowed', problems)
+
   def ValidateBeforeAdd(self, problems):
     self.ValidateRouteIdIsPresent(problems)
     self.ValidateRouteTypeIsPresent(problems)
@@ -257,6 +262,7 @@ class Route(GtfsObjectBase):
     self.ValidateRouteColor(problems)
     self.ValidateRouteTextColor(problems)
     self.ValidateRouteAndTextColors(problems)
+    self.ValidateBikesAllowed(problems)
 
     # None of these checks are blocking
     return True

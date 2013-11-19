@@ -350,6 +350,18 @@ def ColorLuminance(color):
   b = int(color[4:6], 16)
   return (299*r + 587*g + 114*b) / 1000.0
 
+def IsValidYesNoUnknown(value):
+  return value in ['0', '1', '2'];
+
+def ValidateYesNoUnknown(value, column_name=None, problems=None):
+  """Validates a value "0" for uknown, "1" for yes, and "2" for no."""
+  if IsEmpty(value) or IsValidYesNoUnknown(value):
+    return True
+  else:
+    if problems:
+      problems.InvalidValue(column_name, value)
+    return False
+
 def IsEmpty(value):
   return value is None or (isinstance(value, basestring) and not value.strip())
 

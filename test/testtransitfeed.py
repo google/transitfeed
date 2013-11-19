@@ -2340,11 +2340,13 @@ class RouteConstructorTestCase(util.TestCase):
 
     route = transitfeed.Route(field_dict={
       'route_id': 'id1', 'route_short_name': '22', 'agency_id': 'myage',
-      'route_type': '1'})
+      'route_type': '1', 'bikes_allowed': '1'})
     route.Validate(self.problems)
     self.accumulator.AssertNoMoreExceptions()
-    self.assertEquals({'route_id': 'id1', 'route_short_name': '22',
-                       'agency_id': 'myage', 'route_type': '1'}, dict(route))
+    self.assertEquals(
+        {'route_id': 'id1', 'route_short_name': '22', 'agency_id': 'myage',
+         'route_type': '1', 'bikes_allowed': '1'},
+        dict(route))
 
     route = transitfeed.Route(field_dict={
       'route_id': 'id1', 'route_short_name': '22', 'agency_id': 'myage',
@@ -2461,6 +2463,9 @@ class RouteValidationTestCase(ValidationTestCase):
     route.Validate(self.problems)
     self.accumulator.AssertNoMoreExceptions()
 
+    # bad bikes_allowed
+    route.bikes_allowed = '3'
+    self.ValidateAndExpectInvalidValue(route, 'bikes_allowed')
 
 class ShapeValidationTestCase(ValidationTestCase):
   def ExpectFailedAdd(self, shape, lat, lon, dist, column_name, value):
@@ -3525,6 +3530,11 @@ class TripValidationTestCase(ValidationTestCase):
     trip.direction_id = 'NORTH'
     self.ValidateAndExpectInvalidValue(trip, 'direction_id')
     trip.direction_id = '0'
+
+    # invalid bikes_allowed
+    trip.bikes_allowed = '3'
+    self.ValidateAndExpectInvalidValue(trip, 'bikes_allowed')
+    trip.bikes_allowed = None
 
     # AddTripObject validates that route_id, service_id, .... are found in the
     # schedule. The Validate calls made by self.Expect... above can't make this
