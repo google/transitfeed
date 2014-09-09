@@ -23,7 +23,8 @@ import util
 class Trip(GtfsObjectBase):
   _REQUIRED_FIELD_NAMES = ['route_id', 'service_id', 'trip_id']
   _FIELD_NAMES = _REQUIRED_FIELD_NAMES + [
-    'trip_headsign', 'direction_id', 'block_id', 'shape_id', 'bikes_allowed'
+    'trip_headsign', 'direction_id', 'block_id', 'shape_id', 'bikes_allowed',
+    'wheelchair_accessible'
     ]
   _TABLE_NAME= "trips"
 
@@ -538,6 +539,11 @@ class Trip(GtfsObjectBase):
     if self.bikes_allowed:
       util.ValidateYesNoUnknown(self.bikes_allowed, 'bikes_allowed', problems)
 
+  def ValidateWheelchairAccessible(self, problems):
+    if self.wheelchair_accessible:
+      util.ValidateYesNoUnknown(
+          self.wheelchair_accessible, 'wheelchair_accessible', problems)
+
   def Validate(self, problems, validate_children=True):
     """Validate attributes of this object.
 
@@ -558,6 +564,7 @@ class Trip(GtfsObjectBase):
     self.ValidateRouteIdExistsInRouteList(problems)
     self.ValidateServiceIdExistsInServiceList(problems)
     self.ValidateBikesAllowed(problems)
+    self.ValidateWheelchairAccessible(problems)
     if self._schedule and validate_children:
       self.ValidateChildren(problems)
 

@@ -3507,6 +3507,8 @@ class TripValidationTestCase(ValidationTestCase):
     trip.direction_id = '0'
     trip.block_id = None
     trip.shape_id = None
+    trip.bikes_allowed = '1'
+    trip.wheelchair_accessible = '2'
     trip.Validate(self.problems)
     self.accumulator.AssertNoMoreExceptions()
     repr(trip)  # shouldn't crash
@@ -3535,6 +3537,11 @@ class TripValidationTestCase(ValidationTestCase):
     trip.bikes_allowed = '3'
     self.ValidateAndExpectInvalidValue(trip, 'bikes_allowed')
     trip.bikes_allowed = None
+
+    # invalid wheelchair_accessible
+    trip.wheelchair_accessible = '3'
+    self.ValidateAndExpectInvalidValue(trip, 'wheelchair_accessible')
+    trip.wheelchair_accessible = None
 
     # AddTripObject validates that route_id, service_id, .... are found in the
     # schedule. The Validate calls made by self.Expect... above can't make this
