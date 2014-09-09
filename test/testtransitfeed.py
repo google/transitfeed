@@ -1052,6 +1052,7 @@ class StopValidationTestCase(ValidationTestCase):
     stop.stop_desc = 'Edge of the Couch'
     stop.zone_id = 'A'
     stop.stop_url = 'http://example.com'
+    stop.wheelchair_boarding = '2'
     stop.Validate(self.problems)
 
     # latitude too large
@@ -1127,6 +1128,11 @@ class StopValidationTestCase(ValidationTestCase):
     stop.stop_timezone = 'America/Los_Angeles'
     stop.Validate(self.problems)
     self.accumulator.AssertNoMoreExceptions()
+
+    # invalid wheelchair_boarding
+    stop.wheelchair_boarding = '3'
+    self.ValidateAndExpectInvalidValue(stop, 'wheelchair_boarding')
+    stop.wheelchair_boarding = None
 
 
 class StopAttributes(ValidationTestCase):

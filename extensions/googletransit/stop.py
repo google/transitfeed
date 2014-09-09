@@ -26,8 +26,7 @@ class Stop(transitfeed.Stop):
   - Overriding ValidateStopLocationType(), adding location_type 2 (entrance).
   """
 
-  _FIELD_NAMES = transitfeed.Stop._FIELD_NAMES + ['vehicle_type',
-                                                  'wheelchair_boarding']
+  _FIELD_NAMES = transitfeed.Stop._FIELD_NAMES + ['vehicle_type']
 
   LOCATION_TYPE_ENTRANCE = 2
 
@@ -47,17 +46,10 @@ class Stop(transitfeed.Stop):
               reason='Google Transit does not read vehicle types for stops '
               'having a parent station', type=problems_module.TYPE_WARNING)
 
-  # New validation function for field 'wheelchair_boarding'.
-  def ValidateWheelchairBoarding(self, problems):
-    self.wheelchair_boarding = util.ValidateAndReturnIntValue(
-        self.wheelchair_boarding, [0, 1, 2], 0, True, 'wheelchair_boarding',
-        problems)
-
   # Overriding transitfeed.Stop.ValidateBeforeAdd().
   def ValidateBeforeAdd(self, problems):
     super(Stop, self).ValidateBeforeAdd(problems)
     self.ValidateVehicleType(problems)
-    self.ValidateWheelchairBoarding(problems)
     return True # None of these checks are blocking
 
   # Overriding transitfeed.Stop.ValidateStopLocationType().

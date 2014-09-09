@@ -171,24 +171,24 @@ class StopExtensionIntegrationTestCase(ExtensionMemoryZipTestCase):
   def testNoErrors(self):
     self.SetArchiveContents("stops.txt",
         "stop_id,stop_name,stop_lat,stop_lon,stop_timezone,location_type,"
-        "parent_station,vehicle_type,wheelchair_boarding\n"
-        "BEATTY,Beatty,36.868446,-116.784582,,1,,1100,\n"
-        "BEATTY_AIRPORT,Airport West,36.868446,-116.784582,,2,BEATTY,,\n"
-        "BULLFROG,Bullfrog,36.88108,-116.81797,,,,3,\n"
+        "parent_station,vehicle_type\n"
+        "BEATTY,Beatty,36.868446,-116.784582,,1,,1100\n"
+        "BEATTY_AIRPORT,Airport West,36.868446,-116.784582,,2,BEATTY,\n"
+        "BULLFROG,Bullfrog,36.88108,-116.81797,,,,3\n"
         "STAGECOACH,Stagecoach Hotel,36.915682,-116.751677,America/Los_Angeles,"
-        ",,204,\n")
+        ",,204\n")
     self.MakeLoaderAndLoad(self.problems, gtfs_factory=self.gtfs_factory)
     self.accumulator.AssertNoMoreExceptions()
 
   def testInvalidVehicleType(self):
     self.SetArchiveContents("stops.txt",
         "stop_id,stop_name,stop_lat,stop_lon,stop_timezone,location_type,"
-        "parent_station,vehicle_type,wheelchair_boarding\n"
-        "BEATTY,Beatty,36.868446,-116.784582,,1,,2557,\n"  # bad vehicle type
-        "BEATTY_AIRPORT,Airport West,36.868446,-116.784582,,2,BEATTY,,\n"
-        "BULLFROG,Bullfrog,36.88108,-116.81797,,,,3,\n"
+        "parent_station,vehicle_type\n"
+        "BEATTY,Beatty,36.868446,-116.784582,,1,,2557\n"  # bad vehicle type
+        "BEATTY_AIRPORT,Airport West,36.868446,-116.784582,,2,BEATTY,\n"
+        "BULLFROG,Bullfrog,36.88108,-116.81797,,,,3\n"
         "STAGECOACH,Stagecoach Hotel,36.915682,-116.751677,America/Los_Angeles,"
-        ",,204,\n")
+        ",,204\n")
     self.MakeLoaderAndLoad(self.problems, gtfs_factory=self.gtfs_factory)
     self.accumulator.PopInvalidValue("vehicle_type")
     self.accumulator.AssertNoMoreExceptions()
@@ -297,25 +297,6 @@ class StopExtensionTestCase(ValidationTestCase):
     # Empty stop_name with location_type=2 should report no errors
     self._entrance.stop_name = ''
     self._entrance.Validate(self.problems)
-    self.accumulator.AssertNoMoreExceptions()
-
-  def testValidateValidateWheelchairBoarding(self):
-    # Test empty value defaults to 0
-    self._stop.wheelchair_boarding = ''
-    self._stop.Validate(self.problems)
-    self.assertEquals(self._stop.wheelchair_boarding, 0)
-    self.accumulator.AssertNoMoreExceptions()
-
-    # Test with non-integer value
-    self._stop.wheelchair_boarding = 'abc'
-    self._stop.Validate(self.problems)
-    e = self.accumulator.PopInvalidValue('wheelchair_boarding')
-    self.accumulator.AssertNoMoreExceptions()
-
-    # Test with not known value
-    self._stop.wheelchair_boarding = 11
-    self._stop.Validate(self.problems)
-    e = self.accumulator.PopInvalidValue('wheelchair_boarding')
     self.accumulator.AssertNoMoreExceptions()
 
 

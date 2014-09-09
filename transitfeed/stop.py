@@ -38,7 +38,8 @@ class Stop(GtfsObjectBase):
   _REQUIRED_FIELD_NAMES = ['stop_id', 'stop_name', 'stop_lat', 'stop_lon']
   _FIELD_NAMES = _REQUIRED_FIELD_NAMES + \
                  ['stop_desc', 'zone_id', 'stop_url', 'stop_code',
-                  'location_type', 'parent_station', 'stop_timezone']
+                  'location_type', 'parent_station', 'stop_timezone',
+                  'wheelchair_boarding']
   _TABLE_NAME = 'stops'
 
   LOCATION_TYPE_STATION = 1
@@ -232,6 +233,11 @@ class Stop(GtfsObjectBase):
           reason='a stop having a parent stop must not have a stop_timezone',
           type=problems_module.TYPE_WARNING)
 
+  def ValidateWheelchairBoarding(self, problems):
+    if self.wheelchair_boarding:
+      util.ValidateYesNoUnknown(
+          self.wheelchair_boarding, 'wheelchair_boarding', problems)
+
   def ValidateBeforeAdd(self, problems):
     # First check that all required fields are present because ParseAttributes
     # may remove invalid attributes.
@@ -245,6 +251,7 @@ class Stop(GtfsObjectBase):
     self.ValidateStopUrl(problems)
     self.ValidateStopLocationType(problems)
     self.ValidateStopTimezone(problems)
+    self.ValidateWheelchairBoarding(problems)
 
     # Check that this object is consistent with itself
     self.ValidateStopNotTooCloseToOrigin(problems)
