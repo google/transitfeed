@@ -3510,6 +3510,7 @@ class TripValidationTestCase(ValidationTestCase):
     trip.service_id = 'WEEK'
     trip.trip_id = '054C-00'
     trip.trip_headsign = 'via Polish Hill'
+    trip.trip_short_name = 'X12'
     trip.direction_id = '0'
     trip.block_id = None
     trip.shape_id = None

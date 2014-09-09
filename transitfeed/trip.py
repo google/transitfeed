@@ -23,8 +23,8 @@ import util
 class Trip(GtfsObjectBase):
   _REQUIRED_FIELD_NAMES = ['route_id', 'service_id', 'trip_id']
   _FIELD_NAMES = _REQUIRED_FIELD_NAMES + [
-    'trip_headsign', 'direction_id', 'block_id', 'shape_id', 'bikes_allowed',
-    'wheelchair_accessible'
+    'trip_headsign', 'trip_short_name', 'direction_id', 'block_id', 'shape_id',
+    'bikes_allowed', 'wheelchair_accessible'
     ]
   _TABLE_NAME= "trips"
 
