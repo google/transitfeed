@@ -309,7 +309,7 @@ class HTMLCountingProblemAccumulator(LimitPerTypeProblemAccumulator):
       else:
         line_str = ''
       output.append('in %s<code>%s</code><br>\n' %
-                    (line_str, e.file_name))
+                    (line_str, transitfeed.EncodeUnicode(e.file_name)))
       row = e.row
       headers = e.headers
       column_name = e.column_name
