@@ -37,7 +37,7 @@ from urllib2 import Request, urlopen, HTTPError, URLError
 from transitfeed import util
 import webbrowser
 
-SVN_TAG_URL = 'http://googletransitdatafeed.googlecode.com/svn/tags/'
+LATEST_RELEASE_VERSION_URL = 'https://raw.githubusercontent.com/wiki/google/transitfeed/LatestReleaseVersion.md'
 
 
 def MaybePluralizeWord(count, word):
@@ -609,16 +609,18 @@ def CheckVersion(latest_version=''):
   Already got permission from the copyright holder.
   """
   current_version = transitfeed.__version__
+  latest_version = None
   if not latest_version:
     timeout = 20
     socket.setdefaulttimeout(timeout)
-    request = Request(SVN_TAG_URL)
+    request = Request(LATEST_RELEASE_VERSION_URL)
 
     try:
       response = urlopen(request)
       content = response.read()
-      versions = re.findall(r'>transitfeed-([\d\.]+)\/<\/a>', content)
-      latest_version = MaxVersion(versions)
+      m = re.search(r'version=(\d+\.\d+\.\d+)', content)
+      if m:
+        latest_version = m.group(1)
 
     except HTTPError, e:
       return('The server couldn\'t fulfill the request. Error code: %s.'
@@ -627,12 +629,15 @@ def CheckVersion(latest_version=''):
       return('We failed to reach transitfeed server. Reason: %s.' % e.reason)
 
   if not latest_version:
-    return('We had trouble parsing the contents of %s.' % SVN_TAG_URL)
+    return('We had trouble parsing the contents of %s.' % LATEST_RELEASE_VERSION_URL)
+
+  print 'latest_version=%s' % latest_version
 
   newest_version = MaxVersion([latest_version, current_version])
   if current_version != newest_version:
     return('A new version %s of transitfeed is available. Please visit '
-           'http://code.google.com/p/googletransitdatafeed and download.'
+           'https://github.com/google/transitfeed and download the newest '
+           'release.'
            % newest_version)
 
 
