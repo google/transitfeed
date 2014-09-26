@@ -466,9 +466,7 @@ class CheckVersionTestCase(util.TempDirTestCaseBase):
 class MockURLOpen:
   """Pretend to be a urllib2.urlopen suitable for testing."""
   def mockedConnectSuccess(self, request):
-    return StringIO.StringIO('<li><a href="transitfeed-1.0.0/">transitfeed-'
-                             '1.0.0/</a></li><li><a href=transitfeed-100.0.1/>'
-                             'transitfeed-100.0.1/</a></li>')
+    return StringIO.StringIO('latest_version=100.0.1')
 
   def mockedPageNotFound(self, request):
     raise HTTPError(request.get_full_url(), 404, 'Not Found',

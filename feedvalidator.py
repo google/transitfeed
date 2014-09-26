@@ -601,7 +601,7 @@ def RunValidation(feed, options, problems):
     return schedule, 0, other_problems_string
 
 
-def CheckVersion(latest_version=''):
+def CheckVersion(latest_version=None):
   """
   Check there is newer version of this project.
 
@@ -609,7 +609,6 @@ def CheckVersion(latest_version=''):
   Already got permission from the copyright holder.
   """
   current_version = transitfeed.__version__
-  latest_version = None
   if not latest_version:
     timeout = 20
     socket.setdefaulttimeout(timeout)
