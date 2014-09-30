@@ -19,7 +19,6 @@ class WikiExample(util.TempDirTestCaseBase):
     if not m:
       raise Exception("Failed to find source code on wiki page")
     wiki_code = m.group(1)
-    print wiki_code
     exec wiki_code
 
 
