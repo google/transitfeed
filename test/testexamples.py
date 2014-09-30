@@ -13,12 +13,13 @@ class WikiExample(util.TempDirTestCaseBase):
   # Download example from wiki and run it
   def runTest(self):
     wiki_source = urllib.urlopen(
-        'http://googletransitdatafeed.googlecode.com/svn/wiki/TransitFeed.wiki'
-        ).read()
-    m = re.search(r'{{{(.*import transitfeed.*)}}}', wiki_source, re.DOTALL)
+      'https://raw.githubusercontent.com/wiki/google/transitfeed/TransitFeed.md'
+    ).read()
+    m = re.search(r'```\s*(import transitfeed.*)```', wiki_source, re.DOTALL)
     if not m:
       raise Exception("Failed to find source code on wiki page")
     wiki_code = m.group(1)
+    print wiki_code
     exec wiki_code
 
 
