@@ -32,7 +32,7 @@ import socket
 import sys
 import time
 import transitfeed
-from transitfeed import TYPE_ERROR, TYPE_WARNING
+from transitfeed import TYPE_ERROR, TYPE_WARNING, TYPE_NOTICE
 from urllib2 import Request, urlopen, HTTPError, URLError
 from transitfeed import util
 import webbrowser
@@ -149,6 +149,7 @@ class CountingConsoleProblemAccumulator(transitfeed.SimpleProblemAccumulator):
   def __init__(self, ignore_types=None):
     self._error_count = 0
     self._warning_count = 0
+    self._notice_count = 0
     self._ignore_types = ignore_types or set()
 
   def _Report(self, e):
@@ -157,8 +158,10 @@ class CountingConsoleProblemAccumulator(transitfeed.SimpleProblemAccumulator):
     transitfeed.SimpleProblemAccumulator._Report(self, e)
     if e.IsError():
       self._error_count += 1
-    else:
+    elif e.IsWarning():
       self._warning_count += 1
+    elif e.IsNotice():
+      self._notice_count += 1
 
   def ErrorCount(self):
     return self._error_count
@@ -166,12 +169,17 @@ class CountingConsoleProblemAccumulator(transitfeed.SimpleProblemAccumulator):
   def WarningCount(self):
     return self._warning_count
 
+  def NoticeCount(self):
+    return self._notice_count
+
   def FormatCount(self):
     return ProblemCountText(self.ErrorCount(), self.WarningCount())
 
   def HasIssues(self):
     return self.ErrorCount() or self.WarningCount()
 
+  def HasNotices(self):
+    return self.NoticeCount()
 
 class BoundedProblemList(object):
   """A list of one type of ExceptionWithContext objects with bounded size."""
@@ -220,13 +228,17 @@ class LimitPerTypeProblemAccumulator(transitfeed.ProblemAccumulatorInterface):
     # {TYPE_WARNING: {"ClassName": BoundedProblemList()}}
     self._type_to_name_to_problist = {
       TYPE_WARNING: defaultdict(lambda: BoundedProblemList(limit_per_type)),
-      TYPE_ERROR: defaultdict(lambda: BoundedProblemList(limit_per_type))
+      TYPE_ERROR: defaultdict(lambda: BoundedProblemList(limit_per_type)),
+      TYPE_NOTICE: defaultdict(lambda: BoundedProblemList(limit_per_type))
     }
     self._ignore_types = ignore_types or set()
 
   def HasIssues(self):
     return (self._type_to_name_to_problist[TYPE_ERROR] or
             self._type_to_name_to_problist[TYPE_WARNING])
+
+  def HasNotices(self):
+    return self._type_to_name_to_problist[TYPE_NOTICE]
 
   def _Report(self, e):
     if e.__class__.__name__ in self._ignore_types:
@@ -251,14 +263,16 @@ class LimitPerTypeProblemAccumulator(transitfeed.ProblemAccumulatorInterface):
 
 
 class HTMLCountingProblemAccumulator(LimitPerTypeProblemAccumulator):
-  def FormatType(self, f, level_name, class_problist):
+  def FormatType(self, level_name, class_problist):
     """Write the HTML dumping all problems of one type.
 
     Args:
-      f: file object open for writing
       level_name: string such as "Error" or "Warning"
       class_problist: sequence of tuples (class name,
           BoundedProblemList object)
+
+    Returns:
+      HTML in a string
     """
     class_problist.sort()
     output = []
@@ -271,7 +285,7 @@ class HTMLCountingProblemAccumulator(LimitPerTypeProblemAccumulator):
         output.append('<li>and %d more of this type.' %
                       (problist.dropped_count))
       output.append('</ul>\n')
-    f.write(''.join(output))
+    return ''.join(output)
 
   def FormatTypeSummaryTable(self, level_name, name_to_problist):
     """Return an HTML table listing the number of problems by class name.
@@ -299,10 +313,16 @@ class HTMLCountingProblemAccumulator(LimitPerTypeProblemAccumulator):
     for k in ('file_name', 'feedname', 'column_name'):
       if k in d.keys():
         d[k] = '<code>%s</code>' % d[k]
+    if 'url' in d.keys():
+      d['url'] = '<a href="%(url)s">%(url)s</a>' % d
+
     problem_text = e.FormatProblem(d).replace('\n', '<br>')
+    problem_class = 'problem'
+    if e.IsNotice():
+      problem_class += ' notice'
     output.append('<li>')
-    output.append('<div class="problem">%s</div>' %
-                  transitfeed.EncodeUnicode(problem_text))
+    output.append('<div class="%s">%s</div>' %
+                  (problem_class, transitfeed.EncodeUnicode(problem_text)))
     try:
       if hasattr(e, 'row_num'):
         line_str = 'line %d of ' % e.row_num
@@ -357,7 +377,7 @@ class HTMLCountingProblemAccumulator(LimitPerTypeProblemAccumulator):
     output.append('</table>')
     return ''.join(output)
 
-  def WriteOutput(self, feed_location, f, schedule, other_problems, extension):
+  def WriteOutput(self, feed_location, f, schedule, extension):
     """Write the html output to f."""
     if self.HasIssues():
       if self.ErrorCount() + self.WarningCount() == 1:
@@ -368,9 +388,11 @@ class HTMLCountingProblemAccumulator(LimitPerTypeProblemAccumulator):
                    self.CountTable())
     else:
       summary = '<span class="pass">feed validated successfully</span>'
-    if other_problems is not None:
-      summary = ('<span class="fail">\n%s</span><br><br>' %
-                 other_problems) + summary
+
+    if self.HasNotices():
+      summary = ('<h3 class="issueHeader">Notices:</h3>' + 
+          self.FormatType("Notice", self.ProblemListMap(TYPE_NOTICE).items()) +
+          summary)
 
     basename = os.path.basename(feed_location)
     feed_path = (feed_location[:feed_location.rfind(basename)], basename)
@@ -426,6 +448,7 @@ h3.issueHeader {padding-left: 0.5em}
 h4.issueHeader {padding-left: 1em}
 .pass {background-color: lightgreen}
 .fail {background-color: yellow}
+.notice {background-color: yellow}}
 .pass, .fail {font-size: 16pt}
 .header {background-color: white; font-family: Georgia, serif; padding: 0px}
 th.header {text-align: right; font-weight: normal; color: gray}
@@ -482,12 +505,10 @@ FeedValidator</a> version %s on %s.
     f.write(transitfeed.EncodeUnicode(output_prefix))
     if self.ProblemListMap(TYPE_ERROR):
       f.write('<h3 class="issueHeader">Errors:</h3>')
-      self.FormatType(f, "Error",
-                      self.ProblemListMap(TYPE_ERROR).items())
+      f.write(self.FormatType("Error", self.ProblemListMap(TYPE_ERROR).items()))
     if self.ProblemListMap(TYPE_WARNING):
       f.write('<h3 class="issueHeader">Warnings:</h3>')
-      self.FormatType(f, "Warning",
-                      self.ProblemListMap(TYPE_WARNING).items())
+      f.write(self.FormatType("Warning", self.ProblemListMap(TYPE_WARNING).items()))
     f.write(transitfeed.EncodeUnicode(output_suffix))
 
 
@@ -521,14 +542,12 @@ def RunValidationOutputToFile(feed, options, output_file):
   accumulator = HTMLCountingProblemAccumulator(options.limit_per_type,
                                                options.error_types_ignore_list)
   problems = transitfeed.ProblemReporter(accumulator)
-  schedule, exit_code, other_problems_string = RunValidation(feed, options,
-                                                             problems)
+  schedule, exit_code = RunValidation(feed, options, problems)
   if isinstance(feed, basestring):
     feed_location = feed
   else:
     feed_location = getattr(feed, 'name', repr(feed))
-  accumulator.WriteOutput(feed_location, output_file, schedule,
-                          other_problems_string, options.extension)
+  accumulator.WriteOutput(feed_location, output_file, schedule, options.extension)
   return exit_code
 
 
@@ -537,7 +556,7 @@ def RunValidationOutputToConsole(feed, options):
   accumulator = CountingConsoleProblemAccumulator(
       options.error_types_ignore_list)
   problems = transitfeed.ProblemReporter(accumulator)
-  _, exit_code, _ = RunValidation(feed, options, problems)
+  _, exit_code = RunValidation(feed, options, problems)
   return exit_code
 
 
@@ -556,7 +575,7 @@ def RunValidation(feed, options, problems):
     problems are found and 0 if the Schedule is problem free.
     plain text string is '' if no other problems are found.
   """
-  other_problems_string = CheckVersion(latest_version=options.latest_version)
+  CheckVersion(problems, options.latest_version)
 
   # TODO: Add tests for this flag in testfeedvalidator.py
   if options.extension:
@@ -589,19 +608,16 @@ def RunValidation(feed, options, problems):
     # See test/testfeedvalidator.py
     raise Exception('For testing the feed validator crash handler.')
 
-  if other_problems_string:
-    print other_problems_string
-
   accumulator = problems.GetAccumulator()
   if accumulator.HasIssues():
     print 'ERROR: %s found' % accumulator.FormatCount()
-    return schedule, 1, other_problems_string
+    return schedule, 1
   else:
     print 'feed validated successfully'
-    return schedule, 0, other_problems_string
+    return schedule, 0
 
 
-def CheckVersion(latest_version=None):
+def CheckVersion(problems, latest_version=None):
   """
   Check there is newer version of this project.
 
@@ -621,23 +637,27 @@ def CheckVersion(latest_version=None):
       if m:
         latest_version = m.group(1)
 
-    except HTTPError, e:
-      return('The server couldn\'t fulfill the request. Error code: %s.'
-             % e.code)
-    except URLError, e:
-      return('We failed to reach transitfeed server. Reason: %s.' % e.reason)
+    except HTTPError as e:
+      description = ('During the new-version check, we failed to reach '
+                     'transitfeed server: Reason: %s [%s].' %
+                     (e.reason, e.code))
+      problems.OtherProblem(description=description, type=TYPE_NOTICE)
+      return
+    except URLError as e:
+      description = ('During the new-version check, we failed to reach '
+                     'transitfeed server. Reason: %s.' % e.reason)
+      problems.OtherProblem(description=description, type=TYPE_NOTICE)
+      return
 
   if not latest_version:
-    return('We had trouble parsing the contents of %s.' % LATEST_RELEASE_VERSION_URL)
-
-  print 'latest_version=%s' % latest_version
+    description = ('During the new-version check, we had trouble parsing the '
+                   'contents of %s.' % LATEST_RELEASE_VERSION_URL)
+    problems.OtherProblem(description=description, type=TYPE_NOTICE)
+    return
 
   newest_version = MaxVersion([latest_version, current_version])
   if current_version != newest_version:
-    return('A new version %s of transitfeed is available. Please visit '
-           'https://github.com/google/transitfeed and download the newest '
-           'release.'
-           % newest_version)
+    problems.NewVersionAvailable(newest_version)
 
 
 def main():

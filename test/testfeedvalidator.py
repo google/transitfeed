@@ -27,6 +27,7 @@ import unittest
 from urllib2 import HTTPError, URLError
 import urllib2
 import util
+from util import RecordingProblemAccumulator
 import zipfile
 
 
@@ -172,7 +173,7 @@ class FullTests(util.TempDirTestCaseBase):
          '100.100.100'] + self.additional_arguments +
          [self.GetPath('test', 'data', 'good_feed')])
     self.assertTrue(re.search(r'feed validated successfully', out))
-    self.assertTrue(re.search(r'A new version 100.100.100', out))
+    #self.assertTrue(re.search(r'A new version 100.100.100', out))
     htmlout = open('validation-results.html').read()
     self.assertMatchesRegex(
         self.extension_message + self.extension_name, htmlout)
@@ -421,46 +422,56 @@ class LimitPerTypeProblemReporterTestCase(util.TestCase):
 class CheckVersionTestCase(util.TempDirTestCaseBase):
   def setUp(self):
     self.mock = MockURLOpen()
+    self.accumulator = RecordingProblemAccumulator(self)
+    self.problems = transitfeed.ProblemReporter(self.accumulator)
 
   def tearDown(self):
     self.mock = None
     feedvalidator.urlopen = urllib2.urlopen
 
   def testAssignedDifferentVersion(self):
-    problems = feedvalidator.CheckVersion('100.100.100')
-    self.assertTrue(re.search(r'A new version 100.100.100', problems))
+    feedvalidator.CheckVersion(self.problems, '100.100.100')
+    e = self.accumulator.PopException('NewVersionAvailable')
+    self.assertEqual(e.version, '100.100.100')
+    self.assertEqual(e.url, 'https://github.com/google/transitfeed')
+    self.accumulator.AssertNoMoreExceptions()
 
   def testAssignedSameVersion(self):
-    problems = feedvalidator.CheckVersion(transitfeed.__version__)
-    self.assertEquals(problems, None)
+    feedvalidator.CheckVersion(self.problems, transitfeed.__version__)
+    self.accumulator.AssertNoMoreExceptions()
 
   def testGetCorrectReturns(self):
     feedvalidator.urlopen = self.mock.mockedConnectSuccess
-    problems = feedvalidator.CheckVersion()
-    self.assertTrue(re.search(r'A new version 100.0.1', problems))
+    feedvalidator.CheckVersion(self.problems)
+    self.accumulator.PopException('NewVersionAvailable')
 
   def testPageNotFound(self):
     feedvalidator.urlopen = self.mock.mockedPageNotFound
-    problems = feedvalidator.CheckVersion()
-    self.assertTrue(re.search(r'The server couldn\'t', problems))
-    self.assertTrue(re.search(r'Error code: 404', problems))
+    feedvalidator.CheckVersion(self.problems)
+    e = self.accumulator.PopException('OtherProblem')
+    print e.description
+    self.assertTrue(re.search(r'we failed to reach', e.description))
+    self.assertTrue(re.search(r'Reason: Not Found \[404\]', e.description))
 
   def testConnectionTimeOut(self):
     feedvalidator.urlopen = self.mock.mockedConnectionTimeOut
-    problems = feedvalidator.CheckVersion()
-    self.assertTrue(re.search(r'We failed to reach', problems))
-    self.assertTrue(re.search(r'Reason: Connection timed', problems))
+    feedvalidator.CheckVersion(self.problems)
+    e = self.accumulator.PopException('OtherProblem')
+    self.assertTrue(re.search(r'we failed to reach', e.description))
+    self.assertTrue(re.search(r'Reason: Connection timed', e.description))
 
   def testGetAddrInfoFailed(self):
     feedvalidator.urlopen = self.mock.mockedGetAddrInfoFailed
-    problems = feedvalidator.CheckVersion()
-    self.assertTrue(re.search(r'We failed to reach', problems))
-    self.assertTrue(re.search(r'Reason: Getaddrinfo failed', problems))
+    feedvalidator.CheckVersion(self.problems)
+    e = self.accumulator.PopException('OtherProblem')
+    self.assertTrue(re.search(r'we failed to reach', e.description))
+    self.assertTrue(re.search(r'Reason: Getaddrinfo failed', e.description))
 
   def testEmptyIsReturned(self):
     feedvalidator.urlopen = self.mock.mockedEmptyIsReturned
-    problems = feedvalidator.CheckVersion()
-    self.assertTrue(re.search(r'We had trouble parsing', problems))
+    feedvalidator.CheckVersion(self.problems)
+    e = self.accumulator.PopException('OtherProblem')
+    self.assertTrue(re.search(r'we had trouble parsing', e.description))
 
 
 class MockURLOpen:

@@ -19,10 +19,15 @@ import time
 
 import util
 
-# These are used to distinguish between errors (not allowed by the spec)
-# and warnings (not recommended) when reporting issues.
+# Problem types:
+# Error: A data issue not allowed by the GTFS spec.
 TYPE_ERROR = 0
+# Warning: A data issue not recommended by the GTFS spec.
 TYPE_WARNING = 1
+# Notice: an issue unrelated to data.
+TYPE_NOTICE = 2
+
+ALL_TYPES = [TYPE_ERROR, TYPE_WARNING, TYPE_NOTICE]
 
 MAX_DISTANCE_FROM_STOP_TO_SHAPE = 1000
 MAX_DISTANCE_BETWEEN_STOP_AND_PARENT_STATION_WARNING = 100.0
@@ -68,6 +73,11 @@ class ProblemReporter(object):
   def AddToAccumulator(self, e):
     """Report an exception to the Problem Accumulator"""
     self.accumulator._Report(e)
+
+  def NewVersionAvailable(self, version):
+    e = NewVersionAvailable(version=version, type=TYPE_NOTICE,
+                            url='https://github.com/google/transitfeed')
+    self.AddToAccumulator(e)
 
   def FeedNotFound(self, feed_name, context=None, type=TYPE_ERROR):
     e = FeedNotFound(feed_name=feed_name, context=context,
@@ -405,8 +415,8 @@ class ExceptionWithContext(Exception):
       self.__dict__.update(self.ContextTupleToDict(context2))
     self.__dict__.update(kwargs)
 
-    if ('type' in kwargs) and (kwargs['type'] == TYPE_WARNING):
-      self._type = TYPE_WARNING
+    if ('type' in kwargs) and (kwargs['type'] in ALL_TYPES):
+      self._type = kwargs['type']
     else:
       self._type = TYPE_ERROR
 
@@ -418,6 +428,9 @@ class ExceptionWithContext(Exception):
 
   def IsWarning(self):
     return self._type == TYPE_WARNING
+
+  def IsNotice(self):
+    return self._type == TYPE_NOTICE
 
   CONTEXT_PARTS = ['file_name', 'row_num', 'row', 'headers']
   @staticmethod
@@ -525,6 +538,9 @@ class ExceptionWithContext(Exception):
     """
     return []
 
+class NewVersionAvailable(ExceptionWithContext):
+  ERROR_TEXT = 'A new version %(version)s of transitfeed is available. ' \
+               'Please visit %(url)s and download the newest release.'
 
 class MissingFile(ExceptionWithContext):
   ERROR_TEXT = "File %(file_name)s is not found"
