@@ -85,4 +85,4 @@ from stoptime import *
 from transfer import *
 from trip import *
 
-__version__ = '1.2.12'
+from transitfeed.version import __version__
