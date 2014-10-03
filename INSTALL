@@ -17,5 +17,5 @@ python setup.py install
 If you don't want to install you may be able to run the scripts from this
 directory. For example, try running
 
-./feedvalidator.py -n test/data/good_feed.zip
+./feedvalidator.py -n tests/data/good_feed.zip
 

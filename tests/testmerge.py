@@ -1504,28 +1504,28 @@ class MergeInSubprocessTestCase(util.TempDirTestCaseBase):
 
   def testMergeWithWarnings(self):
     # Make a copy of good_feed.zip which is not active until 20110101. This
-    # avoids adding another test/data file. good_feed.zip needs to remain error
+    # avoids adding another tests/data file. good_feed.zip needs to remain error
     # free so it can't start in the future.
     future_good_feed = self.CopyAndModifyTestData(
-        self.GetPath('test/data/good_feed.zip'), 'calendar.txt',
+        self.GetPath('tests/data/good_feed.zip'), 'calendar.txt',
         '20070101', '20110101')
     (out, err) = self.CheckCallWithPath(
         [self.GetPath('merge.py'), '--no_browser',
-         self.GetPath('test/data/unused_stop'),
+         self.GetPath('tests/data/unused_stop'),
          future_good_feed,
          os.path.join(self.tempdirpath, 'merged-warnings.zip')],
         expected_retcode=0)
 
   def testMergeWithErrors(self):
     # Make a copy of good_feed.zip which is not active until 20110101. This
-    # avoids adding another test/data file. good_feed.zip needs to remain error
+    # avoids adding another tests/data file. good_feed.zip needs to remain error
     # free so it can't start in the future.
     future_good_feed = self.CopyAndModifyTestData(
-        self.GetPath('test/data/good_feed.zip'), 'calendar.txt',
+        self.GetPath('tests/data/good_feed.zip'), 'calendar.txt',
         '20070101', '20110101')
     (out, err) = self.CheckCallWithPath(
         [self.GetPath('merge.py'), '--no_browser',
-         self.GetPath('test/data/unused_stop'),
+         self.GetPath('tests/data/unused_stop'),
          future_good_feed],
         expected_retcode=2)
 

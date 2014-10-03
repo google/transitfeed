@@ -1791,7 +1791,7 @@ http://code.google.com/p/googletransitdatafeed/wiki/Merge
   merged_feed_path = os.path.abspath(args[2])
 
   if old_feed_path.find("IWantMyCrash") != -1:
-    # See test/testmerge.py
+    # See tests/testmerge.py
     raise Exception('For testing the merge crash handler.')
 
   a_schedule = LoadWithoutErrors(old_feed_path, options.memory_db)

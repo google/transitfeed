@@ -43,7 +43,7 @@ class ExtensionFullTests(FullTests):
     (out, err) = self.CheckCallWithPath(
         [self.GetPath(self.feedvalidator_executable), '-n', '--latest_version',
          transitfeed.__version__] + self.additional_arguments +
-         [self.GetPath('test', 'data', 'googletransit', 'good_feed')])
+         [self.GetPath('tests', 'data', 'googletransit', 'good_feed')])
     self.assertTrue(re.search(r'feed validated successfully', out))
     self.assertFalse(re.search(r'ERROR', out))
     htmlout = open('validation-results.html').read()

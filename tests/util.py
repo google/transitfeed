@@ -92,8 +92,8 @@ class GetPathTestCase(TestCase):
     return self.GetPath('examples', name)
 
   def GetTestDataPath(self, *path):
-    """Return the full path of a file in the test/data directory"""
-    return self.GetPath('test', 'data', *path)
+    """Return the full path of a file in the tests/data directory"""
+    return self.GetPath('tests', 'data', *path)
 
   def GetPath(self, *path):
     """Return absolute path of path. path is relative main source directory."""

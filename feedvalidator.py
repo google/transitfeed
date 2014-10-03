@@ -603,9 +603,9 @@ def RunValidation(feed, options, problems):
   # Start validation: children are already validated by the loader.
   schedule.Validate(service_gap_interval=options.service_gap_interval,
                     validate_children=False)
-  
+
   if feed == 'IWantMyvalidation-crash.txt':
-    # See test/testfeedvalidator.py
+    # See tests/testfeedvalidator.py
     raise Exception('For testing the feed validator crash handler.')
 
   accumulator = problems.GetAccumulator()

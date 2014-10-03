@@ -62,7 +62,7 @@ class google_random_queries(util.TempDirTestCaseBase):
         [self.GetExamplePath('google_random_queries.py'),
          '--output', 'queries.html',
          '--limit', '5',
-         self.GetPath('test', 'data', 'good_feed')])
+         self.GetPath('tests', 'data', 'good_feed')])
     if not os.path.exists('queries.html'):
       raise Exception('should have created output')
 
@@ -71,7 +71,7 @@ class google_random_queries(util.TempDirTestCaseBase):
         [self.GetExamplePath('google_random_queries.py'),
          '--output', 'queries.html',
          '--limit', '5',
-         self.GetPath('test', 'data', 'invalid_route_agency')])
+         self.GetPath('tests', 'data', 'invalid_route_agency')])
     if not os.path.exists('queries.html'):
       raise Exception('should have created output')
 
@@ -87,7 +87,7 @@ class google_random_queries(util.TempDirTestCaseBase):
 
 class filter_unused_stops(util.TempDirTestCaseBase):
   def testNormalRun(self):
-    unused_stop_path = self.GetPath('test', 'data', 'unused_stop')
+    unused_stop_path = self.GetPath('tests', 'data', 'unused_stop')
     # Make sure original data has an unused stop.
     accumulator = util.RecordingProblemAccumulator(self, ("ExpirationDate",))
     problem_reporter = transitfeed.ProblemReporter(accumulator)
