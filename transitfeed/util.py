@@ -21,11 +21,18 @@ import math
 import optparse
 import random
 import re
+import socket
 import sys
 import time
+import urllib2
 
 import problems as problems_module
 from trip import Trip
+from version import __version__
+
+# URL which identifies the latest release version of the transitfeed library.
+LATEST_RELEASE_VERSION_URL = 'https://raw.githubusercontent.com/wiki/google/transitfeed/LatestReleaseVersion.md'
+
 
 class OptionParserLongError(optparse.OptionParser):
   """OptionParser subclass that includes list of options above error message."""
@@ -66,7 +73,7 @@ or an email to the public group googletransitdatafeed@googlegroups.com. Sorry!
     dump.append(dashes)
     try:
       import transitfeed
-      dump.append("transitfeed version %s\n\n" % transitfeed.__version__)
+      dump.append("transitfeed version %s\n\n" % __version__)
     except NameError:
       # Oh well, guess we won't put the version in the report
       pass
@@ -168,6 +175,62 @@ except:
     def __repr__(self):
       return 'defaultdict(%s, %s)' % (self.default_factory,
                                       dict.__repr__(self))
+
+def CheckVersion(problems, latest_version=None):
+  """
+  Check if there is a newer version of transitfeed available.
+
+  Args:
+    problems: if a new version is available, a NewVersionAvailable problem will
+      be added
+    latest_version: if specified, override the latest version read from the
+      project page
+  """
+  if not latest_version:
+    timeout = 20
+    socket.setdefaulttimeout(timeout)
+    request = urllib2.Request(LATEST_RELEASE_VERSION_URL)
+
+    try:
+      response = urllib2.urlopen(request)
+      content = response.read()
+      m = re.search(r'version=(\d+\.\d+\.\d+)', content)
+      if m:
+        latest_version = m.group(1)
+
+    except urllib2.HTTPError as e:
+      description = ('During the new-version check, we failed to reach '
+                     'transitfeed server: Reason: %s [%s].' %
+                     (e.reason, e.code))
+      problems.OtherProblem(
+        description=description, type=problems_module.TYPE_NOTICE)
+      return
+    except urllib2.URLError as e:
+      description = ('During the new-version check, we failed to reach '
+                     'transitfeed server. Reason: %s.' % e.reason)
+      problems.OtherProblem(
+        description=description, type=problems_module.TYPE_NOTICE)
+      return
+
+  if not latest_version:
+    description = ('During the new-version check, we had trouble parsing the '
+                   'contents of %s.' % LATEST_RELEASE_VERSION_URL)
+    problems.OtherProblem(
+      description=description, type=problems_module.TYPE_NOTICE)
+    return
+
+  newest_version = _MaxVersion([latest_version, __version__])
+  if __version__ != newest_version:
+    problems.NewVersionAvailable(newest_version)
+
+
+def _MaxVersion(versions):
+  versions = filter(None, versions)
+  versions.sort(lambda x,y: -cmp([int(item) for item in x.split('.')],
+                                 [int(item) for item in y.split('.')]))
+  if len(versions) > 0:
+    return versions[0]
+
 
 OUTPUT_ENCODING = 'utf-8'
 

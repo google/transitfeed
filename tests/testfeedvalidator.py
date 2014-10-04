@@ -23,11 +23,11 @@ import feedvalidator
 import os.path
 import re
 import StringIO
+from tests import util
 import transitfeed
 import unittest
 from urllib2 import HTTPError, URLError
 import urllib2
-from tests import util
 import zipfile
 
 
@@ -417,80 +417,6 @@ class LimitPerTypeProblemReporterTestCase(util.TestCase):
     self.assertEquals(0, self.accumulator.ErrorCount())
     self.assertProblemsAttribute(transitfeed.TYPE_WARNING,
         "StopsTooClose", "stop_id_a", "sa5 sa4 sa3")
-
-
-class CheckVersionTestCase(util.TempDirTestCaseBase):
-  def setUp(self):
-    self.mock = MockURLOpen()
-    self.accumulator = util.RecordingProblemAccumulator(self)
-    self.problems = transitfeed.ProblemReporter(self.accumulator)
-
-  def tearDown(self):
-    self.mock = None
-    feedvalidator.urlopen = urllib2.urlopen
-
-  def testAssignedDifferentVersion(self):
-    feedvalidator.CheckVersion(self.problems, '100.100.100')
-    e = self.accumulator.PopException('NewVersionAvailable')
-    self.assertEqual(e.version, '100.100.100')
-    self.assertEqual(e.url, 'https://github.com/google/transitfeed')
-    self.accumulator.AssertNoMoreExceptions()
-
-  def testAssignedSameVersion(self):
-    feedvalidator.CheckVersion(self.problems, transitfeed.__version__)
-    self.accumulator.AssertNoMoreExceptions()
-
-  def testGetCorrectReturns(self):
-    feedvalidator.urlopen = self.mock.mockedConnectSuccess
-    feedvalidator.CheckVersion(self.problems)
-    self.accumulator.PopException('NewVersionAvailable')
-
-  def testPageNotFound(self):
-    feedvalidator.urlopen = self.mock.mockedPageNotFound
-    feedvalidator.CheckVersion(self.problems)
-    e = self.accumulator.PopException('OtherProblem')
-    print e.description
-    self.assertTrue(re.search(r'we failed to reach', e.description))
-    self.assertTrue(re.search(r'Reason: Not Found \[404\]', e.description))
-
-  def testConnectionTimeOut(self):
-    feedvalidator.urlopen = self.mock.mockedConnectionTimeOut
-    feedvalidator.CheckVersion(self.problems)
-    e = self.accumulator.PopException('OtherProblem')
-    self.assertTrue(re.search(r'we failed to reach', e.description))
-    self.assertTrue(re.search(r'Reason: Connection timed', e.description))
-
-  def testGetAddrInfoFailed(self):
-    feedvalidator.urlopen = self.mock.mockedGetAddrInfoFailed
-    feedvalidator.CheckVersion(self.problems)
-    e = self.accumulator.PopException('OtherProblem')
-    self.assertTrue(re.search(r'we failed to reach', e.description))
-    self.assertTrue(re.search(r'Reason: Getaddrinfo failed', e.description))
-
-  def testEmptyIsReturned(self):
-    feedvalidator.urlopen = self.mock.mockedEmptyIsReturned
-    feedvalidator.CheckVersion(self.problems)
-    e = self.accumulator.PopException('OtherProblem')
-    self.assertTrue(re.search(r'we had trouble parsing', e.description))
-
-
-class MockURLOpen:
-  """Pretend to be a urllib2.urlopen suitable for testing."""
-  def mockedConnectSuccess(self, request):
-    return StringIO.StringIO('latest_version=100.0.1')
-
-  def mockedPageNotFound(self, request):
-    raise HTTPError(request.get_full_url(), 404, 'Not Found',
-                    request.header_items(), None)
-
-  def mockedConnectionTimeOut(self, request):
-    raise URLError('Connection timed out')
-
-  def mockedGetAddrInfoFailed(self, request):
-    raise URLError('Getaddrinfo failed')
-
-  def mockedEmptyIsReturned(self, request):
-    return StringIO.StringIO()
 
 
 if __name__ == '__main__':

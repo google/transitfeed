@@ -28,17 +28,12 @@ import optparse
 import os
 import os.path
 import re
-import socket
 import sys
 import time
 import transitfeed
 from transitfeed import TYPE_ERROR, TYPE_WARNING, TYPE_NOTICE
-from urllib2 import Request, urlopen, HTTPError, URLError
 from transitfeed import util
 import webbrowser
-
-LATEST_RELEASE_VERSION_URL = 'https://raw.githubusercontent.com/wiki/google/transitfeed/LatestReleaseVersion.md'
-
 
 def MaybePluralizeWord(count, word):
   if count == 1:
@@ -128,14 +123,6 @@ def FormatDateList(dates):
     formatted.append("...")
   return "%s (%s)" % (PrettyNumberWord(len(dates), "service date"),
                       ", ".join(formatted))
-
-
-def MaxVersion(versions):
-  versions = filter(None, versions)
-  versions.sort(lambda x,y: -cmp([int(item) for item in x.split('.')],
-                                 [int(item) for item in y.split('.')]))
-  if len(versions) > 0:
-    return versions[0]
 
 
 class CountingConsoleProblemAccumulator(transitfeed.SimpleProblemAccumulator):
@@ -575,7 +562,7 @@ def RunValidation(feed, options, problems):
     problems are found and 0 if the Schedule is problem free.
     plain text string is '' if no other problems are found.
   """
-  CheckVersion(problems, options.latest_version)
+  util.CheckVersion(problems, options.latest_version)
 
   # TODO: Add tests for this flag in testfeedvalidator.py
   if options.extension:
@@ -615,49 +602,6 @@ def RunValidation(feed, options, problems):
   else:
     print 'feed validated successfully'
     return schedule, 0
-
-
-def CheckVersion(problems, latest_version=None):
-  """
-  Check there is newer version of this project.
-
-  Codes are based on http://www.voidspace.org.uk/python/articles/urllib2.shtml
-  Already got permission from the copyright holder.
-  """
-  current_version = transitfeed.__version__
-  if not latest_version:
-    timeout = 20
-    socket.setdefaulttimeout(timeout)
-    request = Request(LATEST_RELEASE_VERSION_URL)
-
-    try:
-      response = urlopen(request)
-      content = response.read()
-      m = re.search(r'version=(\d+\.\d+\.\d+)', content)
-      if m:
-        latest_version = m.group(1)
-
-    except HTTPError as e:
-      description = ('During the new-version check, we failed to reach '
-                     'transitfeed server: Reason: %s [%s].' %
-                     (e.reason, e.code))
-      problems.OtherProblem(description=description, type=TYPE_NOTICE)
-      return
-    except URLError as e:
-      description = ('During the new-version check, we failed to reach '
-                     'transitfeed server. Reason: %s.' % e.reason)
-      problems.OtherProblem(description=description, type=TYPE_NOTICE)
-      return
-
-  if not latest_version:
-    description = ('During the new-version check, we had trouble parsing the '
-                   'contents of %s.' % LATEST_RELEASE_VERSION_URL)
-    problems.OtherProblem(description=description, type=TYPE_NOTICE)
-    return
-
-  newest_version = MaxVersion([latest_version, current_version])
-  if current_version != newest_version:
-    problems.NewVersionAvailable(newest_version)
 
 
 def main():
