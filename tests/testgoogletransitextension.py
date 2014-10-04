@@ -16,17 +16,15 @@
 
 # Unit tests for the googletransit extension (extensions.googletransit)
 
+from __future__ import absolute_import
 import extensions.googletransit
 
 import os
 import re
-import time
 import transitfeed
-import transitfeed.problems as problems_module
-from util import MemoryZipTestCase
-from util import RecordingProblemAccumulator
-from testfeedvalidator import FullTests
-from testtransitfeed import ValidationTestCase
+from tests.testfeedvalidator import FullTests
+from tests.testtransitfeed import ValidationTestCase
+from tests.util import MemoryZipTestCase
 
 
 class ExtensionFullTests(FullTests):
@@ -223,13 +221,13 @@ class StopExtensionTestCase(ValidationTestCase):
     # Test with non-integer value
     self._stop.vehicle_type = 'abc'
     self._stop.Validate(self.problems)
-    e = self.accumulator.PopInvalidValue('vehicle_type')
+    self.accumulator.PopInvalidValue('vehicle_type')
     self.accumulator.AssertNoMoreExceptions()
 
     # Test with not known value
     self._stop.vehicle_type = 2547
     self._stop.Validate(self.problems)
-    e = self.accumulator.PopInvalidValue('vehicle_type')
+    self.accumulator.PopInvalidValue('vehicle_type')
     self.accumulator.AssertNoMoreExceptions()
 
   def testEntranceExceptions(self):
@@ -285,13 +283,13 @@ class StopExtensionTestCase(ValidationTestCase):
     # Empty stop_name with default location_type=0 should report MissingValue
     self._stop.stop_name = ''
     self._stop.Validate(self.problems)
-    e = self.accumulator.PopMissingValue('stop_name')
+    self.accumulator.PopMissingValue('stop_name')
     self.accumulator.AssertNoMoreExceptions()
 
     # Empty stop_name in a child stop should report MissingValue
     self._child_stop.stop_name = ''
     self._child_stop.Validate(self.problems)
-    e = self.accumulator.PopMissingValue('stop_name')
+    self.accumulator.PopMissingValue('stop_name')
     self.accumulator.AssertNoMoreExceptions()
 
     # Empty stop_name with location_type=2 should report no errors

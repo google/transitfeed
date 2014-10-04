@@ -2,12 +2,13 @@
 
 # Test the examples to make sure they are not broken
 
+from __future__ import absolute_import
 import os
 import re
 import transitfeed
 import unittest
 import urllib
-import util
+from tests import util
 
 class WikiExample(util.TempDirTestCaseBase):
   # Download example from wiki and run it
@@ -89,7 +90,7 @@ class filter_unused_stops(util.TempDirTestCaseBase):
   def testNormalRun(self):
     unused_stop_path = self.GetPath('tests', 'data', 'unused_stop')
     # Make sure original data has an unused stop.
-    accumulator = util.RecordingProblemAccumulator(self, ("ExpirationDate",))
+    accumulator = util.RecordingProblemAccumulator(self, ("ExpirationDate"))
     problem_reporter = transitfeed.ProblemReporter(accumulator)
     transitfeed.Loader(
         unused_stop_path,

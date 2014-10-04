@@ -16,14 +16,15 @@
 
 """Unit tests for the kmlwriter module."""
 
+from __future__ import absolute_import
 import os
 import StringIO
 import tempfile
 import unittest
 import kmlparser
 import kmlwriter
+from tests import util
 import transitfeed
-import util
 
 try:
   import xml.etree.ElementTree as ET  # python 2.5

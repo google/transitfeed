@@ -15,6 +15,7 @@
 # limitations under the License.
 
 # Unit tests for the transitfeed module.
+from __future__ import absolute_import
 
 import datetime
 from datetime import date
@@ -27,8 +28,8 @@ import time
 import transitfeed
 import types
 import unittest
-import util
-from util import RecordingProblemAccumulator
+from tests import util
+from tests.util import RecordingProblemAccumulator
 from StringIO import StringIO
 import zipfile
 import zlib

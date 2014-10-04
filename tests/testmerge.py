@@ -15,18 +15,16 @@
 # limitations under the License.
 
 """Unit tests for the merge module."""
-
+from __future__ import absolute_import
 
 __author__ = 'timothy.stranex@gmail.com (Timothy Stranex)'
 
-
 import merge
 import os.path
-import re
 import StringIO
+from tests import util
 import transitfeed
 import unittest
-import util
 import zipfile
 
 

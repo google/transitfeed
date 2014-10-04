@@ -15,6 +15,7 @@
 # limitations under the License.
 
 """Tests for transitfeed.shapelib.py"""
+from __future__ import absolute_import
 
 __author__ = 'chris.harrelson.code@gmail.com (Chris Harrelson)'
 
@@ -25,7 +26,7 @@ from transitfeed.shapelib import Poly
 from transitfeed.shapelib import PolyCollection
 from transitfeed.shapelib import PolyGraph
 import unittest
-import util
+from tests import util
 
 
 def formatPoint(p, precision=12):

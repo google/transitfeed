@@ -16,13 +16,14 @@
 
 # Unit tests for the kmlparser module.
 
+from __future__ import absolute_import
 import kmlparser
 import os.path
 import shutil
 from StringIO import StringIO
+from tests import util
 import transitfeed
 import unittest
-import util
 
 
 class TestStopsParsing(util.GetPathTestCase):

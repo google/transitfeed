@@ -15,13 +15,14 @@
 # limitations under the License.
 
 """Tests for unusual_trip_filter.py"""
+from __future__ import absolute_import
 
 __author__ = 'Jiri Semecky <jiri.semecky@gmail.com>'
 
 import unusual_trip_filter
 import transitfeed
 import unittest
-import util
+from tests import util
 
 class UnusualTripFilterTestCase(util.TempDirTestCaseBase):
   """Test of unusual trip filter functionality."""

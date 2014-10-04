@@ -17,6 +17,7 @@
 # Smoke tests feed validator. Make sure it runs and returns the right things
 # for a valid feed and a feed with errors.
 
+from __future__ import absolute_import
 import datetime
 import feedvalidator
 import os.path
@@ -26,8 +27,7 @@ import transitfeed
 import unittest
 from urllib2 import HTTPError, URLError
 import urllib2
-import util
-from util import RecordingProblemAccumulator
+from tests import util
 import zipfile
 
 
@@ -422,7 +422,7 @@ class LimitPerTypeProblemReporterTestCase(util.TestCase):
 class CheckVersionTestCase(util.TempDirTestCaseBase):
   def setUp(self):
     self.mock = MockURLOpen()
-    self.accumulator = RecordingProblemAccumulator(self)
+    self.accumulator = util.RecordingProblemAccumulator(self)
     self.problems = transitfeed.ProblemReporter(self.accumulator)
 
   def tearDown(self):
