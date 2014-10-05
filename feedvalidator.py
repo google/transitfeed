@@ -435,7 +435,7 @@ h3.issueHeader {padding-left: 0.5em}
 h4.issueHeader {padding-left: 1em}
 .pass {background-color: lightgreen}
 .fail {background-color: yellow}
-.notice {background-color: yellow}}
+.notice {background-color: yellow}
 .pass, .fail {font-size: 16pt}
 .header {background-color: white; font-family: Georgia, serif; padding: 0px}
 th.header {text-align: right; font-weight: normal; color: gray}
