@@ -165,10 +165,18 @@ class HTMLProblemAccumulator(transitfeed.ProblemAccumulatorInterface):
     """Initialise."""
     self._dataset_warnings = {}  # a map from DataSetMergers to their warnings
     self._dataset_errors = {}
+    self._notices = []
     self._warning_count = 0
     self._error_count = 0
+    self._notice_count = 0
 
   def _Report(self, merge_problem):
+    # Notices are handled special
+    if merge_problem.IsNotice():
+      self._notice_count += 1
+      self._notices.append(merge_problem)
+      return
+
     if merge_problem.IsWarning():
       dataset_problems = self._dataset_warnings
       self._warning_count += 1
@@ -241,6 +249,8 @@ class HTMLProblemAccumulator(transitfeed.ProblemAccumulatorInterface):
       The generated HTML as a string.
     """
     items = []
+    if self._notices:
+      items.append('notices: %d' % self._notice_count)
     if self._dataset_errors:
       items.append('errors: %d' % self._error_count)
     if self._dataset_warnings:
@@ -250,6 +260,24 @@ class HTMLProblemAccumulator(transitfeed.ProblemAccumulatorInterface):
       return '<p><span class="fail">%s</span></p>' % '<br>'.join(items)
     else:
       return '<p><span class="pass">feeds merged successfully</span></p>'
+
+  def _GenerateNotices(self):
+    """Generate a summary of any notices.
+
+    Returns:
+      The generated HTML as a string.
+    """
+    items = []
+    for e in self._notices:
+      d = e.GetDictToFormat()
+      if 'url' in d.keys():
+        d['url'] = '<a href="%(url)s">%(url)s</a>' % d
+      items.append('<li class="notice">%s</li>' %
+                   e.FormatProblem(d).replace('\n', '<br>'))
+    if items:
+      return '<h2>Notices:</h2>\n<ul>%s</ul>\n' % '\n'.join(items)
+    else:
+      return ''
 
   def WriteOutput(self, output_file, feed_merger,
                   old_feed_path, new_feed_path, merged_feed_path):
@@ -282,6 +310,7 @@ class HTMLProblemAccumulator(transitfeed.ProblemAccumulatorInterface):
                          font-family:monospace}
   table {border-spacing: 5px 0px; margin-top: 3px}
   h3.issueHeader {padding-left: 1em}
+  .notice {background-color: yellow}
   span.pass {background-color: lightgreen}
   span.fail {background-color: yellow}
   .pass, .fail {font-size: 16pt; padding: 3px}
@@ -299,6 +328,7 @@ class HTMLProblemAccumulator(transitfeed.ProblemAccumulatorInterface):
 
     html_stats = self._GenerateStatsTable(feed_merger)
     html_summary = self._GenerateSummary()
+    html_notices = self._GenerateNotices()
     html_errors = self._GenerateSection(transitfeed.TYPE_ERROR)
     html_warnings = self._GenerateSection(transitfeed.TYPE_WARNING)
 
@@ -313,6 +343,7 @@ Generated using transitfeed version %s on %s.
     output_file.write(transitfeed.EncodeUnicode(html_header))
     output_file.write(transitfeed.EncodeUnicode(html_stats))
     output_file.write(transitfeed.EncodeUnicode(html_summary))
+    output_file.write(transitfeed.EncodeUnicode(html_notices))
     output_file.write(transitfeed.EncodeUnicode(html_errors))
     output_file.write(transitfeed.EncodeUnicode(html_warnings))
     output_file.write(transitfeed.EncodeUnicode(html_footer))
@@ -1777,6 +1808,11 @@ http://code.google.com/p/googletransitdatafeed/wiki/Merge
                     action='store_true',
                     help='prevents the merge results from being opened in a '
                     'browser')
+  parser.add_option('--latest_version', dest='latest_version',
+                    action='store',
+                    help='a version number such as 1.2.1 or None to get the '
+                    'latest version from the project page. Output a warning if '
+                    'merge.py is older than this version.')
   parser.add_option('-m', '--memory_db', dest='memory_db',  action='store_true',
                     help='Use in-memory sqlite db instead of a temporary file. '
                          'It is faster but uses more RAM.')
@@ -1799,6 +1835,9 @@ http://code.google.com/p/googletransitdatafeed/wiki/Merge
   merged_schedule = transitfeed.Schedule(memory_db=options.memory_db)
   accumulator = HTMLProblemAccumulator()
   problem_reporter = MergeProblemReporter(accumulator)
+
+  util.CheckVersion(problem_reporter, options.latest_version)
+
   feed_merger = FeedMerger(a_schedule, b_schedule, merged_schedule,
                            problem_reporter)
   feed_merger.AddDefaultMergers()

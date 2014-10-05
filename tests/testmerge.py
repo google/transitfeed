@@ -21,6 +21,7 @@ __author__ = 'timothy.stranex@gmail.com (Timothy Stranex)'
 
 import merge
 import os.path
+import re
 import StringIO
 from tests import util
 import transitfeed
@@ -1526,6 +1527,22 @@ class MergeInSubprocessTestCase(util.TempDirTestCaseBase):
          self.GetPath('tests/data/unused_stop'),
          future_good_feed],
         expected_retcode=2)
+
+
+  def testCheckVersionIsRun(self):
+    future_good_feed = self.CopyAndModifyTestData(
+        self.GetPath('tests/data/good_feed.zip'), 'calendar.txt',
+        '20070101', '20110101')
+    (out, err) = self.CheckCallWithPath(
+        [self.GetPath('merge.py'), '--no_browser',
+         '--latest_version', '100.100.100',
+         self.GetPath('tests/data/unused_stop'),
+         future_good_feed,
+         os.path.join(self.tempdirpath, 'merged.zip')],
+        expected_retcode=0)
+    print out
+    htmlout = open('merge-results.html').read()
+    self.assertTrue(re.search(r'A new version 100.100.100', htmlout))
 
 
 if __name__ == '__main__':
