@@ -5,3 +5,7 @@ Provides a library to help you parse, validate, and generate [General Transit Fe
 For the latest documentation, see:
 
 https://github.com/google/transitfeed/wiki
+
+For the latest release and downloads, see:
+
+https://github.com/google/transitfeed/releases/latest
