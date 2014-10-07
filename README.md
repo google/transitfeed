@@ -9,3 +9,7 @@ https://github.com/google/transitfeed/wiki
 For the latest release and downloads, see:
 
 https://github.com/google/transitfeed/releases/latest
+
+For general questions, send a message to the mailing list:
+
+https://groups.google.com/forum/#!forum/transitfeed
