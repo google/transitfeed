@@ -10,9 +10,6 @@ can be extended (overridden). Extended classes can be registered in the
 GtfsFactory via the UpdateClass(). New classes can be registered in the
 GtfsFactory via the AddMapping() method.
 
-For more information see
-http://code.google.com/p/googletransitdatafeed/wiki/FeedValidatorExtensions
-
 You can tell FeedValidator to use an extension while validating a feed. Running
 FeedValidator with an extension is done with the "--extension" option, e.g.
 ./feedvalidator.py <feed_filename> --extension extensions.<extension_name>

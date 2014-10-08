@@ -1779,7 +1779,7 @@ Merges <input GTFS a.zip> and <input GTFS b.zip> into a new GTFS file
 <output GTFS.zip>.
 
 For more information see
-http://code.google.com/p/googletransitdatafeed/wiki/Merge
+https://github.com/google/transitfeed/wiki/Merge
 """
 
   parser = util.OptionParserLongError(

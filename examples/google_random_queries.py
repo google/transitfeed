@@ -152,8 +152,8 @@ some things to check when looking at the results of a query.
     <li> the route names and headsigns are correctly formatted and not
     redundant.
     For a good example see <a
-    href="http://code.google.com/transit/spec/transit_feed_specification.html#transitScreenshots">the
-    screenshots in the Google Transit Feed Specification</a>.
+    href="https://developers.google.com/transit/gtfs/examples/display-to-users">
+    the screenshots in the Google Transit Feed Specification</a>.
     <li> the shape line on the map looks correct. Make sure the polyline does
     not zig-zag, loop, skip stops or jump far away unless the trip does the
     same thing.
@@ -196,7 +196,7 @@ planner. The queries go between places near stops listed in a <input GTFS.zip>.
 By default 50 random URLs are saved to google_random_queries.html.
 
 For more information see
-http://code.google.com/p/googletransitdatafeed/wiki/GoogleRandomQueries
+https://github.com/google/transitfeed/wiki/GoogleRandomQueries
 """
 
   parser = optparse.OptionParser(

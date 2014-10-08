@@ -141,7 +141,7 @@ class Trip:
   pass
 
 
-# http://code.google.com/transit/spec/transit_feed_specification.htm
+# https://developers.google.com/transit/gtfs/
 TYPE_TRAM = 0
 TYPE_BUS = 3
 

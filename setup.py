@@ -19,7 +19,7 @@ This script can be used to create a source distribution, binary distribution
 or Windows executable files. The output is put in dist/
 
 See
-http://code.google.com/p/googletransitdatafeed/wiki/BuildingPythonWindowsExecutables
+https://github.com/google/transitfeed/wiki/BuildingPythonWindowsExecutables
 for help on creating Windows executables.
 """
 
@@ -59,16 +59,16 @@ if has_py2exe:
 setup(
     version=VERSION,
     name='transitfeed',
-    url='http://code.google.com/p/googletransitdatafeed/',
-    download_url='http://googletransitdatafeed.googlecode.com/'
-        'files/transitfeed-%s.tar.gz' % VERSION,
-    maintainer='Tom Brown',
-    maintainer_email='tom.brown.code@gmail.com',
-    description='Google Transit Feed Specification library and tools',
+    url='https://github.com/google/transitfeed/',
+    download_url='https://github.com/google/transitfeed/releases/tag/'
+        '%s' % VERSION,
+    maintainer='Multiple',
+    maintainer_email='transitfeed@googlegroups.com',
+    description='GTFS library and tools',
     long_description='This module provides a library for reading, writing and '
-        'validating Google Transit Feed Specification files. It includes some '
-        'scripts that validate a feed, display it using the Google Maps API and '
-        'the start of a KML importer and exporter.',
+        'validating GTFS files. It includes some scripts that validate a feed, '
+        'display it using the Google Maps API and the start of a KML importer '
+        'and exporter.',
     platforms='OS Independent',
     license='Apache License, Version 2.0',
     packages=['gtfsscheduleviewer', 'transitfeed'],
@@ -110,7 +110,7 @@ if has_py2exe:
   # resource_stream can't find the files and common_timezones is empty when
   # read in the py2exe executable.
   # This manually copies zoneinfo into the zip. See also
-  # http://code.google.com/p/googletransitdatafeed/issues/detail?id=121
+  # https://github.com/google/transitfeed/issues/121
   import pytz
   # Make sure the layout of pytz hasn't changed
   assert (pytz.__file__.endswith('__init__.pyc') or

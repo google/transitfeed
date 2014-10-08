@@ -731,7 +731,7 @@ class Trip(GtfsObjectBase):
         # it rounds times to the nearest minute. Therefore stop_times at the
         # same time ending in :00 are fairly common. These times off by no more
         # than 30 have not caused a problem. See
-        # http://code.google.com/p/googletransitdatafeed/issues/detail?id=193
+        # https://github.com/google/transitfeed/issues/193
         # Show a warning if times are not rounded to the nearest minute or
         # distance is more than max_speed for one minute.
         if depart_time % 60 != 0 or dist_between_stops / 1000 * 60 > max_speed:

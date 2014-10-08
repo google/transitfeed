@@ -16,7 +16,7 @@
 
 """This module is a library to help you create, read and write Google
 Transit Feed files. Refer to the feed specification, available at
-http://code.google.com/transit/spec/transit_feed_specification.htm, for a
+https://developers.google.com/transit/gtfs/, for a
 complete description how the transit feed represents a transit schedule. This
 library supports all required parts of the specification but does not yet
 support all optional parts. Patches welcome!

@@ -108,7 +108,7 @@ Sets the trip_type for trips that have an unusual pattern for a route.
 option is used.
 
 For more information see
-http://code.google.com/p/googletransitdatafeed/wiki/UnusualTripFilter
+https://github.com/google/transitfeed/wiki/UnusualTripFilter
 '''
   parser = util.OptionParserLongError(
       usage=usage, version='%prog '+transitfeed.__version__)

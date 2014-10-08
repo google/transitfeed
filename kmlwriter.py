@@ -741,7 +741,7 @@ Reads GTFS file or directory <input GTFS.zip> and creates a KML file
 <input GTFS.zip>. By default the KML contains all stops and shapes.
 
 For more information see
-http://code.google.com/p/googletransitdatafeed/wiki/KMLWriter
+https://github.com/google/transitfeed/wiki/KMLWriter
 '''
 
   parser = util.OptionParserLongError(

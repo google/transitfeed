@@ -63,8 +63,8 @@ def RunWithCrashHandler(f):
 Hopefully a complete report has been saved to transitfeedcrash.txt,
 though if you are seeing this message we've already disappointed you once
 today. Please include the report in a new issue at
-http://code.google.com/p/googletransitdatafeed/issues/entry
-or an email to the public group googletransitdatafeed@googlegroups.com. Sorry!
+https://github.com/google/transitfeed/issues
+or an email to the public group transitfeed@googlegroups.com. Sorry!
 
 """
     dashes = '%s\n' % ('-' * 60)

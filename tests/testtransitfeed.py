@@ -4411,7 +4411,7 @@ class CalendarTxtIntegrationTestCase(util.MemoryZipTestCase):
   def testNoStartDateAndEndDate(self):
     """Regression test for calendar.txt with empty start_date and end_date.
 
-    See http://code.google.com/p/googletransitdatafeed/issues/detail?id=41
+    See https://github.com/google/transitfeed/issues/41
     """
     self.SetArchiveContents(
         "calendar.txt",
@@ -4799,7 +4799,7 @@ class MinimalWriteTestCase(TempFileTestCaseBase):
 class TransitFeedSampleCodeTestCase(util.TestCase):
   """
   This test should simply contain the sample code printed on the page:
-  http://code.google.com/p/googletransitdatafeed/wiki/TransitFeed
+  https://github.com/google/transitfeed/wiki/TransitFeed
   to ensure that it doesn't cause any exceptions.
   """
   def runTest(self):

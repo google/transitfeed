@@ -205,7 +205,7 @@ class FullTests(util.TempDirTestCaseBase):
 # Regression tests to ensure that CalendarSummary works properly
 # even when the feed starts in the future or expires in less than
 # 60 days
-# See http://code.google.com/p/googletransitdatafeed/issues/detail?id=204
+# See https://github.com/google/transitfeed/issues/204
 class CalendarSummaryTestCase(util.TestCase):
 
   # Test feeds starting in the future

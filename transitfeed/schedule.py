@@ -932,7 +932,7 @@ class Schedule(object):
 
           # We start checking for service gaps a bit in the past if the
           # feed was active then. See
-          # http://code.google.com/p/googletransitdatafeed/issues/detail?id=188
+          # https://github.com/google/transitfeed/issues/188
           #
           # We subtract 1 from service_gap_interval so that if today has
           # service no warning is issued.
