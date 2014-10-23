@@ -36,11 +36,11 @@ import zlib
 
 
 def DataPath(path):
-  here = os.path.dirname(__file__)
+  here = os.path.dirname(util.__file__)
   return os.path.join(here, 'data', path)
 
 def GetDataPathContents():
-  here = os.path.dirname(__file__)
+  here = os.path.dirname(util.__file__)
   return dircache.listdir(os.path.join(here, 'data'))
 
 
