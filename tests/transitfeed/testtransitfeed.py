@@ -29,7 +29,7 @@ import transitfeed
 import types
 import unittest
 from tests import util
-from tests.util import RecordingProblemAccumulator
+from tests.util import RecordingProblemAccumulator, GetTestFailureProblemReporter
 from StringIO import StringIO
 import zipfile
 import zlib
@@ -57,30 +57,6 @@ class ExceptionProblemReporterNoExpiration(transitfeed.ProblemReporter):
 
   def ExpirationDate(self, expiration, context=None):
     pass  # We don't want to give errors about our test data
-
-
-def GetTestFailureProblemReporter(test_case,
-                                  ignore_types=("ExpirationDate",)):
-  accumulator = TestFailureProblemAccumulator(test_case, ignore_types)
-  problems = transitfeed.ProblemReporter(accumulator)
-  return problems
-
-
-class TestFailureProblemAccumulator(transitfeed.ProblemAccumulatorInterface):
-  """Causes a test failure immediately on any problem."""
-  def __init__(self, test_case, ignore_types=("ExpirationDate",)):
-    self.test_case = test_case
-    self._ignore_types = ignore_types or set()
-
-  def _Report(self, e):
-    # These should never crash
-    formatted_problem = e.FormatProblem()
-    formatted_context = e.FormatContext()
-    exception_class = e.__class__.__name__
-    if exception_class in self._ignore_types:
-      return
-    self.test_case.fail(
-        "%s: %s\n%s" % (exception_class, formatted_problem, formatted_context))
 
 
 class UnrecognizedColumnRecorder(transitfeed.ProblemReporter):
@@ -788,112 +764,8 @@ class ColorLuminanceTestCase(util.TestCase):
                      0.299*17 + 0.587*113 + 0.114*179,
                      decimal_places_tested, RGBmsg)
 
-INVALID_VALUE = Exception()
-class ValidationTestCase(util.TestCase):
-  def setUp(self):
-    self.accumulator = RecordingProblemAccumulator(
-        self, ("ExpirationDate", "NoServiceExceptions"))
-    self.problems = transitfeed.ProblemReporter(self.accumulator)
 
-  def tearDown(self):
-    self.accumulator.TearDownAssertNoMoreExceptions()
-
-  def ExpectNoProblems(self, object):
-    self.accumulator.AssertNoMoreExceptions()
-    object.Validate(self.problems)
-    self.accumulator.AssertNoMoreExceptions()
-
-  # TODO: think about Expect*Closure methods. With the
-  # RecordingProblemAccumulator it is now possible to replace
-  # self.ExpectMissingValueInClosure(lambda: o.method(...), foo)
-  # with
-  # o.method(...)
-  # self.ExpectMissingValueInClosure(foo)
-  # because problems don't raise an exception. This has the advantage of
-  # making it easy and clear to test the return value of o.method(...) and
-  # easier to test for a sequence of problems caused by one call.
-  # neun@ 2011-01-18: for the moment I don't remove the Expect*InClosure methods
-  # as they allow enforcing an AssertNoMoreExceptions() before validation.
-  # When removing them we do have to make sure that each "logical test block"
-  # before an Expect*InClosure usage really ends with AssertNoMoreExceptions.
-  # See http://codereview.appspot.com/4020041/
-  def ValidateAndExpectMissingValue(self, object, column_name):
-    self.accumulator.AssertNoMoreExceptions()
-    object.Validate(self.problems)
-    self.ExpectException('MissingValue', column_name)
-
-  def ExpectMissingValueInClosure(self, column_name, c):
-    self.accumulator.AssertNoMoreExceptions()
-    rv = c()
-    self.ExpectException('MissingValue', column_name)
-
-  def ValidateAndExpectInvalidValue(self, object, column_name,
-                                    value=INVALID_VALUE):
-    self.accumulator.AssertNoMoreExceptions()
-    object.Validate(self.problems)
-    self.ExpectException('InvalidValue', column_name, value)
-
-  def ExpectInvalidValueInClosure(self, column_name, value=INVALID_VALUE,
-                                  c=None):
-    self.accumulator.AssertNoMoreExceptions()
-    rv = c()
-    self.ExpectException('InvalidValue', column_name, value)
-
-  def ValidateAndExpectInvalidFloatValue(self, object, value):
-    self.accumulator.AssertNoMoreExceptions()
-    object.Validate(self.problems)
-    self.ExpectException('InvalidFloatValue', None, value)
-
-  def ValidateAndExpectOtherProblem(self, object):
-    self.accumulator.AssertNoMoreExceptions()
-    object.Validate(self.problems)
-    self.ExpectException('OtherProblem')
-
-  def ExpectOtherProblemInClosure(self, c):
-    self.accumulator.AssertNoMoreExceptions()
-    rv = c()
-    self.ExpectException('OtherProblem')
-
-  def ValidateAndExpectDateOutsideValidRange(self, object, column_name,
-                                             value=INVALID_VALUE):
-    self.accumulator.AssertNoMoreExceptions()
-    object.Validate(self.problems)
-    self.ExpectException('DateOutsideValidRange', column_name, value)
-
-  def ExpectException(self, type_name, column_name=None, value=INVALID_VALUE):
-    e = self.accumulator.PopException(type_name)
-    if column_name:
-      self.assertEqual(column_name, e.column_name)
-    if value != INVALID_VALUE:
-      self.assertEqual(value, e.value)
-    # these should not throw any exceptions
-    e.FormatProblem()
-    e.FormatContext()
-    self.accumulator.AssertNoMoreExceptions()
-
-  def SimpleSchedule(self):
-    """Return a minimum schedule that will load without warnings."""
-    schedule = transitfeed.Schedule(problem_reporter=self.problems)
-    schedule.AddAgency("Fly Agency", "http://iflyagency.com",
-                       "America/Los_Angeles")
-    service_period = transitfeed.ServicePeriod("WEEK")
-    service_period.SetWeekdayService(True)
-    service_period.SetStartDate("20091203")
-    service_period.SetEndDate("20111203")
-    service_period.SetDateHasService("20091203")
-    schedule.AddServicePeriodObject(service_period)
-    stop1 = schedule.AddStop(lng=1.00, lat=48.2, name="Stop 1", stop_id="stop1")
-    stop2 = schedule.AddStop(lng=1.01, lat=48.2, name="Stop 2", stop_id="stop2")
-    stop3 = schedule.AddStop(lng=1.03, lat=48.2, name="Stop 3", stop_id="stop3")
-    route = schedule.AddRoute("54C", "", "Bus", route_id="054C")
-    trip = route.AddTrip(schedule, "bus trip", trip_id="CITY1")
-    trip.AddStopTime(stop1, stop_time="12:00:00")
-    trip.AddStopTime(stop2, stop_time="12:00:45")
-    trip.AddStopTime(stop3, stop_time="12:02:30")
-    return schedule
-
-
-class AgencyValidationTestCase(ValidationTestCase):
+class AgencyValidationTestCase(util.ValidationTestCase):
   def runTest(self):
     # success case
     agency = transitfeed.Agency(name='Test Agency', url='http://example.com',
@@ -981,7 +853,7 @@ class AgencyValidationTestCase(ValidationTestCase):
 
 
 
-class AgencyAttributesTestCase(ValidationTestCase):
+class AgencyAttributesTestCase(util.ValidationTestCase):
   def testCopy(self):
     agency = transitfeed.Agency(field_dict={'agency_name': 'Test Agency',
                                             'agency_url': 'http://example.com',
@@ -1042,7 +914,7 @@ class DeprecatedAgencyFieldsTestCase(util.MemoryZipTestCase):
     self.accumulator.AssertNoMoreExceptions()
 
 
-class StopValidationTestCase(ValidationTestCase):
+class StopValidationTestCase(util.ValidationTestCase):
   def runTest(self):
     # success case
     stop = transitfeed.Stop()
@@ -1136,7 +1008,7 @@ class StopValidationTestCase(ValidationTestCase):
     stop.wheelchair_boarding = None
 
 
-class StopAttributes(ValidationTestCase):
+class StopAttributes(util.ValidationTestCase):
   def testWithoutSchedule(self):
     stop = transitfeed.Stop()
     stop.Validate(self.problems)
@@ -1208,7 +1080,7 @@ class StopAttributes(ValidationTestCase):
     self.accumulator.AssertNoMoreExceptions()
 
 
-class StopTimeValidationTestCase(ValidationTestCase):
+class StopTimeValidationTestCase(util.ValidationTestCase):
   def runTest(self):
     stop = transitfeed.Stop()
     self.ExpectInvalidValueInClosure('arrival_time', '1a:00:00',
@@ -1308,7 +1180,7 @@ class StopTimeValidationTestCase(ValidationTestCase):
     transitfeed.StopTime(self.problems, stop)
     self.accumulator.AssertNoMoreExceptions()
 
-class TooFastTravelTestCase(ValidationTestCase):
+class TooFastTravelTestCase(util.ValidationTestCase):
   def setUp(self):
     super(TooFastTravelTestCase, self).setUp()
     self.schedule = self.SimpleSchedule()
@@ -2136,7 +2008,7 @@ class StopsNearEachOther(util.MemoryZipTestCase):
     self.accumulator.AssertNoMoreExceptions()
 
 
-class BadLatLonInStopUnitTest(ValidationTestCase):
+class BadLatLonInStopUnitTest(util.ValidationTestCase):
   def runTest(self):
     stop = transitfeed.Stop(field_dict={"stop_id": "STOP1",
                                         "stop_name": "Stop one",
@@ -2196,285 +2068,10 @@ class TabDelimitedTestCase(util.MemoryZipTestCase):
     # lots of problems but I only care that the validator doesn't crash. In the
     # magical future the validator will stop when the csv is obviously hosed.
 
-
-class RouteMemoryZipTestCase(util.MemoryZipTestCase):
-  def assertLoadAndCheckExtraValues(self, schedule_file):
-    """Load file-like schedule_file and check for extra route columns."""
-    load_problems = GetTestFailureProblemReporter(
-        self, ("ExpirationDate", "UnrecognizedColumn"))
-    loaded_schedule = transitfeed.Loader(schedule_file,
-                                         problems=load_problems,
-                                         extra_validation=True).Load()
-    self.assertEqual("foo", loaded_schedule.GetRoute("t")["t_foo"])
-    self.assertEqual("", loaded_schedule.GetRoute("AB")["t_foo"])
-    self.assertEqual("bar", loaded_schedule.GetRoute("n")["n_foo"])
-    self.assertEqual("", loaded_schedule.GetRoute("AB")["n_foo"])
-    # Uncomment the following lines to print the string in testExtraFileColumn
-    # print repr(zipfile.ZipFile(schedule_file).read("routes.txt"))
-    # self.fail()
-
-  def testExtraObjectAttribute(self):
-    """Extra columns added to an object are preserved when writing."""
-    schedule = self.MakeLoaderAndLoad()
-    # Add an attribute after AddRouteObject
-    route_t = transitfeed.Route(short_name="T", route_type="Bus", route_id="t")
-    schedule.AddRouteObject(route_t)
-    route_t.t_foo = "foo"
-    # Add an attribute before AddRouteObject
-    route_n = transitfeed.Route(short_name="N", route_type="Bus", route_id="n")
-    route_n.n_foo = "bar"
-    schedule.AddRouteObject(route_n)
-    saved_schedule_file = StringIO()
-    schedule.WriteGoogleTransitFeed(saved_schedule_file)
-    self.accumulator.AssertNoMoreExceptions()
-
-    self.assertLoadAndCheckExtraValues(saved_schedule_file)
-
-  def testExtraFileColumn(self):
-    """Extra columns loaded from a file are preserved when writing."""
-    # Uncomment the code in assertLoadAndCheckExtraValues to generate this
-    # string.
-    self.SetArchiveContents(
-        "routes.txt",
-        "route_id,agency_id,route_short_name,route_long_name,route_type,"
-        "t_foo,n_foo\n"
-        "AB,DTA,,Airport Bullfrog,3,,\n"
-        "t,DTA,T,,3,foo,\n"
-        "n,DTA,N,,3,,bar\n")
-    load1_problems = GetTestFailureProblemReporter(
-        self, ("ExpirationDate", "UnrecognizedColumn"))
-    schedule = self.MakeLoaderAndLoad(problems=load1_problems)
-    saved_schedule_file = StringIO()
-    schedule.WriteGoogleTransitFeed(saved_schedule_file)
-
-    self.assertLoadAndCheckExtraValues(saved_schedule_file)
+### ROUTE STUFF
 
 
-class RouteConstructorTestCase(util.TestCase):
-  def setUp(self):
-    self.accumulator = RecordingProblemAccumulator(self)
-    self.problems = transitfeed.ProblemReporter(self.accumulator)
-
-  def tearDown(self):
-    self.accumulator.TearDownAssertNoMoreExceptions()
-
-  def testDefault(self):
-    route = transitfeed.Route()
-    repr(route)
-    self.assertEqual({}, dict(route))
-    route.Validate(self.problems)
-    repr(route)
-    self.assertEqual({}, dict(route))
-
-    e = self.accumulator.PopException('MissingValue')
-    self.assertEqual('route_id', e.column_name)
-    e = self.accumulator.PopException('MissingValue')
-    self.assertEqual('route_type', e.column_name)
-    e = self.accumulator.PopException('InvalidValue')
-    self.assertEqual('route_short_name', e.column_name)
-    self.accumulator.AssertNoMoreExceptions()
-
-  def testInitArgs(self):
-    # route_type name
-    route = transitfeed.Route(route_id='id1', short_name='22', route_type='Bus')
-    repr(route)
-    route.Validate(self.problems)
-    self.accumulator.AssertNoMoreExceptions()
-    self.assertEquals(3, route.route_type)  # converted to an int
-    self.assertEquals({'route_id': 'id1', 'route_short_name': '22',
-                       'route_type': '3'}, dict(route))
-
-    # route_type as an int
-    route = transitfeed.Route(route_id='i1', long_name='Twenty 2', route_type=1)
-    repr(route)
-    route.Validate(self.problems)
-    self.accumulator.AssertNoMoreExceptions()
-    self.assertEquals(1, route.route_type)  # kept as an int
-    self.assertEquals({'route_id': 'i1', 'route_long_name': 'Twenty 2',
-                       'route_type': '1'}, dict(route))
-
-    # route_type as a string
-    route = transitfeed.Route(route_id='id1', short_name='22', route_type='1')
-    repr(route)
-    route.Validate(self.problems)
-    self.accumulator.AssertNoMoreExceptions()
-    self.assertEquals(1, route.route_type)  # converted to an int
-    self.assertEquals({'route_id': 'id1', 'route_short_name': '22',
-                       'route_type': '1'}, dict(route))
-
-    # route_type has undefined int value
-    route = transitfeed.Route(route_id='id1', short_name='22',
-                              route_type='8')
-    repr(route)
-    route.Validate(self.problems)
-    e = self.accumulator.PopException('InvalidValue')
-    self.assertEqual('route_type', e.column_name)
-    self.assertEqual(1, e.type)
-    self.accumulator.AssertNoMoreExceptions()
-    self.assertEquals({'route_id': 'id1', 'route_short_name': '22',
-                       'route_type': '8'}, dict(route))
-
-    # route_type that doesn't parse
-    route = transitfeed.Route(route_id='id1', short_name='22',
-                              route_type='1foo')
-    repr(route)
-    route.Validate(self.problems)
-    e = self.accumulator.PopException('InvalidValue')
-    self.assertEqual('route_type', e.column_name)
-    self.accumulator.AssertNoMoreExceptions()
-    self.assertEquals({'route_id': 'id1', 'route_short_name': '22',
-                       'route_type': '1foo'}, dict(route))
-
-    # agency_id
-    route = transitfeed.Route(route_id='id1', short_name='22', route_type=1,
-                              agency_id='myage')
-    repr(route)
-    route.Validate(self.problems)
-    self.accumulator.AssertNoMoreExceptions()
-    self.assertEquals({'route_id': 'id1', 'route_short_name': '22',
-                       'route_type': '1', 'agency_id': 'myage'}, dict(route))
-
-  def testInitArgOrder(self):
-    """Call Route.__init__ without any names so a change in order is noticed."""
-    route = transitfeed.Route('short', 'long name', 'Bus', 'r1', 'a1')
-    self.assertEquals({'route_id': 'r1', 'route_short_name': 'short',
-                       'route_long_name': 'long name',
-                       'route_type': '3', 'agency_id': 'a1'}, dict(route))
-
-  def testFieldDict(self):
-    route = transitfeed.Route(field_dict={})
-    self.assertEquals({}, dict(route))
-
-    route = transitfeed.Route(field_dict={
-      'route_id': 'id1', 'route_short_name': '22', 'agency_id': 'myage',
-      'route_type': '1', 'bikes_allowed': '1'})
-    route.Validate(self.problems)
-    self.accumulator.AssertNoMoreExceptions()
-    self.assertEquals(
-        {'route_id': 'id1', 'route_short_name': '22', 'agency_id': 'myage',
-         'route_type': '1', 'bikes_allowed': '1'},
-        dict(route))
-
-    route = transitfeed.Route(field_dict={
-      'route_id': 'id1', 'route_short_name': '22', 'agency_id': 'myage',
-      'route_type': '1', 'my_column': 'v'})
-    route.Validate(self.problems)
-    self.accumulator.AssertNoMoreExceptions()
-    self.assertEquals({'route_id': 'id1', 'route_short_name': '22',
-                       'agency_id': 'myage', 'route_type': '1',
-                       'my_column':'v'}, dict(route))
-    route._private = 0.3  # Isn't copied
-    route_copy = transitfeed.Route(field_dict=route)
-    self.assertEquals({'route_id': 'id1', 'route_short_name': '22',
-                       'agency_id': 'myage', 'route_type': '1',
-                       'my_column':'v'}, dict(route_copy))
-
-
-class RouteValidationTestCase(ValidationTestCase):
-  def runTest(self):
-    # success case
-    route = transitfeed.Route()
-    route.route_id = '054C'
-    route.route_short_name = '54C'
-    route.route_long_name = 'South Side - North Side'
-    route.route_type = 7
-    route.Validate(self.problems)
-
-    # blank short & long names
-    route.route_short_name = ''
-    route.route_long_name = '    '
-    self.ValidateAndExpectInvalidValue(route, 'route_short_name')
-
-    # short name too long
-    route.route_short_name = 'South Side'
-    route.route_long_name = ''
-    self.ValidateAndExpectInvalidValue(route, 'route_short_name')
-    route.route_short_name = 'M7bis'  # 5 is OK
-    route.Validate(self.problems)
-
-    # long name contains short name
-    route.route_short_name = '54C'
-    route.route_long_name = '54C South Side - North Side'
-    self.ValidateAndExpectInvalidValue(route, 'route_long_name')
-    route.route_long_name = '54C(South Side - North Side)'
-    self.ValidateAndExpectInvalidValue(route, 'route_long_name')
-    route.route_long_name = '54C-South Side - North Side'
-    self.ValidateAndExpectInvalidValue(route, 'route_long_name')
-
-    # long name is same as short name
-    route.route_short_name = '54C'
-    route.route_long_name = '54C'
-    self.ValidateAndExpectInvalidValue(route, 'route_long_name')
-
-    # route description is same as short name
-    route.route_desc = '54C'
-    route.route_short_name = '54C'
-    route.route_long_name = ''
-    self.ValidateAndExpectInvalidValue(route, 'route_desc')
-    route.route_desc = None
-
-    # route description is same as long name
-    route.route_desc = 'South Side - North Side'
-    route.route_long_name = 'South Side - North Side'
-    self.ValidateAndExpectInvalidValue(route, 'route_desc')
-    route.route_desc = None
-
-    # invalid route types
-    route.route_type = 8
-    self.ValidateAndExpectInvalidValue(route, 'route_type')
-    route.route_type = -1
-    self.ValidateAndExpectInvalidValue(route, 'route_type')
-    route.route_type = 7
-
-    # invalid route URL
-    route.route_url = 'www.example.com'
-    self.ValidateAndExpectInvalidValue(route, 'route_url')
-    route.route_url = None
-
-    # invalid route color
-    route.route_color = 'orange'
-    self.ValidateAndExpectInvalidValue(route, 'route_color')
-    route.route_color = None
-
-    # invalid route text color
-    route.route_text_color = 'orange'
-    self.ValidateAndExpectInvalidValue(route, 'route_text_color')
-    route.route_text_color = None
-
-    # missing route ID
-    route.route_id = None
-    self.ValidateAndExpectMissingValue(route, 'route_id')
-    route.route_id = '054C'
-
-    # bad color contrast
-    route.route_text_color = None # black
-    route.route_color = '0000FF'  # Bad
-    self.ValidateAndExpectInvalidValue(route, 'route_color')
-    route.route_color = '00BF00'  # OK
-    route.Validate(self.problems)
-    route.route_color = '005F00'  # Bad
-    self.ValidateAndExpectInvalidValue(route, 'route_color')
-    route.route_color = 'FF00FF'  # OK
-    route.Validate(self.problems)
-    route.route_text_color = 'FFFFFF' # OK too
-    route.Validate(self.problems)
-    route.route_text_color = '00FF00' # think of color-blind people!
-    self.ValidateAndExpectInvalidValue(route, 'route_color')
-    route.route_text_color = '007F00'
-    route.route_color = 'FF0000'
-    self.ValidateAndExpectInvalidValue(route, 'route_color')
-    route.route_color = '00FFFF'      # OK
-    route.Validate(self.problems)
-    route.route_text_color = None # black
-    route.route_color = None      # white
-    route.Validate(self.problems)
-    self.accumulator.AssertNoMoreExceptions()
-
-    # bad bikes_allowed
-    route.bikes_allowed = '3'
-    self.ValidateAndExpectInvalidValue(route, 'bikes_allowed')
-
-class ShapeValidationTestCase(ValidationTestCase):
+class ShapeValidationTestCase(util.ValidationTestCase):
   def ExpectFailedAdd(self, shape, lat, lon, dist, column_name, value):
     self.ExpectInvalidValueInClosure(
         column_name, value,
@@ -2532,7 +2129,7 @@ class ShapeValidationTestCase(ValidationTestCase):
     self.accumulator.AssertNoMoreExceptions()
 
 
-class ShapePointValidationTestCase(ValidationTestCase):
+class ShapePointValidationTestCase(util.ValidationTestCase):
   def runTest(self):
     shapepoint = transitfeed.ShapePoint('', 36.915720, -116.7156, 0, 0)
     self.ExpectMissingValueInClosure('shape_id',
@@ -2566,7 +2163,7 @@ class ShapePointValidationTestCase(ValidationTestCase):
     self.accumulator.AssertNoMoreExceptions()
 
 
-class FareAttributeValidationTestCase(ValidationTestCase):
+class FareAttributeValidationTestCase(util.ValidationTestCase):
   def runTest(self):
     fare = transitfeed.FareAttribute()
     fare.fare_id = "normal"
@@ -2647,7 +2244,7 @@ class FareAttributeValidationTestCase(ValidationTestCase):
     self.accumulator.AssertNoMoreExceptions()
 
 
-class TransferObjectTestCase(ValidationTestCase):
+class TransferObjectTestCase(util.ValidationTestCase):
   def testValidation(self):
     # Totally bogus data shouldn't cause a crash
     transfer = transitfeed.Transfer(field_dict={"ignored": "foo"})
@@ -3055,7 +2652,7 @@ class TransferValidationTestCase(util.MemoryZipTestCase):
         [int(t.transfer_type) for t in loaded_schedule.GetTransferIter()])
 
 
-class ServicePeriodValidationTestCase(ValidationTestCase):
+class ServicePeriodValidationTestCase(util.ValidationTestCase):
   def runTest(self):
     # success case
     period = transitfeed.ServicePeriod()
@@ -3208,7 +2805,7 @@ class ServicePeriodValidationTestCase(ValidationTestCase):
     self.accumulator.AssertNoMoreExceptions()
 
 
-class ServicePeriodDateRangeTestCase(ValidationTestCase):
+class ServicePeriodDateRangeTestCase(util.ValidationTestCase):
   def runTest(self):
     period = transitfeed.ServicePeriod()
     period.service_id = 'WEEKDAY'
@@ -3494,7 +3091,7 @@ class TripMemoryZipTestCase(util.MemoryZipTestCase):
     self.assertLoadAndCheckExtraValues(saved_schedule_file)
 
 
-class TripValidationTestCase(ValidationTestCase):
+class TripValidationTestCase(util.ValidationTestCase):
   def runTest(self):
     trip = transitfeed.Trip()
     repr(trip)  # shouldn't crash
@@ -3602,9 +3199,9 @@ class TripValidationTestCase(ValidationTestCase):
     self.accumulator.AssertNoMoreExceptions()
 
 
-class FrequencyValidationTestCase(ValidationTestCase):
+class FrequencyValidationTestCase(util.ValidationTestCase):
   def setUp(self):
-    ValidationTestCase.setUp(self)
+    util.ValidationTestCase.setUp(self)
     self.schedule = self.SimpleSchedule()
     trip = transitfeed.Trip()
     trip.route_id = '054C'
@@ -3750,7 +3347,7 @@ class FrequencyValidationTestCase(ValidationTestCase):
     self.accumulator.AssertNoMoreExceptions()
 
 
-class TripSequenceValidationTestCase(ValidationTestCase):
+class TripSequenceValidationTestCase(util.ValidationTestCase):
   def runTest(self):
     schedule = self.SimpleSchedule()
     # Make a new trip without any stop times
@@ -3774,7 +3371,7 @@ class TripSequenceValidationTestCase(ValidationTestCase):
     self.accumulator.AssertNoMoreExceptions()
 
 
-class TripServiceIDValidationTestCase(ValidationTestCase):
+class TripServiceIDValidationTestCase(util.ValidationTestCase):
   def runTest(self):
     schedule = self.SimpleSchedule()
     trip1 = transitfeed.Trip()
@@ -3787,7 +3384,7 @@ class TripServiceIDValidationTestCase(ValidationTestCase):
                                                             validate=True))
 
 
-class TripDistanceFromStopToShapeValidationTestCase(ValidationTestCase):
+class TripDistanceFromStopToShapeValidationTestCase(util.ValidationTestCase):
   def runTest(self):
     schedule = self.SimpleSchedule()
     stop1 = schedule.stops["stop1"]
@@ -3818,7 +3415,7 @@ class TripDistanceFromStopToShapeValidationTestCase(ValidationTestCase):
     self.ValidateAndExpectMissingValue(schedule, "stop_lat")
 
 
-class TripHasStopTimeValidationTestCase(ValidationTestCase):
+class TripHasStopTimeValidationTestCase(util.ValidationTestCase):
   def runTest(self):
     schedule = self.SimpleSchedule()
     trip = schedule.GetRoute("054C").AddTrip(trip_id="054C-00")
@@ -3859,7 +3456,7 @@ class TripHasStopTimeValidationTestCase(ValidationTestCase):
         'arrival_time', c=lambda: trip.GetEndTime(problems=self.problems))
 
 
-class ShapeDistTraveledOfStopTimeValidationTestCase(ValidationTestCase):
+class ShapeDistTraveledOfStopTimeValidationTestCase(util.ValidationTestCase):
   def runTest(self):
     schedule = self.SimpleSchedule()
 
@@ -3920,7 +3517,7 @@ class ShapeDistTraveledOfStopTimeValidationTestCase(ValidationTestCase):
     self.accumulator.AssertNoMoreExceptions()
 
 
-class StopMatchWithShapeTestCase(ValidationTestCase):
+class StopMatchWithShapeTestCase(util.ValidationTestCase):
   def runTest(self):
     schedule = self.SimpleSchedule()
 
@@ -3950,7 +3547,7 @@ class StopMatchWithShapeTestCase(ValidationTestCase):
     self.accumulator.AssertNoMoreExceptions()
 
 
-class TripAddStopTimeObjectTestCase(ValidationTestCase):
+class TripAddStopTimeObjectTestCase(util.ValidationTestCase):
   def runTest(self):
     schedule = transitfeed.Schedule(problem_reporter=self.problems)
     schedule.AddAgency("\xc8\x8b Fly Agency", "http://iflyagency.com",
@@ -3987,7 +3584,7 @@ class TripAddStopTimeObjectTestCase(ValidationTestCase):
                            schedule=schedule, problems=self.problems)
     self.accumulator.AssertNoMoreExceptions()
 
-class DuplicateTripTestCase(ValidationTestCase):
+class DuplicateTripTestCase(util.ValidationTestCase):
   def runTest(self):
 
     schedule = transitfeed.Schedule(self.problems)
@@ -4054,7 +3651,7 @@ class DuplicateTripTestCase(ValidationTestCase):
     self.accumulator.AssertNoMoreExceptions()
 
 
-class StopBelongsToBothSubwayAndBusTestCase(ValidationTestCase):
+class StopBelongsToBothSubwayAndBusTestCase(util.ValidationTestCase):
   def runTest(self):
     schedule = transitfeed.Schedule(self.problems)
 
@@ -4668,7 +4265,7 @@ class DuplicateTripIDValidationTestCase(util.TestCase):
       self.assertEqual("SAMPLE_TRIP", e.value)
 
 
-class DuplicateStopValidationTestCase(ValidationTestCase):
+class DuplicateStopValidationTestCase(util.ValidationTestCase):
   def runTest(self):
     schedule = transitfeed.Schedule(problem_reporter=self.problems)
     schedule.AddAgency("Sample Agency", "http://example.com",
@@ -4890,7 +4487,7 @@ class AgencyIDValidationTestCase(util.TestCase):
     schedule.AddRouteObject(route)
 
 
-class AddFrequencyValidationTestCase(ValidationTestCase):
+class AddFrequencyValidationTestCase(util.ValidationTestCase):
   def ExpectInvalidValue(self, start_time, end_time, headway,
                          column_name, value):
     try:

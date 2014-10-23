@@ -295,6 +295,111 @@ class MemoryZipTestCase(TestCase):
       print "--\n%s\n%s" % (n, z.read(n))
 
 
+INVALID_VALUE = Exception()
+class ValidationTestCase(TestCase):
+  def setUp(self):
+    self.accumulator = RecordingProblemAccumulator(
+        self, ("ExpirationDate", "NoServiceExceptions"))
+    self.problems = transitfeed.ProblemReporter(self.accumulator)
+
+  def tearDown(self):
+    self.accumulator.TearDownAssertNoMoreExceptions()
+
+  def ExpectNoProblems(self, object):
+    self.accumulator.AssertNoMoreExceptions()
+    object.Validate(self.problems)
+    self.accumulator.AssertNoMoreExceptions()
+
+  # TODO: think about Expect*Closure methods. With the
+  # RecordingProblemAccumulator it is now possible to replace
+  # self.ExpectMissingValueInClosure(lambda: o.method(...), foo)
+  # with
+  # o.method(...)
+  # self.ExpectMissingValueInClosure(foo)
+  # because problems don't raise an exception. This has the advantage of
+  # making it easy and clear to test the return value of o.method(...) and
+  # easier to test for a sequence of problems caused by one call.
+  # neun@ 2011-01-18: for the moment I don't remove the Expect*InClosure methods
+  # as they allow enforcing an AssertNoMoreExceptions() before validation.
+  # When removing them we do have to make sure that each "logical test block"
+  # before an Expect*InClosure usage really ends with AssertNoMoreExceptions.
+  # See http://codereview.appspot.com/4020041/
+  def ValidateAndExpectMissingValue(self, object, column_name):
+    self.accumulator.AssertNoMoreExceptions()
+    object.Validate(self.problems)
+    self.ExpectException('MissingValue', column_name)
+
+  def ExpectMissingValueInClosure(self, column_name, c):
+    self.accumulator.AssertNoMoreExceptions()
+    rv = c()
+    self.ExpectException('MissingValue', column_name)
+
+  def ValidateAndExpectInvalidValue(self, object, column_name,
+                                    value=INVALID_VALUE):
+    self.accumulator.AssertNoMoreExceptions()
+    object.Validate(self.problems)
+    self.ExpectException('InvalidValue', column_name, value)
+
+  def ExpectInvalidValueInClosure(self, column_name, value=INVALID_VALUE,
+                                  c=None):
+    self.accumulator.AssertNoMoreExceptions()
+    rv = c()
+    self.ExpectException('InvalidValue', column_name, value)
+
+  def ValidateAndExpectInvalidFloatValue(self, object, value):
+    self.accumulator.AssertNoMoreExceptions()
+    object.Validate(self.problems)
+    self.ExpectException('InvalidFloatValue', None, value)
+
+  def ValidateAndExpectOtherProblem(self, object):
+    self.accumulator.AssertNoMoreExceptions()
+    object.Validate(self.problems)
+    self.ExpectException('OtherProblem')
+
+  def ExpectOtherProblemInClosure(self, c):
+    self.accumulator.AssertNoMoreExceptions()
+    rv = c()
+    self.ExpectException('OtherProblem')
+
+  def ValidateAndExpectDateOutsideValidRange(self, object, column_name,
+                                             value=INVALID_VALUE):
+    self.accumulator.AssertNoMoreExceptions()
+    object.Validate(self.problems)
+    self.ExpectException('DateOutsideValidRange', column_name, value)
+
+  def ExpectException(self, type_name, column_name=None, value=INVALID_VALUE):
+    e = self.accumulator.PopException(type_name)
+    if column_name:
+      self.assertEqual(column_name, e.column_name)
+    if value != INVALID_VALUE:
+      self.assertEqual(value, e.value)
+    # these should not throw any exceptions
+    e.FormatProblem()
+    e.FormatContext()
+    self.accumulator.AssertNoMoreExceptions()
+
+  def SimpleSchedule(self):
+    """Return a minimum schedule that will load without warnings."""
+    schedule = transitfeed.Schedule(problem_reporter=self.problems)
+    schedule.AddAgency("Fly Agency", "http://iflyagency.com",
+                       "America/Los_Angeles")
+    service_period = transitfeed.ServicePeriod("WEEK")
+    service_period.SetWeekdayService(True)
+    service_period.SetStartDate("20091203")
+    service_period.SetEndDate("20111203")
+    service_period.SetDateHasService("20091203")
+    schedule.AddServicePeriodObject(service_period)
+    stop1 = schedule.AddStop(lng=1.00, lat=48.2, name="Stop 1", stop_id="stop1")
+    stop2 = schedule.AddStop(lng=1.01, lat=48.2, name="Stop 2", stop_id="stop2")
+    stop3 = schedule.AddStop(lng=1.03, lat=48.2, name="Stop 3", stop_id="stop3")
+    route = schedule.AddRoute("54C", "", "Bus", route_id="054C")
+    trip = route.AddTrip(schedule, "bus trip", trip_id="CITY1")
+    trip.AddStopTime(stop1, stop_time="12:00:00")
+    trip.AddStopTime(stop2, stop_time="12:00:45")
+    trip.AddStopTime(stop3, stop_time="12:02:30")
+    return schedule
+
+
 #TODO(anog): Revisit this after we implement proper per-exception level change
 class RecordingProblemAccumulator(transitfeed.ProblemAccumulatorInterface):
   """Save all problems for later inspection.
@@ -434,3 +539,27 @@ class RecordingProblemAccumulator(transitfeed.ProblemAccumulatorInterface):
       exception_group.append(e_tuple)
     ProcessExceptionGroup()
     self.exceptions = sorted_exceptions
+
+
+class TestFailureProblemAccumulator(transitfeed.ProblemAccumulatorInterface):
+  """Causes a test failure immediately on any problem."""
+  def __init__(self, test_case, ignore_types=("ExpirationDate",)):
+    self.test_case = test_case
+    self._ignore_types = ignore_types or set()
+
+  def _Report(self, e):
+    # These should never crash
+    formatted_problem = e.FormatProblem()
+    formatted_context = e.FormatContext()
+    exception_class = e.__class__.__name__
+    if exception_class in self._ignore_types:
+      return
+    self.test_case.fail(
+        "%s: %s\n%s" % (exception_class, formatted_problem, formatted_context))
+
+
+def GetTestFailureProblemReporter(test_case,
+                                  ignore_types=("ExpirationDate",)):
+  accumulator = TestFailureProblemAccumulator(test_case, ignore_types)
+  problems = transitfeed.ProblemReporter(accumulator)
+  return problems

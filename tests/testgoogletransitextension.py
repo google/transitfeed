@@ -23,8 +23,7 @@ import os
 import re
 import transitfeed
 from tests.testfeedvalidator import FullTests
-from tests.testtransitfeed import ValidationTestCase
-from tests.util import MemoryZipTestCase
+from tests.util import MemoryZipTestCase, ValidationTestCase
 
 
 class ExtensionFullTests(FullTests):
