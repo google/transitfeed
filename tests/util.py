@@ -17,6 +17,7 @@
 # Code shared between tests.
 from __future__ import absolute_import
 
+import dircache
 import os
 import os.path
 import re
@@ -68,6 +69,15 @@ def check_call(cmd, expected_retcode=0, stdin_str="", **kwargs):
   return (out, err)
 
 
+def DataPath(path):
+  here = os.path.dirname(__file__)
+  return os.path.join(here, 'data', path)
+
+def GetDataPathContents():
+  here = os.path.dirname(__file__)
+  return dircache.listdir(os.path.join(here, 'data'))
+
+
 class TestCase(unittest.TestCase):
   """Base of every TestCase class in this project.
 
@@ -80,6 +90,18 @@ class TestCase(unittest.TestCase):
     """Assert that regex is found in string."""
     if not re.search(regex, string):
       self.fail("string %r did not match regex %r" % (string, regex))
+
+
+class RedirectStdOutTestCaseBase(TestCase):
+  """Save stdout to the StringIO buffer self.this_stdout"""
+  def setUp(self):
+    self.saved_stdout = sys.stdout
+    self.this_stdout = StringIO.StringIO()
+    sys.stdout = self.this_stdout
+
+  def tearDown(self):
+    sys.stdout = self.saved_stdout
+    self.this_stdout.close()
 
 
 class GetPathTestCase(TestCase):
@@ -181,6 +203,21 @@ class TempDirTestCaseBase(GetPathTestCase):
       zip.writestr(arcname, contents)
     zip.close()
     return zipfile_mem
+
+
+class TempFileTestCaseBase(TestCase):
+  """
+  Subclass of TestCase which sets self.tempfilepath to a valid temporary zip
+  file name and removes the file if it exists when the test is done.
+  """
+  def setUp(self):
+    (fd, self.tempfilepath) = tempfile.mkstemp(".zip")
+    # Open file handle causes an exception during remove in Windows
+    os.close(fd)
+
+  def tearDown(self):
+    if os.path.exists(self.tempfilepath):
+      os.remove(self.tempfilepath)
 
 
 class MemoryZipTestCase(TestCase):
@@ -293,6 +330,29 @@ class MemoryZipTestCase(TestCase):
     z = zipfile.ZipFile(zf)
     for n in z.namelist():
       print "--\n%s\n%s" % (n, z.read(n))
+
+
+class LoadTestCase(TestCase):
+  def setUp(self):
+    self.accumulator = RecordingProblemAccumulator(self, ("ExpirationDate",))
+    self.problems = transitfeed.ProblemReporter(self.accumulator)
+
+  def Load(self, feed_name):
+    loader = transitfeed.Loader(
+      DataPath(feed_name), problems=self.problems, extra_validation=True)
+    loader.Load()
+
+  def ExpectInvalidValue(self, feed_name, column_name):
+    self.Load(feed_name)
+    self.accumulator.PopInvalidValue(column_name)
+    self.accumulator.AssertNoMoreExceptions()
+
+  def ExpectMissingFile(self, feed_name, file_name):
+    self.Load(feed_name)
+    e = self.accumulator.PopException("MissingFile")
+    self.assertEqual(file_name, e.file_name)
+    # Don't call AssertNoMoreExceptions() because a missing file causes
+    # many errors.
 
 
 INVALID_VALUE = Exception()
@@ -563,3 +623,18 @@ def GetTestFailureProblemReporter(test_case,
   accumulator = TestFailureProblemAccumulator(test_case, ignore_types)
   problems = transitfeed.ProblemReporter(accumulator)
   return problems
+
+
+class ExceptionProblemReporterNoExpiration(transitfeed.ProblemReporter):
+  """Ignores feed expiration problems.
+
+  Use TestFailureProblemReporter in new code because it fails more cleanly, is
+  easier to extend and does more thorough checking.
+  """
+
+  def __init__(self):
+    accumulator = transitfeed.ExceptionProblemAccumulator(raise_warnings=True)
+    transitfeed.ProblemReporter.__init__(self, accumulator)
+
+  def ExpirationDate(self, expiration, context=None):
+    pass  # We don't want to give errors about our test data

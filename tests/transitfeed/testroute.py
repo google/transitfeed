@@ -18,8 +18,19 @@
 from __future__ import absolute_import
 
 from StringIO import StringIO
-import transitfeed
 from tests import util
+import transitfeed
+
+
+class RepeatedRouteNameTestCase(util.LoadTestCase):
+  def runTest(self):
+    self.ExpectInvalidValue('repeated_route_name', 'route_long_name')
+
+
+class SameShortLongNameTestCase(util.LoadTestCase):
+  def runTest(self):
+    self.ExpectInvalidValue('same_short_long_name', 'route_long_name')
+
 
 class RouteMemoryZipTestCase(util.MemoryZipTestCase):
   def assertLoadAndCheckExtraValues(self, schedule_file):
