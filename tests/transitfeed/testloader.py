@@ -560,8 +560,8 @@ class CsvDictTestCase(util.TestCase):
                       "id1 , my name\n")
     results = list(self.loader._ReadCsvDict("test.txt",
                                             ["test_id", "test_name"], [], []))
-    self.assertEquals([({"test_id": "id1 ", "test_name": "my name"}, 2,
-                        ["test_id", "test_name"], ["id1 ", "my name"])],
+    self.assertEquals([({"test_id": "id1", "test_name": "my name"}, 2,
+                        ["test_id", "test_name"], ["id1", "my name"])],
                         results)
     self.accumulator.AssertNoMoreExceptions()
 
@@ -583,8 +583,8 @@ class CsvDictTestCase(util.TestCase):
                                             ["test_id", "test_name",
                                              "test_size"], [], []))
     self.assertEquals(
-        [({"test_id": "id1 ", "test_name": "my name ", "test_size": "234 "}, 2,
-          ["test_id", "test_name", "test_size"], ["id1 ", "my name ", "234 "])],
+        [({"test_id": "id1", "test_name": "my name", "test_size": "234"}, 2,
+          ["test_id", "test_name", "test_size"], ["id1", "my name", "234"])],
         results)
     self.accumulator.AssertNoMoreExceptions()
 

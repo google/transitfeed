@@ -271,6 +271,9 @@ class Loader:
                                     (file_name, line_num,
                                      valid_values, header))
 
+      # We strip ALL whitespace from around values.  This matches the behavior
+      # of both the Google and OneBusAway GTFS parser.
+      valid_values = [value.strip() for value in valid_values]
 
       d = dict(zip(header, valid_values))
       yield (d, line_num, header, valid_values)
