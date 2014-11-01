@@ -1,6 +1,12 @@
 INSTALL file for transitfeed distribution
 
-To download and install in one step make sure you have easy-install installed and run:
+To download and install in one step make sure you have pip installed and run:
+
+pip install git+git@github.com:avilaton/transitfeed.git@1.2.13
+
+or add it to your requirements.txt file in the same way.
+
+If you prefer to use easy-install, run:
 
 % easy_install transitfeed
 
