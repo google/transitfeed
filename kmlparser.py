@@ -1,4 +1,4 @@
-#!/usr/bin/python2.5
+#!/usr/bin/python
 
 # Copyright (C) 2007 Google Inc.
 #
@@ -20,9 +20,12 @@ file format into Google transit feed format.
 
 The KmlParser class is the main class implementing the parser.
 
-Currently only information about stops is extracted from a kml file.
+For point geometries, information about stops is extracted from a kml file.
 The extractor expects the stops to be represented as placemarks with
 a single point.
+
+For line geometries, information about shapes is extracted from a kml file.
+
 """
 
 import re
@@ -83,7 +86,8 @@ class KmlParser(object):
         feed.AddStop(lat, lon, m.group(1))
       elif p.IsLine():
         shape_num = shape_num + 1
-        shape = transitfeed.Shape("kml_shape_" + str(shape_num))
+        #shape = transitfeed.Shape("kml_shape_" + str(shape_num))
+        shape = transitfeed.Shape(p.name)
         for (lon, lat) in p.coordinates:
           shape.AddPoint(lat, lon)
         feed.AddShapeObject(shape)
