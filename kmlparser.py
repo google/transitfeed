@@ -86,7 +86,6 @@ class KmlParser(object):
         feed.AddStop(lat, lon, m.group(1))
       elif p.IsLine():
         shape_num = shape_num + 1
-        #shape = transitfeed.Shape("kml_shape_" + str(shape_num))
         shape = transitfeed.Shape(p.name)
         for (lon, lat) in p.coordinates:
           shape.AddPoint(lat, lon)
