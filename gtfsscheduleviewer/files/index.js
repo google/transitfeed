@@ -169,11 +169,11 @@ function addStopMarker(stopId, stopName, stopLat, stopLon, locationType, selecte
     // stop was selected
     var marker = stopMarkersSelected[stopId];
     if (text) {
-      oldText = marker.getText();
+      oldText = marker.getTitle();
       if (oldText) {
         oldText = oldText + "<br>";
       }
-      marker.setText(oldText + text);
+      marker.setTitle(oldText + text);
     }
     return marker;
   }
