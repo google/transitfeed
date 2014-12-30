@@ -121,10 +121,12 @@ class KmlParser(object):
 
     try:
       existing_shape = feed.GetShape(p.name)
+
       # If the existing shape has the same points, we don't need to add a new
       # shape.
       if existing_shape == shape:
         return
+
       # If the shape has different points, we need to modify our shape id so as
       # to avoid duplication.
       shape.shape_id += '_%d' % len(feed.GetShapeList())
@@ -132,6 +134,7 @@ class KmlParser(object):
     except KeyError:
       # No existing shape with that id, so no worries.
       pass
+
     feed.AddShapeObject(shape)
 
 def main():
