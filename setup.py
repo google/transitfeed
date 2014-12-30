@@ -60,8 +60,8 @@ setup(
     version=VERSION,
     name='transitfeed',
     url='https://github.com/google/transitfeed/',
-    download_url='https://github.com/google/transitfeed/releases/tag/'
-        '%s' % VERSION,
+    download_url='https://github.com/google/transitfeed/archive/'
+        '%s.tar.gz' % VERSION,
     maintainer='Multiple',
     maintainer_email='transitfeed@googlegroups.com',
     description='GTFS library and tools',
