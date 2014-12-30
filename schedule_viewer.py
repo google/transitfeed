@@ -327,7 +327,11 @@ class ScheduleRequestHandler(BaseHTTPServer.BaseHTTPRequestHandler):
       time_stops = trip.GetTimeStops()
       for arr,dep,stop in time_stops:
         points.append((stop.stop_lat, stop.stop_lon))
-    return points
+    route = schedule.GetRoute(trip.route_id)
+    polyline_data = {'points': points}
+    if route.route_color:
+      polyline_data['color'] = '#' + route.route_color
+    return polyline_data
 
   def handle_json_GET_neareststops(self, params):
     """Return a list of the nearest 'limit' stops to 'lat', 'lon'"""

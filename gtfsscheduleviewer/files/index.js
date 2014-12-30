@@ -121,8 +121,12 @@ function clearMap() {
   for (var stopId in stopMarkersBackground) {
     stopMarkersBackground[stopId].setMap(null);
   }
+  for (var i = 0; i < existingPolylines.length; ++i) {
+    existingPolylines[i].setMap(null);
+  }
   stopMarkersSelected = {};
   stopMarkersBackground = {};
+  existingPolylines = [];
 }
 
 /**
@@ -154,6 +158,7 @@ var stopMarkersSelected = {};
 // Map from stopId to Marker object for stops found by the background
 // passive search
 var stopMarkersBackground = {};
+
 /**
  * Add a stop to the map, given a row from stops.txt.
  */
@@ -519,12 +524,14 @@ function callbackDisplayTripPolyLine(data, responseCode) {
   if (responseCode != 200) {
     return;
   }
-  var points = eval(data);
-  if (!points) return;
-  displayPolyLine(points);
+  var polyData = JSON.parse(data);
+  if (!polyData) return;
+  displayPolyLine(polyData);
 }
 
+var existingPolylines = [];
 var boundsOfPolyLine = null;
+
 function expandBoundingBox(latLng) {
   if (boundsOfPolyLine == null) {
     boundsOfPolyLine = new google.maps.LatLngBounds(latLng, latLng);
@@ -536,22 +543,28 @@ function expandBoundingBox(latLng) {
 /**
  * Display a line given a list of points
  *
- * @param {Array} List of lat,lng pairs
+ * @param {Object} List of lat,lng pairs along with optional color.
  */
-function displayPolyLine(points) {
+function displayPolyLine(polyData) {
+  var points = polyData['points'];
   var linePoints = Array();
   for (i = 0; i < points.length; ++i) {
     var ll = new google.maps.LatLng(points[i][0], points[i][1]);
     expandBoundingBox(ll);
     linePoints[linePoints.length] = ll;
   }
+  var color = '#003399';
+  if (polyData['color']) {
+    color = polyData['color'];
+  }
   var polyline = new google.maps.Polyline({
     path: linePoints,
-    strokeColor: "#FF0000",
+    strokeColor: color,
     strokeWeight: 4,
     map: map
   });
   map.fitBounds(boundsOfPolyLine);
+  existingPolylines.push(polyline);
 }
 
 function displayTripStopTimes(stops, arrivalTimes, departureTimes) {
