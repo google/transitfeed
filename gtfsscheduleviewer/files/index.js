@@ -174,11 +174,11 @@ function addStopMarker(stopId, stopName, stopLat, stopLon, locationType, selecte
     // stop was selected
     var marker = stopMarkersSelected[stopId];
     if (text) {
-      oldText = marker.getText();
+      oldText = marker.getTitle();
       if (oldText) {
         oldText = oldText + "<br>";
       }
-      marker.setText(oldText + text);
+      marker.setTitle(oldText + text);
     }
     return marker;
   }
@@ -245,8 +245,8 @@ function addStopMarker(stopId, stopName, stopLat, stopLon, locationType, selecte
 function changeStopLocation(marker) {
   var url = "/json/setstoplocation?id=" +
             encodeURIComponent(marker.stopId) +
-            "&lat=" + encodeURIComponent(marker.getLatLng().lat()) + 
-            "&lng=" + encodeURIComponent(marker.getLatLng().lng());
+            "&lat=" + encodeURIComponent(marker.getPosition().lat()) + 
+            "&lng=" + encodeURIComponent(marker.getPosition().lng());
   downloadUrl(url, function(data, responseCode) {
       document.getElementById("edit_status").innerHTML = unescape(data);
   });
