@@ -21,8 +21,14 @@ import itertools
 import os
 try:
   import sqlite3 as sqlite
+  native_sqlite = True
 except ImportError:
-  from pysqlite2 import dbapi2 as sqlite
+  try:
+    from pysqlite2 import dbapi2 as sqlite
+    native_sqlite = True
+  except ImportError:
+    from com.ziclix.python.sql import zxJDBC as sqlite
+    native_sqlite = False
 import tempfile
 import time
 import warnings
@@ -102,19 +108,26 @@ class Schedule(object):
       os.remove(self._temp_db_filename)
 
   def ConnectDb(self, memory_db):
+    def connector(db_file):
+      if native_sqlite:
+        return sqlite.connect(db_file)
+      else:
+        return sqlite.connect("jdbc:sqlite:%s" % db_file,
+                              "", "", "org.sqlite.JDBC")
+
     if memory_db:
-      self._connection = sqlite.connect(":memory:")
+      self._connection = connector(":memory:")
     else:
       try:
         self._temp_db_file = tempfile.NamedTemporaryFile()
-        self._connection = sqlite.connect(self._temp_db_file.name)
+        self._connection = connector(self._temp_db_file.name)
       except sqlite.OperationalError:
         # Windows won't let a file be opened twice. mkstemp does not remove the
         # file when all handles to it are closed.
         self._temp_db_file = None
         (fd, self._temp_db_filename) = tempfile.mkstemp(".db")
         os.close(fd)
-        self._connection = sqlite.connect(self._temp_db_filename)
+        self._connection = connector(self._temp_db_filename)
 
     cursor = self._connection.cursor()
     cursor.execute("""CREATE TABLE stop_times (
