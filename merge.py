@@ -1437,6 +1437,7 @@ class TripMerger(DataSetMerger):
     if newid:
       migrated_trip.trip_id = self.feed_merger.GenerateId(
           original_trip.trip_id)
+      migrated_trip.original_trip_id = original_trip.trip_id
     # Need to add trip to schedule before copying stoptimes
     self.feed_merger.merged_schedule.AddTripObject(migrated_trip,
                                                    validate=False)

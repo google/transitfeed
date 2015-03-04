@@ -1049,6 +1049,7 @@ class TestTripMerger(util.TestCase):
     a1_in_b = transitfeed.Agency(field_dict=self.a1)
     r1_in_b = transitfeed.Route(field_dict=self.r1)
     t1_in_b = transitfeed.Trip(field_dict=self.t1)
+    t1_in_b.trip_short_name = 't1-b'
     shape_in_b = transitfeed.Shape('shape1')
     shape_in_b.AddPoint(30.0, 30.0)
     s_in_b = transitfeed.ServicePeriod('s1')
@@ -1065,7 +1066,11 @@ class TestTripMerger(util.TestCase):
     self.fm.MergeSchedules()
     # 3 trips moved to merged_schedule: from a_schedule t1, t2 and from
     # b_schedule t1
-    self.assertEquals(len(self.fm.merged_schedule.GetTripList()), 3)
+    trips = self.fm.merged_schedule.GetTripList()
+    self.assertEquals(len(trips), 3)
+    t1_in_b_merged = [trip for trip in trips if trip.trip_short_name == 't1-b']
+    self.assertEquals(len(t1_in_b_merged), 1)
+    self.assertEquals(t1_in_b_merged[0].original_trip_id, 't1')
 
 
 class TestFareMerger(util.TestCase):
