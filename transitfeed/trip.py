@@ -24,7 +24,7 @@ class Trip(GtfsObjectBase):
   _REQUIRED_FIELD_NAMES = ['route_id', 'service_id', 'trip_id']
   _FIELD_NAMES = _REQUIRED_FIELD_NAMES + [
     'trip_headsign', 'trip_short_name', 'direction_id', 'block_id', 'shape_id',
-    'bikes_allowed', 'wheelchair_accessible'
+    'bikes_allowed', 'wheelchair_accessible', 'original_trip_id'
     ]
   _TABLE_NAME= "trips"
 
