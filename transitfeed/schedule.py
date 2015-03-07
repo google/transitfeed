@@ -126,7 +126,8 @@ class Schedule(object):
                                            stop_headsign VAR CHAR(100),
                                            pickup_type INTEGER,
                                            drop_off_type INTEGER,
-                                           shape_dist_traveled FLOAT);""")
+                                           shape_dist_traveled FLOAT,
+                                           timepoint INTEGER);""")
     cursor.execute("""CREATE INDEX trip_index ON stop_times (trip_id);""")
     cursor.execute("""CREATE INDEX stop_index ON stop_times (stop_id);""")
 

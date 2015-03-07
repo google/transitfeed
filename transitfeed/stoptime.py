@@ -39,26 +39,29 @@ class StopTime(object):
   stop_time: The only time given for this stop.  If present, it is used
              for both arrival and departure time.
   stop_sequence: int
+  timepoint: int
   """
   _REQUIRED_FIELD_NAMES = ['trip_id', 'arrival_time', 'departure_time',
                            'stop_id', 'stop_sequence']
   _OPTIONAL_FIELD_NAMES = ['stop_headsign', 'pickup_type',
-                           'drop_off_type', 'shape_dist_traveled']
+                           'drop_off_type', 'shape_dist_traveled', 'timepoint']
   _FIELD_NAMES = _REQUIRED_FIELD_NAMES + _OPTIONAL_FIELD_NAMES
   _DEPRECATED_FIELD_NAMES = []
   _SQL_FIELD_NAMES = ['trip_id', 'arrival_secs', 'departure_secs',
                       'stop_id', 'stop_sequence', 'stop_headsign',
-                      'pickup_type', 'drop_off_type', 'shape_dist_traveled']
+                      'pickup_type', 'drop_off_type', 'shape_dist_traveled',
+                      'timepoint']
   _STOP_CLASS = Stop
 
-  __slots__ = ('arrival_secs', 'departure_secs', 'stop_headsign', 'stop',
+  __slots__ = ('arrival_secs', 'departure_secs', 'stop',
                'stop_headsign', 'pickup_type', 'drop_off_type',
-               'shape_dist_traveled', 'stop_sequence')
+               'shape_dist_traveled', 'stop_sequence', 'timepoint')
   def __init__(self, problems, stop,
                arrival_time=None, departure_time=None,
                stop_headsign=None, pickup_type=None, drop_off_type=None,
                shape_dist_traveled=None, arrival_secs=None,
-               departure_secs=None, stop_time=None, stop_sequence=None):
+               departure_secs=None, stop_time=None, stop_sequence=None,
+               timepoint=None):
     # Implementation note from Andre, July 22, 2010:
     # The checks performed here should be in their own Validate* methods to
     # keep consistency. Unfortunately the performance degradation is too great,
@@ -102,6 +105,8 @@ class StopTime(object):
       problems.InvalidValue('stop', stop)
     self.stop = stop
     self.stop_headsign = stop_headsign
+    self.timepoint = util.ValidateAndReturnIntValue(
+        timepoint, [0, 1], None, True, 'timepoint', problems)
 
     if pickup_type in (None, ""):
       self.pickup_type = None

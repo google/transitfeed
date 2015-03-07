@@ -63,6 +63,10 @@ class StopTimeValidationTestCase(util.ValidationTestCase):
     self.ExpectOtherProblemInClosure(
         lambda: transitfeed.StopTime(self.problems, stop,
                                      pickup_type='1', drop_off_type='1'))
+    self.ExpectInvalidValueInClosure('timepoint', 'x',
+        lambda: transitfeed.StopTime(self.problems, stop, timepoint='x'))
+    self.ExpectInvalidValueInClosure('timepoint', '2',
+        lambda: transitfeed.StopTime(self.problems, stop, timepoint='2'))
     self.ExpectInvalidValueInClosure('departure_time', '10:00:00',
         lambda: transitfeed.StopTime(self.problems, stop,
                                      arrival_time="11:00:00",
@@ -122,6 +126,9 @@ class StopTimeValidationTestCase(util.ValidationTestCase):
     transitfeed.StopTime(self.problems, stop, arrival_time="101:01:00",
         departure_time="101:21:00")
     transitfeed.StopTime(self.problems, stop)
+    transitfeed.StopTime(self.problems, stop, timepoint=None)
+    transitfeed.StopTime(self.problems, stop, timepoint=1)
+    transitfeed.StopTime(self.problems, stop, timepoint='1')
     self.accumulator.AssertNoMoreExceptions()
 
 class TooFastTravelTestCase(util.ValidationTestCase):
@@ -357,5 +364,3 @@ class TooManyConsecutiveStopTimesWithSameTime(util.TestCase):
     self.schedule.Validate(self.problems)
 
     self.accumulator.AssertNoMoreExceptions()
-
-

@@ -534,7 +534,8 @@ class Loader:
       self._problems.SetFileContext(*file_context)
 
       (trip_id, arrival_time, departure_time, stop_id, stop_sequence,
-         stop_headsign, pickup_type, drop_off_type, shape_dist_traveled) = row
+         stop_headsign, pickup_type, drop_off_type, shape_dist_traveled,
+         timepoint) = row
 
       try:
         sequence = int(stop_sequence)
@@ -567,7 +568,8 @@ class Loader:
       # when called from Trip.Validate.
       stop_time = stop_time_class(self._problems, stop,
           arrival_time, departure_time, stop_headsign, pickup_type,
-          drop_off_type, shape_dist_traveled, stop_sequence=sequence)
+          drop_off_type, shape_dist_traveled, stop_sequence=sequence,
+          timepoint=timepoint)
       trip._AddStopTimeObjectUnordered(stop_time, self._schedule)
       self._problems.ClearContext()
 

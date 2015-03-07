@@ -484,8 +484,8 @@ class TripReplaceStopTimeObjectTestCase(util.TestCase):
         unknown_stoptime, schedule=schedule)
 
 
-class TripStopTimeAccessorsTestCase(util.TestCase):
-  def runTest(self):
+class SingleTripTestCase(util.TestCase):
+  def setUp(self):
     schedule = transitfeed.Schedule(
         problem_reporter=util.ExceptionProblemReporterNoExpiration())
     schedule.NewDefaultAgency(agency_name="Test Agency",
@@ -502,29 +502,77 @@ class TripStopTimeAccessorsTestCase(util.TestCase):
     stop1 = schedule.AddStop(36.425288, -117.133162, "Demo Stop 1")
     stop2 = schedule.AddStop(36.424288, -117.133142, "Demo Stop 2")
 
-    trip.AddStopTime(stop1, arrival_time="5:11:00", departure_time="5:12:00")
-    trip.AddStopTime(stop2, arrival_time="5:15:00", departure_time="5:16:00")
+    self.schedule = schedule
+    self.trip = trip
+    self.stop1 = stop1
+    self.stop2 = stop2
+
+
+class TripStopTimeAccessorsTestCase(SingleTripTestCase):
+  def runTest(self):
+    self.trip.AddStopTime(
+        self.stop1, arrival_time="5:11:00", departure_time="5:12:00")
+    self.trip.AddStopTime(
+        self.stop2, arrival_time="5:15:00", departure_time="5:16:00")
 
     # Add some more stop times and test GetEndTime does the correct thing
     self.assertEqual(transitfeed.FormatSecondsSinceMidnight(
-        trip.GetStartTime()), "05:11:00")
+        self.trip.GetStartTime()), "05:11:00")
     self.assertEqual(transitfeed.FormatSecondsSinceMidnight(
-        trip.GetEndTime()), "05:16:00")
+        self.trip.GetEndTime()), "05:16:00")
 
-    trip.AddStopTime(stop1, stop_time="05:20:00")
-    self.assertEqual(transitfeed.FormatSecondsSinceMidnight(trip.GetEndTime()),
-                     "05:20:00")
+    self.trip.AddStopTime(self.stop1, stop_time="05:20:00")
+    self.assertEqual(
+        transitfeed.FormatSecondsSinceMidnight(self.trip.GetEndTime()),
+        "05:20:00")
 
-    trip.AddStopTime(stop2, stop_time="05:22:00")
-    self.assertEqual(transitfeed.FormatSecondsSinceMidnight(trip.GetEndTime()),
-                     "05:22:00")
-    self.assertEqual(len(trip.GetStopTimesTuples()), 4)
-    self.assertEqual(trip.GetStopTimesTuples()[0], (trip.trip_id, "05:11:00",
-                                                    "05:12:00", stop1.stop_id,
-                                                    1, '', '', '', ''))
-    self.assertEqual(trip.GetStopTimesTuples()[3], (trip.trip_id, "05:22:00",
-                                                    "05:22:00", stop2.stop_id,
-                                                    4, '', '', '', ''))
+    self.trip.AddStopTime(self.stop2, stop_time="05:22:00")
+    self.assertEqual(
+        transitfeed.FormatSecondsSinceMidnight(self.trip.GetEndTime()),
+        "05:22:00")
+
+
+class TripGetStopTimesTestCase(SingleTripTestCase):
+  def runTest(self):
+    self.trip.AddStopTime(
+        self.stop1,
+        arrival_time="5:11:00",
+        departure_time="5:12:00",
+        stop_headsign='Stop Headsign',
+        pickup_type=1,
+        drop_off_type=2,
+        shape_dist_traveled=100,
+        timepoint=1)
+    self.trip.AddStopTime(
+        self.stop2, arrival_time="5:15:00", departure_time="5:16:00")
+
+    stop_times = self.trip.GetStopTimes()
+    self.assertEquals(2, len(stop_times))
+    st = stop_times[0]
+    self.assertEquals(self.stop1.stop_id, st.stop_id)
+    self.assertEquals('05:11:00', st.arrival_time)
+    self.assertEquals('05:12:00', st.departure_time)
+    self.assertEquals(u'Stop Headsign', st.stop_headsign)
+    self.assertEquals(1, st.pickup_type)
+    self.assertEquals(2, st.drop_off_type)
+    self.assertEquals(100.0, st.shape_dist_traveled)
+    self.assertEquals(1, st.timepoint)
+
+    st = stop_times[1]
+    self.assertEquals(self.stop2.stop_id, st.stop_id)
+    self.assertEquals('05:15:00', st.arrival_time)
+    self.assertEquals('05:16:00', st.departure_time)
+
+    tuples = self.trip.GetStopTimesTuples()
+    self.assertEquals(2, len(tuples))
+    self.assertEqual(
+        (self.trip.trip_id, "05:11:00", "05:12:00", self.stop1.stop_id,
+         1, u'Stop Headsign', 1, 2, 100.0, 1),
+        tuples[0])
+    self.assertEqual(
+        (self.trip.trip_id, "05:15:00", "05:16:00", self.stop2.stop_id,
+         2, '', '', '', '', ''),
+        tuples[1])
 
 
 class TripClearStopTimesTestCase(util.TestCase):
