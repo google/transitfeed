@@ -108,29 +108,10 @@ class StopTime(object):
     self.timepoint = util.ValidateAndReturnIntValue(
         timepoint, [0, 1], None, True, 'timepoint', problems)
 
-    if pickup_type in (None, ""):
-      self.pickup_type = None
-    else:
-      try:
-        pickup_type = int(pickup_type)
-      except ValueError:
-        problems.InvalidValue('pickup_type', pickup_type)
-      else:
-        if pickup_type < 0 or pickup_type > 3:
-          problems.InvalidValue('pickup_type', pickup_type)
-      self.pickup_type = pickup_type
-
-    if drop_off_type in (None, ""):
-      self.drop_off_type = None
-    else:
-      try:
-        drop_off_type = int(drop_off_type)
-      except ValueError:
-        problems.InvalidValue('drop_off_type', drop_off_type)
-      else:
-        if drop_off_type < 0 or drop_off_type > 3:
-          problems.InvalidValue('drop_off_type', drop_off_type)
-      self.drop_off_type = drop_off_type
+    self.pickup_type = util.ValidateAndReturnIntValue(
+        pickup_type, [0, 1, 2, 3], None, True, 'pickup_type', problems)
+    self.drop_off_type = util.ValidateAndReturnIntValue(
+        drop_off_type, [0, 1, 2, 3], None, True, 'drop_off_type', problems)
 
     if (self.pickup_type == 1 and self.drop_off_type == 1 and
         self.arrival_secs == None and self.departure_secs == None):
