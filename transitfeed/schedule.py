@@ -528,6 +528,7 @@ class Schedule(object):
 
     if validate:
       feed_info.Validate(problem_reporter)
+    self.AddTableColumns('feed_info', feed_info._ColumnNames())
     self.feed_info = feed_info
 
   def AddTransferObject(self, transfer, problem_reporter=None):
@@ -622,6 +623,15 @@ class Schedule(object):
       for a in self._agencies.values():
         writer.writerow([util.EncodeUnicode(a[c]) for c in columns])
       self._WriteArchiveString(archive, 'agency.txt', agency_string)
+
+
+    if 'feed_info' in self._table_columns:
+      feed_info_string = StringIO.StringIO()
+      writer = util.CsvUnicodeWriter(feed_info_string)
+      columns = self.GetTableColumns('feed_info')
+      writer.writerow(columns)
+      writer.writerow([util.EncodeUnicode(self.feed_info[c]) for c in columns])
+      self._WriteArchiveString(archive, 'feed_info.txt', feed_info_string)
 
     calendar_dates_string = StringIO.StringIO()
     writer = util.CsvUnicodeWriter(calendar_dates_string)
