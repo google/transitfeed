@@ -29,6 +29,7 @@ import unittest
 from urllib2 import HTTPError, URLError
 import urllib2
 import zipfile
+import sys
 
 
 class FullTests(util.TempDirTestCaseBase):
@@ -106,7 +107,7 @@ class FullTests(util.TempDirTestCaseBase):
     htmlout = open('validation-results.html').read()
     self.assertMatchesRegex(
         self.extension_message + self.extension_name, htmlout)
-    self.assertEquals(2, len(re.findall(r'class="problem">stop_id<', htmlout)))
+    self.assertEquals(2, len(re.findall(r'class="problem">.+<code>stop_id</code>', htmlout)))
     self.assertFalse(os.path.exists('transitfeedcrash.txt'))
 
   def testBadDateFormat(self):
