@@ -34,6 +34,7 @@ import transitfeed
 from transitfeed import TYPE_ERROR, TYPE_WARNING, TYPE_NOTICE
 from transitfeed import util
 import webbrowser
+from xml.sax.saxutils import escape
 
 def MaybePluralizeWord(count, word):
   if count == 1:
@@ -269,7 +270,7 @@ class HTMLCountingProblemAccumulator(LimitPerTypeProblemAccumulator):
       for e in problist.problems:
         self.FormatException(e, output)
       if problist.dropped_count:
-        output.append('<li>and %d more of this type.' %
+        output.append('<li>and %d more of this type.</li>' %
                       (problist.dropped_count))
       output.append('</ul>\n')
     return ''.join(output)
@@ -297,13 +298,16 @@ class HTMLCountingProblemAccumulator(LimitPerTypeProblemAccumulator):
   def FormatException(self, e, output):
     """Append HTML version of e to list output."""
     d = e.GetDictToFormat()
-    for k in ('file_name', 'feedname', 'column_name'):
-      if k in d.keys():
+          
+    for k in d.keys():
+      if k in ('file_name', 'feedname', 'column_name'):
         d[k] = '<code>%s</code>' % d[k]
-    if 'url' in d.keys():
-      d['url'] = '<a href="%(url)s">%(url)s</a>' % d
+      elif k in ('url'):
+        d[k] = '<a href="%(url)s">%(url)s</a>' % d
+      elif isinstance(d[k], basestring):
+        d[k] = escape(d[k])
 
-    problem_text = e.FormatProblem(d).replace('\n', '<br>')
+    problem_text = e.FormatProblem(d).replace('\n', '<br/>')
     problem_class = 'problem'
     if e.IsNotice():
       problem_class += ' notice'
@@ -315,7 +319,7 @@ class HTMLCountingProblemAccumulator(LimitPerTypeProblemAccumulator):
         line_str = 'line %d of ' % e.row_num
       else:
         line_str = ''
-      output.append('in %s<code>%s</code><br>\n' %
+      output.append('in %s<code>%s</code><br/>\n' %
                     (line_str, transitfeed.EncodeUnicode(e.file_name)))
       row = e.row
       headers = e.headers
@@ -327,7 +331,7 @@ class HTMLCountingProblemAccumulator(LimitPerTypeProblemAccumulator):
         if header == column_name:
           attributes = ' class="problem"'
         table_header += '<th%s>%s</th>' % (attributes, header)
-        table_data += '<td%s>%s</td>' % (attributes, value)
+        table_data += '<td%s>%s</td>' % (attributes, escape(value))
       # Make sure output is encoded into UTF-8
       output.append('<table class="dump"><tr>%s</tr>\n' %
                     transitfeed.EncodeUnicode(table_header))
@@ -335,7 +339,7 @@ class HTMLCountingProblemAccumulator(LimitPerTypeProblemAccumulator):
                     transitfeed.EncodeUnicode(table_data))
     except AttributeError, e:
       pass  # Hope this was getting an attribute from e ;-)
-    output.append('<br></li>\n')
+    output.append('<br/></li>\n')
 
   def FormatCount(self):
     return ProblemCountText(self.ErrorCount(), self.WarningCount())
@@ -361,6 +365,7 @@ class HTMLCountingProblemAccumulator(LimitPerTypeProblemAccumulator):
       output.append(self.FormatTypeSummaryTable("Warning",
                     self.ProblemListMap(TYPE_WARNING)))
       output.append('</td>\n')
+    output.append('</tr>\n')
     output.append('</table>')
     return ''.join(output)
 
@@ -407,7 +412,7 @@ class HTMLCountingProblemAccumulator(LimitPerTypeProblemAccumulator):
 
     calendar_summary = CalendarSummary(schedule)
     if calendar_summary:
-      calendar_summary_html = """<br>
+      calendar_summary_html = """<br/>
 During the upcoming service dates %(date_summary_range)s:
 <table>
 <tr><th class="header">Average trips per date:</th><td class="header">%(mean_trips)s</td></tr>
@@ -420,7 +425,7 @@ During the upcoming service dates %(date_summary_range)s:
     output_prefix = """
 <html>
 <head>
-<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
 <title>FeedValidator: %(feed_file)s</title>
 <style>
 body {font-family: Georgia, serif; background-color: white}
@@ -443,10 +448,10 @@ th.header {text-align: right; font-weight: normal; color: gray}
 </style>
 </head>
 <body>
-GTFS validation results for feed:<br>
-<code><span class="path">%(feed_dir)s</span><b>%(feed_file)s</b></code><br>
+GTFS validation results for feed:<br/>
+<code><span class="path">%(feed_dir)s</span><b>%(feed_file)s</b></code><br/>
 FeedValidator extension used: %(extension)s
-<br><br>
+<br/><br/>
 <table>
 <tr><th class="header">Agencies:</th><td class="header">%(agencies)s</td></tr>
 <tr><th class="header">Routes:</th><td class="header">%(routes)s</td></tr>
@@ -456,9 +461,9 @@ FeedValidator extension used: %(extension)s
 <tr><th class="header">Effective:</th><td class="header">%(dates)s</td></tr>
 </table>
 %(calendar_summary)s
-<br>
+<br/>
 %(problem_summary)s
-<br><br>
+<br/><br/>
 """ % { "feed_file": feed_path[1],
         "feed_dir": feed_path[0],
         "agencies": agencies,
