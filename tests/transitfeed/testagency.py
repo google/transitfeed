@@ -56,7 +56,7 @@ class AgencyValidationTestCase(util.ValidationTestCase):
                                 lang='English')
     self.ValidateAndExpectInvalidValue(agency, 'agency_lang')
 
-    # bad 2-letter lanugage code
+    # bad 2-letter language code
     agency = transitfeed.Agency(name='Test Agency', url='http://example.com',
                                 timezone='America/Los_Angeles', id='TA',
                                 lang='xx')
