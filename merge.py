@@ -1182,8 +1182,10 @@ class ServicePeriodMerger(DataSetMerger):
         start: The start date as a string in YYYYMMDD format.
         end: The end date as a string in YYYYMMDD format.
       """
-      service_period.start_date = max(service_period.start_date, start)
-      service_period.end_date = min(service_period.end_date, end)
+      if service_period.start_date is not None:
+        service_period.start_date = max(service_period.start_date, start)
+      if service_period.end_date is not None:
+        service_period.end_date = min(service_period.end_date, end)
       dates_to_delete = []
       for k in service_period.date_exceptions:
         if (k < start) or (k > end):
@@ -1200,7 +1202,7 @@ class ServicePeriodMerger(DataSetMerger):
     before = (cutoff_date - one_day_delta).strftime('%Y%m%d')
 
     for a in self.feed_merger.a_schedule.GetServicePeriodList():
-      TruncatePeriod(a, 0, before)
+      TruncatePeriod(a, '0'*8, before)
     for b in self.feed_merger.b_schedule.GetServicePeriodList():
       TruncatePeriod(b, cutoff, '9'*8)
 
