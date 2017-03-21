@@ -616,7 +616,7 @@ def ParseCommandLineArguments():
 Validates GTFS file (or directory) <input GTFS.zip> and writes a HTML
 report of the results to validation-results.html.
 
-If <input GTFS.zip> is ommited the filename is read from the console. Dragging
+If <input GTFS.zip> is omitted the filename is read from the console. Dragging
 a file into the console may enter the filename.
 
 For more information see
