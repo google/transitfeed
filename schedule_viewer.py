@@ -29,7 +29,7 @@ import mimetypes
 import os.path
 import re
 import signal
-import simplejson
+import json as simplejson
 import socket
 import time
 import transitfeed
