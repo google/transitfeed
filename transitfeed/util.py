@@ -264,6 +264,22 @@ def ValidateURL(url, column_name=None, problems=None):
       problems.InvalidValue(column_name, url)
     return False
 
+def ValidateEmail(email, column_name=None, problems=None):
+  """
+  checks the basic validity of email:
+    - should start with any string not including @
+    - then should match a single @
+    - then matches any string not including @
+    - then contains a single dot
+    - then again matches any string after dot.
+  """
+  if re.match(r'[^@]+@[^@]+\.[^@]+', email):
+    return True
+  else:
+    if problems:
+      problems.InvalidValue(column_name, email)
+    return False
+
 def IsValidHexColor(color):
   """
   Checks the validity of a hex color value:
