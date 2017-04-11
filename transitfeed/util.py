@@ -267,13 +267,14 @@ def ValidateURL(url, column_name=None, problems=None):
 def ValidateEmail(email, column_name=None, problems=None):
   """
   checks the basic validity of email:
+    - an empty email is considered valid and no error or warning is issued.
     - should start with any string not including @
     - then should match a single @
     - then matches any string not including @
     - then contains a single dot
     - then again matches any string after dot.
   """
-  if re.match(r'[^@]+@[^@]+\.[^@]+', email):
+  if IsEmpty(email) or re.match(r'[^@]+@[^@]+\.[^@]+', email):
     return True
   else:
     if problems:
