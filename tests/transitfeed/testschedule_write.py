@@ -437,6 +437,15 @@ class WriteSampleFeedTestCase(util.TempFileTestCaseBase):
           destination_id=dest_id, contains_id=contains_id)
       schedule.AddFareRuleObject(rule, problems)
 
+    feed_info = transitfeed.FeedInfo()
+    feed_info.feed_version = "0.0.1"
+    feed_info.feed_start_date = "20150101"
+    feed_info.feed_end_date = "20151212"
+    feed_info.feed_publisher_name = "Some Agency"
+    feed_info.feed_publisher_url = "http://www.aurl.com"
+    feed_info.feed_lang = "en"
+    schedule.AddFeedInfoObject(feed_info)
+
     schedule.Validate(problems)
     accumulator.AssertNoMoreExceptions()
     schedule.WriteGoogleTransitFeed(self.tempfilepath)
@@ -514,3 +523,7 @@ class WriteSampleFeedTestCase(util.TempFileTestCaseBase):
 
     self.assertEqual(1, len(read_schedule.GetShapeList()))
     self.assertEqual(shape, read_schedule.GetShape(shape.shape_id))
+
+    self.assertEqual(feed_info, read_schedule.feed_info)
+    self.assertEqual(feed_info.feed_publisher_name, read_schedule.feed_info.feed_publisher_name)
+    self.assertEqual("http://www.aurl.com", read_schedule.feed_info.feed_publisher_url)
