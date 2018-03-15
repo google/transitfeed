@@ -14,19 +14,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+"""
+Wrapper that makes more useful stack dumps when your script crashes.
 
-# Example use:
-# def main():
-#   ...
-#
-# if __name__ == '__main__':
-#   try:
-#     import traceplus
-#   except ImportError:
-#     main()
-#   else:
-#     traceplus.RunWithExpandedTrace(main)
-
+See traceplus_example.py for a demonstration.
+"""
 
 def MakeExpandedTrace(frame_records):
   """Return a list of text lines for the given list of frame records."""

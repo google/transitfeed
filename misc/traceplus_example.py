@@ -15,6 +15,7 @@ def main():
   args = parser.parse_args()
   CrashOrNot(args.crash)
 
+# If the traceplus module is found use it, otherwise run main() directly.
 if __name__ == '__main__':
   try:
     import traceplus
