@@ -135,13 +135,15 @@ class Trip(GtfsObjectBase):
     row = cursor.fetchone()
     if row[0] is None:
       # This is the first stop_time of the trip
-      if stoptime.stop_sequence is None:
+      given_stop_sequence = getattr(stoptime, "stop_sequence", None)
+      if given_stop_sequence is None:
         stoptime.stop_sequence = 1
       if new_secs == None:
         problems.OtherProblem(
             'No time for first StopTime of trip_id "%s"' % (self.trip_id,))
     else:
-      if stoptime.stop_sequence is None:
+      given_stop_sequence = getattr(stoptime, "stop_sequence", None)
+      if given_stop_sequence is None:
         stoptime.stop_sequence = row[0] + 1
       prev_secs = max(row[1], row[2])
       if new_secs != None and new_secs < prev_secs:
