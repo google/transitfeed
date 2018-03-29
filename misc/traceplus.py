@@ -1,6 +1,6 @@
 #!/usr/bin/python2.5
 
-# Copyright (C) 2009 Google Inc.
+# Copyright (C) 2018 Google Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,13 +17,7 @@
 """
 Wrapper that makes more useful stack dumps when your script crashes.
 
-Normal use, so that your script works if with or without traceplus:
-if __name__ == '__main__':
-  try:
-    import traceplus
-    traceplus.RunWithExpandedTrace(main)
-  except ImportError:
-    main()
+See traceplus_example.py for a demonstration.
 """
 
 def MakeExpandedTrace(frame_records):
@@ -41,13 +35,17 @@ def MakeExpandedTrace(frame_records):
           dump.append('     %s' % line)
     for local_name, local_val in frame_obj.f_locals.items():
       try:
+        local_type_name = type(local_val).__name__
+      except Exception as e:
+        local_type_name = '    Exception in type({}).__name__: {}'.format(local_name, e)
+      try:
         truncated_val = repr(local_val)[0:500]
-      except Exception, e:
-        dump.append('    Exception in str(%s): %s\n' % (local_name, e))
+      except Exception as e:
+        dump.append('    Exception in repr({}): {}\n'.format(local_name, e))
       else:
         if len(truncated_val) >= 500:
           truncated_val = '%s...' % truncated_val[0:499]
-        dump.append('    %s = %s\n' % (local_name, truncated_val))
+        dump.append('    {} = {} ({})\n'.format(local_name, truncated_val, local_type_name))
     dump.append('\n')
   return dump
 
@@ -62,21 +60,22 @@ def RunWithExpandedTrace(closure):
     import sys
     import traceback
 
-    # Save trace and exception now. These calls look at the most recently
+    # Save trace and exception now. This call looks at the most recently
     # raised exception. The code that makes the report might trigger other
     # exceptions.
-    original_trace = inspect.trace(3)[1:]
-    formatted_exception = traceback.format_exception_only(*(sys.exc_info()[:2]))
+    exc_type, exc_value, tb = sys.exc_info()
+    frame_records = inspect.getinnerframes(tb, 3)[1:]
+    formatted_exception = traceback.format_exception_only(exc_type, exc_value)
 
     dashes = '%s\n' % ('-' * 60)
     dump = []
     dump.append(dashes)
-    dump.extend(MakeExpandedTrace(original_trace))
+    dump.extend(MakeExpandedTrace(frame_records))
 
 
     dump.append(''.join(formatted_exception))
 
-    print ''.join(dump)
-    print
-    print dashes
+    print(''.join(dump))
+    print()
+    print(dashes)
     sys.exit(127)
