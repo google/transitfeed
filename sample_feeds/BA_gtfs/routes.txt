@@ -1,0 +1,7 @@
+route_id,agency_id,route_short_name,route_long_name,route_desc,route_type,route_url,route_color,route_text_color
+"Antioch - SFIA/Millbrae","BA",,"Antioch - SFIA/Millbrae","",2,"http://www.bart.gov/schedules/bylineresults?route=1","ffff33",""
+"Warm Springs/South Fremont - Richmond","BA",,"Warm Springs/South Fremont - Richmond","",2,"http://www.bart.gov/schedules/bylineresults?route=3","ff9933",""
+"Warm Springs/South Fremont - Daly City","BA",,"Warm Springs/South Fremont - Daly City","",2,"http://www.bart.gov/schedules/bylineresults?route=5","339933",""
+"Richmond - Daly City/Millbrae","BA",,"Richmond - Daly City/Millbrae","",2,"http://www.bart.gov/schedules/bylineresults?route=7","ff0000",""
+"Dublin/Pleasanton - Daly City","BA",,"Dublin/Pleasanton - Daly City","",2,"http://www.bart.gov/schedules/bylineresults?route=11","0099cc",""
+"Oakland Airport - Coliseum","BA",,"Oakland Airport - Coliseum","",2,"http://www.bart.gov/schedules/bylineresults?route=19","d5cfa3",""

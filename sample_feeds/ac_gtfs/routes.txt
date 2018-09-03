@@ -1,153 +1,151 @@
-route_id,route_short_name,route_long_name,route_desc,route_type,route_url
-1,1,"San Leandro Bart\ Dtn. Oakland",,3,
-10,10,"San Leandro Bart\ Hayward Bart",,3,
-12,12,"Dtn. Oakland\ Dtn. Berkeley\ Gilman St.",,3,
-14,14,"W. Oakland Bart\ Fruitval Bart",,3,
-18,18,"San Pablo & Monroe\ Berkeley\ Merritt Bart",,3,
-19,19,"Dtn. Oakland\ Fruitvale Bart",,3,
-20,20,"Fruitvale Ave\ Alameda\ 11th M.L.K. Jr Wy",,3,
-200,200,"Union City BART-Newpark Mall-Fremont BART",,3,
-21,21,"Fruitvale Ave\ Alameda\ Oakland Airport",,3,
-210,210,"Union Landing - Frmt. Blvd. - Ohlone",,3,
-212,212,"Fremont BART-Newpark Mall-Pacific Commons",,3,
-215,215,"Fremont BART-Mission-Warm Springs-Industrial Area",,3,
-216,216,"U.C. BART-Niles-Fremont BART-Ohlone Newark",,3,
-217,217,"Frmt BART - Mission - Milpitas - Alder",,3,
-232,232,"Fremont BART-U.C. BART-Mission-Ohlone Newark",,3,
-239,239,"Fremont BART-Warm Springs",,3,
-251,251,"Fremont BART-Mowry-Thornton",,3,
-28,28,"Hayward\ Castro Valley\ Bayfair\ San Leandro Bart",,3,
-29,29,"Emeryville\ W. Oakland Bart\ Lakeshore Ave",,3,
-314,314,"Alameda Senior Shuttle",,3,
-33,33,"Montclair\ Piedmont",,3,
-339,339,"Fruitvale Bart\ Chabot Observatory",,3,
-34,34,"Hayward Bart \ Foothill Sq.",,3,
-35,35,"Bayfair Bart\ Foothill Sq.",,3,
-356,356,"Alameda Senior Shuttle",,3,
-36,36,"W. Oakland Bart\ Bancroft Way\ U.C. Berkeley",,3,
-376,376,"North Richmond Shuttle",,3,
-39,39,"Fruitvale Bart\ Skyline High School",,3,
-40,40,"Dtn. Oakland\ Eastmont T.C.\ Bayfair Bart",,3,
-41,41,"Bayfair Bart\ Union Landing",,3,
-45,45,"Eastmont T. C.\ Foothill Sq.",,3,
-46,46,"Coliseum Bart\ Knowland Zoo",,3,
-46L,46L,"Coliseum Bart\ Golf Links Rd\ Dunkirk Ave",,3,
-47,47,"Fruitvale Bart\ Maxwell Park\ Div. 4.",,3,
-51A,51A,"Oakland\ Alameda\ Fruitvale Bart",,3,
-51B,51B,"RockRidge - 3RUN",,3,
-52,52,"U.C. Village - U.C. Campus",,3,
-54,54,"Fruitvale Bart\ Merritt College",,3,
-56,56,"Hayward Bart\ Union Landing",,3,
-57,57,"Emeryville\ Macarthur Blvd\ Foothill Sq",,3,
-6,6,"Dtn. Oakland\ Dtn. Berkeley",,3,
-60,60,"CSUEB\ Hayward Bart\ Chabot College",,3,
-604,604,"Berkeley - Oakland - H.Royce School",,3,
-605,605,"Berkeley - Oakland - H.Royce School",,3,
-606,606,"Berkeley - Oakland - H.Royce School",,3,
-607,607,"Richmond H.S. - Point Richmond",,3,
-611,611,"Diamond Dist./ Westlake M.S./ Piedmont",,3,
-617,617,"Seminary Ave/ Skyline H.S.",,3,
-62,62,"W. Oakland Bart\ Fruitvale Bart",,3,
-620,620,"Cedar Blvd-Newark Memorial H.S.",,3,
-621,621,"Fremont - American H.S.",,3,
-623,623,"Horner JH - P. Padre Pkwy & Mission",,3,
-624,624,"Paseo Padre - Mission S.J. High School",,3,
-625,625,"Centerville JHS - Niles & El Portal",,3,
-626,626,"Newark Blvd.",,3,
-628,628,"Cedar Blvd.",,3,
-629,629,"Cherry St.",,3,
-631,631,"Alameda/ Encinal H.S.",,3,
-638,638,"73rd International Blvd - Skyline High",,3,
-642,642,"Montera M.S./ Snake Rd.",,3,
-646,646,"Montera/ Skyline High/ Coliseum Bart",,3,
-648,648,"Skyline H.S./ Fruitvale Bart",,3,
-649,649,"Skyline H.S./ Grass Valley",,3,
-65,65,"Spruce St. - Euclid Ave.",,3,
-650,650,"Skyline H.S./ Montera Middle School",,3,
-652,652,"Skyline H.S./ Sequoyah Rd/ 90th. & Inter Blvd",,3,
-653,653,"MacArthur-Bdway/ Montera",,3,
-654,654,"Skyline H.S./ 35th Ave/ Fruitvale Bart",,3,
-655,655,"Montera M.S./ 35th Ave/ Fruitvale Bart",,3,
-657,657,"Oakland Tech. H.S./ Macarthur Blvd/ Coliseum Bart",,3,
-658,658,"Skyline H.S./ Macarthur Blvd/ Coolidge Ave",,3,
-660,660,"40th & Broadway/Montera",,3,
-662,662,"Skyline H.S./ 40th & Broadway",,3,
-663,663,"Encinal H.S. / Island H.S. / Broadway Blanding",,3,
-667,667,"N.Richmond - Rich. BART - El Cerrito",,3,
-668,668,"21st & Macdonald Ave. - El Cerrito",,3,
-669,669,"CCC - DeAnza HS/Crespi MS",,3,
-67,67,"Berkeley Bart - Grizzly Peak Blvd.",,3,
-671,671,"CCC - De Anza HS/Crespi MS",,3,
-672,672,"N.Richmond - San Pablo - El Sobrante",,3,
-675,675,"21st & Macdonald Ave. - El Cerrito",,3,
-676,676,"N.Richmond - San Pablo - El Sobrante",,3,
-677,677," Montera M.S./ Skyline Rd.",,3,
-679,679,"Crespi MS & DeAnza High Schools",,3,
-680,680,"Bishop O'Dowd H.S./ Macarthur Blvd",,3,
-681,681,"Rich Pkwy & W.Macd - DeJean M.S.",,3,
-682,682,"Bishop O'Dowd H.S./ Montclair/ 40th Broadway",,3,
-684,684,"Rich. BART /El Cerrito HS",,3,
-687,687,"Bay Farm Is. / Lincoln Middle Sch.",,3,
-688,688,"St. Marys H.S./ Montclair/ Lakeshore Ave",,3,
-696,696,"Oakland Tech H.S./ Montclair/ Redwood Rd",,3,
-7,7,"D. Norte Bart\ Berkeley Bart",,3,
-70,70,"Richmond Pkwy. TC. - Richmond BART",,3,
-71,71,"Richmond Pkwy TC - El Cerrito Plaza BART",,3,
-72,72,"Richmond - Downtown Oakland",,3,
-72M,72M,"Richmond - Downtown Oakland",,3,
-72R,72R,"San Pablo Rapid BUS",,3,
-73,73,"Eastmont T.C.\ Oakland Airport",,3,
-74,74,"CCC/Richmond BART/Ford Pt.",,3,
-76,76,"Hilltop Mall - CCC - del Norte BART",,3,
-79,79,"Rockridge/Berkeley/El Cerrito BART",,3,
-80,80,"Claremont/El Cerrito Bart",,3,
-800,800,"OWL\ San Francisco\ Dtn. Oakland\ Richmond Bart",,3,
-801,801,"OWL-DTN.OAKLAND/FREMONT BART",,3,
-802,802,"OWL- Berkeley-Emeryville/Dnt-Oak",,3,
-805,805,"OWL\ Dtn. Oakland\ Oakland  Airport",,3,
-83,83,"Hayward Bart\ S. Hayward Bart",,3,
-840,840,"OWL\ Dtn. Oakland\ Eastmont T. C.",,3,
-851,851,"OWL - ALAMEDA/DNT BERK",,3,
-86,86,"Hayward Bart\ S. Hayward Bart",,3,
-88,88,"Berkeley Bart\ Dtn.Oakland",,3,
-90,90,"Coliseum Bart\ 85thAve\ Foothill Sq",,3,
-93,93,"Castro Valley\ Hayward \ Bayfair Bart",,3,
-94,94,"Hayward Bart\ Hayward Hills",,3,
-95,95,"Kelly Hill\ Hayward Bart",,3,
-96,96,"Fruitvale Montana\ Alameda Point",,3,
-97,97,"Bayfair\ Hesperian Blvd\ Union City Bart",,3,
-98,98,"Coliseum Bart\ 98th Ave\ Eastmont T.C.",,3,
-99,99,"Hayward\ Union City\ Fremont Bart",,3,
-B,B,"San Francisco - Trestle Glen",,3,
-BSD,BSD,"BROADWAY SHUTTLE DAY",,3,
-BSN,BSN,"BROADWAY SHUTTLE NIGHT",,3,
-C,C,"San Francisco - Piedmont",,3,
-CB,CB,"San Francisco - Montclair",,3,
-DB,DB,"Dumbarton Express",,3,
-DB1,DB1,"Dumbarton Express",,3,
-E,E,"San Francisco - Claremont -Parkwood",,3,
-F,F,"San Francisco - Berkeley",,3,
-FS,FS,"San Francisco - Berkeley",,3,
-G,G,"San Francisco - El Cerrito",,3,
-H,H,"San Francisco - Richmond",,3,
-J,J,"Berkeley - San Francisco",,3,
-L,L,"San Francisco - El Sobrante",,3,
-LA,LA,"San Francisco - El Sobrante",,3,
-LC,LC,"SF/Hilltop Park & Ride (L/LA Sweeper)",,3,
-M,M,"Hayward BART- Hillsdale Mall- Oracle",,3,
-NL,NL,"San Francisco\ Eastmont T.C.",,3,
-NX,NX,"East Oakland\ San Francisco",,3,
-NX1,NX1,"San Francisco\ East Oakland",,3,
-NX2,NX2,"San Francisco\ East Oakland",,3,
-NX3,NX3,"San Francisco\ San Leandro",,3,
-NX4,NX4,"San Francisco\ Castro Valley",,3,
-NXC,NXC,"San Francisco\ Oakland (NX Sweeper)",,3,
-O,O,"San Francisco\ Alameda\ Fruitvale Bart",,3,
-OX,OX,"San Francisco\ Alameda\ Bay Farm Is.",,3,
-P,P,"San Francisco - Piedmont",,3,
-S,S,"San Francisco - San Lorenzo- Hayward",,3,
-SB,SB,"San Francisco - Hayward - Newark",,3,
-U,U,"Frmt. BART- Stanford University",,3,
-V,V,"San Francisco\ Montclair",,3,
-W,W,"San Francisco\ Alameda",,3,
-Z,Z,"San Francisco - Albany",,3,
+route_id,agency_id,route_short_name,route_long_name,route_desc,route_type,route_url,route_color,route_text_color
+"19","AC",19,Dtn. Oakland\ Fruitvale Bart,"",3,"","",""
+"40","AC",40,Dtn. Oakland\ Eastmont T.C.\ Bayfair Bart,"",3,"","",""
+"14","AC",14,W. Oakland Bart\ Fruitval Bart,"",3,"","",""
+"21","AC",21,Fruitvale Ave\ Alameda\ Oakland Airport,"",3,"","",""
+"45","AC",45,Eastmont T. C.\ Foothill Sq.,"",3,"","",""
+"210","AC",210,Union Landing - Frmt. Blvd. - Ohlone,"",3,"","",""
+"18","AC",18,San Pablo & Monroe\ Berkeley\ Merritt Bart,"",3,"","",""
+"62","AC",62,W. Oakland Bart\ Fruitvale Bart,"",3,"","",""
+"65","AC",65,Spruce St. - Euclid Ave.,"",3,"","",""
+"215","AC",215,Fremont BART-Mission-Warm Springs-Industrial Area,"",3,"","",""
+"314","AC",314,Alameda Senior Shuttle,"",3,"","",""
+"7","AC",7,D. Norte Bart\ Berkeley Bart,"",3,"","",""
+"72M","AC",72M,Richmond - Downtown Oakland,"",3,"","",""
+"47","AC",47,Fruitvale Bart\ Maxwell Park\ Div. 4.,"",3,"","",""
+"54","AC",54,Fruitvale Bart\ Merritt College,"",3,"","",""
+"339","AC",339,Fruitvale Bart\ Chabot Observatory,"",3,"","",""
+"39","AC",39,Fruitvale Bart\ Skyline High School,"",3,"","",""
+"1","AC",1,San Leandro Bart\ Dtn. Oakland,"",3,"","",""
+"60","AC",60,CSUEB\ Hayward Bart\ Chabot College,"",3,"","",""
+"99","AC",99,Hayward\ Union City\ Fremont Bart,"",3,"","",""
+"46","AC",46,Coliseum Bart\ Knowland Zoo,"",3,"","",""
+"51A","AC",51A,Oakland\ Alameda\ Fruitvale Bart,"",3,"","",""
+"51B","AC",51B,RockRidge - 3RUN,"",3,"","",""
+"FS","AC",FS,San Francisco - Berkeley,"",3,"","",""
+"840","AC",840,OWL\ Dtn. Oakland\ Eastmont T. C.,"",3,"","",""
+"57","AC",57,Emeryville\ Macarthur Blvd\ Foothill Sq,"",3,"","",""
+"239","AC",239,Fremont BART-Warm Springs,"",3,"","",""
+"H","AC",H,San Francisco - Richmond,"",3,"","",""
+"L","AC",L,San Francisco - El Sobrante,"",3,"","",""
+"NL","AC",NL,San Francisco\ Eastmont T.C.,"",3,"","",""
+"NX","AC",NX,East Oakland\ San Francisco,"",3,"","",""
+"95","AC",95,Kelly Hill\ Hayward Bart,"",3,"","",""
+"NX2","AC",NX2,San Francisco\ East Oakland,"",3,"","",""
+"800","AC",800,OWL\ San Francisco\ Dtn. Oakland\ Richmond Bart,"",3,"","",""
+"NXC","AC",NXC,San Francisco\ Oakland (NX Sweeper),"",3,"","",""
+"O","AC",O,San Francisco\ Alameda\ Fruitvale Bart,"",3,"","",""
+"U","AC",U,Frmt. BART- Stanford University,"",3,"","",""
+"251","AC",251,Fremont BART-Mowry-Thornton,"",3,"","",""
+"802","AC",802,OWL- Berkeley-Emeryville/Dnt-Oak,"",3,"","",""
+"83","AC",83,Hayward Bart\ S. Hayward Bart,"",3,"","",""
+"851","AC",851,OWL - ALAMEDA/DNT BERK,"",3,"","",""
+"356","AC",356,Alameda Senior Shuttle,"",3,"","",""
+"88","AC",88,Berkeley Bart\ Dtn.Oakland,"",3,"","",""
+"376","AC",376,North Richmond Shuttle,"",3,"","",""
+"52","AC",52,U.C. Village - U.C. Campus,"",3,"","",""
+"93","AC",93,Castro Valley\ Hayward \ Bayfair Bart,"",3,"","",""
+"98","AC",98,Coliseum Bart\ 98th Ave\ Eastmont T.C.,"",3,"","",""
+"B","AC",B,San Francisco - Trestle Glen,"",3,"","",""
+"CB","AC",CB,San Francisco - Montclair,"",3,"","",""
+"F","AC",F,San Francisco - Berkeley,"",3,"","",""
+"W","AC",W,San Francisco\ Alameda,"",3,"","",""
+"LA","AC",LA,San Francisco - El Sobrante,"",3,"","",""
+"LC","AC",LC,SF/Hilltop Park & Ride (L/LA Sweeper),"",3,"","",""
+"S","AC",S,San Francisco - San Lorenzo- Hayward,"",3,"","",""
+"Z","AC",Z,San Francisco - Albany,"",3,"","",""
+"BSN","AC",BSN,BROADWAY SHUTTLE NIGHT,"",3,"","",""
+"200","AC",200,Union City BART-Newpark Mall-Fremont BART,"",3,"","",""
+"20","AC",20,Fruitvale Ave\ Alameda\ 11th M.L.K. Jr Wy,"",3,"","",""
+"216","AC",216,U.C. BART-Niles-Fremont BART-Ohlone Newark,"",3,"","",""
+"67","AC",67,Berkeley Bart - Grizzly Peak Blvd.,"",3,"","",""
+"212","AC",212,Fremont BART-Newpark Mall-Pacific Commons,"",3,"","",""
+"46L","AC",46L,Coliseum Bart\ Golf Links Rd\ Dunkirk Ave,"",3,"","",""
+"217","AC",217,Frmt BART - Mission - Milpitas - Alder,"",3,"","",""
+"71","AC",71,Richmond Pkwy TC - El Cerrito Plaza BART,"",3,"","",""
+"604","AC",604,Berkeley - Oakland - H.Royce School,"",3,"","",""
+"605","AC",605,Berkeley - Oakland - H.Royce School,"",3,"","",""
+"617","AC",617,Seminary Ave/ Skyline H.S.,"",3,"","",""
+"620","AC",620,Cedar Blvd-Newark Memorial H.S.,"",3,"","",""
+"621","AC",621,Fremont - American H.S.,"",3,"","",""
+"OX","AC",OX,San Francisco\ Alameda\ Bay Farm Is.,"",3,"","",""
+"623","AC",623,Horner JH - P. Padre Pkwy & Mission,"",3,"","",""
+"232","AC",232,Fremont BART-U.C. BART-Mission-Ohlone Newark,"",3,"","",""
+"606","AC",606,Berkeley - Oakland - H.Royce School,"",3,"","",""
+"607","AC",607,Richmond H.S. - Point Richmond,"",3,"","",""
+"611","AC",611,Diamond Dist./ Westlake M.S./ Piedmont,"",3,"","",""
+"624","AC",624,Paseo Padre - Mission S.J. High School,"",3,"","",""
+"625","AC",625,Centerville JHS - Niles & El Portal,"",3,"","",""
+"626","AC",626,Newark Blvd.,"",3,"","",""
+"628","AC",628,Cedar Blvd.,"",3,"","",""
+"72","AC",72,Richmond - Downtown Oakland,"",3,"","",""
+"28","AC",28,,"",3,"","",""
+"34","AC",34,,"",3,"","",""
+"35","AC",35,,"",3,"","",""
+"41","AC",41,,"",3,"","",""
+"56","AC",56,Hayward Bart\ Union Landing,"",3,"","",""
+"6","AC",6,Dtn. Oakland\ Dtn. Berkeley,"",3,"","",""
+"629","AC",629,Cherry St.,"",3,"","",""
+"631","AC",631,Alameda/ Encinal H.S.,"",3,"","",""
+"638","AC",638,73rd International Blvd - Skyline High,"",3,"","",""
+"642","AC",642,Montera M.S./ Snake Rd.,"",3,"","",""
+"646","AC",646,Montera/ Skyline High/ Coliseum Bart,"",3,"","",""
+"648","AC",648,Skyline H.S./ Fruitvale Bart,"",3,"","",""
+"649","AC",649,Skyline H.S./ Grass Valley,"",3,"","",""
+"650","AC",650,Skyline H.S./ Montera Middle School,"",3,"","",""
+"652","AC",652,Skyline H.S./ Sequoyah Rd/ 90th. & Inter Blvd,"",3,"","",""
+"801","AC",801,OWL-DTN.OAKLAND/FREMONT BART,"",3,"","",""
+"10","AC",10,San Leandro Bart\ Hayward Bart,"",3,"","",""
+"805","AC",805,OWL\ Dtn. Oakland\ Oakland  Airport,"",3,"","",""
+"86","AC",86,Hayward Bart\ S. Hayward Bart,"",3,"","",""
+"90","AC",90,Coliseum Bart\ 85thAve\ Foothill Sq,"",3,"","",""
+"94","AC",94,Hayward Bart\ Hayward Hills,"",3,"","",""
+"97","AC",97,Bayfair\ Hesperian Blvd\ Union City Bart,"",3,"","",""
+"BSD","AC",BSD,BROADWAY SHUTTLE DAY,"",3,"","",""
+"C","AC",C,San Francisco - Piedmont,"",3,"","",""
+"M","AC",M,Hayward BART- Hillsdale Mall- Oracle,"",3,"","",""
+"NX1","AC",NX1,San Francisco\ East Oakland,"",3,"","",""
+"E","AC",E,San Francisco - Claremont -Parkwood,"",3,"","",""
+"G","AC",G,San Francisco - El Cerrito,"",3,"","",""
+"74","AC",74,CCC/Richmond BART/Ford Pt.,"",3,"","",""
+"NX3","AC",NX3,San Francisco\ San Leandro,"",3,"","",""
+"J","AC",J,Berkeley - San Francisco,"",3,"","",""
+"NX4","AC",NX4,San Francisco\ Castro Valley,"",3,"","",""
+"P","AC",P,San Francisco - Piedmont,"",3,"","",""
+"SB","AC",SB,San Francisco - Hayward - Newark,"",3,"","",""
+"V","AC",V,San Francisco\ Montclair,"",3,"","",""
+"653","AC",653,MacArthur-Bdway/ Montera,"",3,"","",""
+"654","AC",654,Skyline H.S./ 35th Ave/ Fruitvale Bart,"",3,"","",""
+"73","AC",73,Eastmont T.C.\ Oakland Airport,"",3,"","",""
+"675","AC",675,21st & Macdonald Ave. - El Cerrito,"",3,"","",""
+"676","AC",676,N.Richmond - San Pablo - El Sobrante,"",3,"","",""
+"677","AC",677,Montera M.S./ Skyline Rd.,"",3,"","",""
+"679","AC",679,Crespi MS & DeAnza High Schools,"",3,"","",""
+"680","AC",680,"Bishop O'Dowd H.S./ Macarthur Blvd","",3,"","",""
+"681","AC",681,Rich Pkwy & W.Macd - DeJean M.S.,"",3,"","",""
+"682","AC",682,"Bishop O'Dowd H.S./ Montclair/ 40th Broadway","",3,"","",""
+"684","AC",684,Rich. BART /El Cerrito HS,"",3,"","",""
+"687","AC",687,Bay Farm Is. / Lincoln Middle Sch.,"",3,"","",""
+"12","AC",12,Dtn. Oakland\ Dtn. Berkeley\ Gilman St.,"",3,"","",""
+"655","AC",655,Montera M.S./ 35th Ave/ Fruitvale Bart,"",3,"","",""
+"657","AC",657,Oakland Tech. H.S./ Macarthur Blvd/ Coliseum Bart,"",3,"","",""
+"658","AC",658,Skyline H.S./ Macarthur Blvd/ Coolidge Ave,"",3,"","",""
+"660","AC",660,40th & Broadway/Montera,"",3,"","",""
+"662","AC",662,Skyline H.S./ 40th & Broadway,"",3,"","",""
+"663","AC",663,Encinal H.S. / Island H.S. / Broadway Blanding,"",3,"","",""
+"667","AC",667,N.Richmond - Rich. BART - El Cerrito,"",3,"","",""
+"668","AC",668,21st & Macdonald Ave. - El Cerrito,"",3,"","",""
+"669","AC",669,CCC - DeAnza HS/Crespi MS,"",3,"","",""
+"671","AC",671,CCC - De Anza HS/Crespi MS,"",3,"","",""
+"672","AC",672,N.Richmond - San Pablo - El Sobrante,"",3,"","",""
+"688","AC",688,St. Marys H.S./ Montclair/ Lakeshore Ave,"",3,"","",""
+"696","AC",696,Oakland Tech H.S./ Montclair/ Redwood Rd,"",3,"","",""
+"70","AC",70,Richmond Pkwy. TC. - Richmond BART,"",3,"","",""
+"72R","AC",72R,San Pablo Rapid BUS,"",3,"","",""
+"76","AC",76,Hilltop Mall - CCC - del Norte BART,"",3,"","",""
+"29","AC",29,Emeryville\ W. Oakland Bart\ Lakeshore Ave,"",3,"","",""
+"33","AC",33,Montclair\ Piedmont,"",3,"","",""
+"36","AC",36,W. Oakland Bart\ Bancroft Way\ U.C. Berkeley,"",3,"","",""
+"80","AC",80,Claremont/El Cerrito Bart,"",3,"","",""
+"96","AC",96,Fruitvale Montana\ Alameda Point,"",3,"","",""
+"79","AC",79,Rockridge/Berkeley/El Cerrito BART,"",3,"","",""
