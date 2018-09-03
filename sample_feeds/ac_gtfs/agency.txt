@@ -1,0 +1,2 @@
+agency_id,agency_name,agency_url,agency_timezone,agency_lang,agency_phone
+"AC Transit","AC Transit",http://www.actransit.org,America/Los_Angeles,EN,(510)891-4777
