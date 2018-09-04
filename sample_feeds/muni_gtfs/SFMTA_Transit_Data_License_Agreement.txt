@@ -1,0 +1,57 @@
+
+SFMTA TRANSIT DATA FEED LICENSE AGREEMENT
+
+The San Francisco Municipal Transportation Agency ("SFMTA" or "Muni"), a department of the City and County of San Francisco (the "City"), hereby grants to the Licensee a non-exclusive, limited and revocable right to use, reproduce, and redistribute SFMTA Transit Data ("the Data"), subject to the following Terms:
+
+1. SFMTA hereby grants Licensee a nonexclusive, limited, and revocable license to use, reproduce, and distribute Data subject to the terms and conditions stated in this License Agreement.  The license granted in this License Agreement shall be effective from the date of delivery of the Data. During the term of this License Agreement, SFMTA shall retain all right, title and interest in the Data. 
+ 
+2. The term "Data" includes data that will be provided to you by the SFMTA by permitting you access to an URL address that provides live, on-going transit schedule and stop data by means of a XML feed or similar technology.
+
+3. The SFMTA provides the Data to Licensee on an "as is" and "as available" basis.  The SFMTA makes no representations or warranties of any kind, express or implied, as to the accuracy of the Data.  SFMTA does not warrant that Data will be error-free and assumes no responsibility for anyone's use of the information.  The SFMTA disclaims all warranties in the Data and any application that uses the Data, whether express or implied, including but not limited to implied warranties of merchantability and fitness for a particular purpose.  A Licensee and any third party that accesses or uses the Data or uses any application produced or provided by the Licensee that uses the Data does so at its own risk and assumes all liability arising from the use of the Data or an application that uses the Data.  
+
+4. The Licensee agrees that the SFMTA and its employees, officers, directors and agents shall not be liable for damages of any kind arising from the use of Data or any application that uses the Data including but not limited to direct, indirect, incidental, punitive and consequential, and or special damages.  The Licensee shall display or include this disclaimer in any use agreement for any application of the Data created or provided by Licensee.
+
+5. The Licensee shall defend, indemnify, and hold harmless the City, together with any and all of the City's agents and employees, from and against any and all claims, losses, liabilities, damages and expenses (including reasonable attorneys' fees) of any kind whatsoever for any action or claim brought against the City arising from or concerning Licensee's use of the Data or any person's use of the Data in an application created or provided by Licensee.  
+
+6. All content on the SFMTA and City websites (http://www.sfmta.com and http://www.sfgov.org) including the collection, arrangement, assembly and presentation of pages and all logos, maps, text, images, feeds and databases are the property of the City or its content suppliers and are protected by copyright laws. This License Agreement shall not be deemed to grant Licensee any title or right to Licensor's patents, copyrights, trade secrets, or other intellectual properties.  
+
+7. The Licensee shall not display or otherwise use in association with the Data any SFMTA, Muni or other trademarks, logos, symbols, maps, and other copyrighted materials of the City and County of San Francisco, including but not limited to the seal of the City and County of San Francisco, and SFMTA and Muni agency logos and any confusingly similar variants without express written permission in advance from the SFMTA.
+
+8. The SFMTA reserves the right to alter and/or cease to provide the Data at any time without prior notice.
+
+9. This License is for limited use of the Data as set forth herein.  The SFMTA retains full title and ownership and all rights and interest in the Data, and nothing in this License Agreement alienates any of those rights or interests.  
+
+10. Licensee agrees that only Licensor shall have the right to alter, maintain, enhance, terminate, or otherwise modify the Data.	
+					
+11. The License granted hereunder does not include any right to sublicense.  The license granted hereunder is subject to the SFMTA's ability to restrict the future use of the Data.  SFMTA reserves the right to alter or terminate use of the Data at any time without notice.
+
+12. All Data derivative versions prepared by the Licensee shall bear the following notice:
+
+Reproduced with permission granted by the City and County of San Francisco.  The information has been provided by means of a nonexclusive, limited, and revocable license granted by the City and County of San Francisco.
+
+The City and County of San Francisco does not guarantee the accuracy, adequacy, completeness or usefulness of any information.  The City and County of San Francisco provides this information "as is," without warranty of any kind, express or implied, including but not limited to warranties of merchantability or fitness for a particular purpose, and assumes no responsibility for anyone's use of the information.
+
+13. Licensor shall have no liability or obligation with respect to any derivative product or other modifications of the Data by Licensee.  If any claim is asserted by a third party that, as a result of such derivative products or modifications by Licensee, the Data as so modified infringes an intellectual property right of the third party, Licensee shall defend and indemnify Licensor with respect to all costs or damages resulting from such claim, including attorney's fees, and any judgment that may be awarded against Licensor to the extent based on such derivative product or modification.
+
+14. The laws of the State of California shall govern all rights and obligations under this License Agreement, without giving effect to any principles of conflicts of laws.  Venue for any legal action concerning or arising from this License Agreement shall be in San Francisco, California.
+
+15. By accessing or using the Data, Licensee indicates that it has read, understands and agrees to the terms and conditions of this License Agreement.	
+				
+16. All notices or other communications under this Agreement shall be delivered by first class mail to:
+
+	Licensor:
+
+	Deputy Director of Information Technology
+	San Francisco Municipal Transportation Agency
+	City and County of San Francisco
+	One South Van Ness Avenue, 7th Floor
+	San Francisco, CA 94103
+	(415) 701-4419
+
+17. This License Agreement constitutes the complete and exclusive agreement between the SFMTA and Licensee with respect to the subject matter hereof and supersedes all prior oral or written understandings, communications, or agreements not specifically incorporated herein.  The SFMTA reserves the right to modify or revoke this agreement at any time without prior notice.									
+18. If any provision of this License Agreement is held to be invalid by a court of competent jurisdiction, then the remaining provisions will nevertheless remain in full force and effect.													
+19. The failure of either party to enforce at any time any of the provisions of the License Agreement, or the failure to require at any time performance by the other party of any of the provisions of this License Agreement, will in no way be construed to be a present or future waiver of such provisions, nor in any way effect the validity of either party to enforce each and every such provision thereafter.
+
+
+		
+

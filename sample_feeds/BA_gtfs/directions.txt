@@ -1,0 +1,13 @@
+route_id,direction_id,direction
+01,0,East
+01,1,West
+03,0,South
+03,1,North
+05,0,West
+05,1,East
+07,0,East
+07,1,West
+11,0,West
+11,1,East
+19,0,East
+19,1,West

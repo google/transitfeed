@@ -18,6 +18,9 @@
 
 For usage information run kmlwriter.py --help
 
+Sample Usage:
+python2 kmlwriter.py input_gtfs output_kml.kml
+
 If no output filename is specified, the output file will be given the same
 name as the feed file (with ".kml" appended) and will be placed in the same
 directory as the input feed.
@@ -502,7 +505,7 @@ class KMLWriter(object):
     shape_id_to_trips_items = shape_id_to_trips.items()
     shape_id_to_trips_items.sort(lambda a, b: cmp(len(b[1]), len(a[1])))
 
-    folder = self._CreateFolder(parent, 'Shapes', visible)
+    folder = self._CreateFolder(parent, route.route_short_name, visible)
     for shape_id, trips in shape_id_to_trips_items:
       trip_ids = [trip.trip_id for trip in trips]
       name = '%s (trips: %d)' % (shape_id, len(trips))
@@ -641,7 +644,9 @@ class KMLWriter(object):
                                         description=GetRouteDescription(route))
       self._CreateRouteShapesFolder(schedule, route_folder, route,
                                     style_id, False)
-      self._CreateRoutePatternsFolder(route_folder, route, style_id, False)
+      # Adds straight lines between points and is difficult to remove
+      # (have to manually hide from each route)
+      # self._CreateRoutePatternsFolder(route_folder, route, style_id, False)
       if self.show_trips:
         self._CreateRouteTripsFolder(route_folder, route, style_id, schedule)
     return routes_folder
@@ -706,7 +711,10 @@ class KMLWriter(object):
     doc = ET.SubElement(root, 'Document')
     open_tag = ET.SubElement(doc, 'open')
     open_tag.text = '1'
-    self._CreateStopsFolder(schedule, doc)
+    # Showing all the stops is really messy and is unnecessary for
+    # citywide/regional diagrams - also reduces file size, making
+    # output more usable for web apps
+    # self._CreateStopsFolder(schedule, doc)
     if self.split_routes:
       route_types = set()
       for route in schedule.GetRouteList():
@@ -717,7 +725,10 @@ class KMLWriter(object):
         self._CreateRoutesFolder(schedule, doc, route_type)
     else:
       self._CreateRoutesFolder(schedule, doc)
-    self._CreateShapesFolder(schedule, doc)
+    # Routes have shapes (at least for Bay Area / 511.org) so this isn't needed
+    # - also doesn't show which route a shape corresponds to so makes it difficult
+    # to manually edit based on route
+    # self._CreateShapesFolder(schedule, doc)
 
     # Make sure we pretty-print
     self._SetIndentation(root)
