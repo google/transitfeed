@@ -1,4 +1,4 @@
-#!/usr/bin/python2.5
+#!/usr/bin/python
 
 # Copyright (C) 2010 Google Inc.
 #
@@ -77,7 +77,7 @@ class Frequency(GtfsObjectBase):
       return
 
     def Validate(self, problems=None):
-      returns
+      return
 
     def AddToSchedule(self, schedule=None, problems=None):
       if schedule is None:
