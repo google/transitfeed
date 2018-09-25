@@ -1,4 +1,4 @@
-#!/usr/bin/python2.5
+#!/usr/bin/python
 
 # Copyright (C) 2007 Google Inc.
 #
@@ -380,7 +380,7 @@ class Trip(GtfsObjectBase):
     warnings.warn("No longer supported. The HeadwayPeriod class was renamed to "
                   "Frequency, and all related functions were renamed "
                   "accordingly.", DeprecationWarning)
-    self.AddFrequencyObject(frequency, problem_reporter)
+    self.AddFrequencyObject(headway_period, problem_reporter)
 
   def AddFrequencyObject(self, frequency, problem_reporter):
     """Add a Frequency object to this trip's list of Frequencies."""
