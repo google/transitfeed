@@ -263,7 +263,7 @@ class LoadUnknownFeedTestCase(util.TestCase):
     try:
       loader.Load()
       self.fail('FeedNotFound exception expected')
-    except transitfeed.FeedNotFound, e:
+    except transitfeed.FeedNotFound as e:
       self.assertEqual(feed_name, e.feed_name)
 
 class LoadUnknownFormatTestCase(util.TestCase):
@@ -276,7 +276,7 @@ class LoadUnknownFormatTestCase(util.TestCase):
     try:
       loader.Load()
       self.fail('UnknownFormat exception expected')
-    except transitfeed.UnknownFormat, e:
+    except transitfeed.UnknownFormat as e:
       self.assertEqual(feed_name, e.feed_name)
 
 class LoadUnrecognizedColumnsTestCase(util.TestCase):
@@ -382,7 +382,7 @@ class EmptyFileTestCase(util.TestCase):
     try:
       loader.Load()
       self.fail('EmptyFile exception expected')
-    except transitfeed.EmptyFile, e:
+    except transitfeed.EmptyFile as e:
       self.assertEqual('agency.txt', e.file_name)
 
 
@@ -395,7 +395,7 @@ class MissingColumnTestCase(util.TestCase):
     try:
       loader.Load()
       self.fail('MissingColumn exception expected')
-    except transitfeed.MissingColumn, e:
+    except transitfeed.MissingColumn as e:
       self.assertEqual('agency.txt', e.file_name)
       self.assertEqual('agency_name', e.column_name)
 
@@ -422,7 +422,7 @@ class LoadUTF16TestCase(util.TestCase):
       loader.Load()
       # TODO: make sure processing proceeds beyond the problem
       self.fail('FileFormat exception expected')
-    except transitfeed.FileFormat, e:
+    except transitfeed.FileFormat as e:
       # make sure these don't raise an exception
       self.assertTrue(re.search(r'encoded in utf-16', e.FormatProblem()))
       e.FormatContext()
@@ -452,7 +452,7 @@ class LoadNullTestCase(util.TestCase):
     try:
       loader.Load()
       self.fail('FileFormat exception expected')
-    except transitfeed.FileFormat, e:
+    except transitfeed.FileFormat as e:
       self.assertTrue(re.search(r'contains a null', e.FormatProblem()))
       # make sure these don't raise an exception
       e.FormatContext()

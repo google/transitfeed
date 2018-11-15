@@ -28,7 +28,7 @@ import transitfeed
 
 try:
   import xml.etree.ElementTree as ET  # python 2.5
-except ImportError, e:
+except ImportError as e:
   import elementtree.ElementTree as ET  # older pythons
 
 

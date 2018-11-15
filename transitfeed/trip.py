@@ -604,7 +604,7 @@ class Trip(GtfsObjectBase):
       try:
         route_type = self._schedule.GetRoute(self.route_id).route_type
         max_speed = route_class._ROUTE_TYPES[route_type]['max_speed']
-      except KeyError, e:
+      except KeyError as e:
         # If route_type cannot be found, assume it is 0 (Tram) for checking
         # speeds between stops.
         max_speed = route_class._ROUTE_TYPES[0]['max_speed']

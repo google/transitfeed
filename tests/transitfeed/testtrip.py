@@ -643,7 +643,7 @@ class AddFrequencyValidationTestCase(util.ValidationTestCase):
       trip = transitfeed.Trip()
       trip.AddFrequency(start_time, end_time, headway)
       self.fail("Expected InvalidValue error on %s" % column_name)
-    except transitfeed.InvalidValue, e:
+    except transitfeed.InvalidValue as e:
       self.assertEqual(column_name, e.column_name)
       self.assertEqual(value, e.value)
       self.assertEqual(0, len(trip.GetFrequencyTuples()))
@@ -653,7 +653,7 @@ class AddFrequencyValidationTestCase(util.ValidationTestCase):
       trip = transitfeed.Trip()
       trip.AddFrequency(start_time, end_time, headway)
       self.fail("Expected MissingValue error on %s" % column_name)
-    except transitfeed.MissingValue, e:
+    except transitfeed.MissingValue as e:
       self.assertEqual(column_name, e.column_name)
       self.assertEqual(0, len(trip.GetFrequencyTuples()))
 
