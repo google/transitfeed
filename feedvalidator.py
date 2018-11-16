@@ -19,6 +19,7 @@
 
 For usage information run feedvalidator.py --help
 """
+from __future__ import print_function
 
 import bisect
 import codecs
@@ -514,7 +515,7 @@ def RunValidationOutputToFilename(feed, options, output_filename):
     exit_code = RunValidationOutputToFile(feed, options, output_file)
     output_file.close()
   except IOError, e:
-    print 'Error while writing %s: %s' % (output_filename, e)
+    print('Error while writing %s: %s' % (output_filename, e))
     output_filename = None
     exit_code = 2
 
@@ -579,8 +580,8 @@ def RunValidation(feed, options, problems):
 
   gtfs_factory = extension_module.GetGtfsFactory()
 
-  print 'validating %s' % feed
-  print 'FeedValidator extension used: %s' % options.extension
+  print('validating %s' % feed)
+  print('FeedValidator extension used: %s' % options.extension)
   loader = gtfs_factory.Loader(feed, problems=problems, extra_validation=False,
                                memory_db=options.memory_db,
                                check_duplicate_trips=\
@@ -597,10 +598,10 @@ def RunValidation(feed, options, problems):
 
   accumulator = problems.GetAccumulator()
   if accumulator.HasIssues():
-    print 'ERROR: %s found' % accumulator.FormatCount()
+    print('ERROR: %s found' % accumulator.FormatCount())
     return schedule, 1
   else:
-    print 'feed validated successfully'
+    print('feed validated successfully')
     return schedule, 0
 
 
@@ -715,9 +716,9 @@ def ProfileRunValidationOutputFromOptions(feed, options):
 
   # Only available on Unix, http://docs.python.org/lib/module-resource.html
   import resource
-  print "Time: %d seconds" % (
+  print("Time: %d seconds" % (
       resource.getrusage(resource.RUSAGE_SELF).ru_utime +
-      resource.getrusage(resource.RUSAGE_SELF).ru_stime)
+      resource.getrusage(resource.RUSAGE_SELF).ru_stime))
 
   # http://aspn.activestate.com/ASPN/Cookbook/Python/Recipe/286222
   # http://aspn.activestate.com/ASPN/Cookbook/ "The recipes are freely
@@ -751,7 +752,7 @@ def ProfileRunValidationOutputFromOptions(feed, options):
 
   # I ran this on over a hundred GTFS files, comparing VmSize to VmRSS
   # (resident set size). The difference was always under 2% or 3MB.
-  print "Virtual Memory Size: %d bytes" % _VmB('VmSize:')
+  print("Virtual Memory Size: %d bytes" % _VmB('VmSize:'))
 
   # Output report of where CPU time was spent.
   p = pstats.Stats('validate-stats')

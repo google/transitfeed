@@ -20,6 +20,7 @@ Filters out trips which are not on the defualt routes and
 
 For usage information run unusual_trip_filter.py --help
 """
+from __future__ import print_function
 
 __author__ = 'Jiri Semecky <jiri.semecky@gmail.com>'
 
@@ -96,7 +97,7 @@ class UnusualTripFilter(object):
 
   def info(self, text):
     if not self._quiet:
-      print text.encode("utf-8")
+      print(text.encode("utf-8"))
 
 
 def main():
@@ -146,7 +147,7 @@ https://github.com/google/transitfeed/wiki/UnusualTripFilter
                               memory_db=options.memory_db)
   data = loader.Load()
   filter.filter(data)
-  print 'Saving data'
+  print('Saving data')
 
   # Write the result
   if options.output is None:

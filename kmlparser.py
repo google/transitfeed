@@ -27,6 +27,7 @@ a single point.
 For line geometries, information about shapes is extracted from a kml file.
 
 """
+from __future__ import print_function
 
 import re
 import string
@@ -160,7 +161,7 @@ placemarks in the KML represented as stops.
   parser.Parse(args[0], feed)
   feed.WriteGoogleTransitFeed(args[1])
 
-  print "Done."
+  print("Done.")
 
 
 if __name__ == '__main__':

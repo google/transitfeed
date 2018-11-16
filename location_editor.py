@@ -22,6 +22,7 @@
 # Usage:
 # location_editor.py --key `cat key` --port 8765 --feed_filename feed.zip
 
+from __future__ import print_function
 import schedule_viewer
 import transitfeed
 
@@ -39,7 +40,7 @@ class LocationEditorRequestHandler(schedule_viewer.ScheduleRequestHandler):
       stop.stop_lon = float(lon)
       msg = 'Location of ' + stop['stop_name'] + '(' + stop_id + ') set to ' + \
             lat + 'x' + lon
-    print msg
+    print(msg)
     return msg
 
   def handle_json_GET_savedata(self, params):
@@ -49,7 +50,7 @@ class LocationEditorRequestHandler(schedule_viewer.ScheduleRequestHandler):
     else:
       schedule.WriteGoogleTransitFeed(self.server.feed_path)
       msg = 'Data saved to ' + self.server.feed_path
-    print msg
+    print(msg)
     return msg
 
   def AllowEditMode(self):

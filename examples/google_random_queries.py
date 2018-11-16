@@ -23,6 +23,7 @@ polyline looks okay (no unnecassary loops, no jumps to a far away location) and
 look at the time of each leg. Also check the route names and headsigns are
 formatted correctly and not redundant.
 """
+from __future__ import print_function
 
 from datetime import datetime
 from datetime import timedelta
@@ -209,8 +210,8 @@ https://github.com/google/transitfeed/wiki/GoogleRandomQueries
   parser.set_defaults(output="google_random_queries.html", limit=50)
   (options, args) = parser.parse_args()
   if len(args) != 1:
-    print >>sys.stderr, parser.format_help()
-    print >>sys.stderr, "\n\nYou must provide the path of a single feed\n\n"
+    print(parser.format_help(), file=sys.stderr)
+    print("\n\nYou must provide the path of a single feed\n\n", file=sys.stderr)
     sys.exit(2)
   feed_path = args[0]
 

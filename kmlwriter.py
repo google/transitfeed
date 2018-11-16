@@ -68,6 +68,7 @@ in a folder hierarchy which looks like this at the top level:
     - Routes - Rail
     - Shapes
 """
+from __future__ import print_function
 
 try:
   import xml.etree.ElementTree as ET  # python 2.5
@@ -791,15 +792,15 @@ https://github.com/google/transitfeed/wiki/KMLWriter
     loader = transitfeed.Loader(input_path)
     feed = loader.Load()
   except transitfeed.ExceptionWithContext, e:
-    print >>sys.stderr, (
+    print((
         "\n\nGTFS feed must load without any errors.\n"
         "While loading %s the following error was found:\n%s\n%s\n" %
         (input_path,
          e.FormatContext(),
-         transitfeed.EncodeUnicode(e.FormatProblem())))
+         transitfeed.EncodeUnicode(e.FormatProblem()))), file=sys.stderr)
     sys.exit(1)
                          
-  print "Writing %s" % output_path
+  print("Writing %s" % output_path)
   writer = KMLWriter()
   writer.show_trips = options.show_trips
   writer.altitude_per_sec = options.altitude_per_sec

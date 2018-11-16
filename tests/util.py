@@ -16,6 +16,7 @@
 
 # Code shared between tests.
 from __future__ import absolute_import
+from __future__ import print_function
 
 import dircache
 import os
@@ -329,7 +330,7 @@ class MemoryZipTestCase(TestCase):
     # Handy for debugging
     z = zipfile.ZipFile(zf)
     for n in z.namelist():
-      print "--\n%s\n%s" % (n, z.read(n))
+      print("--\n%s\n%s" % (n, z.read(n)))
 
 
 class LoadTestCase(TestCase):

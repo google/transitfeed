@@ -36,6 +36,7 @@ usage: merge.py [options] old_feed_path new_feed_path merged_feed_path
 
 Run merge.py --help for a list of the possible options.
 """
+from __future__ import print_function
 
 
 __author__ = 'timothy.stranex@gmail.com (Timothy Stranex)'
@@ -359,10 +360,10 @@ def LoadWithoutErrors(path, memory_db):
                                   problems=loading_problem_handler,
                                   extra_validation=True).Load()
   except transitfeed.ExceptionWithContext, e:
-    print >>sys.stderr, (
+    print((
         "\n\nFeeds to merge must load without any errors.\n"
         "While loading %s the following error was found:\n%s\n%s\n" %
-        (path, e.FormatContext(), transitfeed.EncodeUnicode(e.FormatProblem())))
+        (path, e.FormatContext(), transitfeed.EncodeUnicode(e.FormatProblem()))), file=sys.stderr)
     sys.exit(1)
   return schedule
 
@@ -1004,10 +1005,10 @@ class StopMerger(DataSetMerger):
     self._UpdateAndMigrateUnmerged(self._b_not_merged, fm.b_zone_map,
                                    fm.b_merge_map, fm.b_schedule)
 
-    print 'Stops merged: %d of %d, %d' % (
+    print('Stops merged: %d of %d, %d' % (
         num_merged,
         len(fm.a_schedule.GetStopList()),
-        len(fm.b_schedule.GetStopList()))
+        len(fm.b_schedule.GetStopList())))
     return True
 
   def _UpdateAndMigrateUnmerged(self, not_merged_stops, zone_map, merge_map,
@@ -1271,10 +1272,10 @@ class FareMerger(DataSetMerger):
 
   def MergeDataSets(self):
     num_merged = self._MergeSameId()
-    print 'Fares merged: %d of %d, %d' % (
+    print('Fares merged: %d of %d, %d' % (
         num_merged,
         len(self.feed_merger.a_schedule.GetFareAttributeList()),
-        len(self.feed_merger.b_schedule.GetFareAttributeList()))
+        len(self.feed_merger.b_schedule.GetFareAttributeList())))
     return True
 
 
@@ -1319,12 +1320,12 @@ class TransferMerger(DataSetMerger):
     # to_stop_id but different transfer_type or min_transfer_time only the
     # transfer from b will be in the output.
     self._MergeByIdKeepNew()
-    print 'Transfers merged: %d of %d, %d' % (
+    print('Transfers merged: %d of %d, %d' % (
         self._num_merged,
         # http://mail.python.org/pipermail/baypiggies/2008-August/003817.html
         # claims this is a good way to find number of items in an iterable.
         sum(1 for _ in self.feed_merger.a_schedule.GetTransferIter()),
-        sum(1 for _ in self.feed_merger.b_schedule.GetTransferIter()))
+        sum(1 for _ in self.feed_merger.b_schedule.GetTransferIter())))
     return True
 
 
@@ -1542,7 +1543,7 @@ class FareRuleMerger(DataSetMerger):
 
     if rules:
       self.feed_merger.problem_reporter.FareRulesBroken(self)
-    print 'Fare Rules: union has %d fare rules' % len(rules)
+    print('Fare Rules: union has %d fare rules' % len(rules))
     return True
 
   def GetMergeStats(self):
