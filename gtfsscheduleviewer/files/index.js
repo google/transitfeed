@@ -686,7 +686,7 @@ function maybeAddLeadingZero(number) {
 }
 
 function setStartDate(y,m,d) {
-  document.getElementById('startDateInput').value = y + maybeAddLeadingZero(m) + maybeAddLeadingZero(d);
+  document.getElementById('startDateInput').value = y.toString() + maybeAddLeadingZero(m).toString() + maybeAddLeadingZero(d).toString();
 }
 
 function downloadUrl(url, callback) {
