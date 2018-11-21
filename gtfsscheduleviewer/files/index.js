@@ -605,7 +605,7 @@ function callbackDisplayTripRows(data, responseCode, tripId) {
   html += svgTag("/ttablegraph?height=100&trip=" + encodeURIComponent(tripId), "height='115' width='100%'");
   var bottombarDiv = document.getElementById("bottombar");
   bottombarDiv.style.display = "block";
-  bottombarDiv.style.height = "175px";
+  bottombarDiv.style.height = "198px";
   bottombarDiv.innerHTML = html;
   sizeRouteList();
 }
@@ -670,7 +670,7 @@ function sizeRouteList() {
   var height = windowHeight() - document.getElementById('topbar').offsetHeight - 15 - bottombarHeight;
   document.getElementById('content').style.height = height + 'px';
   if (map) {
-    // Without this displayPolyLine does not use the correct map size
+    // Without this, displayPolyLine does not use the correct map size
     //map.checkResize();
   }
 }
