@@ -739,7 +739,7 @@ class DuplicateTripIDValidationTestCase(util.TestCase):
     try:
       schedule.AddTripObject(trip2)
       self.fail("Expected Duplicate ID validation failure")
-    except transitfeed.DuplicateID, e:
+    except transitfeed.DuplicateID as e:
       self.assertEqual("trip_id", e.column_name)
       self.assertEqual("SAMPLE_TRIP", e.value)
 
@@ -756,7 +756,7 @@ class AgencyIDValidationTestCase(util.TestCase):
     try:
       schedule.AddRouteObject(route)
       self.fail("Expected validation error")
-    except transitfeed.InvalidValue, e:
+    except transitfeed.InvalidValue as e:
       self.assertEqual('agency_id', e.column_name)
       self.assertEqual(None, e.value)
 
@@ -775,7 +775,7 @@ class AgencyIDValidationTestCase(util.TestCase):
     try:
       schedule.AddRouteObject(route)
       self.fail("Expected validation error")
-    except transitfeed.InvalidValue, e:
+    except transitfeed.InvalidValue as e:
       self.assertEqual('agency_id', e.column_name)
       self.assertEqual(None, e.value)
 

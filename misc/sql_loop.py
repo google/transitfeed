@@ -65,7 +65,7 @@ TURAL JOIN stops WHERE trip_headsign LIKE '%intern%' ORDER BY trip_id,time"""
         print s[0:2000]
       else:
         print s
-    except sqlite.DatabaseError, e:
+    except sqlite.DatabaseError as e:
       print "error %s" % e
 
 

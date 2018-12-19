@@ -453,7 +453,7 @@ class StopAttributes(util.ValidationTestCase):
     try:
       t = stop.new_column
       self.fail('Expecting AttributeError')
-    except AttributeError, e:
+    except AttributeError as e:
       pass  # Expected
     stop.stop_id = 'a'
     stop.stop_name = 'my stop'

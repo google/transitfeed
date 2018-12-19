@@ -358,7 +358,7 @@ def LoadWithoutErrors(path, memory_db):
                                   memory_db=memory_db,
                                   problems=loading_problem_handler,
                                   extra_validation=True).Load()
-  except transitfeed.ExceptionWithContext, e:
+  except transitfeed.ExceptionWithContext as e:
     print >>sys.stderr, (
         "\n\nFeeds to merge must load without any errors.\n"
         "While loading %s the following error was found:\n%s\n%s\n" %
@@ -509,7 +509,7 @@ class DataSetMerger(object):
       b_attr = getattr(b, attr, None)
       try:
         merged_attr = merger(a_attr, b_attr)
-      except MergeError, merge_error:
+      except MergeError as merge_error:
         raise MergeError("Attribute '%s' could not be merged: %s." % (
             attr, merge_error))
       setattr(migrated, attr, merged_attr)
@@ -549,7 +549,7 @@ class DataSetMerger(object):
       try:
         self._Add(a, b, self._MergeEntities(a, b))
         self._num_merged += 1
-      except MergeError, merge_error:
+      except MergeError as merge_error:
         a_not_merged.append(a)
         b_not_merged.append(b)
         self._ReportSameIdButNotMerged(self._GetId(a), merge_error)

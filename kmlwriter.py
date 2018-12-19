@@ -71,7 +71,7 @@ in a folder hierarchy which looks like this at the top level:
 
 try:
   import xml.etree.ElementTree as ET  # python 2.5
-except ImportError, e:
+except ImportError as e:
   import elementtree.ElementTree as ET  # older pythons
 import extensions.googletransit as googletransit
 import optparse
@@ -790,7 +790,7 @@ https://github.com/google/transitfeed/wiki/KMLWriter
   try:
     loader = transitfeed.Loader(input_path)
     feed = loader.Load()
-  except transitfeed.ExceptionWithContext, e:
+  except transitfeed.ExceptionWithContext as e:
     print >>sys.stderr, (
         "\n\nGTFS feed must load without any errors.\n"
         "While loading %s the following error was found:\n%s\n%s\n" %

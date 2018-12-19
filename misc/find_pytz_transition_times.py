@@ -82,7 +82,7 @@ for tz_name in pytz.common_timezones:
       from_noon.append((distance_from_noon, tz_name, tran, inf))
       distance_from_midnight = hour_dist(average, 0)
       from_midnight.append((distance_from_midnight, tz_name, tran, inf))
-    except Exception, e:
+    except Exception as e:
        print "Trouble with %s %s %s: %s" % (tz_name, tran, inf, e)
 
 
