@@ -26,7 +26,7 @@ class Stop(transitfeed.Stop):
   - Overriding ValidateStopLocationType(), adding location_type 2 (entrance).
   """
 
-  _FIELD_NAMES = transitfeed.Stop._FIELD_NAMES + ['vehicle_type']
+  _FIELD_NAMES = transitfeed.Stop._FIELD_NAMES + ['vehicle_type', 'platform_code']
 
   LOCATION_TYPE_ENTRANCE = 2
 
