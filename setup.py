@@ -31,7 +31,7 @@ from transitfeed import __version__ as VERSION
 try:
   import py2exe
   has_py2exe = True
-except ImportError, e:
+except ImportError as e:
   # Won't be able to generate win32 exe
   has_py2exe = False
 

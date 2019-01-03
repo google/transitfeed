@@ -120,7 +120,7 @@ class ScheduleRequestHandler(BaseHTTPServer.BaseHTTPRequestHandler):
       try:
         f, mime_type = self.OpenFile(m.group(1))
         return self.handle_static_file_GET(f, mime_type)
-      except IOError, e:
+      except IOError as e:
         print("Error: unable to open %s" % m.group(1))
         # Ignore and treat as 404
 

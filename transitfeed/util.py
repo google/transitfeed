@@ -92,7 +92,7 @@ or an email to the public group transitfeed@googlegroups.com. Sorry!
       for local_name, local_val in frame_obj.f_locals.items():
         try:
           truncated_val = str(local_val)[0:500]
-        except Exception, e:
+        except Exception as e:
           dump.append('    Exception in str(%s): %s' % (local_name, e))
         else:
           if len(truncated_val) >= 500:
@@ -557,7 +557,7 @@ class CsvUnicodeWriter:
         encoded_row.append(s)
     try:
       self.writer.writerow(encoded_row)
-    except Exception, e:
+    except Exception as e:
       print('error writing %s as %s' % (row, encoded_row))
       raise e
 

@@ -334,7 +334,7 @@ class HTMLCountingProblemAccumulator(LimitPerTypeProblemAccumulator):
                     transitfeed.EncodeUnicode(table_header))
       output.append('<tr>%s</tr></table>\n' %
                     transitfeed.EncodeUnicode(table_data))
-    except AttributeError, e:
+    except AttributeError as e:
       pass  # Hope this was getting an attribute from e ;-)
     output.append('<br></li>\n')
 
@@ -514,7 +514,7 @@ def RunValidationOutputToFilename(feed, options, output_filename):
     output_file = open(output_filename, 'w')
     exit_code = RunValidationOutputToFile(feed, options, output_file)
     output_file.close()
-  except IOError, e:
+  except IOError as e:
     print('Error while writing %s: %s' % (output_filename, e))
     output_filename = None
     exit_code = 2
