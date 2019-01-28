@@ -15,10 +15,11 @@
 # limitations under the License.
 
 from __future__ import print_function
+from __future__ import absolute_import
 import logging
 import time
 
-import util
+from . import util
 
 # Problem types:
 # Error: A data issue not allowed by the GTFS spec.

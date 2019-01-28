@@ -14,6 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from __future__ import absolute_import
 import bisect
 import cStringIO as StringIO
 import datetime
@@ -39,10 +40,10 @@ import warnings
 import weakref
 import zipfile
 
-import gtfsfactory
-import problems as problems_module
+from . import gtfsfactory
+from . import problems as problems_module
 from transitfeed.util import defaultdict
-import util
+from . import util
 
 class Schedule(object):
   """Represents a Schedule, a collection of stops, routes, trips and

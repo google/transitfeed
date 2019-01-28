@@ -14,6 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from __future__ import absolute_import
 import codecs
 import cStringIO as StringIO
 import csv
@@ -21,9 +22,9 @@ import os
 import re
 import zipfile
 
-import gtfsfactory as gtfsfactory_module
-import problems
-import util
+from . import gtfsfactory as gtfsfactory_module
+from . import problems
+from . import util
 
 class Loader:
   def __init__(self,
