@@ -78,7 +78,7 @@ SPECIAL_CITIES = {
 def ReadCSV(s, cols):
   csv_dialect = csv.Sniffer().sniff(s[0])
   reader = csv.reader(s, csv_dialect)
-  header = reader.next()
+  header = next(reader)
   col_index = [-1] * len(cols)
   for i in range(len(cols)):
     if cols[i] in header:
@@ -241,7 +241,7 @@ class DivaImporter:
       route.name = name
       route.color = "FFFFFF"
       route.color_text = "000000"
-      if TRAM_LINES.has_key(name):
+      if name in TRAM_LINES:
         route.type = TYPE_TRAM
         route.color = TRAM_LINES[name][0]
         route.color_text = TRAM_LINES[name][1]

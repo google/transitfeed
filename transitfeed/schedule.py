@@ -615,7 +615,7 @@ class Schedule(object):
     zi = zipfile.ZipInfo(filename)
     # See
     # http://stackoverflow.com/questions/434641/how-do-i-set-permissions-attributes-on-a-file-in-a-zip-file-using-pythons-zipf
-    zi.external_attr = 0666 << 16L  # Set unix permissions to -rw-rw-rw
+    zi.external_attr = 0o666 << 16  # Set unix permissions to -rw-rw-rw
     # ZIP_DEFLATED requires zlib. zlib comes with Python 2.4 and 2.5
     zi.compress_type = zipfile.ZIP_DEFLATED
     archive.writestr(zi, stringio.getvalue())
