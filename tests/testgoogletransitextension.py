@@ -357,3 +357,53 @@ class AgencyLangTestCase(ExtensionMemoryZipTestCase):
     self.assertTrue(e_msg.find('not valid') != -1,
                     '%s should not be valid, is: %s' % (e.value, e_msg))
     self.accumulator.AssertNoMoreExceptions()
+
+class TransferTestCase(ExtensionMemoryZipTestCase):
+  gtfs_factory = extensions.googletransit.GetGtfsFactory()
+
+  def testNoErrorsTransferRouteIdTripColumnsNotPresent(self):
+    self.SetArchiveContents(
+        "stops.txt",
+        "stop_id,stop_name,stop_lat,stop_lon\n"
+        "BEATTY_AIRPORT,Airport,36.868446,-116.784582\n"
+        "BULLFROG,Bullfrog,36.88108,-116.81797\n"
+        "STAGECOACH,Stagecoach Hotel,36.915682,-116.751677\n"
+        "STAGECOACH_BAR,Stagecoach Bar,36.916,-116.752\n")
+    self.SetArchiveContents("transfers.txt",
+        "from_stop_id,to_stop_id,transfer_type,min_transfer_time\n"
+        "STAGECOACH,STAGECOACH_BAR,2,180\n")
+    self.SetArchiveContents(
+        "stop_times.txt",
+        "trip_id,arrival_time,departure_time,stop_id,stop_sequence\n"
+        "AB1,10:00:00,10:00:00,BEATTY_AIRPORT,1\n"
+        "AB1,10:20:00,10:20:00,BULLFROG,2\n"
+        "AB1,10:25:00,10:25:00,STAGECOACH,3\n"
+        "AB1,10:26:00,10:26:00,STAGECOACH_BAR,4\n")
+
+    self.MakeLoaderAndLoad(self.problems, gtfs_factory=self.gtfs_factory)
+    self.accumulator.AssertNoMoreExceptions()
+
+  def testTransferInvalidTripId(self):
+    self.SetArchiveContents(
+        "stops.txt",
+        "stop_id,stop_name,stop_lat,stop_lon\n"
+        "BEATTY_AIRPORT,Airport,36.868446,-116.784582\n"
+        "BULLFROG,Bullfrog,36.88108,-116.81797\n"
+        "STAGECOACH,Stagecoach Hotel,36.915682,-116.751677\n"
+        "STAGECOACH_BAR,Stagecoach Bar,36.916,-116.752\n")
+    self.SetArchiveContents("transfers.txt",
+        "from_stop_id,to_stop_id,transfer_type,min_transfer_time,from_route_id,"
+        "to_route_id,from_trip_id,to_trip_id\n"
+        "STAGECOACH,STAGECOACH_BAR,2,180,,,,\n"
+        "STAGECOACH,STAGECOACH_BAR,2,180,,,AB1,INVALID_TRIP_ID\n")
+    self.SetArchiveContents(
+        "stop_times.txt",
+        "trip_id,arrival_time,departure_time,stop_id,stop_sequence\n"
+        "AB1,10:00:00,10:00:00,BEATTY_AIRPORT,1\n"
+        "AB1,10:20:00,10:20:00,BULLFROG,2\n"
+        "AB1,10:25:00,10:25:00,STAGECOACH,3\n"
+        "AB1,10:26:00,10:26:00,STAGECOACH_BAR,4\n")
+
+    self.MakeLoaderAndLoad(self.problems, gtfs_factory=self.gtfs_factory)
+    self.accumulator.PopInvalidValue("to_trip_id")
+    self.accumulator.AssertNoMoreExceptions()
