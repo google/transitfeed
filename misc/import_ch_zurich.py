@@ -16,6 +16,7 @@
 
 """Imports Zurich timetables, converting them from DIVA export format
 to Google Transit format."""
+from __future__ import print_function
 
 # This was written before transitfeed.py and we haven't yet found the
 # motivation to port it. Please see the examples directory for better
@@ -225,8 +226,8 @@ class DivaImporter:
         # Line ids in this file have leading zeroes, remove.
         self.stations[station_id].advertised_lines.add(line_id.lstrip("0"))
       else:
-        print "Warning, advertised lines file references " \
-              "unknown station, id " + station_id
+        print("Warning, advertised lines file references " \
+              "unknown station, id " + station_id)
 
   def ImportRoutes(self, s):
     "Imports the rec_lin_ber.mdv file."
@@ -360,8 +361,8 @@ class DivaImporter:
              'FGR_NR', 'FPL_KUERZEL', 'TAGESMERKMAL_NR', 'VB',
              'FRT_HP_AUS', 'HALTEPUNKT_NR_ZIEL', 'FAHRTART_NR']):
       if trip_type != '1':
-        print "skipping Trip ", trip_id, line, direction, \
-              dest_station_id, trip_type
+        print("skipping Trip ", trip_id, line, direction, \
+              dest_station_id, trip_type)
         continue  # 1=normal, 2=empty, 3=from depot, 4=to depot, 5=other
       trip = Trip()
       #The trip_id (FRT_FID) field is not unique in the vbz data, as of Dec 2009
@@ -442,7 +443,7 @@ class DivaImporter:
     trips.sort()
     for (trip_id, trip) in trips:
       if (not len(trip.pattern.stops)) or (None in trip.pattern.stops):
-        print "*** Skipping bad trip: ", [trip.id]
+        print("*** Skipping bad trip: ", [trip.id])
         continue
       self.goodTrips[trip_id] = True
       headsign = self.stations[trip.pattern.stops[-1]].name
@@ -502,7 +503,7 @@ def main(argv):
   importer = DivaImporter(ConvertCH1903, options.drop_unadvertised_lines)
   importer.Import(options.in_file)
   importer.Write(options.out_file)
-  print 'Wrote output to', options.out_file
+  print('Wrote output to', options.out_file)
 
 
 if __name__ == '__main__':

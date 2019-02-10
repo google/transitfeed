@@ -14,6 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from __future__ import print_function
 import logging
 import time
 
@@ -378,8 +379,8 @@ class SimpleProblemAccumulator(ProblemAccumulatorInterface):
   def _Report(self, e):
     context = e.FormatContext()
     if context:
-      print context
-    print util.EncodeUnicode(self._LineWrap(e.FormatProblem(), 78))
+      print(context)
+    print(util.EncodeUnicode(self._LineWrap(e.FormatProblem(), 78)))
 
   @staticmethod
   def _LineWrap(text, width):

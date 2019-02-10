@@ -22,6 +22,7 @@ to use noon as a fixed point will work.
 This script depends on internals of pytz. I considered hacking up something
 based on zic.c or zdump.c in tzcode2009k.tar.gz but this seemed much easier.
 """
+from __future__ import print_function
 
 import pytz
 import datetime
@@ -49,8 +50,8 @@ def show_tran(dist, tz_name, tran, inf):
   closest_tran_utc = pytz.utc.localize(tran)
   before = closest_tran_utc + datetime.timedelta(seconds=-1)
   after = closest_tran_utc + datetime.timedelta(seconds=1)
-  print "%d from %s to %s %s" % (dist, before.astimezone(tzinfo),
-                                 after.astimezone(tzinfo), tz_name)
+  print("%d from %s to %s %s" % (dist, before.astimezone(tzinfo),
+                                 after.astimezone(tzinfo), tz_name))
 
 from_noon = []
 from_midnight = []
@@ -83,15 +84,15 @@ for tz_name in pytz.common_timezones:
       distance_from_midnight = hour_dist(average, 0)
       from_midnight.append((distance_from_midnight, tz_name, tran, inf))
     except Exception as e:
-       print "Trouble with %s %s %s: %s" % (tz_name, tran, inf, e)
+       print("Trouble with %s %s %s: %s" % (tz_name, tran, inf, e))
 
 
-print "Near noon"
+print("Near noon")
 from_noon.sort()
 for t in from_noon[0:10]:
   show_tran(*t)
 
-print "Near midnight"
+print("Near midnight")
 from_midnight.sort()
 for t in from_midnight[0:30]:
   show_tran(*t)

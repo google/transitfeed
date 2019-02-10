@@ -16,6 +16,7 @@
 
 """Unit tests for the merge module."""
 from __future__ import absolute_import
+from __future__ import print_function
 
 __author__ = 'timothy.stranex@gmail.com (Timothy Stranex)'
 
@@ -1545,7 +1546,7 @@ class MergeInSubprocessTestCase(util.TempDirTestCaseBase):
          future_good_feed,
          os.path.join(self.tempdirpath, 'merged.zip')],
         expected_retcode=0)
-    print out
+    print(out)
     htmlout = open('merge-results.html').read()
     self.assertTrue(re.search(r'A new version 100.100.100', htmlout))
 

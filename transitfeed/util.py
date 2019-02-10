@@ -14,6 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from __future__ import print_function
 import codecs
 import csv
 import datetime
@@ -37,8 +38,8 @@ LATEST_RELEASE_VERSION_URL = 'https://raw.githubusercontent.com/wiki/google/tran
 class OptionParserLongError(optparse.OptionParser):
   """OptionParser subclass that includes list of options above error message."""
   def error(self, msg):
-    print >>sys.stderr, self.format_help()
-    print >>sys.stderr, '\n\n%s: error: %s\n\n' % (self.get_prog_name(), msg)
+    print(self.format_help(), file=sys.stderr)
+    print('\n\n%s: error: %s\n\n' % (self.get_prog_name(), msg), file=sys.stderr)
     sys.exit(2)
 
 
@@ -103,10 +104,10 @@ or an email to the public group transitfeed@googlegroups.com. Sorry!
 
     open('transitfeedcrash.txt', 'w').write(''.join(dump))
 
-    print ''.join(dump)
-    print
-    print dashes
-    print apology
+    print(''.join(dump))
+    print()
+    print(dashes)
+    print(apology)
 
     try:
       raw_input('Press enter to continue...')
@@ -557,7 +558,7 @@ class CsvUnicodeWriter:
     try:
       self.writer.writerow(encoded_row)
     except Exception as e:
-      print 'error writing %s as %s' % (row, encoded_row)
+      print('error writing %s as %s' % (row, encoded_row))
       raise e
 
   def writerows(self, rows):
