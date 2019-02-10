@@ -14,7 +14,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from pybcp47 import Bcp47LanguageParser
+from __future__ import absolute_import
+from .pybcp47 import Bcp47LanguageParser
 from transitfeed import problems as problems_class
 from transitfeed import util
 

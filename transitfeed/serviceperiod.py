@@ -14,12 +14,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from __future__ import absolute_import
 import datetime
 import re
 import time
 
-import problems as problems_module
-import util
+from . import problems as problems_module
+from . import util
 
 class ServicePeriod(object):
   """Represents a service, which identifies a set of dates when one or more

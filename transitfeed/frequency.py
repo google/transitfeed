@@ -14,8 +14,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from gtfsobjectbase import GtfsObjectBase
-import util
+from __future__ import absolute_import
+from .gtfsobjectbase import GtfsObjectBase
+from . import util
 
 class Frequency(GtfsObjectBase):
     """This class represents a period of a trip during which the vehicle travels

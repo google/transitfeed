@@ -14,7 +14,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from gtfsfactoryuser import GtfsFactoryUser
+from __future__ import absolute_import
+from .gtfsfactoryuser import GtfsFactoryUser
 
 class GtfsObjectBase(GtfsFactoryUser):
   """Object with arbitrary attributes which may be added to a schedule.

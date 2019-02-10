@@ -14,6 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from __future__ import absolute_import
 class GtfsFactoryUser(object):
   """Base class for objects that must store a GtfsFactory in order to
      be able to instantiate Gtfs classes.
@@ -38,7 +39,7 @@ class GtfsFactoryUser(object):
       #            This is why the import is here and not at the top level.
       #            When this runs, gtfsfactory should have already been loaded
       #            by other modules, avoiding the circular imports.
-      import gtfsfactory
+      from . import gtfsfactory
       self._gtfs_factory = gtfsfactory.GetGtfsFactory()
     return self._gtfs_factory
 

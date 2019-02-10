@@ -15,6 +15,7 @@
 # limitations under the License.
 
 from __future__ import print_function
+from __future__ import absolute_import
 import codecs
 import csv
 import datetime
@@ -27,9 +28,8 @@ import sys
 import time
 import urllib2
 
-import problems as problems_module
-from trip import Trip
-from version import __version__
+from . import errors
+from .version import __version__
 
 # URL which identifies the latest release version of the transitfeed library.
 LATEST_RELEASE_VERSION_URL = 'https://raw.githubusercontent.com/wiki/google/transitfeed/LatestReleaseVersion.md'
@@ -204,20 +204,20 @@ def CheckVersion(problems, latest_version=None):
                      'transitfeed server: Reason: %s [%s].' %
                      (e.reason, e.code))
       problems.OtherProblem(
-        description=description, type=problems_module.TYPE_NOTICE)
+        description=description, type=errors.TYPE_NOTICE)
       return
     except urllib2.URLError as e:
       description = ('During the new-version check, we failed to reach '
                      'transitfeed server. Reason: %s.' % e.reason)
       problems.OtherProblem(
-        description=description, type=problems_module.TYPE_NOTICE)
+        description=description, type=errors.TYPE_NOTICE)
       return
 
   if not latest_version:
     description = ('During the new-version check, we had trouble parsing the '
                    'contents of %s.' % LATEST_RELEASE_VERSION_URL)
     problems.OtherProblem(
-      description=description, type=problems_module.TYPE_NOTICE)
+      description=description, type=errors.TYPE_NOTICE)
     return
 
   newest_version = _MaxVersion([latest_version, __version__])
@@ -414,7 +414,7 @@ def ValidateAndReturnIntValue(value, allowed_values, default, allow_empty,
     if int_value not in allowed_values:
       if problems and column_name:
         problems.InvalidValue(column_name, value,
-                              type=problems_module.TYPE_WARNING)
+                              type=errors.TYPE_WARNING)
     return int_value
 
 def ColorLuminance(color):
@@ -462,7 +462,7 @@ def TimeToSecondsSinceMidnight(time_string):
   m = re.match(r'(\d{1,3}):([0-5]\d):([0-5]\d)$', time_string)
   # ignored: matching for leap seconds
   if not m:
-    raise problems_module.Error, 'Bad HH:MM:SS "%s"' % time_string
+    raise errors.Error, 'Bad HH:MM:SS "%s"' % time_string
   return int(m.group(1)) * 3600 + int(m.group(2)) * 60 + int(m.group(3))
 
 def FormatSecondsSinceMidnight(s):
@@ -727,6 +727,3 @@ class ISO4217(object):
     'ZAR': 710, 'ZMK': 894, 'ZWD': 716,
   }
 
-
-def SortListOfTripByTime(trips):
-  trips.sort(key=Trip.GetStartTime)

@@ -14,6 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from __future__ import absolute_import
 import codecs
 import cStringIO as StringIO
 import csv
@@ -21,9 +22,9 @@ import os
 import re
 import zipfile
 
-import gtfsfactory as gtfsfactory_module
-import problems
-import util
+from . import gtfsfactoryuser
+from . import problems
+from . import util
 
 class Loader:
   def __init__(self,
@@ -51,7 +52,7 @@ class Loader:
       zip: a zipfile.ZipFile object, optionally used instead of path
     """
     if gtfs_factory is None:
-      gtfs_factory = gtfsfactory_module.GetGtfsFactory()
+      gtfs_factory = gtfsfactoryuser.GtfsFactoryUser().GetGtfsFactory()
 
     if not schedule:
       schedule = gtfs_factory.Schedule(problem_reporter=problems,
