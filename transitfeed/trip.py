@@ -104,7 +104,7 @@ class Trip(GtfsObjectBase):
                    "stop_sequence=? and stop_id=?",
                    (self.trip_id, stoptime.stop_sequence, stoptime.stop_id))
     if cursor.rowcount == 0:
-      raise problems_module.Error, 'Attempted replacement of StopTime object which does not exist'
+      raise problems_module.Error('Attempted replacement of StopTime object which does not exist')
     self._AddStopTimeObjectUnordered(stoptime, schedule)
 
   def AddStopTimeObject(self, stoptime, schedule=None, problems=None):

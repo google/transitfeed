@@ -81,7 +81,7 @@ def LoadNamedFile(file_name, conn):
 def LoadFile(f, table_name, conn):
   """Import lines from f as new table in db with cursor c."""
   reader = csv.reader(f)
-  header = reader.next()
+  header = next(reader)
 
   columns = []
   for n in header:

@@ -462,7 +462,7 @@ def TimeToSecondsSinceMidnight(time_string):
   m = re.match(r'(\d{1,3}):([0-5]\d):([0-5]\d)$', time_string)
   # ignored: matching for leap seconds
   if not m:
-    raise errors.Error, 'Bad HH:MM:SS "%s"' % time_string
+    raise errors.Error('Bad HH:MM:SS "%s"' % time_string)
   return int(m.group(1)) * 3600 + int(m.group(2)) * 60 + int(m.group(3))
 
 def FormatSecondsSinceMidnight(s):
@@ -610,7 +610,7 @@ class EndOfLineChecker:
   def next(self):
     """Return next line without end of line marker or raise StopIteration."""
     try:
-      next_line = self._f.next()
+      next_line = next(self._f)
     except StopIteration:
       self._FinalCheck()
       raise
@@ -628,7 +628,7 @@ class EndOfLineChecker:
     elif m_eol.group() == "":
       # Should only happen at the end of the file
       try:
-        self._f.next()
+        next(self._f)
         raise RuntimeError("Unexpected row without new line sequence")
       except StopIteration:
         # Will be raised again when EndOfLineChecker.next() is next called
