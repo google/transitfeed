@@ -40,9 +40,9 @@ import warnings
 import weakref
 import zipfile
 
-from . import gtfsfactory
+from . import gtfsfactoryuser
 from . import problems as problems_module
-from transitfeed.util import defaultdict
+from .util import defaultdict
 from . import util
 
 class Schedule(object):
@@ -53,7 +53,9 @@ class Schedule(object):
                memory_db=True, check_duplicate_trips=False,
                gtfs_factory=None):
     if gtfs_factory is None:
-      gtfs_factory = gtfsfactory.GetGtfsFactory()
+      # This hackery is due to the cyclic dependency mess we currently have.
+      # See gtfsfactoryuser for more.
+      gtfs_factory = gtfsfactoryuser.GtfsFactoryUser().GetGtfsFactory()
     self._gtfs_factory = gtfs_factory
 
     # Map from table name to list of columns present in this schedule

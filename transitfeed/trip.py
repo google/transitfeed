@@ -761,3 +761,7 @@ class Trip(GtfsObjectBase):
 
   def AddToSchedule(self, schedule, problems):
     schedule.AddTripObject(self, problems)
+
+
+def SortListOfTripByTime(trips):
+  trips.sort(key=GetStartTime)

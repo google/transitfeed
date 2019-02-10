@@ -20,16 +20,7 @@ import logging
 import time
 
 from . import util
-
-# Problem types:
-# Error: A data issue not allowed by the GTFS spec.
-TYPE_ERROR = 0
-# Warning: A data issue not recommended by the GTFS spec.
-TYPE_WARNING = 1
-# Notice: an issue unrelated to data.
-TYPE_NOTICE = 2
-
-ALL_TYPES = [TYPE_ERROR, TYPE_WARNING, TYPE_NOTICE]
+from .errors import TYPE_ERROR, TYPE_WARNING, TYPE_NOTICE, ALL_TYPES, Error
 
 MAX_DISTANCE_FROM_STOP_TO_SHAPE = 1000
 MAX_DISTANCE_BETWEEN_STOP_AND_PARENT_STATION_WARNING = 100.0
@@ -812,9 +803,6 @@ console.setLevel(logging.WARNING)
 log = logging.getLogger("schedule_builder")
 log.addHandler(console)
 
-
-class Error(Exception):
-  pass
 
 # Below are the exceptions related to loading and setting up Feed Validator
 # extensions

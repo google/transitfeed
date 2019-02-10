@@ -22,7 +22,7 @@ import os
 import re
 import zipfile
 
-from . import gtfsfactory as gtfsfactory_module
+from . import gtfsfactoryuser
 from . import problems
 from . import util
 
@@ -52,7 +52,7 @@ class Loader:
       zip: a zipfile.ZipFile object, optionally used instead of path
     """
     if gtfs_factory is None:
-      gtfs_factory = gtfsfactory_module.GetGtfsFactory()
+      gtfs_factory = gtfsfactoryuser.GtfsFactoryUser().GetGtfsFactory()
 
     if not schedule:
       schedule = gtfs_factory.Schedule(problem_reporter=problems,
