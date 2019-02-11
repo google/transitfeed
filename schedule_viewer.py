@@ -35,8 +35,10 @@ import socket
 import time
 import transitfeed
 from transitfeed import util
-import urllib
-
+try:  # py3
+  import urllib.parse as urlparse
+except ImportError:
+  import urllib as urlparse
 
 # By default Windows kills Python with Ctrl+Break. Instead make Ctrl+Break
 # raise a KeyboardInterrupt.
@@ -97,7 +99,7 @@ class ScheduleRequestHandler(BaseHTTPServer.BaseHTTPRequestHandler):
     scheme, host, path, x, params, fragment = urlparse.urlparse(self.path)
     parsed_params = {}
     for k in params.split('&'):
-      k = urllib.unquote(k)
+      k = urlparse.unquote(k)
       if '=' in k:
         k, v = k.split('=', 1)
         parsed_params[k] = unicode(v, 'utf8')
