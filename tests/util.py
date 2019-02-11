@@ -18,7 +18,6 @@
 from __future__ import absolute_import
 from __future__ import print_function
 
-import dircache
 import os
 import os.path
 import re
@@ -76,7 +75,7 @@ def DataPath(path):
 
 def GetDataPathContents():
   here = os.path.dirname(__file__)
-  return dircache.listdir(os.path.join(here, 'data'))
+  return sorted(os.listdir(os.path.join(here, 'data')))
 
 
 class TestCase(unittest.TestCase):
