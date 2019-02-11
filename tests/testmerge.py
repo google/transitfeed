@@ -23,7 +23,10 @@ __author__ = 'timothy.stranex@gmail.com (Timothy Stranex)'
 import merge
 import os.path
 import re
-import StringIO
+try:  #py2
+  from StringIO import StringIO
+except ImportError:
+  from io import StringIO
 from tests import util
 import transitfeed
 import unittest
@@ -1463,7 +1466,7 @@ class TestHTMLProblemAccumulator(util.TestCase):
     self.problem_reporter.SameIdButNotMerged(self.dataset_merger,
                                              'test', 'unknown reason')
 
-    output_file = StringIO.StringIO()
+    output_file = StringIO()
     old_feed_path = '/path/to/old/feed'
     new_feed_path = '/path/to/new/feed'
     merged_feed_path = '/path/to/merged/feed'
@@ -1479,7 +1482,7 @@ class TestHTMLProblemAccumulator(util.TestCase):
 class MergeInSubprocessTestCase(util.TempDirTestCaseBase):
   def CopyAndModifyTestData(self, zip_path, modify_file, old, new):
     """Return path of zip_path copy with old replaced by new in modify_file."""
-    zipfile_mem = StringIO.StringIO(open(zip_path, 'rb').read())
+    zipfile_mem = StringIO(open(zip_path, 'rb').read())
     old_zip = zipfile.ZipFile(zipfile_mem, 'r')
 
     content_dict = self.ConvertZipToDict(old_zip)

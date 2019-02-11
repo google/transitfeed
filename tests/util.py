@@ -22,7 +22,10 @@ import dircache
 import os
 import os.path
 import re
-import cStringIO as StringIO
+try:  #py2
+  from StringIO import StringIO
+except ImportError:
+  from io import StringIO
 import shutil
 import subprocess
 import sys
@@ -97,7 +100,7 @@ class RedirectStdOutTestCaseBase(TestCase):
   """Save stdout to the StringIO buffer self.this_stdout"""
   def setUp(self):
     self.saved_stdout = sys.stdout
-    self.this_stdout = StringIO.StringIO()
+    self.this_stdout = StringIO()
     sys.stdout = self.this_stdout
 
   def tearDown(self):
@@ -198,7 +201,7 @@ class TempDirTestCaseBase(GetPathTestCase):
 
     Returns:
         The new file's in-memory contents as a file-like object."""
-    zipfile_mem = StringIO.StringIO()
+    zipfile_mem = StringIO()
     zip = zipfile.ZipFile(zipfile_mem, 'a')
     for arcname, contents in dict.items():
       zip.writestr(arcname, contents)
@@ -320,7 +323,7 @@ class MemoryZipTestCase(TestCase):
 
   def CreateZip(self):
     """Create an in-memory GTFS zipfile from the contents of the file dict."""
-    self.zipfile = StringIO.StringIO()
+    self.zipfile = StringIO()
     self.zip = zipfile.ZipFile(self.zipfile, 'a')
     for (arcname, contents) in self.zip_contents.items():
       self.zip.writestr(arcname, contents)
