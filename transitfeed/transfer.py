@@ -154,6 +154,10 @@ class Transfer(GtfsObjectBase):
       return
 
     distance = self.GetTransferDistance()
+    # if distance is None, lat/lon of one or both stops are invalid,
+    # which is already reported
+    if distance is None:
+      return
     # If min_transfer_time + 120s isn't enough for someone walking very fast
     # (2m/s) then issue a warning.
     #
