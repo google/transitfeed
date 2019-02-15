@@ -14,6 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from __future__ import absolute_import
 import codecs
 import cStringIO as StringIO
 import csv
@@ -21,9 +22,9 @@ import os
 import re
 import zipfile
 
-import gtfsfactory as gtfsfactory_module
-import problems
-import util
+from . import gtfsfactoryuser
+from . import problems
+from . import util
 
 class Loader:
   def __init__(self,
@@ -51,7 +52,7 @@ class Loader:
       zip: a zipfile.ZipFile object, optionally used instead of path
     """
     if gtfs_factory is None:
-      gtfs_factory = gtfsfactory_module.GetGtfsFactory()
+      gtfs_factory = gtfsfactoryuser.GtfsFactoryUser().GetGtfsFactory()
 
     if not schedule:
       schedule = gtfs_factory.Schedule(problem_reporter=problems,
@@ -160,7 +161,7 @@ class Loader:
     # integer and id fields; they will be validated at higher levels.
     reader = csv.reader(eol_checker, skipinitialspace=True)
 
-    raw_header = reader.next()
+    raw_header = next(reader)
     header_occurrences = util.defaultdict(lambda: 0)
     header = []
     valid_columns = []  # Index into raw_header and raw_row
@@ -290,7 +291,7 @@ class Loader:
                                    file_name, self._problems)
     reader = csv.reader(eol_checker)  # Use excel dialect
 
-    header = reader.next()
+    header = next(reader)
     header = map(lambda x: x.strip(), header)  # trim any whitespace
     header_occurrences = util.defaultdict(lambda: 0)
     for column_header in header:

@@ -14,8 +14,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from problems import default_problem_reporter
-from gtfsobjectbase import GtfsObjectBase
+from __future__ import absolute_import
+from .problems import default_problem_reporter
+from .gtfsobjectbase import GtfsObjectBase
 
 class FareRule(GtfsObjectBase):
   """This class represents a rule that determines which itineraries a

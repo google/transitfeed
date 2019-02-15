@@ -14,6 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from __future__ import absolute_import
 import bisect
 import cStringIO as StringIO
 import datetime
@@ -39,10 +40,10 @@ import warnings
 import weakref
 import zipfile
 
-import gtfsfactory
-import problems as problems_module
-from transitfeed.util import defaultdict
-import util
+from . import gtfsfactoryuser
+from . import problems as problems_module
+from .util import defaultdict
+from . import util
 
 class Schedule(object):
   """Represents a Schedule, a collection of stops, routes, trips and
@@ -52,7 +53,9 @@ class Schedule(object):
                memory_db=True, check_duplicate_trips=False,
                gtfs_factory=None):
     if gtfs_factory is None:
-      gtfs_factory = gtfsfactory.GetGtfsFactory()
+      # This hackery is due to the cyclic dependency mess we currently have.
+      # See gtfsfactoryuser for more.
+      gtfs_factory = gtfsfactoryuser.GtfsFactoryUser().GetGtfsFactory()
     self._gtfs_factory = gtfs_factory
 
     # Map from table name to list of columns present in this schedule
@@ -612,7 +615,7 @@ class Schedule(object):
     zi = zipfile.ZipInfo(filename)
     # See
     # http://stackoverflow.com/questions/434641/how-do-i-set-permissions-attributes-on-a-file-in-a-zip-file-using-pythons-zipf
-    zi.external_attr = 0666 << 16L  # Set unix permissions to -rw-rw-rw
+    zi.external_attr = 0o666 << 16  # Set unix permissions to -rw-rw-rw
     # ZIP_DEFLATED requires zlib. zlib comes with Python 2.4 and 2.5
     zi.compress_type = zipfile.ZIP_DEFLATED
     archive.writestr(zi, stringio.getvalue())

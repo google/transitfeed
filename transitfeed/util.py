@@ -14,6 +14,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from __future__ import print_function
+from __future__ import absolute_import
 import codecs
 import csv
 import datetime
@@ -26,9 +28,8 @@ import sys
 import time
 import urllib2
 
-import problems as problems_module
-from trip import Trip
-from version import __version__
+from . import errors
+from .version import __version__
 
 # URL which identifies the latest release version of the transitfeed library.
 LATEST_RELEASE_VERSION_URL = 'https://raw.githubusercontent.com/wiki/google/transitfeed/LatestReleaseVersion.md'
@@ -37,8 +38,8 @@ LATEST_RELEASE_VERSION_URL = 'https://raw.githubusercontent.com/wiki/google/tran
 class OptionParserLongError(optparse.OptionParser):
   """OptionParser subclass that includes list of options above error message."""
   def error(self, msg):
-    print >>sys.stderr, self.format_help()
-    print >>sys.stderr, '\n\n%s: error: %s\n\n' % (self.get_prog_name(), msg)
+    print(self.format_help(), file=sys.stderr)
+    print('\n\n%s: error: %s\n\n' % (self.get_prog_name(), msg), file=sys.stderr)
     sys.exit(2)
 
 
@@ -103,10 +104,10 @@ or an email to the public group transitfeed@googlegroups.com. Sorry!
 
     open('transitfeedcrash.txt', 'w').write(''.join(dump))
 
-    print ''.join(dump)
-    print
-    print dashes
-    print apology
+    print(''.join(dump))
+    print()
+    print(dashes)
+    print(apology)
 
     try:
       raw_input('Press enter to continue...')
@@ -203,20 +204,20 @@ def CheckVersion(problems, latest_version=None):
                      'transitfeed server: Reason: %s [%s].' %
                      (e.reason, e.code))
       problems.OtherProblem(
-        description=description, type=problems_module.TYPE_NOTICE)
+        description=description, type=errors.TYPE_NOTICE)
       return
     except urllib2.URLError as e:
       description = ('During the new-version check, we failed to reach '
                      'transitfeed server. Reason: %s.' % e.reason)
       problems.OtherProblem(
-        description=description, type=problems_module.TYPE_NOTICE)
+        description=description, type=errors.TYPE_NOTICE)
       return
 
   if not latest_version:
     description = ('During the new-version check, we had trouble parsing the '
                    'contents of %s.' % LATEST_RELEASE_VERSION_URL)
     problems.OtherProblem(
-      description=description, type=problems_module.TYPE_NOTICE)
+      description=description, type=errors.TYPE_NOTICE)
     return
 
   newest_version = _MaxVersion([latest_version, __version__])
@@ -413,7 +414,7 @@ def ValidateAndReturnIntValue(value, allowed_values, default, allow_empty,
     if int_value not in allowed_values:
       if problems and column_name:
         problems.InvalidValue(column_name, value,
-                              type=problems_module.TYPE_WARNING)
+                              type=errors.TYPE_WARNING)
     return int_value
 
 def ColorLuminance(color):
@@ -461,7 +462,7 @@ def TimeToSecondsSinceMidnight(time_string):
   m = re.match(r'(\d{1,3}):([0-5]\d):([0-5]\d)$', time_string)
   # ignored: matching for leap seconds
   if not m:
-    raise problems_module.Error, 'Bad HH:MM:SS "%s"' % time_string
+    raise errors.Error('Bad HH:MM:SS "%s"' % time_string)
   return int(m.group(1)) * 3600 + int(m.group(2)) * 60 + int(m.group(3))
 
 def FormatSecondsSinceMidnight(s):
@@ -557,7 +558,7 @@ class CsvUnicodeWriter:
     try:
       self.writer.writerow(encoded_row)
     except Exception as e:
-      print 'error writing %s as %s' % (row, encoded_row)
+      print('error writing %s as %s' % (row, encoded_row))
       raise e
 
   def writerows(self, rows):
@@ -609,7 +610,7 @@ class EndOfLineChecker:
   def next(self):
     """Return next line without end of line marker or raise StopIteration."""
     try:
-      next_line = self._f.next()
+      next_line = next(self._f)
     except StopIteration:
       self._FinalCheck()
       raise
@@ -627,7 +628,7 @@ class EndOfLineChecker:
     elif m_eol.group() == "":
       # Should only happen at the end of the file
       try:
-        self._f.next()
+        next(self._f)
         raise RuntimeError("Unexpected row without new line sequence")
       except StopIteration:
         # Will be raised again when EndOfLineChecker.next() is next called
@@ -726,6 +727,3 @@ class ISO4217(object):
     'ZAR': 710, 'ZMK': 894, 'ZWD': 716,
   }
 
-
-def SortListOfTripByTime(trips):
-  trips.sort(key=Trip.GetStartTime)

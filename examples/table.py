@@ -32,6 +32,7 @@
 # This is very simple example which you could use as a base for your own
 # transit feed builder.
 
+from __future__ import print_function
 import transitfeed
 from optparse import OptionParser
 import re
@@ -49,7 +50,7 @@ def AddRouteToSchedule(schedule, table):
     r = schedule.AddRoute(short_name=table[0][0], long_name=table[0][1], route_type='Bus')
     for trip in table[2:]:
       if len(trip) > len(table[1]):
-        print "ignoring %s" % trip[len(table[1]):]
+        print("ignoring %s" % trip[len(table[1]):])
         trip = trip[0:len(table[1])]
       t = r.AddTrip(schedule, headsign='My headsign')
       trip_stops = []  # Build a list of (time, stopname) tuples
@@ -112,7 +113,7 @@ def ProcessOptions(schedule, table):
       agency_timezone = row[1]
 
   if not (agency_name and agency_url and agency_timezone):
-    print "You must provide agency information"
+    print("You must provide agency information")
 
   schedule.NewDefaultAgency(agency_name=agency_name, agency_url=agency_url,
                             agency_timezone=agency_timezone)

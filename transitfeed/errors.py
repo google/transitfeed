@@ -1,6 +1,5 @@
-#!/usr/bin/python2.5
 
-# Copyright (C) 2011 Google Inc.
+# Copyright (C) 2007 Google Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,9 +13,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from __future__ import absolute_import
-from .agency import *
-from .fareattribute import *
-from .route import *
-from .setup_extension import *
-from .stop import *
+# Problem types:
+# Error: A data issue not allowed by the GTFS spec.
+TYPE_ERROR = 0
+# Warning: A data issue not recommended by the GTFS spec.
+TYPE_WARNING = 1
+# Notice: an issue unrelated to data.
+TYPE_NOTICE = 2
+
+ALL_TYPES = [TYPE_ERROR, TYPE_WARNING, TYPE_NOTICE]
+
+class Error(Exception):
+  pass

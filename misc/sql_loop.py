@@ -15,6 +15,7 @@
 # limitations under the License.
 
 """Command line interface to an sqlite database, can also load a db from csv."""
+from __future__ import print_function
 
 
 import cmd
@@ -42,10 +43,10 @@ LECT trip_headsign,trip_id,stop_name from stop_times NATURAL JOIN trips \
 TURAL JOIN stops WHERE trip_headsign LIKE '%intern%' ORDER BY trip_id,time"""
 
   def do_help(self, topic):
-    print self.doc
+    print(self.doc)
 
   def do_EOF(self, line):
-    print
+    print()
     return True
 
   def default(self, line):
@@ -62,11 +63,11 @@ TURAL JOIN stops WHERE trip_headsign LIKE '%intern%' ORDER BY trip_id,time"""
       self.cursor.execute(line);
       s = "%s" % self.cursor.fetchall()
       if len(s) > 2000:
-        print s[0:2000]
+        print(s[0:2000])
       else:
-        print s
+        print(s)
     except sqlite.DatabaseError as e:
-      print "error %s" % e
+      print("error %s" % e)
 
 
 def LoadNamedFile(file_name, conn):
@@ -80,7 +81,7 @@ def LoadNamedFile(file_name, conn):
 def LoadFile(f, table_name, conn):
   """Import lines from f as new table in db with cursor c."""
   reader = csv.reader(f)
-  header = reader.next()
+  header = next(reader)
 
   columns = []
   for n in header:
@@ -101,13 +102,13 @@ def LoadFile(f, table_name, conn):
     c.execute("CREATE TABLE %s (%s)" % (table_name, ",".join(create_columns)))
   except sqlite.OperationalError:
     # Likely table exists
-    print "table %s already exists?" % (table_name)
+    print("table %s already exists?" % (table_name))
     for create_column in create_columns:
       try:
         c.execute("ALTER TABLE %s ADD COLUMN %s" % (table_name, create_column))
       except sqlite.OperationalError:
         # Likely it already exists
-        print "column %s already exists in %s?" % (create_column, table_name)
+        print("column %s already exists in %s?" % (create_column, table_name))
 
   placeholders = ",".join(["?"] * len(columns))
   insert_values = "INSERT INTO %s (%s) VALUES (%s)" % (table_name, ",".join(columns), placeholders)

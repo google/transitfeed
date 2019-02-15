@@ -32,6 +32,7 @@ http://transliteracies.english.ucsb.edu/post/research-project/research-clearingh
                and draws marey graphs in svg/xml format on request.
 
 """
+from __future__ import print_function
 
 import itertools
 import transitfeed
@@ -292,7 +293,7 @@ class MareyGraph:
     return t_dists2
 
   def _AddWarning(self, str):
-    print str
+    print(str)
 
   def _DrawTrips(self,triplist,colpar=""):
     """Generates svg polylines for each transit trip.

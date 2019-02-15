@@ -14,13 +14,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from __future__ import absolute_import
 import transitfeed
 
-import agency
-import fareattribute
-import route
-import stop
-import transfer
+from . import agency
+from . import fareattribute
+from . import route
+from . import stop
+from . import transfer
 
 def GetGtfsFactory(factory = None):
   if not factory:

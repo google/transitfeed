@@ -14,9 +14,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from gtfsobjectbase import GtfsObjectBase
-import problems as problems_module
-import util
+from __future__ import absolute_import
+from .gtfsobjectbase import GtfsObjectBase
+from . import problems as problems_module
+from . import util
 
 class Route(GtfsObjectBase):
   """Represents a single route."""

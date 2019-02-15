@@ -16,11 +16,12 @@
 
 # Unit tests for the bcp47languageparser module.
 
+from __future__ import absolute_import
 import codecs
 import os
 import unittest
 
-from bcp47languageparser import Bcp47LanguageParser
+from .bcp47languageparser import Bcp47LanguageParser
 
 class PyBcp47TestCase(unittest.TestCase):
   bcp47parser = Bcp47LanguageParser()
@@ -77,7 +78,7 @@ class PyBcp47TestCase(unittest.TestCase):
     full_filename = os.path.join(os.path.dirname(__file__), "testdata",
                                  filename)
     fileObj = codecs.open(full_filename, "r", "utf-8" )
-    for line in fileObj.xreadlines():
+    for line in fileObj:
       line_parts = line.split("#")
       tag = line_parts[0].strip()
       if tag:

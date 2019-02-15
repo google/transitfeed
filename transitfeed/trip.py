@@ -14,11 +14,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from __future__ import absolute_import
 import warnings
 
-from gtfsobjectbase import GtfsObjectBase
-import problems as problems_module
-import util
+from .gtfsobjectbase import GtfsObjectBase
+from . import problems as problems_module
+from . import util
 
 class Trip(GtfsObjectBase):
   _REQUIRED_FIELD_NAMES = ['route_id', 'service_id', 'trip_id']
@@ -103,7 +104,7 @@ class Trip(GtfsObjectBase):
                    "stop_sequence=? and stop_id=?",
                    (self.trip_id, stoptime.stop_sequence, stoptime.stop_id))
     if cursor.rowcount == 0:
-      raise problems_module.Error, 'Attempted replacement of StopTime object which does not exist'
+      raise problems_module.Error('Attempted replacement of StopTime object which does not exist')
     self._AddStopTimeObjectUnordered(stoptime, schedule)
 
   def AddStopTimeObject(self, stoptime, schedule=None, problems=None):
@@ -760,3 +761,7 @@ class Trip(GtfsObjectBase):
 
   def AddToSchedule(self, schedule, problems):
     schedule.AddTripObject(self, problems)
+
+
+def SortListOfTripByTime(trips):
+  trips.sort(key=GetStartTime)

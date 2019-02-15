@@ -18,6 +18,7 @@
 
 Requires the ogr python package.
 """
+from __future__ import print_function
 
 __author__ = 'chris.harrelson.code@gmail.com (Chris Harrelson)'
 
@@ -48,10 +49,10 @@ def PrintColumns(shapefile):
     raise ShapeImporterError("Layer 0 has no elements!")
 
   feature = layer.GetFeature(0)
-  print "%d features" % feature.GetFieldCount()
+  print("%d features" % feature.GetFieldCount())
   for j in range(0, feature.GetFieldCount()):
-    print '--' + feature.GetFieldDefnRef(j).GetName() + \
-          ': ' + feature.GetFieldAsString(j)
+    print('--' + feature.GetFieldDefnRef(j).GetName() + \
+          ': ' + feature.GetFieldAsString(j))
 
 
 def AddShapefile(shapefile, graph, key_cols):
@@ -96,7 +97,7 @@ def GetMatchingShape(pattern_poly, trip, matches, max_distance, verbosity=0):
 
   if verbosity >= 1:
     for match in matches:
-      print "match: size %d" % match.GetNumPoints()
+      print("match: size %d" % match.GetNumPoints())
   scores = [(pattern_poly.GreedyPolyMatchDist(match), match)
             for match in matches]
 
@@ -117,14 +118,14 @@ def AddExtraShapes(extra_shapes_txt, graph):
   a pain to edit .shp files.
   """
 
-  print "Adding extra shapes from %s" % extra_shapes_txt
+  print("Adding extra shapes from %s" % extra_shapes_txt)
   try:
     tmpdir = tempfile.mkdtemp()
     shutil.copy(extra_shapes_txt, os.path.join(tmpdir, 'shapes.txt'))
     loader = transitfeed.ShapeLoader(tmpdir)
     schedule = loader.Load()
     for shape in schedule.GetShapeList():
-      print "Adding extra shape: %s" % shape.shape_id
+      print("Adding extra shape: %s" % shape.shape_id)
       graph.AddPoly(ShapeToPoly(shape))
   finally:
     if tmpdir:
@@ -194,25 +195,25 @@ Try to match shapes in one or more SHP files to trips in a GTFS file."""
 
 
 def main(key_cols):
-  print 'Parsing shapefile(s)...'
+  print('Parsing shapefile(s)...')
   graph = shapelib.PolyGraph()
   for arg in args:
-    print '  ' + arg
+    print('  ' + arg)
     AddShapefile(arg, graph, key_cols)
 
   if options.extra_shapes:
     AddExtraShapes(options.extra_shapes, graph)
 
-  print 'Loading GTFS from %s...' % options.source_gtfs
+  print('Loading GTFS from %s...' % options.source_gtfs)
   schedule = transitfeed.Loader(options.source_gtfs).Load()
   shape_count = 0
   pattern_count = 0
 
   verbosity = options.verbosity
 
-  print 'Matching shapes to trips...'
+  print('Matching shapes to trips...')
   for route in schedule.GetRouteList():
-    print 'Processing route', route.route_short_name
+    print('Processing route', route.route_short_name)
     patterns = route.GetPatternIdTripDict()
     for pattern_id, trips in patterns.iteritems():
       pattern_count += 1
@@ -221,9 +222,9 @@ def main(key_cols):
       poly_points = [shapelib.Point.FromLatLng(p.stop_lat, p.stop_lon)
                      for p in pattern]
       if verbosity >= 2:
-        print "\npattern %d, %d points:" % (pattern_id, len(poly_points))
+        print("\npattern %d, %d points:" % (pattern_id, len(poly_points)))
         for i, (stop, point) in enumerate(zip(pattern, poly_points)):
-          print "Stop %d '%s': %s" % (i + 1, stop.stop_name, point.ToLatLng())
+          print("Stop %d '%s': %s" % (i + 1, stop.stop_name, point.ToLatLng()))
 
       # First, try to find polys that run all the way from
       # the start of the trip to the end.
@@ -263,7 +264,7 @@ def main(key_cols):
             schedule.AddShapeObject(shape)
           trip.shape_id = shape.shape_id
 
-  print "Matched %d shapes out of %d patterns" % (shape_count, pattern_count)
+  print("Matched %d shapes out of %d patterns" % (shape_count, pattern_count))
   schedule.WriteGoogleTransitFeed(options.dest_gtfs)
 
 

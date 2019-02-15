@@ -14,7 +14,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from loader import Loader
+from __future__ import absolute_import
+from .loader import Loader
 
 class ShapeLoader(Loader):
   """A subclass of Loader that only loads the shapes from a GTFS file."""

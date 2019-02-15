@@ -14,7 +14,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import extension_util
+from __future__ import absolute_import
+
+from . import extension_util
 import transitfeed
 
 class Agency(transitfeed.Agency):
