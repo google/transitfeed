@@ -16,10 +16,6 @@
 
 from __future__ import absolute_import
 import bisect
-try:  #py2
-  from StringIO import StringIO
-except ImportError:
-  from io import StringIO
 import datetime
 import itertools
 import os
@@ -47,6 +43,7 @@ from . import gtfsfactoryuser
 from . import problems as problems_module
 from .util import defaultdict
 from . import util
+from .compat import StringIO
 
 class Schedule(object):
   """Represents a Schedule, a collection of stops, routes, trips and

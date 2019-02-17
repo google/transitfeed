@@ -22,12 +22,9 @@ import datetime
 import feedvalidator
 import os.path
 import re
-try:  #py2
-  from StringIO import StringIO
-except ImportError:
-  from io import StringIO
 from tests import util
 import transitfeed
+from transitfeed.compat import StringIO
 import unittest
 from urllib2 import HTTPError, URLError
 import urllib2

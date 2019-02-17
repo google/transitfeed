@@ -20,12 +20,9 @@ from __future__ import absolute_import
 import kmlparser
 import os.path
 import shutil
-try:  #py2
-  from StringIO import StringIO
-except ImportError:
-  from io import StringIO
 from tests import util
 import transitfeed
+from transitfeed.compat import StringIO
 import unittest
 
 

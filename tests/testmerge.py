@@ -23,12 +23,9 @@ __author__ = 'timothy.stranex@gmail.com (Timothy Stranex)'
 import merge
 import os.path
 import re
-try:  #py2
-  from StringIO import StringIO
-except ImportError:
-  from io import StringIO
 from tests import util
 import transitfeed
+from transitfeed.compat import StringIO
 import unittest
 import zipfile
 

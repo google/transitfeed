@@ -22,16 +22,13 @@ import dircache
 import os
 import os.path
 import re
-try:  #py2
-  from StringIO import StringIO
-except ImportError:
-  from io import StringIO
 import shutil
 import subprocess
 import sys
 import tempfile
 import traceback
 import transitfeed
+from transitfeed.compat import StringIO
 import unittest
 import zipfile
 

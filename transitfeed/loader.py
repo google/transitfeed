@@ -16,10 +16,6 @@
 
 from __future__ import absolute_import
 import codecs
-try:  #py2
-  from StringIO import StringIO
-except ImportError:
-  from io import StringIO
 import csv
 import os
 import re
@@ -28,6 +24,7 @@ import zipfile
 from . import gtfsfactoryuser
 from . import problems
 from . import util
+from .compat import StringIO
 
 class Loader:
   def __init__(self,

@@ -18,16 +18,13 @@
 
 from __future__ import absolute_import
 import os
-try:  #py2
-  from StringIO import StringIO
-except ImportError:
-  from io import StringIO
 import tempfile
 import unittest
 import kmlparser
 import kmlwriter
 from tests import util
 import transitfeed
+from transitfeed.compat import StringIO
 
 try:
   import xml.etree.ElementTree as ET  # python 2.5
