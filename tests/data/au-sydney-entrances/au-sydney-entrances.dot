@@ -1,0 +1,68 @@
+digraph D {
+  node [ style=filled ]
+
+  subgraph cluster_LR_TavHill {
+    graph [ color=lightyellow label="LR_TavHill\nTaverners Hill" style=filled ]
+
+    subgraph cluster_LR_TavHill_P2 {
+      graph [ color=lightskyblue label="LR_TavHill_P2\nPlatform 2" style=filled ]
+
+      LR_TavHill_P2_S [ color=springgreen label=LR_TavHill_P2_S shape=oval ]
+
+      LR_TavHill_P2_N [ color=springgreen label=LR_TavHill_P2_N shape=oval ]
+    }
+
+    subgraph cluster_LR_TavHill_P1 {
+      graph [ color=lightskyblue label="LR_TavHill_P1\nPlatform 1" style=filled ]
+
+      LR_TavHill_P1_M [ color=springgreen label=LR_TavHill_P1_M shape=oval ]
+
+      LR_TavHill_P1_N [ color=springgreen label=LR_TavHill_P1_N shape=oval ]
+
+      LR_TavHill_P1_S [ color=springgreen label=LR_TavHill_P1_S shape=oval ]
+    }
+
+    LR_TavHill_EntranceStairsS [ color=lightcoral label="LR_TavHill_EntranceStairsS\nParramatta Road" shape=doubleoctagon ]
+
+    LR_TavHill_EntranceLiftN [ color=lightcoral label="LR_TavHill_EntranceLiftN\nParramatta Road" shape=doubleoctagon ]
+
+    LR_TavHill_EntranceLiftS [ color=lightcoral label="LR_TavHill_EntranceLiftS\nParramatta Road" shape=doubleoctagon ]
+
+    LR_TavHill_BridgeN [ color=lightgrey label=LR_TavHill_BridgeN shape=hexagon ]
+
+    LR_TavHill_BridgeS [ color=lightgrey label=LR_TavHill_BridgeS shape=hexagon ]
+
+    LR_TavHill_EntranceStairsN [ color=lightcoral label="LR_TavHill_EntranceStairsN\nParramatta Road" shape=doubleoctagon ]
+  }
+
+
+  edge [ dir=both ]
+  LR_TavHill_P1_S -> LR_TavHill_BridgeN [ label=walkway ]
+
+  edge [ dir=both ]
+  LR_TavHill_BridgeS -> LR_TavHill_EntranceLiftS [ label="elevator\nLift to Street\nLift to Platform" ]
+
+  edge [ dir=both ]
+  LR_TavHill_P1_N -> LR_TavHill_P1_M [ label=walkway ]
+
+  edge [ dir=both ]
+  LR_TavHill_BridgeS -> LR_TavHill_EntranceStairsS [ label=stairs ]
+
+  edge [ dir=both ]
+  LR_TavHill_P1_N -> LR_TavHill_P2_S [ label="walkway\nParramatta Road" ]
+
+  edge [ dir=both ]
+  LR_TavHill_P2_N -> LR_TavHill_P2_S [ label=walkway ]
+
+  edge [ dir=both ]
+  LR_TavHill_BridgeN -> LR_TavHill_BridgeS [ label=walkway ]
+
+  edge [ dir=both ]
+  LR_TavHill_P1_M -> LR_TavHill_EntranceStairsN [ label=stairs ]
+
+  edge [ dir=both ]
+  LR_TavHill_BridgeN -> LR_TavHill_EntranceLiftN [ label="elevator\nLift to Street\nLift to Platform" ]
+
+  edge [ dir=both ]
+  LR_TavHill_P1_M -> LR_TavHill_P1_S [ label=walkway ]
+}
