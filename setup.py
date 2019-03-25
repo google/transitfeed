@@ -40,7 +40,8 @@ except ImportError as e:
 options = {'py2exe': {'packages': ['pytz', 'pybcp47']}}
 scripts_for_py2exe = ['feedvalidator.py', 'schedule_viewer.py', 'kmlparser.py',
                       'kmlwriter.py', 'merge.py', 'unusual_trip_filter.py',
-                      'location_editor.py', 'feedvalidator_googletransit.py']
+                      'location_editor.py', 'feedvalidator_googletransit.py',
+                      'upgrade_translations.py', 'visualize_pathways.py']
 # On Nov 23, 2009 Tom Brown said: I'm not confident that we can include a
 # working copy of this script in the py2exe distribution because it depends on
 # ogr. I do want it included in the source tar.gz.
