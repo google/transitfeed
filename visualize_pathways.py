@@ -381,20 +381,20 @@ def requires_platform_cluster(location):
             location.has_children())
 
 
-def choose_locations(gtfs, stop_ids=None):
-    """Chooses a list of locations (stations and their children) for
+def choose_location_ids(gtfs, stop_ids=None):
+    """Chooses a set of location ids (stations and their children) for
     rendering a pathway graph.
 
     If stop_ids is None, then all stations that have pathways are chosen.
 
-    If stop_ids is not None, then it the station with this stop_id (or
+    If stop_ids is not None, then the station with this stop_id (or
     with a child with this stop_id) is chosen.
 
     """
 
     if not stop_ids:
         # Select locations that are involved in pathway graph.
-        return [location
+        return [location.gtfs_id
                 for location in gtfs.locations
                 if location.station().self_or_children_have_pathways()]
 
@@ -416,9 +416,7 @@ def choose_locations(gtfs, stop_ids=None):
             for boarding_area_id in gtfs.get_location(child_id).children:
                 location_ids.add(gtfs.get_location(boarding_area_id).gtfs_id)
 
-    locations = [gtfs.get_location(location_id)
-                 for location_id in location_ids]
-    return locations
+    return location_ids
 
 
 def gtfs_to_graphviz(gtfs, stop_ids=None):
@@ -426,7 +424,8 @@ def gtfs_to_graphviz(gtfs, stop_ids=None):
 
     """
     graph = GraphViz()
-    locations = choose_locations(gtfs, stop_ids)
+    location_ids = choose_location_ids(gtfs, stop_ids)
+    locations = [gtfs.get_location(i) for i in location_ids]
 
     for location in locations:
         if not location.parent_id:
@@ -455,7 +454,6 @@ def gtfs_to_graphviz(gtfs, stop_ids=None):
             cluster = cluster.get_cluster(location.parent_id)
         cluster.nodes.append(node)
 
-    location_ids = set(location.gtfs_id for location in locations)
     for pathway in gtfs.pathways:
         if pathway.from_id in location_ids and pathway.to_id in location_ids:
             graph.edges.append(GraphEdge(
@@ -493,7 +491,7 @@ def main():
 
     if args.png:
         png_filename = '%s.png' % os.path.splitext(dot_filename)[0]
-        subprocess.run([
+        subprocess.call([
             'dot',
             '-T', 'png',
             '-o', png_filename,
