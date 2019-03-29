@@ -381,16 +381,51 @@ def requires_platform_cluster(location):
             location.has_children())
 
 
-def gtfs_to_graphviz(gtfs):
+def choose_location_ids(gtfs, stop_ids=None):
+    """Chooses a set of location ids (stations and their children) for
+    rendering a pathway graph.
+
+    If stop_ids is None, then all stations that have pathways are chosen.
+
+    If stop_ids is not None, then the station with this stop_id (or
+    with a child with this stop_id) is chosen.
+
+    """
+
+    if not stop_ids:
+        # Select locations that are involved in pathway graph.
+        return [location.gtfs_id
+                for location in gtfs.locations
+                if location.station().self_or_children_have_pathways()]
+
+    station_ids = set()
+    try:
+        for stop_id in stop_ids.split(','):
+            station = gtfs.get_location(stop_id).station()
+            station_ids.add(station.gtfs_id)
+            print('Visualizing station %s' % station.gtfs_id)
+    except KeyError:
+        raise Exception('Cannot find location with stop_id=%s' % stop_id)
+
+    location_ids = station_ids.copy()
+    for station_id in station_ids:
+        for child_id in gtfs.get_location(station_id).children:
+            # Child is a platform, entrance or generic node.
+            location_ids.add(child_id)
+            # Add boarding areas if they are present for this child platform.
+            for boarding_area_id in gtfs.get_location(child_id).children:
+                location_ids.add(gtfs.get_location(boarding_area_id).gtfs_id)
+
+    return location_ids
+
+
+def gtfs_to_graphviz(gtfs, stop_ids=None):
     """Reads GTFS data and returns GraphViz DOT file content as string.
 
     """
     graph = GraphViz()
-
-    # Skip locations that are not involved in pathway graph.
-    locations = [location
-                 for location in gtfs.locations
-                 if location.station().self_or_children_have_pathways()]
+    location_ids = choose_location_ids(gtfs, stop_ids)
+    locations = [gtfs.get_location(i) for i in location_ids]
 
     for location in locations:
         if not location.parent_id:
@@ -420,10 +455,11 @@ def gtfs_to_graphviz(gtfs):
         cluster.nodes.append(node)
 
     for pathway in gtfs.pathways:
-        graph.edges.append(GraphEdge(
-            pathway.from_id, pathway.to_id,
-            'both' if pathway.is_bidirectional else 'forward',
-            pathway_label(pathway)))
+        if pathway.from_id in location_ids and pathway.to_id in location_ids:
+            graph.edges.append(GraphEdge(
+                pathway.from_id, pathway.to_id,
+                'both' if pathway.is_bidirectional else 'forward',
+                pathway_label(pathway)))
 
     return graph
 
@@ -437,10 +473,13 @@ def main():
     parser.add_argument('--png', '-p', dest='png',
                         action='store_true',
                         help='Additionally generate a PNG file with GraphViz')
+    parser.add_argument('--stop_ids', '-s',
+                        help='If set, then the graph will contain only those '
+                        'stations that include locations with these stop_ids')
 
     args = parser.parse_args()
 
-    graph = gtfs_to_graphviz(GtfsReader(args.gtfs_directory[0]))
+    graph = gtfs_to_graphviz(GtfsReader(args.gtfs_directory[0]), args.stop_ids)
     if args.dot:
         dot_filename = args.dot
     else:
@@ -452,7 +491,7 @@ def main():
 
     if args.png:
         png_filename = '%s.png' % os.path.splitext(dot_filename)[0]
-        subprocess.run([
+        subprocess.call([
             'dot',
             '-T', 'png',
             '-o', png_filename,
