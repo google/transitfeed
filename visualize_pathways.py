@@ -209,9 +209,10 @@ def escape_graphviz_id(gtfs_id):
 
 
 def truncate_string(s, max_length=20):
-    if max_length <= 0 or len(s) < max_length:
-        return s
-    return '%s..%s' % (s[:max_length - 4], s[-2:])
+    s = unicode(s, 'utf-8', errors='ignore')
+    if max_length > 0 and len(s) > max_length:
+      s = u'%s..%s' % (s[:max_length - 4], s[-2:])
+    return s.encode('utf-8')
 
 
 class Attributes(object):
