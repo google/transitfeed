@@ -26,8 +26,6 @@ import StringIO
 from tests import util
 import transitfeed
 import unittest
-from urllib2 import HTTPError, URLError
-import urllib2
 import zipfile
 
 
