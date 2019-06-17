@@ -18,7 +18,7 @@
 
 import datetime
 import re
-import StringIO
+from six import StringIO
 import tests.util as test_util
 from transitfeed import problems
 from transitfeed.problems import ProblemReporter
@@ -309,7 +309,7 @@ class CheckVersionTestCase(test_util.TempDirTestCaseBase):
 class MockURLOpen:
   """Pretend to be a urllib2.urlopen suitable for testing."""
   def mockedConnectSuccess(self, request):
-    return StringIO.StringIO('latest_version=100.0.1')
+    return StringIO('latest_version=100.0.1')
 
   def mockedPageNotFound(self, request):
     raise urllib.error.HTTPError(request.get_full_url(), 404, 'Not Found',
@@ -322,7 +322,7 @@ class MockURLOpen:
     raise urllib.error.URLError('Getaddrinfo failed')
 
   def mockedEmptyIsReturned(self, request):
-    return StringIO.StringIO()
+    return StringIO()
 
 
 if __name__ == '__main__':

@@ -15,7 +15,7 @@
 # Unit tests for the trip module.
 from __future__ import absolute_import
 
-from StringIO import StringIO
+from six import StringIO
 from tests import util
 import transitfeed
 
