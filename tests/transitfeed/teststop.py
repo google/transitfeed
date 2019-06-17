@@ -15,6 +15,8 @@
 # Unit tests for the stop module.
 from __future__ import absolute_import
 
+from six import string_types
+
 from tests import util
 import transitfeed
 
@@ -462,9 +464,9 @@ class StopAttributes(util.ValidationTestCase):
     stop.stop_lon = '40.02'
     self.assertEquals(stop.new_column, 'val')
     self.assertEquals(stop['new_column'], 'val')
-    self.assertTrue(isinstance(stop['stop_lat'], basestring))
+    self.assertTrue(isinstance(stop['stop_lat'], string_types))
     self.assertAlmostEqual(float(stop['stop_lat']), 5.909)
-    self.assertTrue(isinstance(stop['stop_lon'], basestring))
+    self.assertTrue(isinstance(stop['stop_lon'], string_types))
     self.assertAlmostEqual(float(stop['stop_lon']), 40.02)
     stop.Validate(self.problems)
     self.accumulator.AssertNoMoreExceptions()

@@ -16,6 +16,9 @@
 
 from __future__ import print_function
 from __future__ import absolute_import
+
+from six import string_types
+
 import codecs
 import csv
 import datetime
@@ -444,7 +447,7 @@ def ValidateYesNoUnknown(value, column_name=None, problems=None):
     return False
 
 def IsEmpty(value):
-  return value is None or (isinstance(value, basestring) and not value.strip())
+  return value is None or (isinstance(value, string_types) and not value.strip())
 
 def FindUniqueId(dic):
   """Return a string not used as a key in the dictionary dic"""

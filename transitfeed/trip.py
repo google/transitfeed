@@ -17,6 +17,8 @@
 from __future__ import absolute_import
 import warnings
 
+from six import string_types
+
 from .gtfsobjectbase import GtfsObjectBase
 from . import problems as problems_module
 from . import util
@@ -423,7 +425,7 @@ class Trip(GtfsObjectBase):
     if start_time == None or start_time == '':  # 0 is OK
       problem_reporter.MissingValue('start_time')
       return
-    if isinstance(start_time, basestring):
+    if isinstance(start_time, string_types):
       try:
         start_time = util.TimeToSecondsSinceMidnight(start_time)
       except problems_module.Error:
@@ -435,7 +437,7 @@ class Trip(GtfsObjectBase):
     if end_time == None or end_time == '':
       problem_reporter.MissingValue('end_time')
       return
-    if isinstance(end_time, basestring):
+    if isinstance(end_time, string_types):
       try:
         end_time = util.TimeToSecondsSinceMidnight(end_time)
       except problems_module.Error:
