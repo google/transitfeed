@@ -21,6 +21,8 @@ For usage information run feedvalidator.py --help
 """
 from __future__ import print_function
 
+from six import string_types
+
 import bisect
 import codecs
 import datetime
@@ -531,7 +533,7 @@ def RunValidationOutputToFile(feed, options, output_file):
                                                options.error_types_ignore_list)
   problems = transitfeed.ProblemReporter(accumulator)
   schedule, exit_code = RunValidation(feed, options, problems)
-  if isinstance(feed, basestring):
+  if isinstance(feed, string_types):
     feed_location = feed
   else:
     feed_location = getattr(feed, 'name', repr(feed))

@@ -18,7 +18,7 @@
 
 from __future__ import absolute_import
 import os
-import StringIO
+from six import StringIO
 import tempfile
 import unittest
 import kmlparser
@@ -54,7 +54,7 @@ def _ElementToString(root):
   Returns:
     The XML string.
   """
-  output = StringIO.StringIO()
+  output = StringIO()
   ET.ElementTree(root).write(output, 'utf-8')
   return output.getvalue()
 

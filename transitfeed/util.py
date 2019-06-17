@@ -16,6 +16,9 @@
 
 from __future__ import print_function
 from __future__ import absolute_import
+
+from six import string_types
+
 import codecs
 import csv
 import datetime
@@ -26,7 +29,7 @@ import re
 import socket
 import sys
 import time
-import urllib2
+from six.moves import urllib
 
 from . import errors
 from .version import __version__
@@ -190,23 +193,23 @@ def CheckVersion(problems, latest_version=None):
   if not latest_version:
     timeout = 20
     socket.setdefaulttimeout(timeout)
-    request = urllib2.Request(LATEST_RELEASE_VERSION_URL)
+    request = urllib.request.Request(LATEST_RELEASE_VERSION_URL)
 
     try:
-      response = urllib2.urlopen(request)
+      response = urllib.request.urlopen(request)
       content = response.read()
       m = re.search(r'version=(\d+\.\d+\.\d+)', content)
       if m:
         latest_version = m.group(1)
 
-    except urllib2.HTTPError as e:
+    except urllib.error.HTTPError as e:
       description = ('During the new-version check, we failed to reach '
                      'transitfeed server: Reason: %s [%s].' %
                      (e.reason, e.code))
       problems.OtherProblem(
         description=description, type=errors.TYPE_NOTICE)
       return
-    except urllib2.URLError as e:
+    except urllib.error.URLError as e:
       description = ('During the new-version check, we failed to reach '
                      'transitfeed server. Reason: %s.' % e.reason)
       problems.OtherProblem(
@@ -444,7 +447,7 @@ def ValidateYesNoUnknown(value, column_name=None, problems=None):
     return False
 
 def IsEmpty(value):
-  return value is None or (isinstance(value, basestring) and not value.strip())
+  return value is None or (isinstance(value, string_types) and not value.strip())
 
 def FindUniqueId(dic):
   """Return a string not used as a key in the dictionary dic"""

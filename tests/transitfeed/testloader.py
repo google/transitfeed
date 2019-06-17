@@ -16,7 +16,7 @@
 from __future__ import absolute_import
 
 import re
-from StringIO import StringIO
+from six import StringIO
 import tempfile
 from tests import util
 import transitfeed

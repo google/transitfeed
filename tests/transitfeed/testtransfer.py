@@ -15,7 +15,7 @@
 # Unit tests for the transfer module.
 from __future__ import absolute_import
 
-from StringIO import StringIO
+from six import StringIO
 import transitfeed
 from tests import util
 
