@@ -188,7 +188,7 @@ class Stop(GtfsObjectBase):
           problems.InvalidValue('location_type', value)
           del self.location_type
         else:
-          if self.location_type not in (0, 1):
+          if self.location_type not in (0, 1, 2, 3, 4):
             problems.InvalidValue('location_type', value,
                                   type=problems_module.TYPE_WARNING)
 
@@ -219,7 +219,7 @@ class Stop(GtfsObjectBase):
                             type=problems_module.TYPE_WARNING)
 
   def ValidateStopIsNotStationWithParent(self, problems):
-    if self.parent_station and self.location_type == 1:
+    if self.parent_station and self.location_type == self.LOCATION_TYPE_STATION:
       problems.InvalidValue('parent_station', self.parent_station,
                             'Stop row with location_type=1 (a station) must '
                             'not have a parent_station')
