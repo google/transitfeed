@@ -183,7 +183,7 @@ class ServicePeriod(object):
                       _EXCEPTION_TYPE_ADD
 
     Returns:
-      True iff this service has service exception of specified type at date.
+      True if this service has service exception of specified type at date.
     """
     if date in self.date_exceptions:
       return exception_type == self.date_exceptions[date][0]
@@ -202,7 +202,7 @@ class ServicePeriod(object):
                    costly conversion from string to date object.
 
     Returns:
-      True iff this service is active on date.
+      True if this service is active on date.
     """
     if date in self.date_exceptions:
       exception_type, _ = self.date_exceptions[date]

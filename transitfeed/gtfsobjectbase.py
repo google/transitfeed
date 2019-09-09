@@ -81,7 +81,7 @@ class GtfsObjectBase(GtfsFactoryUser):
       self._schedule.AddTableColumn(self.__class__._TABLE_NAME, name)
 
   def __eq__(self, other):
-    """Return true iff self and other are equivalent"""
+    """Return true if self and other are equivalent"""
     if not other:
       return False
 
