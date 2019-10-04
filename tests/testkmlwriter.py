@@ -18,13 +18,13 @@
 
 from __future__ import absolute_import
 import os
-import StringIO
 import tempfile
 import unittest
 import kmlparser
 import kmlwriter
 from tests import util
 import transitfeed
+from transitfeed.compat import StringIO
 
 try:
   import xml.etree.ElementTree as ET  # python 2.5
@@ -54,7 +54,7 @@ def _ElementToString(root):
   Returns:
     The XML string.
   """
-  output = StringIO.StringIO()
+  output = StringIO()
   ET.ElementTree(root).write(output, 'utf-8')
   return output.getvalue()
 
