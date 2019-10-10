@@ -37,7 +37,7 @@ class StopHierarchyTestCase(util.MemoryZipTestCase):
     self.SetArchiveContents(
         "stops.txt",
         "stop_id,stop_name,stop_lat,stop_lon,location_type\n"
-        "BEATTY_AIRPORT,Airport,36.868446,-116.784582,2\n"
+        "BEATTY_AIRPORT,Airport,36.868446,-116.784582,7\n"
         "BULLFROG,Bullfrog,36.88108,-116.81797,notvalid\n"
         "STAGECOACH,Stagecoach Hotel,36.915682,-116.751677,\n")
     schedule = self.MakeLoaderAndLoad()
@@ -56,7 +56,7 @@ class StopHierarchyTestCase(util.MemoryZipTestCase):
         "stops.txt",
         "stop_id,stop_name,stop_lat,stop_lon,location_type,parent_station\n"
         "BEATTY_AIRPORT,Airport,36.868446,-116.784582,,STATION\n"
-        "STATION,Airport,36.868446,-116.784582,2,\n"
+        "STATION,Airport,36.868446,-116.784582,7,\n"
         "BULLFROG,Bullfrog,36.88108,-116.81797,,\n"
         "STAGECOACH,Stagecoach Hotel,36.915682,-116.751677,,\n")
     schedule = self.MakeLoaderAndLoad()
@@ -106,7 +106,7 @@ class StopHierarchyTestCase(util.MemoryZipTestCase):
     self.SetArchiveContents(
         "stops.txt",
         "stop_id,stop_name,stop_lat,stop_lon,location_type,parent_station\n"
-        "BEATTY_AIRPORT,Airport,36.868446,-116.784582,2,BULLFROG\n"
+        "BEATTY_AIRPORT,Airport,36.868446,-116.784582,7,BULLFROG\n"
         "BULLFROG,Bullfrog,36.88108,-116.81797,,\n"
         "STAGECOACH,Stagecoach Hotel,36.915682,-116.751677,,\n")
     schedule = self.MakeLoaderAndLoad()
