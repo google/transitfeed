@@ -173,7 +173,7 @@ class Bcp47LanguageParser(object):
         if int_value == 0:
             return int_str
         return self.IntToIntStr26(
-            int_value / 26,
+            int(int_value / 26),
             string.ascii_lowercase[int(int_value % 26)] + int_str,
         )
 
