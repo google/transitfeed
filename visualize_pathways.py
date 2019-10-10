@@ -1,4 +1,4 @@
-#!/usr/bin/python2
+#!/usr/bin/python3
 # -*- coding: utf-8 -*-
 
 # Copyright (C) 2019 Google Inc.
@@ -38,20 +38,18 @@ Usage:
 
 """
 
-from __future__ import print_function
-
-from enum import Enum
 import argparse
 import csv
-import re
 import os
+import re
 import subprocess
-import sys
+from enum import Enum
 
 
 class LocationType(Enum):
     """Types of locations in stops.txt (field location_type).
     """
+
     platform = 0
     station = 1
     entrance = 2
@@ -62,6 +60,7 @@ class LocationType(Enum):
 class PathwayMode(Enum):
     """Modes of pathways in pathways.txt (field pathway_mode).
     """
+
     unknown = 0
     walkway = 1
     stairs = 2
@@ -75,16 +74,18 @@ class PathwayMode(Enum):
 class GtfsLocation(object):
     """GTFS location of any type: station, entrance etc defined in stops.txt.
     """
+
     def __init__(self, row, gtfs_reader):
         self._row = row
         self._reader = gtfs_reader
-        self.gtfs_id = row['stop_id'].strip()
+        self.gtfs_id = row["stop_id"].strip()
         self.location_type = LocationType(
-            int(row.get('location_type', 0) or 0))
-        self.name = row['stop_name'].strip()
-        self.platform_code = row.get('platform_code', '').strip() or None
-        self.signposted_as = row.get('signposted_as', '').strip() or None
-        self.parent_id = row.get('parent_station', '').strip() or None
+            int(row.get("location_type", 0) or 0)
+        )
+        self.name = row["stop_name"].strip()
+        self.platform_code = row.get("platform_code", "").strip() or None
+        self.signposted_as = row.get("signposted_as", "").strip() or None
+        self.parent_id = row.get("parent_station", "").strip() or None
         self.children = []
         self.outgoing_pathways = []
         self.incoming_pathways = []
@@ -115,15 +116,17 @@ class GtfsLocation(object):
         self.incoming_pathways.append(pathway_id)
 
     def has_pathways(self):
-        return (len(self.incoming_pathways) > 0 or
-                len(self.outgoing_pathways) > 0)
+        return (
+            len(self.incoming_pathways) > 0 or len(self.outgoing_pathways) > 0
+        )
 
     def self_or_children_have_pathways(self):
         if self.has_pathways():
             return True
         for child_id in self.children:
             if self._reader.get_location(
-                    child_id).self_or_children_have_pathways():
+                child_id
+            ).self_or_children_have_pathways():
                 return True
         return False
 
@@ -131,17 +134,19 @@ class GtfsLocation(object):
 class GtfsPathway(object):
     """GTFS pathway defined in pathways.txt.
     """
+
     def __init__(self, row, gtfs_reader):
         self._row = row
         self._reader = gtfs_reader
-        self.gtfs_id = row['pathway_id'].strip()
-        self.from_id = row['from_stop_id'].strip()
-        self.to_id = row['to_stop_id'].strip()
-        self.mode = PathwayMode(int(row.get('pathway_mode', 0) or 0))
-        self.is_bidirectional = int(row.get('is_bidirectional', 0) or 0)
-        self.signposted_as = row.get('signposted_as', '').strip() or None
-        self.reversed_signposted_as = row.get(
-            'reversed_signposted_as', '').strip() or None
+        self.gtfs_id = row["pathway_id"].strip()
+        self.from_id = row["from_stop_id"].strip()
+        self.to_id = row["to_stop_id"].strip()
+        self.mode = PathwayMode(int(row.get("pathway_mode", 0) or 0))
+        self.is_bidirectional = int(row.get("is_bidirectional", 0) or 0)
+        self.signposted_as = row.get("signposted_as", "").strip() or None
+        self.reversed_signposted_as = (
+            row.get("reversed_signposted_as", "").strip() or None
+        )
 
     @property
     def from_location(self):
@@ -161,6 +166,7 @@ class GtfsReader(object):
     pathways.txt.
 
     """
+
     def __init__(self, gtfs_dir):
         self.gtfs_dir = gtfs_dir
         self._read_locations()
@@ -171,28 +177,32 @@ class GtfsReader(object):
 
     @property
     def locations(self):
-        return self._locations_map.values()
+        return list(self._locations_map.values())
 
     def get_pathway(self, stop_id):
         return self._pathways_map[stop_id]
 
     @property
     def pathways(self):
-        return self._pathways_map.values()
+        return list(self._pathways_map.values())
 
     def _read_locations(self):
-        self._locations_map = self._read_table('stops', GtfsLocation)
+        self._locations_map = self._read_table("stops", GtfsLocation)
         for location in self.locations:
             location.add_to_parent()
 
     def _read_pathways(self):
-        self._pathways_map = self._read_table('pathways', GtfsPathway)
+        self._pathways_map = self._read_table("pathways", GtfsPathway)
         for pathway in self.pathways:
             pathway.add_to_endpoints()
 
     def _read_table(self, table, entity_type):
         entities = {}
-        with open(os.path.join(self.gtfs_dir, '%s.txt' % table), 'rb') as f:
+        with open(
+            os.path.join(self.gtfs_dir, "%s.txt" % table),
+            "rt",
+            encoding="utf-8",
+        ) as f:
             reader = csv.DictReader(f)
             for row in reader:
                 entity = entity_type(row, self)
@@ -200,20 +210,21 @@ class GtfsReader(object):
         return entities
 
 
-_VALID_GRAPHVIZ_ID = re.compile(r'^[A-Za-z_][A-Za-z0-9_]+$')
+_VALID_GRAPHVIZ_ID = re.compile(r"^[A-Za-z_][A-Za-z0-9_]+$")
 
 
 def escape_graphviz_id(gtfs_id):
     if _VALID_GRAPHVIZ_ID.match(gtfs_id):
         return gtfs_id
-    return '"%s"' % gtfs_id.replace('"', r'\"')
+    return '"%s"' % gtfs_id.replace('"', r"\"")
 
 
 def truncate_string(s, max_length=20):
-    s = unicode(s, 'utf-8', errors='ignore')
+    if isinstance(s, bytes):
+        s = str(s, "utf-8", errors="ignore")
     if max_length > 0 and len(s) > max_length:
-        s = u'%s..%s' % (s[:max_length - 4], s[-2:])
-    return s.encode('utf-8')
+        s = "%s..%s" % (s[: max_length - 4], s[-2:])
+    return s
 
 
 class Attributes(object):
@@ -222,35 +233,38 @@ class Attributes(object):
       label="Platform 2" color=springgreen shape=oval
 
     """
+
     def __init__(self, **kwargs):
         self.attributes = kwargs
 
     def __str__(self):
-        return ' '.join(
-            '%s=%s' % (k, escape_graphviz_id(v))
+        return " ".join(
+            "%s=%s" % (k, escape_graphviz_id(v))
             for k, v in sorted(self.attributes.items())
-            if v is not None)
+            if v is not None
+        )
 
 
 class GraphViz(object):
     """Keeps all data for a GraphViz DOT file: nodes, clustes and edges.
 
     """
+
     def __init__(self):
         self.nodes = []
         self.clusters = {}
         self.edges = []
 
     def __str__(self):
-        result = 'digraph D {\n  node [ %s ]\n' % Attributes(style='filled')
-        for cluster in self.clusters.values():
-            result += '\n  %s\n' % cluster.indent(1)
+        result = "digraph D {\n  node [ %s ]\n" % Attributes(style="filled")
+        for cluster in list(self.clusters.values()):
+            result += "\n  %s\n" % cluster.indent(1)
         for node in self.nodes:
-            result += '  %s\n' % node
-        result += '\n'
+            result += "  %s\n" % node
+        result += "\n"
         for edge in self.edges:
-            result += '\n  %s\n' % edge
-        result += '}\n'
+            result += "\n  %s\n" % edge
+        result += "}\n"
         return result
 
     def add_cluster(self, cluster):
@@ -263,6 +277,7 @@ class GraphViz(object):
 class GraphCluster(object):
     """A GraphViz cluster that groups several nodes.
     """
+
     def __init__(self, id, label, color):
         self.id = id
         self.label = label
@@ -283,20 +298,19 @@ class GraphCluster(object):
         return self.indent(0)
 
     def indent(self, level):
-        indent_str = '  ' * level
-        result = 'subgraph %s {\n' % (
-            escape_graphviz_id('cluster_%s' % self.id))
-        result += '%s  graph [ %s ]\n' % (
+        indent_str = "  " * level
+        result = "subgraph %s {\n" % (
+            escape_graphviz_id("cluster_%s" % self.id)
+        )
+        result += "%s  graph [ %s ]\n" % (
             indent_str,
-            Attributes(
-                style='filled',
-                color=self.color,
-                label=self.label))
-        for cluster in self.clusters.values():
-            result += '\n%s  %s\n' % (indent_str, cluster.indent(level + 1))
+            Attributes(style="filled", color=self.color, label=self.label),
+        )
+        for cluster in list(self.clusters.values()):
+            result += "\n%s  %s\n" % (indent_str, cluster.indent(level + 1))
         for node in self.nodes:
-            result += '\n%s  %s\n' % (indent_str, node)
-        result += '%s}' % indent_str
+            result += "\n%s  %s\n" % (indent_str, node)
+        result += "%s}" % indent_str
         return result
 
 
@@ -304,6 +318,7 @@ class GraphNode(object):
     """A GraphViz node.
 
     """
+
     def __init__(self, id, label, color, shape):
         self.id = id
         self.label = label
@@ -311,17 +326,17 @@ class GraphNode(object):
         self.shape = shape
 
     def __str__(self):
-        return '%s [ %s ]' % (
-            escape_graphviz_id(self.id), Attributes(
-                label=self.label,
-                color=self.color,
-                shape=self.shape))
+        return "%s [ %s ]" % (
+            escape_graphviz_id(self.id),
+            Attributes(label=self.label, color=self.color, shape=self.shape),
+        )
 
 
 class GraphEdge(object):
     """A GraphViz edge.
 
     """
+
     def __init__(self, source, destination, direction, label):
         self.source = source
         self.destination = destination
@@ -329,11 +344,12 @@ class GraphEdge(object):
         self.label = label
 
     def __str__(self):
-        return 'edge [ %s ]\n  %s -> %s [ %s ]' % (
+        return "edge [ %s ]\n  %s -> %s [ %s ]" % (
             Attributes(dir=self.direction),
             escape_graphviz_id(self.source),
             escape_graphviz_id(self.destination),
-            Attributes(label=self.label))
+            Attributes(label=self.label),
+        )
 
 
 def location_color(location_type):
@@ -361,26 +377,28 @@ def location_shape(location_type):
 def location_label(location, max_length=20):
     label = location.gtfs_id
     if location.platform_code:
-        label += '\\nPlatform %s' % location.platform_code
+        label += "\\nPlatform %s" % location.platform_code
     elif location.signposted_as:
-        label += '\\n%s' % location.signposted_as
+        label += "\\n%s" % location.signposted_as
     elif location.name:
-        label += '\\n%s' % truncate_string(location.name, max_length)
+        label += "\\n%s" % truncate_string(location.name, max_length)
     return label
 
 
 def pathway_label(pathway):
     label = pathway.mode.name
     if pathway.signposted_as:
-        label += '\\n%s' % truncate_string(pathway.signposted_as)
+        label += "\\n%s" % truncate_string(pathway.signposted_as)
     if pathway.reversed_signposted_as:
-        label += '\\n%s' % truncate_string(pathway.reversed_signposted_as)
+        label += "\\n%s" % truncate_string(pathway.reversed_signposted_as)
     return label
 
 
 def requires_platform_cluster(location):
-    return (location.location_type == LocationType.platform and
-            location.has_children())
+    return (
+        location.location_type == LocationType.platform
+        and location.has_children()
+    )
 
 
 def choose_location_ids(gtfs, stop_ids=None):
@@ -396,18 +414,20 @@ def choose_location_ids(gtfs, stop_ids=None):
 
     if not stop_ids:
         # Select locations that are involved in pathway graph.
-        return [location.gtfs_id
-                for location in gtfs.locations
-                if location.station().self_or_children_have_pathways()]
+        return [
+            location.gtfs_id
+            for location in gtfs.locations
+            if location.station().self_or_children_have_pathways()
+        ]
 
     station_ids = set()
     try:
-        for stop_id in stop_ids.split(','):
+        for stop_id in stop_ids.split(","):
             station = gtfs.get_location(stop_id).station()
             station_ids.add(station.gtfs_id)
-            print('Visualizing station %s' % station.gtfs_id)
+            print("Visualizing station %s" % station.gtfs_id)
     except KeyError:
-        raise Exception('Cannot find location with stop_id=%s' % stop_id)
+        raise Exception("Cannot find location with stop_id=%s" % stop_id)
 
     location_ids = station_ids.copy()
     for station_id in station_ids:
@@ -431,17 +451,23 @@ def gtfs_to_graphviz(gtfs, stop_ids=None):
 
     for location in locations:
         if not location.parent_id:
-            graph.add_cluster(GraphCluster(
-                location.gtfs_id,
-                location_label(location, max_length=-1),
-                location_color(location.location_type)))
+            graph.add_cluster(
+                GraphCluster(
+                    location.gtfs_id,
+                    location_label(location, max_length=-1),
+                    location_color(location.location_type),
+                )
+            )
 
     for location in locations:
         if location.parent_id and requires_platform_cluster(location):
-            graph.get_cluster(location.parent_id).add_cluster(GraphCluster(
-                location.gtfs_id,
-                location_label(location),
-                location_color(location.location_type)))
+            graph.get_cluster(location.parent_id).add_cluster(
+                GraphCluster(
+                    location.gtfs_id,
+                    location_label(location),
+                    location_color(location.location_type),
+                )
+            )
 
     for location in locations:
         if not location.parent_id or requires_platform_cluster(location):
@@ -450,7 +476,8 @@ def gtfs_to_graphviz(gtfs, stop_ids=None):
             location.gtfs_id,
             location_label(location, max_length=25),
             location_color(location.location_type),
-            location_shape(location.location_type))
+            location_shape(location.location_type),
+        )
         cluster = graph.get_cluster(location.station().gtfs_id)
         if location.location_type == LocationType.boarding_area:
             cluster = cluster.get_cluster(location.parent_id)
@@ -458,29 +485,48 @@ def gtfs_to_graphviz(gtfs, stop_ids=None):
 
     for pathway in gtfs.pathways:
         if pathway.from_id in location_ids and pathway.to_id in location_ids:
-            graph.edges.append(GraphEdge(
-                pathway.from_id, pathway.to_id,
-                'both' if pathway.is_bidirectional else 'forward',
-                pathway_label(pathway)))
+            graph.edges.append(
+                GraphEdge(
+                    pathway.from_id,
+                    pathway.to_id,
+                    "both" if pathway.is_bidirectional else "forward",
+                    pathway_label(pathway),
+                )
+            )
 
     return graph
 
 
 def main():
-    parser = argparse.ArgumentParser(description='Visualize pathway graph.')
-    parser.add_argument('gtfs_directory', metavar='GTFS_DIR', type=str,
-                        nargs=1, help='Unzipped GTFS directory')
-    parser.add_argument('--dot', '-d',
-                        help='Output GraphViz DOT file')
-    parser.add_argument('--png', '-p', dest='png',
-                        action='store_true',
-                        help='Additionally generate a PNG file with GraphViz')
-    parser.add_argument('--svg', '-g', dest='svg',
-                        action='store_true',
-                        help='Additionally generate a SVG file with GraphViz')
-    parser.add_argument('--stop_ids', '-s',
-                        help='If set, then the graph will contain only those '
-                        'stations that include locations with these stop_ids')
+    parser = argparse.ArgumentParser(description="Visualize pathway graph.")
+    parser.add_argument(
+        "gtfs_directory",
+        metavar="GTFS_DIR",
+        type=str,
+        nargs=1,
+        help="Unzipped GTFS directory",
+    )
+    parser.add_argument("--dot", "-d", help="Output GraphViz DOT file")
+    parser.add_argument(
+        "--png",
+        "-p",
+        dest="png",
+        action="store_true",
+        help="Additionally generate a PNG file with GraphViz",
+    )
+    parser.add_argument(
+        "--svg",
+        "-g",
+        dest="svg",
+        action="store_true",
+        help="Additionally generate a SVG file with GraphViz",
+    )
+    parser.add_argument(
+        "--stop_ids",
+        "-s",
+        help="If set, then the graph will contain only those "
+        "stations that include locations with these stop_ids",
+    )
 
     args = parser.parse_args()
 
@@ -488,29 +534,21 @@ def main():
     if args.dot:
         dot_filename = args.dot
     else:
-        dot_filename = '%s.dot' % os.path.normpath(args.gtfs_directory[0])
+        dot_filename = "%s.dot" % os.path.normpath(args.gtfs_directory[0])
 
-    with open(dot_filename, 'w+b') as dot_f:
+    with open(dot_filename, "w") as dot_f:
         dot_f.write(str(graph))
-    print('Generated %s' % dot_filename)
+    print("Generated %s" % dot_filename)
 
     if args.png:
-        png_filename = '%s.png' % os.path.splitext(dot_filename)[0]
-        subprocess.call([
-            'dot',
-            '-T', 'png',
-            '-o', png_filename,
-            dot_filename])
-        print('Generated %s' % png_filename)
+        png_filename = "%s.png" % os.path.splitext(dot_filename)[0]
+        subprocess.call(["dot", "-T", "png", "-o", png_filename, dot_filename])
+        print("Generated %s" % png_filename)
     if args.svg:
-        svg_filename = '%s.svg' % os.path.splitext(dot_filename)[0]
-        subprocess.call([
-            'dot',
-            '-T', 'svg',
-            '-o', svg_filename,
-            dot_filename])
-        print('Generated %s' % svg_filename)
+        svg_filename = "%s.svg" % os.path.splitext(dot_filename)[0]
+        subprocess.call(["dot", "-T", "svg", "-o", svg_filename, dot_filename])
+        print("Generated %s" % svg_filename)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

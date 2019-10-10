@@ -1,4 +1,4 @@
-#!/usr/bin/python2.5
+#!/usr/bin/python3
 
 # Copyright (C) 2007 Google Inc.
 #
@@ -56,15 +56,8 @@ Stop object which has attributes such as stop_lat and stop_name.
   TimeToSecondsSinceMidnight(): Convert HH:MM:SS into seconds since midnight.
   FormatSecondsSinceMidnight(s): Formats number of seconds past midnight into a string
 """
-from __future__ import absolute_import
 
-# util needs to be imported before problems because otherwise the loading order
-# of this module is Agency -> Problems -> Util -> Trip and trip tries to
-# use problems.default_problem_reporter as a default argument (which fails
-# because problems.py isn't fully loaded yet). Loading util first solves this as
-# problems.py gets fully loaded right away.
-# TODO: Solve this problem cleanly
-from .util import *
+from transitfeed.version import __version__
 from .agency import *
 from .fareattribute import *
 from .farerule import *
@@ -86,4 +79,10 @@ from .stoptime import *
 from .transfer import *
 from .trip import *
 
-from transitfeed.version import __version__
+# util needs to be imported before problems because otherwise the loading order
+# of this module is Agency -> Problems -> Util -> Trip and trip tries to
+# use problems.default_problem_reporter as a default argument (which fails
+# because problems.py isn't fully loaded yet). Loading util first solves this as
+# problems.py gets fully loaded right away.
+# TODO: Solve this problem cleanly
+from .util import *

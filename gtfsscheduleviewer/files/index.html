@@ -1,55 +1,66 @@
 <!DOCTYPE html>
 <html>
-  <head>
-    <meta http-equiv="content-type" content="text/html; charset=utf-8"/>
+<head>
+    <meta content="text/html; charset=utf-8" http-equiv="content-type"/>
     <title>[agency]</title>
-    <link href="file/style.css" rel="stylesheet" type="text/css" />
-    <script type="text/javascript"
-            src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBLmKxIq4izZzlXKPeVoAiURcT6z6ynobg&sensor=false">
+    <link href="file/style.css" rel="stylesheet" type="text/css"/>
+    <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyAZTTRO6RC6LQyKCD3JODhxbClsZl95P9U&sensor=false"
+            type="text/javascript">
     </script>
     <script src="/file/markerwithlabel.js"></script>
     <script src="/file/calendarpopup.js" type="text/javascript"></script>
     <script src="/file/index.js" type="text/javascript"></script>
-  </head>
+</head>
 
-  <body class='sidebar-left' onresize="sizeRouteList()">
-    <div id='topbar'>
-      <div id="edit">
+<body class='sidebar-left' onresize="sizeRouteList()">
+<div id='topbar'>
+    <div id="edit">
         <span id="edit_status">...</span>
         <form onSubmit="saveData(); return false;">
-          <input value="Save" type="submit">
+            <input type="submit" value="Save">
         </form>
-      </div>
-      <div id="agencyHeader">[agency]</div>
     </div>
-    <div id='content'>
-      <div id='sidebar-wrapper'>
+    <div id="agencyHeader">[agency]</div>
+</div>
+<div id='content'>
+    <div id='sidebar-wrapper'>
         <div id='sidebar'>
-          Time:&nbsp;<input type="text" value="8:00" width="9" id="timeInput"><br>
-          Date:&nbsp;<input type="text" value="" size="8" id="startDateInput" name="startDateInput">
-          <a href="#" onclick="calStartDate.select(document.getElementById('startDateInput'),'startDateInput','yyyyMMdd'); return false;">select</a><br>
-          <form onSubmit="stopTextSearchSubmit(); return false;">
-            Find Station: <input type="text" id="stopTextSearchInput"><input value="Search" type="submit">
-          </form><br>
-          <form onSubmit="tripTextSearchSubmit(); return false;">
-            Find Trip ID: <input type="text" id="tripTextSearchInput"><input value="Search" type="submit">
-          </form><br>
-          <div id="routeList">routelist</div>
+            Time:&nbsp;<input id="timeInput" type="text" value="8:00"
+                              width="9"><br>
+            Date:&nbsp;<input id="startDateInput" name="startDateInput" size="8" type="text"
+                              value="">
+            <a href="#"
+               onclick="calStartDate.select(document.getElementById('startDateInput'),'startDateInput','yyyyMMdd'); return false;">select</a><br>
+            <form onSubmit="stopTextSearchSubmit(); return false;">
+                Find Station: <input id="stopTextSearchInput"
+                                     type="text"><input
+                    type="submit" value="Search">
+            </form>
+            <br>
+            <form onSubmit="tripTextSearchSubmit(); return false;">
+                Find Trip ID: <input id="tripTextSearchInput"
+                                     type="text"><input
+                    type="submit" value="Search">
+            </form>
+            <br>
+            <div id="routeList">routelist</div>
         </div>
-      </div>
-      <div id='map-wrapper'> <div id='map'></div> </div>
     </div>
+    <div id='map-wrapper'>
+        <div id='map'></div>
+    </div>
+</div>
 
-    <div id='bottombar'>bottom bar</div>
+<div id='bottombar'>bottom bar</div>
 
 <script>
-  var p1 = new google.maps.LatLng([min_lat], [min_lon]);
-  var p2 = new google.maps.LatLng([max_lat], [max_lon]);
-  var config = {
-    forbid_editing: [forbid_editing],
-    bounds: new google.maps.LatLngBounds(p1, p2)
-  };
-  load(config);
+    var p1 = new google.maps.LatLng([min_lat], [min_lon]);
+    var p2 = new google.maps.LatLng([max_lat], [max_lon]);
+    var config = {
+        forbid_editing: [forbid_editing],
+        bounds: new google.maps.LatLngBounds(p1, p2)
+    };
+    load(config);
 </script>
 
 </body>

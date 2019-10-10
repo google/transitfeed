@@ -1,4 +1,4 @@
-#!/usr/bin/python2.5
+#!/usr/bin/python3
 
 # Copyright (C) 2011 Google Inc.
 #
@@ -17,16 +17,15 @@
 """Extension of feedvalidator.py using the googletransit extension by default.
 """
 
-import extensions.googletransit  # needed for py2exe
 import feedvalidator
 from transitfeed import util
 
 
 def main():
-  (feed, options) = feedvalidator.ParseCommandLineArguments()
-  options.extension = 'extensions.googletransit'
-  return feedvalidator.RunValidationFromOptions(feed, options)
+    (feed, options) = feedvalidator.ParseCommandLineArguments()
+    options.extension = "extensions.googletransit"
+    return feedvalidator.RunValidationFromOptions(feed, options)
 
 
-if __name__ == '__main__':
-  util.RunWithCrashHandler(main)
+if __name__ == "__main__":
+    util.RunWithCrashHandler(main)

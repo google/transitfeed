@@ -1,4 +1,3 @@
-
 # Copyright (C) 2007 Google Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -23,5 +22,6 @@ TYPE_NOTICE = 2
 
 ALL_TYPES = [TYPE_ERROR, TYPE_WARNING, TYPE_NOTICE]
 
+
 class Error(Exception):
-  pass
+    pass
