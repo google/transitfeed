@@ -66,13 +66,13 @@ class Stop(GtfsObjectBase):
         )
 
     def __init__(
-        self,
-        lat=None,
-        lng=None,
-        name=None,
-        stop_id=None,
-        field_dict=None,
-        stop_code=None,
+            self,
+            lat=None,
+            lng=None,
+            name=None,
+            stop_id=None,
+            field_dict=None,
+            stop_code=None,
     ):
         """Initialize a new Stop object.
 
@@ -244,9 +244,9 @@ class Stop(GtfsObjectBase):
 
     def ValidateStopNotTooCloseToOrigin(self, problems):
         if (
-            self.stop_lat is not None
-            and self.stop_lon is not None
-            and abs(self.stop_lat) < 1.0
+                self.stop_lat is not None
+                and self.stop_lon is not None
+                and abs(self.stop_lat) < 1.0
         ) and (abs(self.stop_lon) < 1.0):
             problems.InvalidValue(
                 "stop_lat",
@@ -257,11 +257,11 @@ class Stop(GtfsObjectBase):
 
     def ValidateStopDescriptionAndNameAreDifferent(self, problems):
         if (
-            self.stop_desc
-            and self.stop_name
-            and not util.IsEmpty(self.stop_desc)
-            and self.stop_name.strip().lower()
-            == self.stop_desc.strip().lower()
+                self.stop_desc
+                and self.stop_name
+                and not util.IsEmpty(self.stop_desc)
+                and self.stop_name.strip().lower()
+                == self.stop_desc.strip().lower()
         ):
             problems.InvalidValue(
                 "stop_desc",
@@ -284,7 +284,7 @@ class Stop(GtfsObjectBase):
         # stop_timezone.
         util.ValidateTimezone(self.stop_timezone, "stop_timezone", problems)
         if not util.IsEmpty(self.parent_station) and not util.IsEmpty(
-            self.stop_timezone
+                self.stop_timezone
         ):
             problems.InvalidValue(
                 "stop_timezone",
