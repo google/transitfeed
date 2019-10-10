@@ -1,4 +1,4 @@
-#!/usr/bin/python2.5
+#!/usr/bin/python3
 
 # Copyright (C) 2011 Google Inc.
 #
@@ -14,7 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from __future__ import absolute_import
+
 import transitfeed
 
 from . import agency
@@ -22,20 +22,21 @@ from . import fareattribute
 from . import route
 from . import stop
 
-def GetGtfsFactory(factory = None):
-  if not factory:
-    factory = transitfeed.GetGtfsFactory()
 
-  # Agency class extension
-  factory.UpdateClass('Agency', agency.Agency)
+def GetGtfsFactory(factory=None):
+    if not factory:
+        factory = transitfeed.GetGtfsFactory()
 
-  # FareAttribute class extension
-  factory.UpdateClass('FareAttribute', fareattribute.FareAttribute)
+    # Agency class extension
+    factory.UpdateClass("Agency", agency.Agency)
 
-  # Route class extension
-  factory.UpdateClass('Route', route.Route)
+    # FareAttribute class extension
+    factory.UpdateClass("FareAttribute", fareattribute.FareAttribute)
 
-  # Stop class extension
-  factory.UpdateClass('Stop', stop.Stop)
+    # Route class extension
+    factory.UpdateClass("Route", route.Route)
 
-  return factory
+    # Stop class extension
+    factory.UpdateClass("Stop", stop.Stop)
+
+    return factory

@@ -1,4 +1,4 @@
-#!/usr/bin/python2.5
+#!/usr/bin/python3
 
 # Copyright (C) 2007 Google Inc.
 #
@@ -16,48 +16,57 @@
 
 
 """Filter the unused stops out of a transit feed file."""
-from __future__ import print_function
 
 import optparse
 import sys
+
 import transitfeed
 
 
 def main():
-  parser = optparse.OptionParser(
-      usage="usage: %prog [options] input_feed output_feed",
-      version="%prog "+transitfeed.__version__)
-  parser.add_option("-l", "--list_removed", dest="list_removed",
-                    default=False,
-                    action="store_true",
-                    help="Print removed stops to stdout")
-  (options, args) = parser.parse_args()
-  if len(args) != 2:
-    print(parser.format_help(), file=sys.stderr)
-    print("\n\nYou must provide input_feed and output_feed\n\n", file=sys.stderr)
-    sys.exit(2)
-  input_path = args[0]
-  output_path = args[1]
+    parser = optparse.OptionParser(
+        usage="usage: %prog [options] input_feed output_feed",
+        version="%prog " + transitfeed.__version__,
+    )
+    parser.add_option(
+        "-l",
+        "--list_removed",
+        dest="list_removed",
+        default=False,
+        action="store_true",
+        help="Print removed stops to stdout",
+    )
+    (options, args) = parser.parse_args()
+    if len(args) != 2:
+        print(parser.format_help(), file=sys.stderr)
+        print(
+            "\n\nYou must provide input_feed and output_feed\n\n",
+            file=sys.stderr,
+        )
+        sys.exit(2)
+    input_path = args[0]
+    output_path = args[1]
 
-  loader = transitfeed.Loader(input_path)
-  schedule = loader.Load()
+    loader = transitfeed.Loader(input_path)
+    schedule = loader.Load()
 
-  print("Removing unused stops...")
-  removed = 0
-  for stop_id, stop in schedule.stops.items():
-    if not stop.GetTrips(schedule):
-      removed += 1
-      del schedule.stops[stop_id]
-      if options.list_removed:
-        print("Removing %s (%s)" % (stop_id, stop.stop_name))
-  if removed == 0:
-    print("No unused stops.")
-  elif removed == 1:
-    print("Removed 1 stop")
-  else:
-    print("Removed %d stops" % removed)
+    print("Removing unused stops...")
+    removed = 0
+    for stop_id, stop in list(schedule.stops.items()):
+        if not stop.GetTrips(schedule):
+            removed += 1
+            del schedule.stops[stop_id]
+            if options.list_removed:
+                print("Removing %s (%s)" % (stop_id, stop.stop_name))
+    if removed == 0:
+        print("No unused stops.")
+    elif removed == 1:
+        print("Removed 1 stop")
+    else:
+        print("Removed %d stops" % removed)
 
-  schedule.WriteGoogleTransitFeed(output_path)
+    schedule.WriteGoogleTransitFeed(output_path)
+
 
 if __name__ == "__main__":
-  main()
+    main()

@@ -1,4 +1,4 @@
-#!/usr/bin/python2.5
+#!/usr/bin/python3
 
 # Copyright (C) 2010 Google Inc.
 #
@@ -14,14 +14,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from __future__ import absolute_import
+
+from . import problems
 from .agency import Agency
 from .fareattribute import FareAttribute
 from .farerule import FareRule
 from .feedinfo import FeedInfo
 from .frequency import Frequency
 from .loader import Loader
-from . import problems
 from .route import Route
 from .schedule import Schedule
 from .serviceperiod import ServicePeriod
@@ -32,81 +32,108 @@ from .stoptime import StopTime
 from .transfer import Transfer
 from .trip import Trip
 
+
 class GtfsFactory(object):
-  """A factory for the default GTFS objects"""
+    """A factory for the default GTFS objects"""
 
-  _REQUIRED_MAPPING_FIELDS = ['classes', 'required', 'loading_order']
+    _REQUIRED_MAPPING_FIELDS = ["classes", "required", "loading_order"]
 
-  def __init__(self):
+    def __init__(self):
 
-    self._class_mapping = {
-      'Agency': Agency,
-      'ServicePeriod': ServicePeriod,
-      'FareAttribute': FareAttribute,
-      'FareRule': FareRule,
-      'Frequency': Frequency,
-      'FeedInfo': FeedInfo,
-      'Shape': Shape,
-      'ShapePoint': ShapePoint,
-      'Stop': Stop,
-      'StopTime': StopTime,
-      'Route': Route,
-      'Transfer': Transfer,
-      'Trip': Trip,
-      'Schedule': Schedule,
-      'Loader': Loader
-    }
-
-    self._file_mapping = {
-        'agency.txt': { 'required': True, 'loading_order': 0,
-                        'classes': ['Agency'] },
-
-        'calendar.txt': { 'required': False, 'loading_order': None,
-                          'classes': ['ServicePeriod']},
-
-        'calendar_dates.txt': { 'required': False, 'loading_order': None,
-                                'classes': ['ServicePeriod']},
-
-        'fare_attributes.txt': { 'required': False, 'loading_order': 50,
-                                 'classes': ['FareAttribute']},
-
-        'fare_rules.txt': { 'required': False, 'loading_order': 60,
-                            'classes': ['FareRule']},
-
-        'feed_info.txt': { 'required': False, 'loading_order': 100, 
-                           'classes': ['FeedInfo']},
-
-        'frequencies.txt': { 'required': False, 'loading_order': 70,
-                             'classes': ['Frequency']},
-
-        'shapes.txt': { 'required': False, 'loading_order': None,
-                        'classes': ['Shape', 'ShapePoint']},
-
-        'stops.txt': { 'required': True, 'loading_order': 10,
-                       'classes': ['Stop']},
-
-        'stop_times.txt': { 'required': True, 'loading_order': None,
-                            'classes': ['StopTime']},
-
-        'routes.txt': { 'required': True, 'loading_order': 20,
-                        'classes': ['Route']},
-
-        'transfers.txt': { 'required': False, 'loading_order': 30,
-                           'classes': ['Transfer']},
-
-        'trips.txt': { 'required': True, 'loading_order': 40,
-                       'classes': ['Trip']},
-
+        self._class_mapping = {
+            "Agency": Agency,
+            "ServicePeriod": ServicePeriod,
+            "FareAttribute": FareAttribute,
+            "FareRule": FareRule,
+            "Frequency": Frequency,
+            "FeedInfo": FeedInfo,
+            "Shape": Shape,
+            "ShapePoint": ShapePoint,
+            "Stop": Stop,
+            "StopTime": StopTime,
+            "Route": Route,
+            "Transfer": Transfer,
+            "Trip": Trip,
+            "Schedule": Schedule,
+            "Loader": Loader,
         }
 
-  def __getattr__(self, name):
-    if name in self._class_mapping:
-      return self._class_mapping[name]
+        self._file_mapping = {
+            "agency.txt": {
+                "required": True,
+                "loading_order": 0,
+                "classes": ["Agency"],
+            },
+            "calendar.txt": {
+                "required": False,
+                "loading_order": None,
+                "classes": ["ServicePeriod"],
+            },
+            "calendar_dates.txt": {
+                "required": False,
+                "loading_order": None,
+                "classes": ["ServicePeriod"],
+            },
+            "fare_attributes.txt": {
+                "required": False,
+                "loading_order": 50,
+                "classes": ["FareAttribute"],
+            },
+            "fare_rules.txt": {
+                "required": False,
+                "loading_order": 60,
+                "classes": ["FareRule"],
+            },
+            "feed_info.txt": {
+                "required": False,
+                "loading_order": 100,
+                "classes": ["FeedInfo"],
+            },
+            "frequencies.txt": {
+                "required": False,
+                "loading_order": 70,
+                "classes": ["Frequency"],
+            },
+            "shapes.txt": {
+                "required": False,
+                "loading_order": None,
+                "classes": ["Shape", "ShapePoint"],
+            },
+            "stops.txt": {
+                "required": True,
+                "loading_order": 10,
+                "classes": ["Stop"],
+            },
+            "stop_times.txt": {
+                "required": True,
+                "loading_order": None,
+                "classes": ["StopTime"],
+            },
+            "routes.txt": {
+                "required": True,
+                "loading_order": 20,
+                "classes": ["Route"],
+            },
+            "transfers.txt": {
+                "required": False,
+                "loading_order": 30,
+                "classes": ["Transfer"],
+            },
+            "trips.txt": {
+                "required": True,
+                "loading_order": 40,
+                "classes": ["Trip"],
+            },
+        }
 
-    raise AttributeError(name)
+    def __getattr__(self, name):
+        if name in self._class_mapping:
+            return self._class_mapping[name]
 
-  def GetGtfsClassByFileName(self, filename):
-    """Returns the transitfeed class corresponding to a GTFS file.
+        raise AttributeError(name)
+
+    def GetGtfsClassByFileName(self, filename):
+        """Returns the transitfeed class corresponding to a GTFS file.
 
     Args:
       filename: The filename whose class is to be returned
@@ -115,48 +142,48 @@ class GtfsFactory(object):
       NonStandardMapping if the specified filename has more than one
           corresponding class
     """
-    if filename not in self._file_mapping:
-      return None
-    mapping = self._file_mapping[filename]
-    class_list = mapping['classes']
-    if len(class_list) > 1:
-      raise problems.NonStandardMapping(filename)
-    else:
-      return self._class_mapping[class_list[0]]
+        if filename not in self._file_mapping:
+            return None
+        mapping = self._file_mapping[filename]
+        class_list = mapping["classes"]
+        if len(class_list) > 1:
+            raise problems.NonStandardMapping(filename)
+        else:
+            return self._class_mapping[class_list[0]]
 
-  def GetLoadingOrder(self):
-    """Returns a list of filenames sorted by loading order.
+    def GetLoadingOrder(self):
+        """Returns a list of filenames sorted by loading order.
     Only includes files that Loader's standardized loading knows how to load"""
-    result = {}
-    for filename, mapping in self._file_mapping.iteritems():
-      loading_order = mapping['loading_order']
-      if loading_order is not None:
-        result[loading_order] = filename
-    return list(result[key] for key in sorted(result))
+        result = {}
+        for filename, mapping in self._file_mapping.items():
+            loading_order = mapping["loading_order"]
+            if loading_order is not None:
+                result[loading_order] = filename
+        return list(result[key] for key in sorted(result))
 
-  def IsFileRequired(self, filename):
-    """Returns true if a file is required by GTFS, false otherwise.
+    def IsFileRequired(self, filename):
+        """Returns true if a file is required by GTFS, false otherwise.
     Unknown files are, by definition, not required"""
-    if filename not in self._file_mapping:
-      return False
-    mapping = self._file_mapping[filename]
-    return mapping['required']
+        if filename not in self._file_mapping:
+            return False
+        mapping = self._file_mapping[filename]
+        return mapping["required"]
 
-  def GetKnownFilenames(self):
-    """Returns a list of all known filenames"""
-    return self._file_mapping.keys()
+    def GetKnownFilenames(self):
+        """Returns a list of all known filenames"""
+        return list(self._file_mapping.keys())
 
-  def RemoveMapping(self, filename):
-    """Removes an entry from the list of known filenames.
+    def RemoveMapping(self, filename):
+        """Removes an entry from the list of known filenames.
        An entry is identified by its filename.
 
        filename: The filename whose mapping is to be updated.
     """
-    if filename in self._file_mapping:
-      del self._file_mapping[filename]
+        if filename in self._file_mapping:
+            del self._file_mapping[filename]
 
-  def AddMapping(self, filename, new_mapping):
-    """Adds an entry to the list of known filenames.
+    def AddMapping(self, filename, new_mapping):
+        """Adds an entry to the list of known filenames.
 
     Args:
         filename: The filename whose mapping is being added.
@@ -166,15 +193,15 @@ class GtfsFactory(object):
         DuplicateMapping if the filename already exists in the mapping
         InvalidMapping if not all required fields are present
     """
-    for field in self._REQUIRED_MAPPING_FIELDS:
-      if field not in new_mapping:
-        raise problems.InvalidMapping(field)
-    if filename in self.GetKnownFilenames():
-      raise problems.DuplicateMapping(filename)
-    self._file_mapping[filename] = new_mapping
+        for field in self._REQUIRED_MAPPING_FIELDS:
+            if field not in new_mapping:
+                raise problems.InvalidMapping(field)
+        if filename in self.GetKnownFilenames():
+            raise problems.DuplicateMapping(filename)
+        self._file_mapping[filename] = new_mapping
 
-  def UpdateMapping(self, filename, mapping_update):
-    """Updates an entry in the list of known filenames.
+    def UpdateMapping(self, filename, mapping_update):
+        """Updates an entry in the list of known filenames.
        An entry is identified by its filename.
 
     Args:
@@ -184,13 +211,13 @@ class GtfsFactory(object):
     Raises:
         InexistentMapping if the filename does not exist in the mapping
     """
-    if filename not in self._file_mapping:
-      raise problems.NonexistentMapping(filename)
-    mapping = self._file_mapping[filename]
-    mapping.update(mapping_update)
+        if filename not in self._file_mapping:
+            raise problems.NonexistentMapping(filename)
+        mapping = self._file_mapping[filename]
+        mapping.update(mapping_update)
 
-  def AddClass(self, class_name, gtfs_class):
-    """Adds an entry to the list of known classes.
+    def AddClass(self, class_name, gtfs_class):
+        """Adds an entry to the list of known classes.
 
     Args:
         class_name: A string with name through which gtfs_class is to be made
@@ -199,12 +226,12 @@ class GtfsFactory(object):
     Raises:
         DuplicateMapping if class_name is already present in the class mapping.
     """
-    if class_name in self._class_mapping:
-      raise problems.DuplicateMapping(class_name)
-    self._class_mapping[class_name] = gtfs_class
+        if class_name in self._class_mapping:
+            raise problems.DuplicateMapping(class_name)
+        self._class_mapping[class_name] = gtfs_class
 
-  def UpdateClass(self, class_name, gtfs_class):
-    """Updates an entry in the list of known classes.
+    def UpdateClass(self, class_name, gtfs_class):
+        """Updates an entry in the list of known classes.
 
     Args:
         class_name: A string with the class name that is to be updated.
@@ -212,28 +239,29 @@ class GtfsFactory(object):
     Raises:
         NonexistentMapping if there is no class with the specified class_name.
     """
-    if class_name not in self._class_mapping:
-      raise problems.NonexistentMapping(class_name)
-    self._class_mapping[class_name] = gtfs_class
+        if class_name not in self._class_mapping:
+            raise problems.NonexistentMapping(class_name)
+        self._class_mapping[class_name] = gtfs_class
 
-  def RemoveClass(self, class_name):
-    """Removes an entry from the list of known classes.
+    def RemoveClass(self, class_name):
+        """Removes an entry from the list of known classes.
 
     Args:
         class_name: A string with the class name that is to be removed.
     Raises:
         NonexistentMapping if there is no class with the specified class_name.
     """
-    if class_name not in self._class_mapping:
-      raise problems.NonexistentMapping(class_name)
-    del self._class_mapping[class_name]
+        if class_name not in self._class_mapping:
+            raise problems.NonexistentMapping(class_name)
+        del self._class_mapping[class_name]
 
-  def GetProblemReporter(self):
-    return problems.ProblemReporter()
+    def GetProblemReporter(self):
+        return problems.ProblemReporter()
+
 
 def GetGtfsFactory():
-  """Called by FeedValidator to retrieve this extension's GtfsFactory.
+    """Called by FeedValidator to retrieve this extension's GtfsFactory.
      Extensions will most likely only need to create an instance of
      transitfeed.GtfsFactory, call {Remove,Add,Update}Mapping as needed, and
      return that instance"""
-  return GtfsFactory()
+    return GtfsFactory()
