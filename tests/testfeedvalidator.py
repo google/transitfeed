@@ -18,6 +18,9 @@
 # for a valid feed and a feed with errors.
 
 from __future__ import absolute_import
+from future.standard_library import install_aliases
+install_aliases()
+
 import datetime
 import feedvalidator
 import os.path
@@ -26,8 +29,8 @@ from tests import util
 import transitfeed
 from transitfeed.compat import StringIO
 import unittest
-from urllib2 import HTTPError, URLError
-import urllib2
+from urllib.request import urlopen, Request
+from urllib.error import HTTPError, URLError
 import zipfile
 
 
