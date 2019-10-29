@@ -16,6 +16,9 @@
 
 from __future__ import print_function
 from __future__ import absolute_import
+from future.standard_library import install_aliases
+install_aliases()
+
 import codecs
 import csv
 import datetime
@@ -26,7 +29,9 @@ import re
 import socket
 import sys
 import time
-import urllib2
+from urllib.parse import urlparse, urlencode
+from urllib.request import urlopen, Request
+from urllib.error import HTTPError
 
 from . import errors
 from .version import __version__

@@ -7,3 +7,4 @@ merge-results.html
 build
 dist
 MANIFEST
+.idea/*
