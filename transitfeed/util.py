@@ -32,6 +32,7 @@ import time
 from urllib.error import HTTPError, URLError
 from urllib.request import Request
 import urllib
+from past.builtins import basestring
 
 from . import errors
 from .version import __version__
