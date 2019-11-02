@@ -226,9 +226,9 @@ def CheckVersion(problems, latest_version=None):
 
 
 def _MaxVersion(versions):
-  versions = filter(None, versions)
-  versions.sort(lambda x,y: -cmp([int(item) for item in x.split('.')],
-                                 [int(item) for item in y.split('.')]))
+  versions = [item for item in versions if item]
+  versions.sort(key=lambda x: tuple([int(item) for item in x.split('.')]))
+
   if len(versions) > 0:
     return versions[0]
 
