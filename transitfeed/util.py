@@ -227,12 +227,11 @@ def CheckVersion(problems, latest_version=None):
 
 def _MaxVersion(versions):
   versions = [item for item in versions if item]
-  version_tuple = lambda x: tuple([int(item) for item in x.split('.')])
-  versions.sort(key=version_tuple, reverse=True)
+  if len(versions) == 0:
+    return None
 
-  if len(versions) > 0:
-    return versions[0]
-
+  version_tuple = lambda x: tuple(int(item) for item in x.split('.')) 
+  return max(versions, key=version_tuple)
 
 OUTPUT_ENCODING = 'utf-8'
 
