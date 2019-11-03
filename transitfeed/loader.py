@@ -17,6 +17,7 @@
 from __future__ import absolute_import
 import codecs
 import csv
+import io
 import os
 import re
 import zipfile
@@ -24,7 +25,7 @@ import zipfile
 from . import gtfsfactoryuser
 from . import problems
 from . import util
-from .compat import StringIO
+from .compat import BytesIO
 
 class Loader:
   def __init__(self,
@@ -74,7 +75,7 @@ class Loader:
       assert not self._path
       return True
 
-    if not isinstance(self._path, basestring) and hasattr(self._path, 'read'):
+    if not isinstance(self._path, str) and hasattr(self._path, 'read'):
       # A file-like object, used for testing with a StringIO file
       self._zip = zipfile.ZipFile(self._path, mode='r')
       return True
@@ -128,11 +129,11 @@ class Loader:
       # Convert and continue, so we can find more errors
       contents = codecs.getdecoder('utf-16')(contents)[0].encode('utf-8')
 
-    null_index = contents.find('\0')
+    null_index = contents.find(b'\x00')
     if null_index != -1:
       # It is easier to get some surrounding text than calculate the exact
       # row_num
-      m = re.search(r'.{,20}\0.{,20}', contents, re.DOTALL)
+      m = re.search(b'.{,20}\x00.{,20}', contents, re.DOTALL)
       self._problems.FileFormat(
           "contains a null in text \"%s\" at byte %d" %
           (codecs.getencoder('string_escape')(m.group()), null_index + 1),
@@ -152,14 +153,14 @@ class Loader:
     if not contents:
       return
 
-    eol_checker = util.EndOfLineChecker(StringIO(contents),
+    eol_checker = util.EndOfLineChecker(BytesIO(contents),
                                    file_name, self._problems)
     # The csv module doesn't provide a way to skip trailing space, but when I
     # checked 15/675 feeds had trailing space in a header row and 120 had spaces
     # after fields. Space after header fields can cause a serious parsing
     # problem, so warn. Space after body fields can cause a problem time,
     # integer and id fields; they will be validated at higher levels.
-    reader = csv.reader(eol_checker, skipinitialspace=True)
+    reader = csv.reader(codecs.iterdecode(eol_checker, 'utf-8'), skipinitialspace=True)
 
     raw_header = next(reader)
     header_occurrences = util.defaultdict(lambda: 0)
@@ -254,7 +255,7 @@ class Loader:
       unicode_error_columns = []  # index of valid_values elements with an error
       for i in valid_columns:
         try:
-          valid_values.append(raw_row[i].decode('utf-8'))
+          valid_values.append(raw_row[i])
         except UnicodeDecodeError:
           # Replace all invalid characters with REPLACEMENT CHARACTER (U+FFFD)
           valid_values.append(codecs.getdecoder("utf8")
@@ -287,12 +288,12 @@ class Loader:
     if not contents:
       return
 
-    eol_checker = util.EndOfLineChecker(StringIO(contents),
+    eol_checker = util.EndOfLineChecker(BytesIO(contents),
                                    file_name, self._problems)
-    reader = csv.reader(eol_checker)  # Use excel dialect
+    reader = csv.reader(codecs.iterdecode(eol_checker, 'utf-8'))  # Use excel dialect
 
     header = next(reader)
-    header = map(lambda x: x.strip(), header)  # trim any whitespace
+    header = [x.strip() for x in header]  # trim any whitespace
     header_occurrences = util.defaultdict(lambda: 0)
     for column_header in header:
       header_occurrences[column_header] += 1
@@ -358,7 +359,7 @@ class Loader:
             result[i] = u''
           else:
             try:
-              result[i] = row[ci].decode('utf-8').strip()
+              result[i] = row[ci].strip()
             except UnicodeDecodeError:
               # Replace all invalid characters with
               # REPLACEMENT CHARACTER (U+FFFD)
@@ -391,7 +392,7 @@ class Loader:
         return None
     else:
       try:
-        data_file = open(os.path.join(self._path, file_name), 'rb')
+        data_file = open(os.path.join(self._path, file_name), 'rb', newline='')
         results = data_file.read()
       except IOError:  # file not found
         self._problems.MissingFile(file_name)

@@ -444,7 +444,7 @@ def ValidateYesNoUnknown(value, column_name=None, problems=None):
     return False
 
 def IsEmpty(value):
-  return value is None or (isinstance(value, basestring) and not value.strip())
+  return value is None or (isinstance(value, str) and not value.strip())
 
 def FindUniqueId(dic):
   """Return a string not used as a key in the dictionary dic"""
@@ -573,12 +573,12 @@ class CsvUnicodeWriter:
 # Map from literal string that should never be found in the csv data to a human
 # readable description
 INVALID_LINE_SEPARATOR_UTF8 = {
-    "\x0c": "ASCII Form Feed 0x0C",
+    b"\x0c": "ASCII Form Feed 0x0C",
     # May be part of end of line, but not found elsewhere
-    "\x0d": "ASCII Carriage Return 0x0D, \\r",
-    "\xe2\x80\xa8": "Unicode LINE SEPARATOR U+2028",
-    "\xe2\x80\xa9": "Unicode PARAGRAPH SEPARATOR U+2029",
-    "\xc2\x85": "Unicode NEXT LINE SEPARATOR U+0085",
+    b"\x0d": "ASCII Carriage Return 0x0D, \\r",
+    b"\xe2\x80\xa8": "Unicode LINE SEPARATOR U+2028",
+    b"\xe2\x80\xa9": "Unicode PARAGRAPH SEPARATOR U+2029",
+    b"\xc2\x85": "Unicode NEXT LINE SEPARATOR U+0085",
 }
 
 class EndOfLineChecker:
@@ -607,7 +607,7 @@ class EndOfLineChecker:
   def __iter__(self):
     return self
 
-  def next(self):
+  def __next__(self):
     """Return next line without end of line marker or raise StopIteration."""
     try:
       next_line = next(self._f)
@@ -616,12 +616,12 @@ class EndOfLineChecker:
       raise
 
     self._line_number += 1
-    m_eol = re.search(r"[\x0a\x0d]*$", next_line)
-    if m_eol.group() == "\x0d\x0a":
+    m_eol = re.search(b"[\x0a\x0d]*$", next_line)
+    if m_eol.group() == b"\x0d\x0a":
       self._crlf += 1
       if self._crlf <= 5:
         self._crlf_examples.append(self._line_number)
-    elif m_eol.group() == "\x0a":
+    elif m_eol.group() == b"\x0a":
       self._lf += 1
       if self._lf <= 5:
         self._lf_examples.append(self._line_number)
@@ -635,7 +635,7 @@ class EndOfLineChecker:
         pass
     else:
       self._problems.InvalidLineEnd(
-        codecs.getencoder('string_escape')(m_eol.group())[0],
+        codecs.getencoder('unicode_escape')(m_eol.group())[0],
         (self._name, self._line_number))
     next_line_contents = next_line[0:m_eol.start()]
     for seq, name in INVALID_LINE_SEPARATOR_UTF8.items():
@@ -644,6 +644,8 @@ class EndOfLineChecker:
           "Line contains %s" % name,
           context=(self._name, self._line_number))
     return next_line_contents
+
+  next = __next__
 
   def _FinalCheck(self):
     if self._crlf > 0 and self._lf > 0:
