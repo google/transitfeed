@@ -110,10 +110,7 @@ class GtfsObjectBase(GtfsFactoryUser):
   # can't be fixed until the merger is changed to not use a/b_merge_map.
 
   def __repr__(self):
-    if sys.version_info[0] < 3:
-      return "<%s %s>" % (self.__class__.__name__, sorted(self.iteritems()))
-    else:
-      return "<%s %s>" % (self.__class__.__name__, sorted(self.items()))
+    return "<%s %s>" % (self.__class__.__name__, sorted(self.iteritems()))
 
   def keys(self):
     """Return iterable of columns used by this object."""

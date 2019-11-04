@@ -1108,6 +1108,7 @@ class Schedule(object):
     # (trip_id, first_arrival_secs, last_arrival_secs)
     trip_intervals_by_block_id = defaultdict(lambda: [])
 
+    # TODO: can't sort Trips
     for trip in sorted(self.trips.values()):
       if trip.route_id not in self.routes:
         continue
