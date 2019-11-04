@@ -421,10 +421,7 @@ class Loader:
         return None
     else:
       try:
-        if sys.version_info[0] < 3:
-          data_file = open(os.path.join(self._path, file_name), 'rb')
-        else:
-          data_file = open(os.path.join(self._path, file_name), 'rb', newline='')
+        data_file = io.open(os.path.join(self._path, file_name), 'rb')
         results = data_file.read()
       except IOError:  # file not found
         self._problems.MissingFile(file_name)
