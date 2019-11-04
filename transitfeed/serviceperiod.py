@@ -328,7 +328,7 @@ class ServicePeriod(object):
       return False
     else:
       try:
-        date_value = time.strptime(date, "%Y%m%d")
+        date_value = time.strptime(date.decode('utf-8'), "%Y%m%d")
         if not (self._VALID_DATE_RANGE_FROM <= date_value.tm_year <=
                 self._VALID_DATE_RANGE_TO):
           problems.DateOutsideValidRange(field_name, date,

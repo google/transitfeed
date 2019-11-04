@@ -13,7 +13,5 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-try:  # py2
-  from StringIO import StringIO
-except ImportError:
-  from io import StringIO
+from io import StringIO
+from io import BytesIO

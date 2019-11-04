@@ -22,7 +22,7 @@ import os.path
 import shutil
 from tests import util
 import transitfeed
-from transitfeed.compat import StringIO
+from transitfeed.compat import StringIO, BytesIO
 import unittest
 
 
@@ -37,7 +37,7 @@ class TestStopsParsing(util.GetPathTestCase):
     self.assertEqual(u'Stop Name', stop.stop_name)
     self.assertAlmostEqual(-93.239037, stop.stop_lon)
     self.assertAlmostEqual(44.854164, stop.stop_lat)
-    write_output = StringIO()
+    write_output = BytesIO()
     feed.WriteGoogleTransitFeed(write_output)
 
   def testSingleShape(self):
@@ -54,7 +54,7 @@ class TestStopsParsing(util.GetPathTestCase):
     self.assertAlmostEqual(-93.238708, shape.points[1][1])
     self.assertAlmostEqual(44.852638, shape.points[2][0])
     self.assertAlmostEqual(-93.237923, shape.points[2][1])
-    write_output = StringIO()
+    write_output = BytesIO()
     feed.WriteGoogleTransitFeed(write_output)
 
 

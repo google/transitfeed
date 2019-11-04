@@ -24,7 +24,7 @@ import kmlparser
 import kmlwriter
 from tests import util
 import transitfeed
-from transitfeed.compat import StringIO
+from transitfeed.compat import StringIO, BytesIO
 
 try:
   import xml.etree.ElementTree as ET  # python 2.5
@@ -54,7 +54,7 @@ def _ElementToString(root):
   Returns:
     The XML string.
   """
-  output = StringIO()
+  output = BytesIO()
   ET.ElementTree(root).write(output, 'utf-8')
   return output.getvalue()
 

@@ -43,7 +43,7 @@ from . import gtfsfactoryuser
 from . import problems as problems_module
 from .util import defaultdict
 from . import util
-from .compat import StringIO
+from .compat import StringIO, BytesIO
 
 class Schedule(object):
   """Represents a Schedule, a collection of stops, routes, trips and
@@ -156,6 +156,8 @@ class Schedule(object):
 
   def AddAgency(self, name, url, timezone, agency_id=None):
     """Adds an agency to this schedule."""
+    if isinstance(name, bytes):
+        name = util.DecodeUnicode(name)
     agency = self._gtfs_factory.Agency(name, url, timezone, agency_id)
     self.AddAgencyObject(agency)
     return agency
@@ -261,7 +263,7 @@ class Schedule(object):
     self.service_periods[service_period.service_id] = service_period
 
   def GetServicePeriodList(self):
-    return self.service_periods.values()
+    return list(self.service_periods.values())
 
   def GetDateRange(self):
     """Returns a tuple of (earliest, latest) dates on which the service periods
@@ -281,14 +283,14 @@ class Schedule(object):
     """
     period_list = self.GetServicePeriodList()
     ranges = [period.GetDateRange() for period in period_list]
-    starts = filter(lambda x: x, [item[0] for item in ranges])
-    ends = filter(lambda x: x, [item[1] for item in ranges])
+    starts = [x for x in [item[0] for item in ranges] if x]
+    ends = [x for x in [item[1] for item in ranges] if x]
 
     if not starts or not ends:
       return (None, None, None, None)
 
-    minvalue, minindex = min(itertools.izip(starts, itertools.count()))
-    maxvalue, maxindex = max(itertools.izip(ends, itertools.count()))
+    minvalue, minindex = min(zip(starts, itertools.count()))
+    maxvalue, maxindex = max(zip(ends, itertools.count()))
 
     minreason = (period_list[minindex].HasDateExceptionOn(minvalue) and
                  "earliest service exception date in calendar_dates.txt" or
@@ -633,24 +635,24 @@ class Schedule(object):
     archive = zipfile.ZipFile(file, 'w')
 
     if 'agency' in self._table_columns:
-      agency_string = StringIO()
+      agency_string = BytesIO()
       writer = util.CsvUnicodeWriter(agency_string)
       columns = self.GetTableColumns('agency')
       writer.writerow(columns)
       for a in self._agencies.values():
-        writer.writerow([util.EncodeUnicode(a[c]) for c in columns])
+        writer.writerow([a[c] for c in columns])
       self._WriteArchiveString(archive, 'agency.txt', agency_string)
 
 
     if 'feed_info' in self._table_columns:
-      feed_info_string = StringIO()
+      feed_info_string = BytesIO()
       writer = util.CsvUnicodeWriter(feed_info_string)
       columns = self.GetTableColumns('feed_info')
       writer.writerow(columns)
-      writer.writerow([util.EncodeUnicode(self.feed_info[c]) for c in columns])
+      writer.writerow([self.feed_info[c] for c in columns])
       self._WriteArchiveString(archive, 'feed_info.txt', feed_info_string)
 
-    calendar_dates_string = StringIO()
+    calendar_dates_string = BytesIO()
     writer = util.CsvUnicodeWriter(calendar_dates_string)
     writer.writerow(
         self._gtfs_factory.ServicePeriod._FIELD_NAMES_CALENDAR_DATES)
@@ -665,7 +667,7 @@ class Schedule(object):
       self._WriteArchiveString(archive, 'calendar_dates.txt',
                                calendar_dates_string)
 
-    calendar_string = StringIO()
+    calendar_string = BytesIO()
     writer = util.CsvUnicodeWriter(calendar_string)
     writer.writerow(self._gtfs_factory.ServicePeriod._FIELD_NAMES)
     has_data = False
@@ -678,30 +680,30 @@ class Schedule(object):
       self._WriteArchiveString(archive, 'calendar.txt', calendar_string)
 
     if 'stops' in self._table_columns:
-      stop_string = StringIO()
+      stop_string = BytesIO()
       writer = util.CsvUnicodeWriter(stop_string)
       columns = self.GetTableColumns('stops')
       writer.writerow(columns)
       for s in self.stops.values():
-        writer.writerow([util.EncodeUnicode(s[c]) for c in columns])
+        writer.writerow([s[c] for c in columns])
       self._WriteArchiveString(archive, 'stops.txt', stop_string)
 
     if 'routes' in self._table_columns:
-      route_string = StringIO()
+      route_string = BytesIO()
       writer = util.CsvUnicodeWriter(route_string)
       columns = self.GetTableColumns('routes')
       writer.writerow(columns)
       for r in self.routes.values():
-        writer.writerow([util.EncodeUnicode(r[c]) for c in columns])
+        writer.writerow([r[c] for c in columns])
       self._WriteArchiveString(archive, 'routes.txt', route_string)
 
     if 'trips' in self._table_columns:
-      trips_string = StringIO()
+      trips_string = BytesIO()
       writer = util.CsvUnicodeWriter(trips_string)
       columns = self.GetTableColumns('trips')
       writer.writerow(columns)
       for t in self.trips.values():
-        writer.writerow([util.EncodeUnicode(t[c]) for c in columns])
+        writer.writerow([t[c] for c in columns])
       self._WriteArchiveString(archive, 'trips.txt', trips_string)
 
     # write frequencies.txt (if applicable)
@@ -709,7 +711,7 @@ class Schedule(object):
     for trip in self.GetTripList():
       headway_rows += trip.GetFrequencyOutputTuples()
     if headway_rows:
-      headway_string = StringIO()
+      headway_string = BytesIO()
       writer = util.CsvUnicodeWriter(headway_string)
       writer.writerow(self._gtfs_factory.Frequency._FIELD_NAMES)
       writer.writerows(headway_rows)
@@ -717,7 +719,7 @@ class Schedule(object):
 
     # write fares (if applicable)
     if self.GetFareAttributeList():
-      fare_string = StringIO()
+      fare_string = BytesIO()
       writer = util.CsvUnicodeWriter(fare_string)
       writer.writerow(self._gtfs_factory.FareAttribute._FIELD_NAMES)
       writer.writerows(
@@ -730,15 +732,15 @@ class Schedule(object):
       for rule in fare.GetFareRuleList():
         rule_rows.append(rule.GetFieldValuesTuple())
     if rule_rows:
-      rule_string = StringIO()
+      rule_string = BytesIO()
       writer = util.CsvUnicodeWriter(rule_string)
       writer.writerow(self._gtfs_factory.FareRule._FIELD_NAMES)
       writer.writerows(rule_rows)
       self._WriteArchiveString(archive, 'fare_rules.txt', rule_string)
-    stop_times_string = StringIO()
+    stop_times_string = BytesIO()
     writer = util.CsvUnicodeWriter(stop_times_string)
     writer.writerow(self._gtfs_factory.StopTime._FIELD_NAMES)
-    for t in self.trips.values():
+    for t in list(self.trips.values()):
       writer.writerows(t._GenerateStopTimesTuples())
     self._WriteArchiveString(archive, 'stop_times.txt', stop_times_string)
 
@@ -750,19 +752,19 @@ class Schedule(object):
         shape_rows.append((shape.shape_id, lat, lon, seq, dist))
         seq += 1
     if shape_rows:
-      shape_string = StringIO()
+      shape_string = BytesIO()
       writer = util.CsvUnicodeWriter(shape_string)
       writer.writerow(self._gtfs_factory.Shape._FIELD_NAMES)
       writer.writerows(shape_rows)
       self._WriteArchiveString(archive, 'shapes.txt', shape_string)
 
     if 'transfers' in self._table_columns:
-      transfer_string = StringIO()
+      transfer_string = BytesIO()
       writer = util.CsvUnicodeWriter(transfer_string)
       columns = self.GetTableColumns('transfers')
       writer.writerow(columns)
       for t in self.GetTransferIter():
-        writer.writerow([util.EncodeUnicode(t[c]) for c in columns])
+        writer.writerow([t[c] for c in columns])
       self._WriteArchiveString(archive, 'transfers.txt', transfer_string)
 
     archive.close()
@@ -938,9 +940,9 @@ class Schedule(object):
     else:
         try:
           last_service_day = datetime.datetime(
-              *(time.strptime(end_date, "%Y%m%d")[0:6])).date()
+              *(time.strptime(end_date.decode('utf-8'), "%Y%m%d")[0:6])).date()
           first_service_day = datetime.datetime(
-              *(time.strptime(start_date, "%Y%m%d")[0:6])).date()
+              *(time.strptime(start_date.decode('utf-8'), "%Y%m%d")[0:6])).date()
 
         except ValueError:
           # Format of start_date and end_date checked in class ServicePeriod
@@ -981,7 +983,7 @@ class Schedule(object):
     # Check for stops that aren't referenced by any trips and broken
     # parent_station references. Also check that the parent station isn't too
     # far from its child stops.
-    for stop in self.stops.values():
+    for stop in list(self.stops.values()):
       if validate_children:
         stop.Validate(problems)
       cursor = self._connection.cursor()
@@ -1029,8 +1031,9 @@ class Schedule(object):
     # each pair of stations within 2 meters latitude of each other. This avoids
     # doing n^2 comparisons in the average case and doesn't need a spatial
     # index.
-    sorted_stops = filter(lambda s: s.stop_lat and s.stop_lon,
-                          self.GetStopList())
+    sorted_stops = [
+      s for s in self.GetStopList() if s.stop_lat and s.stop_lon
+    ]
     sorted_stops.sort(
         key=(lambda x: [x.stop_lat, x.stop_lon, getattr(x, 'stop_id', None)]))
     TWO_METERS_LAT = 0.000018
@@ -1044,16 +1047,16 @@ class Schedule(object):
           other_stop = sorted_stops[index]
           if stop.location_type == 0 and other_stop.location_type == 0:
             problems.StopsTooClose(
-                util.EncodeUnicode(stop.stop_name),
-                util.EncodeUnicode(stop.stop_id),
-                util.EncodeUnicode(other_stop.stop_name),
-                util.EncodeUnicode(other_stop.stop_id), distance)
+                stop.stop_name,
+                stop.stop_id,
+                other_stop.stop_name,
+                other_stop.stop_id, distance)
           elif stop.location_type == 1 and other_stop.location_type == 1:
             problems.StationsTooClose(
-                util.EncodeUnicode(stop.stop_name),
-                util.EncodeUnicode(stop.stop_id),
-                util.EncodeUnicode(other_stop.stop_name),
-                util.EncodeUnicode(other_stop.stop_id), distance)
+                stop.stop_name,
+                stop.stop_id,
+                other_stop.stop_name,
+                other_stop.stop_id, distance)
           elif (stop.location_type in (0, 1) and
                 other_stop.location_type  in (0, 1)):
             if stop.location_type == 0 and other_stop.location_type == 1:
@@ -1064,16 +1067,16 @@ class Schedule(object):
               this_station = stop
             if this_stop.parent_station != this_station.stop_id:
               problems.DifferentStationTooClose(
-                  util.EncodeUnicode(this_stop.stop_name),
-                  util.EncodeUnicode(this_stop.stop_id),
-                  util.EncodeUnicode(this_station.stop_name),
-                  util.EncodeUnicode(this_station.stop_id), distance)
+                  this_stop.stop_name,
+                  this_stop.stop_id,
+                  this_station.stop_name,
+                  this_station.stop_id, distance)
         index += 1
 
   def ValidateRouteNames(self, problems, validate_children):
     # Check for multiple routes using same short + long name
     route_names = {}
-    for route in self.routes.values():
+    for route in list(self.routes.values()):
       if validate_children:
         route.Validate(problems)
       short_name = ''
@@ -1104,7 +1107,7 @@ class Schedule(object):
     # (trip_id, first_arrival_secs, last_arrival_secs)
     trip_intervals_by_block_id = defaultdict(lambda: [])
 
-    for trip in sorted(self.trips.values()):
+    for trip in self.trips.values():
       if trip.route_id not in self.routes:
         continue
       route_type = self.GetRoute(trip.route_id).route_type

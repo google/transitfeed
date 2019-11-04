@@ -68,7 +68,7 @@ class EndOfLineCheckerTestCase(util.TestCase):
     e = self.accumulator.PopException("InvalidLineEnd")
     self.assertEqual(e.file_name, "<StringIO>")
     self.assertEqual(e.row_num, 1)
-    self.assertEqual(e.bad_line_end, r"\r\r\n")
+    self.assertEqual(e.bad_line_end, "\r\r\n")
     self.accumulator.AssertNoMoreExceptions()
 
   def testInvalidLineEndToo(self):
@@ -79,7 +79,7 @@ class EndOfLineCheckerTestCase(util.TestCase):
     e = self.accumulator.PopException("InvalidLineEnd")
     self.assertEqual(e.file_name, "<StringIO>")
     self.assertEqual(e.row_num, 3)
-    self.assertEqual(e.bad_line_end, r"\r\r\r\n")
+    self.assertEqual(e.bad_line_end, "\r\r\r\n")
     e = self.accumulator.PopException("OtherProblem")
     self.assertEqual(e.file_name, "<StringIO>")
     self.assertTrue(e.description.find("consistent line end") != -1)
@@ -151,7 +151,7 @@ class EndOfLineCheckerTestCase(util.TestCase):
     e = self.accumulator.PopException("InvalidLineEnd")
     self.assertEqual(e.file_name, "routes.txt")
     self.assertEqual(e.row_num, 5)
-    self.assertTrue(e.FormatProblem().find(r"\r\r\n") != -1)
+    self.assertTrue(e.FormatProblem().find("\r\r\n") != -1)
 
     e = self.accumulator.PopException("OtherProblem")
     self.assertEqual(e.file_name, "trips.txt")
@@ -438,6 +438,7 @@ class BadUtf8TestCase(util.LoadTestCase):
     self.accumulator.PopInvalidValue("stop_headsign", "stop_times.txt")
     self.accumulator.PopInvalidValue("stop_name", "stops.txt")
     self.accumulator.PopInvalidValue("trip_headsign", "trips.txt")
+    self.accumulator.PopInvalidValue("route_short_name", "routes.txt")
     self.accumulator.AssertNoMoreExceptions()
 
 

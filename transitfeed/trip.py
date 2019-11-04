@@ -85,8 +85,15 @@ class Trip(GtfsObjectBase):
        ','.join(stop_time_class._SQL_FIELD_NAMES),
        ','.join(['?'] * len(stop_time_class._SQL_FIELD_NAMES)))
     cursor = schedule._connection.cursor()
+    elements = []
+    for item in stoptime.GetSqlValuesTuple(self.trip_id):
+      if isinstance(item, bytes):
+        elements.append(item.decode('utf-8', 'replace'))
+      else:
+        elements.append(item)
+
     cursor.execute(
-        insert_query, stoptime.GetSqlValuesTuple(self.trip_id))
+        insert_query, tuple(elements))
 
   def ReplaceStopTimeObject(self, stoptime, schedule=None):
     """Replace a StopTime object from this trip with the given one.

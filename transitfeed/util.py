@@ -246,7 +246,17 @@ def EncodeUnicode(text):
   Optionally encode text and return it. The result should be safe to print.
   """
   if type(text) == type(u''):
-    return text.encode(OUTPUT_ENCODING)
+    return text.encode(OUTPUT_ENCODING, 'replace')
+  else:
+    return text
+
+def DecodeUnicode(text, errors="strict"):
+  """
+  Optionally decode bytes and return it as text. The result should be safe
+  to print.
+  """
+  if isinstance(text, bytes):
+    return text.decode(OUTPUT_ENCODING, errors)
   else:
     return text
 
@@ -479,7 +489,7 @@ def FormatSecondsSinceMidnight(s):
 def DateStringToDateObject(date_string):
   """Return a date object for a string "YYYYMMDD"."""
   # If this becomes a bottleneck date objects could be cached
-  if re.match('^\d{8}$', date_string) == None:
+  if re.match(b'^\d{8}$', date_string) == None:
     return None
   try:
     return datetime.date(int(date_string[0:4]), int(date_string[4:6]),
@@ -579,12 +589,12 @@ class CsvUnicodeWriter:
 # Map from literal string that should never be found in the csv data to a human
 # readable description
 INVALID_LINE_SEPARATOR_UTF8 = {
-    "\x0c": "ASCII Form Feed 0x0C",
+    b"\x0c": "ASCII Form Feed 0x0C",
     # May be part of end of line, but not found elsewhere
-    "\x0d": "ASCII Carriage Return 0x0D, \\r",
-    "\xe2\x80\xa8": "Unicode LINE SEPARATOR U+2028",
-    "\xe2\x80\xa9": "Unicode PARAGRAPH SEPARATOR U+2029",
-    "\xc2\x85": "Unicode NEXT LINE SEPARATOR U+0085",
+    b"\x0d": "ASCII Carriage Return 0x0D, \\r",
+    b"\xe2\x80\xa8": "Unicode LINE SEPARATOR U+2028",
+    b"\xe2\x80\xa9": "Unicode PARAGRAPH SEPARATOR U+2029",
+    b"\xc2\x85": "Unicode NEXT LINE SEPARATOR U+0085",
 }
 
 class EndOfLineChecker:
@@ -614,6 +624,9 @@ class EndOfLineChecker:
     return self
 
   def next(self):
+    return self.__next__().encode("utf-8")
+
+  def __next__(self):
     """Return next line without end of line marker or raise StopIteration."""
     try:
       next_line = next(self._f)
@@ -622,16 +635,20 @@ class EndOfLineChecker:
       raise
 
     self._line_number += 1
-    m_eol = re.search(r"[\x0a\x0d]*$", next_line)
-    if m_eol.group() == "\x0d\x0a":
+
+    m_eol = re.search(b"[\x0a\x0d]*$", next_line)
+    if m_eol.group() == b"\x0a\x0d":
+      next_line = next_line.replace(b"\x0a\x0d", b"\x0a")
+    if m_eol.group() == b"\x0d\x0a":
       self._crlf += 1
       if self._crlf <= 5:
         self._crlf_examples.append(self._line_number)
-    elif m_eol.group() == "\x0a":
+      next_line = next_line.replace(b"\x0d\x0a", b"\x0a")
+    elif m_eol.group() == b"\x0a":
       self._lf += 1
       if self._lf <= 5:
         self._lf_examples.append(self._line_number)
-    elif m_eol.group() == "":
+    elif m_eol.group() == b"":
       # Should only happen at the end of the file
       try:
         next(self._f)
@@ -641,15 +658,16 @@ class EndOfLineChecker:
         pass
     else:
       self._problems.InvalidLineEnd(
-        codecs.getencoder('string_escape')(m_eol.group())[0],
-        (self._name, self._line_number))
-    next_line_contents = next_line[0:m_eol.start()]
-    for seq, name in INVALID_LINE_SEPARATOR_UTF8.items():
-      if next_line_contents.find(seq) != -1:
+        m_eol.group(), (self._name, self._line_number)
+      )
+      next_line = next_line.replace(m_eol.group(), b"\x0a")
+    for seq, name in list(INVALID_LINE_SEPARATOR_UTF8.items()):
+      if next_line.find(seq) != -1:
         self._problems.OtherProblem(
           "Line contains %s" % name,
-          context=(self._name, self._line_number))
-    return next_line_contents
+          context=(self._name, self._line_number),
+        )
+    return next_line.decode("utf-8", "replace")
 
   def _FinalCheck(self):
     if self._crlf > 0 and self._lf > 0:

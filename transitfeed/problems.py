@@ -373,7 +373,7 @@ class SimpleProblemAccumulator(ProblemAccumulatorInterface):
     context = e.FormatContext()
     if context:
       print(context)
-    print(util.EncodeUnicode(self._LineWrap(e.FormatProblem(), 78)))
+    print(self._LineWrap(e.FormatProblem(), 78))
 
   @staticmethod
   def _LineWrap(text, width):

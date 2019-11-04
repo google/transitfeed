@@ -35,6 +35,7 @@ import transitfeed
 from transitfeed import TYPE_ERROR, TYPE_WARNING, TYPE_NOTICE
 from transitfeed import util
 import webbrowser
+from transitfeed.compat import StringIO
 
 def MaybePluralizeWord(count, word):
   if count == 1:
@@ -490,14 +491,27 @@ FeedValidator</a> version %s on %s.
 </body>
 </html>""" % (transitfeed.__version__, time_unicode)
 
-    f.write(transitfeed.EncodeUnicode(output_prefix))
-    if self.ProblemListMap(TYPE_ERROR):
-      f.write('<h3 class="issueHeader">Errors:</h3>')
-      f.write(self.FormatType("Error", self.ProblemListMap(TYPE_ERROR).items()))
-    if self.ProblemListMap(TYPE_WARNING):
-      f.write('<h3 class="issueHeader">Warnings:</h3>')
-      f.write(self.FormatType("Warning", self.ProblemListMap(TYPE_WARNING).items()))
-    f.write(transitfeed.EncodeUnicode(output_suffix))
+    if isinstance(f, StringIO):
+      f.write(output_prefix.decode('utf-8'))
+      if self.ProblemListMap(TYPE_ERROR):
+        f.write(u'<h3 class="issueHeader">Errors:</h3>')
+        f.write(
+          self.FormatType("Error", self.ProblemListMap(TYPE_ERROR).items()).decode('utf-8'))
+      if self.ProblemListMap(TYPE_WARNING):
+        f.write(u'<h3 class="issueHeader">Warnings:</h3>')
+        f.write(self.FormatType("Warning",
+                                self.ProblemListMap(TYPE_WARNING).items()).decode('utf-8'))
+      f.write(output_suffix)
+
+    else:
+      f.write(output_prefix)
+      if self.ProblemListMap(TYPE_ERROR):
+        f.write(u'<h3 class="issueHeader">Errors:</h3>')
+        f.write(self.FormatType("Error", self.ProblemListMap(TYPE_ERROR).items()))
+      if self.ProblemListMap(TYPE_WARNING):
+        f.write(u'<h3 class="issueHeader">Warnings:</h3>')
+        f.write(self.FormatType("Warning", self.ProblemListMap(TYPE_WARNING).items()))
+      f.write(output_suffix)
 
 
 def RunValidationOutputFromOptions(feed, options):
@@ -531,7 +545,7 @@ def RunValidationOutputToFile(feed, options, output_file):
                                                options.error_types_ignore_list)
   problems = transitfeed.ProblemReporter(accumulator)
   schedule, exit_code = RunValidation(feed, options, problems)
-  if isinstance(feed, basestring):
+  if isinstance(feed, str):
     feed_location = feed
   else:
     feed_location = getattr(feed, 'name', repr(feed))

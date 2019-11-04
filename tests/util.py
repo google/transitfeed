@@ -27,7 +27,7 @@ import sys
 import tempfile
 import traceback
 import transitfeed
-from transitfeed.compat import StringIO
+from transitfeed.compat import StringIO, BytesIO
 import unittest
 import zipfile
 
@@ -96,7 +96,7 @@ class RedirectStdOutTestCaseBase(TestCase):
   """Save stdout to the StringIO buffer self.this_stdout"""
   def setUp(self):
     self.saved_stdout = sys.stdout
-    self.this_stdout = StringIO()
+    self.this_stdout = BytesIO()
     sys.stdout = self.this_stdout
 
   def tearDown(self):
@@ -166,11 +166,11 @@ class TempDirTestCaseBase(GetPathTestCase):
     # adjust sys.argv so it looks like the script was run directly. This lets
     # OptionParser use the correct value for %proj.
     cmd = [sys.executable, "-c",
-           "import sys; "
-           "sys.path.insert(0,'%s'); "
-           "sys.argv = ['%s'] + sys.argv[1:]; "
-           "exec(open('%s'))" %
-           (transitfeed_parent, script_path, script_path)] + script_args
+      "import sys; "
+      "sys.path.insert(0,'%s'); "
+      "sys.argv = ['%s'] + sys.argv[1:]; "
+      "exec(open('%s').read())" %
+      (transitfeed_parent, script_path, script_path)] + script_args
     return check_call(cmd, expected_retcode=expected_retcode, shell=False,
                       env=env, stdin_str=stdin_str)
 
@@ -197,7 +197,7 @@ class TempDirTestCaseBase(GetPathTestCase):
 
     Returns:
         The new file's in-memory contents as a file-like object."""
-    zipfile_mem = StringIO()
+    zipfile_mem = BytesIO()
     zip = zipfile.ZipFile(zipfile_mem, 'a')
     for arcname, contents in dict.items():
       zip.writestr(arcname, contents)
@@ -319,7 +319,7 @@ class MemoryZipTestCase(TestCase):
 
   def CreateZip(self):
     """Create an in-memory GTFS zipfile from the contents of the file dict."""
-    self.zipfile = StringIO()
+    self.zipfile = BytesIO()
     self.zip = zipfile.ZipFile(self.zipfile, 'a')
     for (arcname, contents) in self.zip_contents.items():
       self.zip.writestr(arcname, contents)

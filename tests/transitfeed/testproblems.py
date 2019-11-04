@@ -26,13 +26,13 @@ class ProblemReporterTestCase(util.RedirectStdOutTestCaseBase):
     pr = transitfeed.ProblemReporter()
     # Context has valid unicode values
     pr.SetFileContext('filename.foo', 23,
-                      [u'Andr\202', u'Person \uc720 foo', None],
-                      [u'1\202', u'2\202', u'3\202'])
-    pr.OtherProblem('test string')
-    pr.OtherProblem(u'\xff\xfe\x80\x88')
+                      ["Andr\202", "Person \uc720 foo", None],
+                      ["1\202", "2\202", "3\202"])
+    pr.OtherProblem("test string")
+    pr.OtherProblem("\xff\xfe\x80\x88")
     # Invalid ascii and utf-8. encode('utf-8') and decode('utf-8') will fail
     # for this value
-    pr.OtherProblem('\xff\xfe\x80\x88')
+    pr.OtherProblem("\xff\xfe\x80\x88")
     self.assertTrue(re.search(r"test string", self.this_stdout.getvalue()))
     self.assertTrue(re.search(r"filename.foo:23", self.this_stdout.getvalue()))
 

@@ -128,7 +128,7 @@ class GtfsFactory(object):
     """Returns a list of filenames sorted by loading order.
     Only includes files that Loader's standardized loading knows how to load"""
     result = {}
-    for filename, mapping in self._file_mapping.iteritems():
+    for (filename, mapping) in self._file_mapping.items():
       loading_order = mapping['loading_order']
       if loading_order is not None:
         result[loading_order] = filename

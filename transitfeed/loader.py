@@ -24,7 +24,7 @@ import zipfile
 from . import gtfsfactoryuser
 from . import problems
 from . import util
-from .compat import StringIO
+from .compat import StringIO, BytesIO
 
 class Loader:
   def __init__(self,
@@ -128,7 +128,7 @@ class Loader:
       # Convert and continue, so we can find more errors
       contents = codecs.getdecoder('utf-16')(contents)[0].encode('utf-8')
 
-    null_index = contents.find('\0')
+    null_index = contents.find(b'\0')
     if null_index != -1:
       # It is easier to get some surrounding text than calculate the exact
       # row_num
@@ -152,7 +152,7 @@ class Loader:
     if not contents:
       return
 
-    eol_checker = util.EndOfLineChecker(StringIO(contents),
+    eol_checker = util.EndOfLineChecker(BytesIO(contents),
                                    file_name, self._problems)
     # The csv module doesn't provide a way to skip trailing space, but when I
     # checked 15/675 feeds had trailing space in a header row and 120 had spaces
@@ -254,11 +254,20 @@ class Loader:
       unicode_error_columns = []  # index of valid_values elements with an error
       for i in valid_columns:
         try:
-          valid_values.append(raw_row[i].decode('utf-8'))
+          valid_values.append(raw_row[i])
+          # check bad characters
+          bad_characters = (
+            raw_row[i].find("\xef\xbf\xbd")
+          )
+          if bad_characters >= 0:
+            raise UnicodeDecodeError(
+              "utf-8",
+              raw_row[i],
+              bad_characters,
+              bad_characters + 1,
+              "",
+            )
         except UnicodeDecodeError:
-          # Replace all invalid characters with REPLACEMENT CHARACTER (U+FFFD)
-          valid_values.append(codecs.getdecoder("utf8")
-                              (raw_row[i], errors="replace")[0])
           unicode_error_columns.append(len(valid_values) - 1)
         except IndexError:
           break
@@ -287,12 +296,12 @@ class Loader:
     if not contents:
       return
 
-    eol_checker = util.EndOfLineChecker(StringIO(contents),
+    eol_checker = util.EndOfLineChecker(BytesIO(contents),
                                    file_name, self._problems)
     reader = csv.reader(eol_checker)  # Use excel dialect
 
     header = next(reader)
-    header = map(lambda x: x.strip(), header)  # trim any whitespace
+    header = [x.strip() for x in header]  # trim any whitespace
     header_occurrences = util.defaultdict(lambda: 0)
     for column_header in header:
       header_occurrences[column_header] += 1
@@ -358,7 +367,7 @@ class Loader:
             result[i] = u''
           else:
             try:
-              result[i] = row[ci].decode('utf-8').strip()
+              result[i] = row[ci].encode('utf-8').strip()
             except UnicodeDecodeError:
               # Replace all invalid characters with
               # REPLACEMENT CHARACTER (U+FFFD)

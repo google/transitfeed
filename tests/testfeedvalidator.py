@@ -27,7 +27,7 @@ import os.path
 import re
 from tests import util
 import transitfeed
-from transitfeed.compat import StringIO
+from transitfeed.compat import StringIO, BytesIO
 import unittest
 from urllib.request import urlopen, Request
 from urllib.error import HTTPError, URLError

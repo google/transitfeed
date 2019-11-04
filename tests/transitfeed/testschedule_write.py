@@ -99,12 +99,12 @@ class ScheduleBuilderTestCase(util.TempFileTestCaseBase):
     read_schedule = \
         transitfeed.Loader(self.tempfilepath, problems=problems,
                            extra_validation=True).Load()
-    self.assertEquals(u'\u020b Fly Agency',
-                      read_schedule.GetDefaultAgency().agency_name)
-    self.assertEquals(u'\u03b2',
-                      read_schedule.GetRoute(route.route_id).route_short_name)
-    self.assertEquals(u'to remote \u020b station',
-                      read_schedule.GetTrip(trip.trip_id).trip_headsign)
+    self.assertEquals(u"\u020b Fly Agency",
+                      read_schedule.GetDefaultAgency().agency_name.decode('utf-8'))
+    self.assertEquals(u"\u03b2",
+                      read_schedule.GetRoute(route.route_id).route_short_name.decode('utf-8'))
+    self.assertEquals(u"to remote \u020b station",
+                      read_schedule.GetTrip(trip.trip_id).trip_headsign.decode('utf-8'))
 
   def testBuildSimpleFeed(self):
     """Make a very simple feed using the Schedule class."""

@@ -70,16 +70,15 @@ in a folder hierarchy which looks like this at the top level:
 """
 from __future__ import print_function
 
-try:
-  import xml.etree.ElementTree as ET  # python 2.5
-except ImportError as e:
-  import elementtree.ElementTree as ET  # older pythons
+
+import xml.etree.ElementTree as ET  # python 2.5
 import extensions.googletransit as googletransit
 import optparse
 import os.path
 import sys
 import transitfeed
 from transitfeed import util
+from io import IOBase
 
 
 class KMLWriter(object):
@@ -401,7 +400,7 @@ class KMLWriter(object):
     """
 
     def CreateElements(current_element, current_dict):
-      for (key, value) in current_dict.iteritems():
+      for (key, value) in current_dict.items():
         element = ET.SubElement(current_element, key)
         if isinstance(value,dict):
           CreateElements(element, value)
@@ -459,7 +458,7 @@ class KMLWriter(object):
 
     # sort by number of trips using the pattern
     pattern_trips = pattern_id_to_trips.values()
-    pattern_trips.sort(lambda a, b: cmp(len(b), len(a)))
+    pattern_trips.sort(key=lambda a: len(a))
 
     folder = self._CreateFolder(parent, 'Patterns', visible)
     for n, trips in enumerate(pattern_trips):
@@ -500,8 +499,8 @@ class KMLWriter(object):
       return None
 
     # sort by the number of trips using the shape
-    shape_id_to_trips_items = shape_id_to_trips.items()
-    shape_id_to_trips_items.sort(lambda a, b: cmp(len(b[1]), len(a[1])))
+    shape_id_to_trips_items = list(shape_id_to_trips.items())
+    shape_id_to_trips_items.sort(key=lambda a: len(a))
 
     folder = self._CreateFolder(parent, 'Shapes', visible)
     for shape_id, trips in shape_id_to_trips_items:
@@ -591,10 +590,10 @@ class KMLWriter(object):
       """
       name_parts = []
       if route.route_short_name:
-        name_parts.append('<b>%s</b>' % route.route_short_name)
+        name_parts.append(b"<b>%s</b>" % route.route_short_name.decode('utf-8'))
       if route.route_long_name:
-        name_parts.append(route.route_long_name)
-      return ' - '.join(name_parts) or route.route_id
+        name_parts.append(route.route_long_name.decode('utf-8'))
+      return b" - ".join(name_parts) or route.route_id
 
     def GetRouteDescription(route):
       """Return a placemark description for the route.
@@ -607,7 +606,7 @@ class KMLWriter(object):
       """
       desc_items = []
       if route.route_desc:
-        desc_items.append(route.route_desc)
+        desc_items.append(route.route_desc.decode('utf-8'))
       if route.route_url:
         desc_items.append('Route info page: <a href="%s">%s</a>' % (
             route.route_url, route.route_url))
@@ -724,12 +723,12 @@ class KMLWriter(object):
     self._SetIndentation(root)
 
     # Now write the output
-    if isinstance(output_file, file):
+    if isinstance(output_file, IOBase):
       output = output_file
     else:
       output = open(output_file, 'w')
     output.write("""<?xml version="1.0" encoding="UTF-8"?>\n""")
-    ET.ElementTree(root).write(output, 'utf-8')
+    ET.ElementTree(root).write(output, encoding='utf-8')
 
 
 def main():
