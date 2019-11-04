@@ -15,6 +15,8 @@
 # limitations under the License.
 
 from __future__ import absolute_import
+import sys
+
 from .gtfsfactoryuser import GtfsFactoryUser
 
 class GtfsObjectBase(GtfsFactoryUser):
@@ -69,7 +71,12 @@ class GtfsObjectBase(GtfsFactoryUser):
 
   def iteritems(self):
     """Return a iterable for (name, value) pairs of public attributes."""
-    for name, value in self.__dict__.iteritems():
+    if sys.version_info[0] < 3:
+      dict_mapping = self.__dict__.iteritems()
+    else:
+      dict_mapping = self.__dict__.items()
+
+    for name, value in dict_mapping:
       if (not name) or name[0] == "_":
         continue
       yield name, value
@@ -88,7 +95,7 @@ class GtfsObjectBase(GtfsFactoryUser):
     if id(self) == id(other):
       return True
 
-    for k in self.keys().union(other.keys()):
+    for k in list(self.keys().union(other.keys())):
       # use __getitem__ which returns "" for missing columns values
       if self[k] != other[k]:
         return False
@@ -103,7 +110,10 @@ class GtfsObjectBase(GtfsFactoryUser):
   # can't be fixed until the merger is changed to not use a/b_merge_map.
 
   def __repr__(self):
-    return "<%s %s>" % (self.__class__.__name__, sorted(self.iteritems()))
+    if sys.version_info[0] < 3:
+      return "<%s %s>" % (self.__class__.__name__, sorted(self.iteritems()))
+    else:
+      return "<%s %s>" % (self.__class__.__name__, sorted(self.items()))
 
   def keys(self):
     """Return iterable of columns used by this object."""
@@ -115,7 +125,7 @@ class GtfsObjectBase(GtfsFactoryUser):
     return columns
 
   def _ColumnNames(self):
-    return self.keys()
+    return list(self.keys())
 
   def AddToSchedule(self, schedule, problems):
     self._schedule = schedule

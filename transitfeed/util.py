@@ -444,9 +444,11 @@ def ValidateYesNoUnknown(value, column_name=None, problems=None):
     return False
 
 def IsEmpty(value):
-  #TODO: WHY is changing this to basestring causing so many tests to fail?
-  # culprit is getattr(gtfs_object, name, None)
-  return value is None or (isinstance(value, basestring) and not value.strip())
+  if sys.version_info[0] < 3:
+    return value is None or (isinstance(value, basestring) and not value.strip())
+  else:
+    return value is None or (isinstance(value, str) and not value.strip())
+
 
 def FindUniqueId(dic):
   """Return a string not used as a key in the dictionary dic"""
@@ -637,7 +639,7 @@ class EndOfLineChecker:
         pass
     else:
       self._problems.InvalidLineEnd(
-        codecs.getencoder('unicode_escape')(m_eol.group())[0],
+        codecs.getencoder('unicode_escape')(m_eol.group().decode('utf-8'))[0],
         (self._name, self._line_number))
     next_line_contents = next_line[0:m_eol.start()]
     for seq, name in INVALID_LINE_SEPARATOR_UTF8.items():

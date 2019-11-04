@@ -20,6 +20,11 @@ import datetime
 import itertools
 import os
 try:
+  import itertools.izip as zip
+except ImportError:
+  pass
+
+try:
   import sqlite3 as sqlite
   native_sqlite = True
 except ImportError:
@@ -261,7 +266,7 @@ class Schedule(object):
     self.service_periods[service_period.service_id] = service_period
 
   def GetServicePeriodList(self):
-    return self.service_periods.values()
+    return list(self.service_periods.values())
 
   def GetDateRange(self):
     """Returns a tuple of (earliest, latest) dates on which the service periods
@@ -287,8 +292,8 @@ class Schedule(object):
     if not starts or not ends:
       return (None, None, None, None)
 
-    minvalue, minindex = min(itertools.izip(starts, itertools.count()))
-    maxvalue, maxindex = max(itertools.izip(ends, itertools.count()))
+    minvalue, minindex = min(zip(starts, itertools.count()))
+    maxvalue, maxindex = max(zip(ends, itertools.count()))
 
     minreason = (period_list[minindex].HasDateExceptionOn(minvalue) and
                  "earliest service exception date in calendar_dates.txt" or
@@ -1029,8 +1034,7 @@ class Schedule(object):
     # each pair of stations within 2 meters latitude of each other. This avoids
     # doing n^2 comparisons in the average case and doesn't need a spatial
     # index.
-    sorted_stops = filter(lambda s: s.stop_lat and s.stop_lon,
-                          self.GetStopList())
+    sorted_stops = [s for s in self.GetStopList() if s.stop_lat and s.stop_lon]
     sorted_stops.sort(
         key=(lambda x: [x.stop_lat, x.stop_lon, getattr(x, 'stop_id', None)]))
     TWO_METERS_LAT = 0.000018

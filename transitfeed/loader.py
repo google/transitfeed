@@ -76,7 +76,12 @@ class Loader:
       assert not self._path
       return True
 
-    if not isinstance(self._path, str) and hasattr(self._path, 'read'):
+    if sys.version_info[0] < 3:
+      is_basestring = isinstance(self._path, basestring)
+    else:
+      is_basestring = isinstance(self._path, str)
+
+    if not is_basestring and hasattr(self._path, 'read'):
       # A file-like object, used for testing with a StringIO file
       self._zip = zipfile.ZipFile(self._path, mode='r')
       return True
@@ -548,7 +553,7 @@ class Loader:
       shape.AddShapePointObjectUnsorted(shapepoint, self._problems)
       self._problems.ClearContext()
 
-    for shape_id, shape in shapes.items():
+    for shape_id, shape in list(shapes.items()):
       self._schedule.AddShapeObject(shape, self._problems)
       del shapes[shape_id]
 
