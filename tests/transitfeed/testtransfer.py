@@ -15,7 +15,7 @@
 # Unit tests for the transfer module.
 from __future__ import absolute_import
 
-from StringIO import StringIO
+from transitfeed.compat import BytesIO
 import transitfeed
 from tests import util
 
@@ -308,7 +308,7 @@ class TransferObjectTestCase(util.ValidationTestCase):
     schedule.AddTransferObject(transfer)
     transfer.attr2 = "foo2"
 
-    saved_schedule_file = StringIO()
+    saved_schedule_file = BytesIO()
     schedule.WriteGoogleTransitFeed(saved_schedule_file)
     self.accumulator.AssertNoMoreExceptions()
 
@@ -414,7 +414,7 @@ class TransferValidationTestCase(util.MemoryZipTestCase):
     self.assertEquals(3, e.row_num)
     self.accumulator.AssertNoMoreExceptions()
 
-    saved_schedule_file = StringIO()
+    saved_schedule_file = BytesIO()
     schedule.WriteGoogleTransitFeed(saved_schedule_file)
     self.accumulator.AssertNoMoreExceptions()
     load_problems = util.GetTestFailureProblemReporter(

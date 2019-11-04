@@ -48,7 +48,7 @@ from . import gtfsfactoryuser
 from . import problems as problems_module
 from .util import defaultdict
 from . import util
-from .compat import StringIO
+from .compat import BytesIO
 
 class Schedule(object):
   """Represents a Schedule, a collection of stops, routes, trips and
@@ -638,7 +638,7 @@ class Schedule(object):
     archive = zipfile.ZipFile(file, 'w')
 
     if 'agency' in self._table_columns:
-      agency_string = StringIO()
+      agency_string = BytesIO()
       writer = util.CsvUnicodeWriter(agency_string)
       columns = self.GetTableColumns('agency')
       writer.writerow(columns)
@@ -648,14 +648,14 @@ class Schedule(object):
 
 
     if 'feed_info' in self._table_columns:
-      feed_info_string = StringIO()
+      feed_info_string = BytesIO()
       writer = util.CsvUnicodeWriter(feed_info_string)
       columns = self.GetTableColumns('feed_info')
       writer.writerow(columns)
       writer.writerow([util.EncodeUnicode(self.feed_info[c]) for c in columns])
       self._WriteArchiveString(archive, 'feed_info.txt', feed_info_string)
 
-    calendar_dates_string = StringIO()
+    calendar_dates_string = BytesIO()
     writer = util.CsvUnicodeWriter(calendar_dates_string)
     writer.writerow(
         self._gtfs_factory.ServicePeriod._FIELD_NAMES_CALENDAR_DATES)
@@ -670,7 +670,7 @@ class Schedule(object):
       self._WriteArchiveString(archive, 'calendar_dates.txt',
                                calendar_dates_string)
 
-    calendar_string = StringIO()
+    calendar_string = BytesIO()
     writer = util.CsvUnicodeWriter(calendar_string)
     writer.writerow(self._gtfs_factory.ServicePeriod._FIELD_NAMES)
     has_data = False
@@ -683,7 +683,7 @@ class Schedule(object):
       self._WriteArchiveString(archive, 'calendar.txt', calendar_string)
 
     if 'stops' in self._table_columns:
-      stop_string = StringIO()
+      stop_string = BytesIO()
       writer = util.CsvUnicodeWriter(stop_string)
       columns = self.GetTableColumns('stops')
       writer.writerow(columns)
@@ -692,7 +692,7 @@ class Schedule(object):
       self._WriteArchiveString(archive, 'stops.txt', stop_string)
 
     if 'routes' in self._table_columns:
-      route_string = StringIO()
+      route_string = BytesIO()
       writer = util.CsvUnicodeWriter(route_string)
       columns = self.GetTableColumns('routes')
       writer.writerow(columns)
@@ -701,7 +701,7 @@ class Schedule(object):
       self._WriteArchiveString(archive, 'routes.txt', route_string)
 
     if 'trips' in self._table_columns:
-      trips_string = StringIO()
+      trips_string = BytesIO()
       writer = util.CsvUnicodeWriter(trips_string)
       columns = self.GetTableColumns('trips')
       writer.writerow(columns)
@@ -714,7 +714,7 @@ class Schedule(object):
     for trip in self.GetTripList():
       headway_rows += trip.GetFrequencyOutputTuples()
     if headway_rows:
-      headway_string = StringIO()
+      headway_string = BytesIO()
       writer = util.CsvUnicodeWriter(headway_string)
       writer.writerow(self._gtfs_factory.Frequency._FIELD_NAMES)
       writer.writerows(headway_rows)
@@ -722,7 +722,7 @@ class Schedule(object):
 
     # write fares (if applicable)
     if self.GetFareAttributeList():
-      fare_string = StringIO()
+      fare_string = BytesIO()
       writer = util.CsvUnicodeWriter(fare_string)
       writer.writerow(self._gtfs_factory.FareAttribute._FIELD_NAMES)
       writer.writerows(
@@ -735,12 +735,12 @@ class Schedule(object):
       for rule in fare.GetFareRuleList():
         rule_rows.append(rule.GetFieldValuesTuple())
     if rule_rows:
-      rule_string = StringIO()
+      rule_string = BytesIO()
       writer = util.CsvUnicodeWriter(rule_string)
       writer.writerow(self._gtfs_factory.FareRule._FIELD_NAMES)
       writer.writerows(rule_rows)
       self._WriteArchiveString(archive, 'fare_rules.txt', rule_string)
-    stop_times_string = StringIO()
+    stop_times_string = BytesIO()
     writer = util.CsvUnicodeWriter(stop_times_string)
     writer.writerow(self._gtfs_factory.StopTime._FIELD_NAMES)
     for t in self.trips.values():
@@ -755,14 +755,14 @@ class Schedule(object):
         shape_rows.append((shape.shape_id, lat, lon, seq, dist))
         seq += 1
     if shape_rows:
-      shape_string = StringIO()
+      shape_string = BytesIO()
       writer = util.CsvUnicodeWriter(shape_string)
       writer.writerow(self._gtfs_factory.Shape._FIELD_NAMES)
       writer.writerows(shape_rows)
       self._WriteArchiveString(archive, 'shapes.txt', shape_string)
 
     if 'transfers' in self._table_columns:
-      transfer_string = StringIO()
+      transfer_string = BytesIO()
       writer = util.CsvUnicodeWriter(transfer_string)
       columns = self.GetTableColumns('transfers')
       writer.writerow(columns)
