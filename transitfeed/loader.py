@@ -367,7 +367,8 @@ class Loader:
             result[i] = u''
           else:
             try:
-              result[i] = row[ci].encode('utf-8').strip()
+              row[ci].encode('utf-8')
+              result[i] = row[ci].strip()
             except UnicodeDecodeError:
               # Replace all invalid characters with
               # REPLACEMENT CHARACTER (U+FFFD)

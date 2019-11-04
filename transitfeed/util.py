@@ -475,7 +475,7 @@ def TimeToSecondsSinceMidnight(time_string):
 
   For example "01:02:03" returns 3723. The leading zero of the hours may be
   omitted. HH may be more than 23 if the time is on the following day."""
-  m = re.match(r'(\d{1,3}):([0-5]\d):([0-5]\d)$', time_string)
+  m = re.match('(\d{1,3}):([0-5]\d):([0-5]\d)$', time_string)
   # ignored: matching for leap seconds
   if not m:
     raise errors.Error('Bad HH:MM:SS "%s"' % time_string)
@@ -489,7 +489,7 @@ def FormatSecondsSinceMidnight(s):
 def DateStringToDateObject(date_string):
   """Return a date object for a string "YYYYMMDD"."""
   # If this becomes a bottleneck date objects could be cached
-  if re.match(b'^\d{8}$', date_string) == None:
+  if re.match('^\d{8}$', date_string) == None:
     return None
   try:
     return datetime.date(int(date_string[0:4]), int(date_string[4:6]),

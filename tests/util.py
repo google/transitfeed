@@ -300,7 +300,7 @@ class MemoryZipTestCase(TestCase):
 
     All calls to this function, if any, should be made before calling
     MakeLoaderAndLoad."""
-    self.zip_contents[arcname] = contents
+    self.zip_contents[arcname] = contents.encode('utf-8')
 
   def GetArchiveContents(self, arcname):
     """Get the contents of file arcname in the file dict."""
