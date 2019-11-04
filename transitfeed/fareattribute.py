@@ -135,7 +135,7 @@ class FareAttribute(GtfsObjectBase):
     if ((self.transfer_duration != None) and
         not isinstance(self.transfer_duration, int)):
       problems.InvalidValue("transfer_duration", self.transfer_duration)
-    if self.transfer_duration and (self.transfer_duration < 0):
+    if self.transfer_duration and (int(self.transfer_duration) < 0):
       problems.InvalidValue("transfer_duration", self.transfer_duration)
 
   def Validate(self, problems=default_problem_reporter):
