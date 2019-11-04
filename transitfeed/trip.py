@@ -601,7 +601,7 @@ class Trip(GtfsObjectBase):
       # time of the previous. Assumes a stoptimes sorted by sequence
       prev_departure = 0
       prev_stop = None
-      prev_distance = None
+      prev_distance = -1.0
       try:
         route_type = self._schedule.GetRoute(self.route_id).route_type
         max_speed = route_class._ROUTE_TYPES[route_type]['max_speed']

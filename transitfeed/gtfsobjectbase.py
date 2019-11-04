@@ -15,8 +15,6 @@
 # limitations under the License.
 
 from __future__ import absolute_import
-import sys
-
 from .gtfsfactoryuser import GtfsFactoryUser
 
 class GtfsObjectBase(GtfsFactoryUser):
@@ -71,12 +69,7 @@ class GtfsObjectBase(GtfsFactoryUser):
 
   def iteritems(self):
     """Return a iterable for (name, value) pairs of public attributes."""
-    if sys.version_info[0] < 3:
-      dict_mapping = self.__dict__.iteritems()
-    else:
-      dict_mapping = self.__dict__.items()
-
-    for name, value in dict_mapping:
+    for name, value in self.__dict__.items():
       if (not name) or name[0] == "_":
         continue
       yield name, value
