@@ -432,7 +432,7 @@ def ColorLuminance(color):
   return (299*r + 587*g + 114*b) / 1000.0
 
 def IsValidYesNoUnknown(value):
-  return value in ['0', '1', '2'];
+  return value in ['0', '1', '2']
 
 def ValidateYesNoUnknown(value, column_name=None, problems=None):
   """Validates a value "0" for uknown, "1" for yes, and "2" for no."""
@@ -444,7 +444,9 @@ def ValidateYesNoUnknown(value, column_name=None, problems=None):
     return False
 
 def IsEmpty(value):
-  return value is None or (isinstance(value, str) and not value.strip())
+  #TODO: WHY is changing this to basestring causing so many tests to fail?
+  # culprit is getattr(gtfs_object, name, None)
+  return value is None or (isinstance(value, basestring) and not value.strip())
 
 def FindUniqueId(dic):
   """Return a string not used as a key in the dictionary dic"""

@@ -20,12 +20,13 @@ import csv
 import io
 import os
 import re
+import sys
 import zipfile
 
 from . import gtfsfactoryuser
 from . import problems
 from . import util
-from .compat import BytesIO
+from .compat import StringIO, BytesIO
 
 class Loader:
   def __init__(self,
@@ -153,14 +154,19 @@ class Loader:
     if not contents:
       return
 
-    eol_checker = util.EndOfLineChecker(BytesIO(contents),
-                                   file_name, self._problems)
-    # The csv module doesn't provide a way to skip trailing space, but when I
-    # checked 15/675 feeds had trailing space in a header row and 120 had spaces
-    # after fields. Space after header fields can cause a serious parsing
-    # problem, so warn. Space after body fields can cause a problem time,
-    # integer and id fields; they will be validated at higher levels.
-    reader = csv.reader(codecs.iterdecode(eol_checker, 'utf-8'), skipinitialspace=True)
+    if sys.version_info[0] < 3:
+      eol_checker = util.EndOfLineChecker(StringIO(contents),
+                                     file_name, self._problems)
+      # The csv module doesn't provide a way to skip trailing space, but when I
+      # checked 15/675 feeds had trailing space in a header row and 120 had spaces
+      # after fields. Space after header fields can cause a serious parsing
+      # problem, so warn. Space after body fields can cause a problem time,
+      # integer and id fields; they will be validated at higher levels.
+      reader = csv.reader(eol_checker, skipinitialspace=True)
+    else:
+      eol_checker = util.EndOfLineChecker(BytesIO(contents),
+                                     file_name, self._problems)
+      reader = csv.reader(codecs.iterdecode(eol_checker, 'utf-8', errors='surrogateescape'),  skipinitialspace=True)
 
     raw_header = next(reader)
     header_occurrences = util.defaultdict(lambda: 0)
@@ -255,7 +261,11 @@ class Loader:
       unicode_error_columns = []  # index of valid_values elements with an error
       for i in valid_columns:
         try:
-          valid_values.append(raw_row[i])
+          if sys.version_info[0] < 3:
+            valid_values.append(raw_row[i].decode('utf-8'))
+          else:
+            valid_values.append(raw_row[i])
+
         except UnicodeDecodeError:
           # Replace all invalid characters with REPLACEMENT CHARACTER (U+FFFD)
           valid_values.append(codecs.getdecoder("utf8")
@@ -288,9 +298,14 @@ class Loader:
     if not contents:
       return
 
-    eol_checker = util.EndOfLineChecker(BytesIO(contents),
-                                   file_name, self._problems)
-    reader = csv.reader(codecs.iterdecode(eol_checker, 'utf-8'))  # Use excel dialect
+    if sys.version_info[0] < 3:
+      eol_checker = util.EndOfLineChecker(StringIO(contents),
+                                     file_name, self._problems)
+      reader = csv.reader(eol_checker)  # Use excel dialect
+    else:
+      eol_checker = util.EndOfLineChecker(BytesIO(contents),
+                                     file_name, self._problems)
+      reader = csv.reader(codecs.iterdecode(eol_checker,'utf-8', errors='surrogateescape'))  # Use excel dialect
 
     header = next(reader)
     header = [x.strip() for x in header]  # trim any whitespace
@@ -358,8 +373,17 @@ class Loader:
           if len(row) <= ci:  # handle short CSV rows
             result[i] = u''
           else:
+            if sys.version_info[0] >= 3:
+              try:
+                row[ci] = row[ci].encode('utf-8')
+              except UnicodeEncodeError:
+                # Replace all invalid characters with
+                # REPLACEMENT CHARACTER (U+FFFD)
+                row[ci] = codecs.getencoder("utf8")(row[ci],
+                                                    errors="replace")[0].strip()
+                unicode_error_columns.append(i)
             try:
-              result[i] = row[ci].strip()
+              result[i] = row[ci].decode('utf-8').strip()
             except UnicodeDecodeError:
               # Replace all invalid characters with
               # REPLACEMENT CHARACTER (U+FFFD)
@@ -392,7 +416,10 @@ class Loader:
         return None
     else:
       try:
-        data_file = open(os.path.join(self._path, file_name), 'rb', newline='')
+        if sys.version_info[0] < 3:
+          data_file = open(os.path.join(self._path, file_name), 'rb')
+        else:
+          data_file = open(os.path.join(self._path, file_name), 'rb', newline='')
         results = data_file.read()
       except IOError:  # file not found
         self._problems.MissingFile(file_name)
