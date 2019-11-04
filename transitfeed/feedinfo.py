@@ -49,8 +49,8 @@ class FeedInfo(transitfeed.GtfsObjectBase):
 
     end_date_valid = transitfeed.ValidateDate(self.feed_end_date,
                                                 'feed_end_date', problems)
-
-    if (start_date_valid and end_date_valid and
+    if self.feed_end_date and self.feed_start_date:
+      if (start_date_valid and end_date_valid and
         self.feed_end_date < self.feed_start_date):
         problems.InvalidValue('feed_end_date', self.feed_end_date,
                               'feed_end_date %s is earlier than '
