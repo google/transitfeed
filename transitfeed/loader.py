@@ -159,18 +159,17 @@ class Loader:
     if not contents:
       return
 
+    eol_checker = util.EndOfLineChecker(BytesIO(contents),
+                                   file_name, self._problems)
+    # The csv module doesn't provide a way to skip trailing space, but when I
+    # checked 15/675 feeds had trailing space in a header row and 120 had spaces
+    # after fields. Space after header fields can cause a serious parsing
+    # problem, so warn. Space after body fields can cause a problem time,
+    # integer and id fields; they will be validated at higher levels.
+
     if sys.version_info[0] < 3:
-      eol_checker = util.EndOfLineChecker(StringIO(contents),
-                                     file_name, self._problems)
-      # The csv module doesn't provide a way to skip trailing space, but when I
-      # checked 15/675 feeds had trailing space in a header row and 120 had spaces
-      # after fields. Space after header fields can cause a serious parsing
-      # problem, so warn. Space after body fields can cause a problem time,
-      # integer and id fields; they will be validated at higher levels.
       reader = csv.reader(eol_checker, skipinitialspace=True)
     else:
-      eol_checker = util.EndOfLineChecker(BytesIO(contents),
-                                     file_name, self._problems)
       reader = csv.reader(codecs.iterdecode(eol_checker, 'utf-8', errors='surrogateescape'),  skipinitialspace=True)
 
     raw_header = next(reader)
@@ -303,13 +302,12 @@ class Loader:
     if not contents:
       return
 
+    eol_checker = util.EndOfLineChecker(BytesIO(contents),
+                                   file_name, self._problems)
+
     if sys.version_info[0] < 3:
-      eol_checker = util.EndOfLineChecker(StringIO(contents),
-                                     file_name, self._problems)
       reader = csv.reader(eol_checker)  # Use excel dialect
     else:
-      eol_checker = util.EndOfLineChecker(BytesIO(contents),
-                                     file_name, self._problems)
       reader = csv.reader(codecs.iterdecode(eol_checker,'utf-8', errors='surrogateescape'))  # Use excel dialect
 
     header = next(reader)
