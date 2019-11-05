@@ -53,6 +53,9 @@ class Trip(GtfsObjectBase):
         self.service_id = service_period.service_id
     self.__dict__.update(field_dict)
 
+  def __hash__(self):
+    return hash((self.trip_headsign, self.route_id, self.trip_id, self.service_id))
+
   def GetFieldValuesTuple(self):
     return [getattr(self, fn) or '' for fn in self._FIELD_NAMES]
 
@@ -149,7 +152,10 @@ class Trip(GtfsObjectBase):
             'No time for first StopTime of trip_id "%s"' % (self.trip_id,))
     else:
       stoptime.stop_sequence = row[0] + 1
-      prev_secs = max(row[1], row[2])
+      if None in row:
+        prev_secs = 0
+      else:
+        prev_secs = max(row[1], row[2])
       if new_secs != None and new_secs < prev_secs:
         problems.OtherProblem(
             'out of order stop time for stop_id=%s trip_id=%s %s < %s' %
@@ -388,7 +394,7 @@ class Trip(GtfsObjectBase):
     warnings.warn("No longer supported. The HeadwayPeriod class was renamed to "
                   "Frequency, and all related functions were renamed "
                   "accordingly.", DeprecationWarning)
-    self.AddFrequencyObject(frequency, problem_reporter)
+    self.AddFrequencyObject(headway_period, problem_reporter)
 
   def AddFrequencyObject(self, frequency, problem_reporter):
     """Add a Frequency object to this trip's list of Frequencies."""
@@ -430,7 +436,7 @@ class Trip(GtfsObjectBase):
     if start_time == None or start_time == '':  # 0 is OK
       problem_reporter.MissingValue('start_time')
       return
-    if isinstance(start_time, basestring):
+    if isinstance(start_time, str):
       try:
         start_time = util.TimeToSecondsSinceMidnight(start_time)
       except problems_module.Error:
@@ -442,7 +448,7 @@ class Trip(GtfsObjectBase):
     if end_time == None or end_time == '':
       problem_reporter.MissingValue('end_time')
       return
-    if isinstance(end_time, basestring):
+    if isinstance(end_time, str):
       try:
         end_time = util.TimeToSecondsSinceMidnight(end_time)
       except problems_module.Error:
@@ -484,8 +490,8 @@ class Trip(GtfsObjectBase):
       return (self.trip_id,
               util.FormatSecondsSinceMidnight(headway[0]),
               util.FormatSecondsSinceMidnight(headway[1]),
-              unicode(headway[2]),
-              unicode(headway[3]))
+              str(headway[2]),
+              str(headway[3]))
 
   def GetFrequencyOutputTuples(self):
     tuples = []
@@ -608,7 +614,7 @@ class Trip(GtfsObjectBase):
       # time of the previous. Assumes a stoptimes sorted by sequence
       prev_departure = 0
       prev_stop = None
-      prev_distance = None
+      prev_distance = -1
       try:
         route_type = self._schedule.GetRoute(self.route_id).route_type
         max_speed = route_class._ROUTE_TYPES[route_type]['max_speed']
@@ -771,4 +777,4 @@ class Trip(GtfsObjectBase):
 
 
 def SortListOfTripByTime(trips):
-  trips.sort(key=GetStartTime)
+    trips = sorted(trips, key=lambda trip: trip.GetStartTime())

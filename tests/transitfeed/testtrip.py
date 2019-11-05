@@ -663,7 +663,7 @@ class AddFrequencyValidationTestCase(util.ValidationTestCase):
     trip.trip_id = "SAMPLE_ID"
     trip.AddFrequency(0, 50, 1200)
     trip.AddFrequency("01:00:00", "02:00:00", "600")
-    trip.AddFrequency(u"02:00:00", u"03:00:00", u"1800")
+    trip.AddFrequency("02:00:00", "03:00:00", "1800")
     headways = trip.GetFrequencyTuples()
     self.assertEqual(3, len(headways))
     self.assertEqual((0, 50, 1200, 0), headways[0])

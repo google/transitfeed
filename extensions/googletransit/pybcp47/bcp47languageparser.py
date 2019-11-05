@@ -136,13 +136,18 @@ class Bcp47LanguageParser(object):
                                     line_number)
 
   def IntStr26ToInt(self, int_str):
-    return reduce(lambda x, y: 26 * x + y, map(string.lowercase.index, int_str))
+        return reduce(
+            lambda x, y: 26 * x + y,
+            list(map(string.ascii_lowercase.index, int_str)),
+        )
 
   def IntToIntStr26(self, int_value, int_str=''):
     if int_value == 0:
       return int_str
     return self.IntToIntStr26(
-        int_value/26, string.lowercase[int_value%26] + int_str)
+            int(int_value / 26),
+            string.ascii_lowercase[int(int_value % 26)] + int_str,
+        )
 
   def _AddSubtagFromRegistryFile(self, current_type, current_tag,
                                  current_descriptions, current_prefixes,

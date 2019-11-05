@@ -193,7 +193,7 @@ class Schedule(object):
       if len(self._agencies) == 0:
         self.NewDefaultAgency()
       elif len(self._agencies) == 1:
-        self._default_agency = self._agencies.values()[0]
+        self._default_agency = list(self._agencies.values())[0]
     return self._default_agency
 
   def NewDefaultAgency(self, **kwargs):
@@ -230,7 +230,7 @@ class Schedule(object):
       if len(self.service_periods) == 0:
         self.NewDefaultServicePeriod()
       elif len(self.service_periods) == 1:
-        self._default_service_period = self.service_periods.values()[0]
+        self._default_service_period = list(self.service_periods.values())[0]
     return self._default_service_period
 
   def NewDefaultServicePeriod(self):
