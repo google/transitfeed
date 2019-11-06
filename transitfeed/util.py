@@ -201,6 +201,8 @@ def CheckVersion(problems, latest_version=None):
     try:
       response = urllib.request.urlopen(request)
       content = response.read()
+      if isinstance(content, bytes):
+        content = content.decode("utf-8")
       m = re.search(r'version=(\d+\.\d+\.\d+)', content)
       if m:
         latest_version = m.group(1)
