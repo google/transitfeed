@@ -29,7 +29,7 @@ class Route(transitfeed.Route):
 
   _FIELD_NAMES = transitfeed.Route._FIELD_NAMES + [ 'co2_per_km' ]
 
-  _ROUTE_TYPES = dict(transitfeed.Route._ROUTE_TYPES.items() + {
+  _ROUTE_TYPES = dict(list(transitfeed.Route._ROUTE_TYPES.items()) + list({
     8: {'name':'Horse Carriage', 'max_speed':50},
     9: {'name':'Intercity Bus', 'max_speed':120},
     10: {'name':'Commuter Train', 'max_speed':150},
@@ -65,7 +65,7 @@ class Route(transitfeed.Route):
     1700: {'name':'MiscellaneousService', 'max_speed':100},
     1701: {'name':'CableCar', 'max_speed':50},
     1702: {'name':'HorseDrawnCarriage', 'max_speed':50}
-    }.items())
+    }.items()))
 
   _ROUTE_TYPE_IDS = set(_ROUTE_TYPES.keys())
   # _ROUTE_TYPE_NAMES is not getting updated as we should not continue to allow
