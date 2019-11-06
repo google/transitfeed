@@ -123,8 +123,7 @@ class TestGtfsFactory(util.TestCase):
         "fare_rules.txt", "frequencies.txt", "stops.txt", "stop_times.txt",
         "transfers.txt", "routes.txt", "trips.txt"):
       class_object = self._factory.GetGtfsClassByFileName(filename)
-      self.assertTrue(isinstance(class_object,
-                                 (types.TypeType, types.ClassType)),
+      self.assertTrue(isinstance(class_object, type),
                       "The mapping from filenames to classes must return "
                       "classes and not instances. This is not the case for " +
                       filename)
