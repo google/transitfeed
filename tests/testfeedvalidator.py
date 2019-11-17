@@ -22,9 +22,9 @@ import datetime
 import feedvalidator
 import os.path
 import re
-import StringIO
 from tests import util
 import transitfeed
+from transitfeed.compat import StringIO
 import unittest
 from urllib2 import HTTPError, URLError
 import urllib2
@@ -301,7 +301,7 @@ class FeedValidatorTestCase(util.TempDirTestCaseBase):
     new_zipfile_mem = self.ConvertDictToZip(content_dict)
 
     options = MockOptions()
-    output_file = StringIO.StringIO()
+    output_file = StringIO()
     feedvalidator.RunValidationOutputToFile(
         new_zipfile_mem, options, output_file)
     self.assertMatchesRegex(filename, output_file.getvalue())
