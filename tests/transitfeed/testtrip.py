@@ -615,6 +615,13 @@ class InvalidRouteAgencyTestCase(util.LoadTestCase):
     self.accumulator.AssertNoMoreExceptions()
 
 
+class InvalidAgencyIdsTestCase(util.LoadTestCase):
+  def runTest(self):
+    self.Load('invalid_agency_ids')
+    self.accumulator.PopException('OtherProblem')
+    self.accumulator.AssertNoMoreExceptions()
+
+
 class AddStopTimeParametersTestCase(util.TestCase):
   def runTest(self):
     problem_reporter = util.GetTestFailureProblemReporter(self)

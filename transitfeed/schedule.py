@@ -1278,6 +1278,15 @@ class Schedule(object):
                                                    trip_b.trip_id,
                                                    block_id)
 
+  def ValidateIdlessAgency(self, problems):
+    # Check that only one agency is IDless
+    if len(self._agencies) > 1:
+      for agency in self._agencies.values():
+        if util.IsEmpty(agency.agency_id):
+          problems.OtherProblem('Agency "%s" does not have an ID. '
+                                'This is only allowed if a single agency is defined, '
+                                'whereas there are %d in total.' % (agency.agency_name, len(self._agencies)))
+
   def ValidateRouteAgencyId(self, problems):
     # Check that routes' agency IDs are valid, if set
     for route in self.routes.values():
@@ -1346,6 +1355,7 @@ class Schedule(object):
     self.ValidateNearbyStops(problems)
     self.ValidateRouteNames(problems, validate_children)
     self.ValidateTrips(problems)
+    self.ValidateIdlessAgency(problems)
     self.ValidateRouteAgencyId(problems)
     self.ValidateTripStopTimes(problems)
     self.ValidateUnusedShapes(problems)
