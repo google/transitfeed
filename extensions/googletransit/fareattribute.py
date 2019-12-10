@@ -16,27 +16,27 @@
 
 import transitfeed
 
+
 class FareAttribute(transitfeed.FareAttribute):
-  """Extension of transitfeed.FareAttribute:
+    """Extension of transitfeed.FareAttribute:
   - Adding field 'agency_id' and ValidateAgencyId() function.
   - Overriding ValidateAfterAdd() in order to call ValidateAgencyId().
   - See open proposal "add agency_id column to fare_attributes.txt" at
   http://groups.google.com/group/gtfs-changes/browse_frm/thread/4e74c23bb1f80480
   """
 
-  _FIELD_NAMES = transitfeed.FareAttribute._FIELD_NAMES + [ 'agency_id' ]
+    _FIELD_NAMES = transitfeed.FareAttribute._FIELD_NAMES + ["agency_id"]
 
-  def ValidateAgencyId(self, problems):
-    agencies = self._schedule.GetAgencyList()
-    for agency in agencies:
-      if agency.agency_id == self.agency_id:
-        return
-    if len(agencies) > 1 or self.agency_id is not None:
-      # If there is only one agency and Fare.agencyid is empty or not present
-      # then it isn't an error
-      problems.InvalidAgencyID('agency_id', self.agency_id,
-                                 'fare', self.fare_id)
+    def ValidateAgencyId(self, problems):
+        agencies = self._schedule.GetAgencyList()
+        for agency in agencies:
+            if agency.agency_id == self.agency_id:
+                return
+        if len(agencies) > 1 or self.agency_id is not None:
+            # If there is only one agency and Fare.agencyid is empty or not present
+            # then it isn't an error
+            problems.InvalidAgencyID("agency_id", self.agency_id, "fare", self.fare_id)
 
-  def ValidateAfterAdd(self, problems):
-    super(FareAttribute, self).ValidateAfterAdd(problems)
-    self.ValidateAgencyId(problems)
+    def ValidateAfterAdd(self, problems):
+        super(FareAttribute, self).ValidateAfterAdd(problems)
+        self.ValidateAgencyId(problems)

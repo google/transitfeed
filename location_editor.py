@@ -26,35 +26,45 @@ from __future__ import print_function
 import schedule_viewer
 import transitfeed
 
+
 class LocationEditorRequestHandler(schedule_viewer.ScheduleRequestHandler):
-  def handle_json_GET_setstoplocation(self, params):
-    schedule = self.server.schedule
-    stop_id = params.get('id', None)
-    lat = params.get('lat', -1)
-    lon = params.get('lng', -1)
-    stop = schedule.GetStop(stop_id)
-    if (stop is None):
-      msg = 'Stop with id=' + stop_id + 'not found.'
-    else:
-      stop.stop_lat = float(lat)
-      stop.stop_lon = float(lon)
-      msg = 'Location of ' + stop['stop_name'] + '(' + stop_id + ') set to ' + \
-            lat + 'x' + lon
-    print(msg)
-    return msg
+    def handle_json_GET_setstoplocation(self, params):
+        schedule = self.server.schedule
+        stop_id = params.get("id", None)
+        lat = params.get("lat", -1)
+        lon = params.get("lng", -1)
+        stop = schedule.GetStop(stop_id)
+        if stop is None:
+            msg = "Stop with id=" + stop_id + "not found."
+        else:
+            stop.stop_lat = float(lat)
+            stop.stop_lon = float(lon)
+            msg = (
+                "Location of "
+                + stop["stop_name"]
+                + "("
+                + stop_id
+                + ") set to "
+                + lat
+                + "x"
+                + lon
+            )
+        print(msg)
+        return msg
 
-  def handle_json_GET_savedata(self, params):
-    schedule = self.server.schedule
-    if not self.server.feed_path:
-      msg = 'Feed path not defined'
-    else:
-      schedule.WriteGoogleTransitFeed(self.server.feed_path)
-      msg = 'Data saved to ' + self.server.feed_path
-    print(msg)
-    return msg
+    def handle_json_GET_savedata(self, params):
+        schedule = self.server.schedule
+        if not self.server.feed_path:
+            msg = "Feed path not defined"
+        else:
+            schedule.WriteGoogleTransitFeed(self.server.feed_path)
+            msg = "Data saved to " + self.server.feed_path
+        print(msg)
+        return msg
 
-  def AllowEditMode(self):
-    return True
+    def AllowEditMode(self):
+        return True
 
-if __name__ == '__main__':
-  schedule_viewer.main(LocationEditorRequestHandler)
+
+if __name__ == "__main__":
+    schedule_viewer.main(LocationEditorRequestHandler)

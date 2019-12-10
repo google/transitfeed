@@ -15,33 +15,36 @@
 # limitations under the License.
 
 from __future__ import absolute_import
+
+
 class GtfsFactoryUser(object):
-  """Base class for objects that must store a GtfsFactory in order to
+    """Base class for objects that must store a GtfsFactory in order to
      be able to instantiate Gtfs classes.
 
      If a non-default GtfsFactory is to be used, it must be set explicitly."""
 
-  _gtfs_factory = None
+    _gtfs_factory = None
 
-  def GetGtfsFactory(self):
-    """Return the object's GTFS Factory.
+    def GetGtfsFactory(self):
+        """Return the object's GTFS Factory.
 
     Returns:
         The GTFS Factory that was set for this object. If none was explicitly
         set, it first sets the object's factory to transitfeed's GtfsFactory
         and returns it"""
 
-    if self._gtfs_factory is None:
-      #TODO(anog): We really need to create a dependency graph and clean things
-      #            up, as the comment in __init__.py says.
-      #            Not having GenericGTFSObject as a leaf (with no other
-      #            imports) creates all sorts of circular import problems.
-      #            This is why the import is here and not at the top level.
-      #            When this runs, gtfsfactory should have already been loaded
-      #            by other modules, avoiding the circular imports.
-      from . import gtfsfactory
-      self._gtfs_factory = gtfsfactory.GetGtfsFactory()
-    return self._gtfs_factory
+        if self._gtfs_factory is None:
+            # TODO(anog): We really need to create a dependency graph and clean things
+            #            up, as the comment in __init__.py says.
+            #            Not having GenericGTFSObject as a leaf (with no other
+            #            imports) creates all sorts of circular import problems.
+            #            This is why the import is here and not at the top level.
+            #            When this runs, gtfsfactory should have already been loaded
+            #            by other modules, avoiding the circular imports.
+            from . import gtfsfactory
 
-  def SetGtfsFactory(self, factory):
-    self._gtfs_factory = factory
+            self._gtfs_factory = gtfsfactory.GetGtfsFactory()
+        return self._gtfs_factory
+
+    def SetGtfsFactory(self, factory):
+        self._gtfs_factory = factory

@@ -23,10 +23,10 @@ from transitfeed import util
 
 
 def main():
-  (feed, options) = feedvalidator.ParseCommandLineArguments()
-  options.extension = 'extensions.googletransit'
-  return feedvalidator.RunValidationFromOptions(feed, options)
+    (feed, options) = feedvalidator.ParseCommandLineArguments()
+    options.extension = "extensions.googletransit"
+    return feedvalidator.RunValidationFromOptions(feed, options)
 
 
-if __name__ == '__main__':
-  util.RunWithCrashHandler(main)
+if __name__ == "__main__":
+    util.RunWithCrashHandler(main)

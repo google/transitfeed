@@ -21,57 +21,67 @@ import transitfeed
 
 
 class ProblemReporterTestCase(util.RedirectStdOutTestCaseBase):
-  # Unittest for problem reporter
-  def testContextWithBadUnicodeProblem(self):
-    pr = transitfeed.ProblemReporter()
-    # Context has valid unicode values
-    pr.SetFileContext('filename.foo', 23,
-                      [u'Andr\202', u'Person \uc720 foo', None],
-                      [u'1\202', u'2\202', u'3\202'])
-    pr.OtherProblem('test string')
-    pr.OtherProblem(u'\xff\xfe\x80\x88')
-    # Invalid ascii and utf-8. encode('utf-8') and decode('utf-8') will fail
-    # for this value
-    pr.OtherProblem('\xff\xfe\x80\x88')
-    self.assertTrue(re.search(r"test string", self.this_stdout.getvalue()))
-    self.assertTrue(re.search(r"filename.foo:23", self.this_stdout.getvalue()))
+    # Unittest for problem reporter
+    def testContextWithBadUnicodeProblem(self):
+        pr = transitfeed.ProblemReporter()
+        # Context has valid unicode values
+        pr.SetFileContext(
+            "filename.foo",
+            23,
+            [u"Andr\202", u"Person \uc720 foo", None],
+            [u"1\202", u"2\202", u"3\202"],
+        )
+        pr.OtherProblem("test string")
+        pr.OtherProblem(u"\xff\xfe\x80\x88")
+        # Invalid ascii and utf-8. encode('utf-8') and decode('utf-8') will fail
+        # for this value
+        pr.OtherProblem("\xff\xfe\x80\x88")
+        self.assertTrue(re.search(r"test string", self.this_stdout.getvalue()))
+        self.assertTrue(re.search(r"filename.foo:23", self.this_stdout.getvalue()))
 
-  def testNoContextWithBadUnicode(self):
-    pr = transitfeed.ProblemReporter()
-    pr.OtherProblem('test string')
-    pr.OtherProblem(u'\xff\xfe\x80\x88')
-    # Invalid ascii and utf-8. encode('utf-8') and decode('utf-8') will fail
-    # for this value
-    pr.OtherProblem('\xff\xfe\x80\x88')
-    self.assertTrue(re.search(r"test string", self.this_stdout.getvalue()))
+    def testNoContextWithBadUnicode(self):
+        pr = transitfeed.ProblemReporter()
+        pr.OtherProblem("test string")
+        pr.OtherProblem(u"\xff\xfe\x80\x88")
+        # Invalid ascii and utf-8. encode('utf-8') and decode('utf-8') will fail
+        # for this value
+        pr.OtherProblem("\xff\xfe\x80\x88")
+        self.assertTrue(re.search(r"test string", self.this_stdout.getvalue()))
 
-  def testBadUnicodeContext(self):
-    pr = transitfeed.ProblemReporter()
-    pr.SetFileContext('filename.foo', 23,
-                      [u'Andr\202', 'Person \xff\xfe\x80\x88 foo', None],
-                      [u'1\202', u'2\202', u'3\202'])
-    pr.OtherProblem("help, my context isn't utf-8!")
-    self.assertTrue(re.search(r"help, my context", self.this_stdout.getvalue()))
-    self.assertTrue(re.search(r"filename.foo:23", self.this_stdout.getvalue()))
+    def testBadUnicodeContext(self):
+        pr = transitfeed.ProblemReporter()
+        pr.SetFileContext(
+            "filename.foo",
+            23,
+            [u"Andr\202", "Person \xff\xfe\x80\x88 foo", None],
+            [u"1\202", u"2\202", u"3\202"],
+        )
+        pr.OtherProblem("help, my context isn't utf-8!")
+        self.assertTrue(re.search(r"help, my context", self.this_stdout.getvalue()))
+        self.assertTrue(re.search(r"filename.foo:23", self.this_stdout.getvalue()))
 
-  def testLongWord(self):
-    # Make sure LineWrap doesn't puke
-    pr = transitfeed.ProblemReporter()
-    pr.OtherProblem('1111untheontuhoenuthoentuhntoehuontehuntoehuntoehunto'
-                    '2222oheuntheounthoeunthoeunthoeuntheontuheontuhoue')
-    self.assertTrue(re.search(r"1111.+2222", self.this_stdout.getvalue()))
+    def testLongWord(self):
+        # Make sure LineWrap doesn't puke
+        pr = transitfeed.ProblemReporter()
+        pr.OtherProblem(
+            "1111untheontuhoenuthoentuhntoehuontehuntoehuntoehunto"
+            "2222oheuntheounthoeunthoeunthoeuntheontuheontuhoue"
+        )
+        self.assertTrue(re.search(r"1111.+2222", self.this_stdout.getvalue()))
 
 
 class BadProblemReporterTestCase(util.RedirectStdOutTestCaseBase):
-  """Make sure ProblemReporter doesn't crash when given bad unicode data and
+    """Make sure ProblemReporter doesn't crash when given bad unicode data and
   does find some error"""
-  # tom.brown.code-utf8_weaknesses fixed a bug with problem reporter and bad
-  # utf-8 strings
-  def runTest(self):
-    loader = transitfeed.Loader(
-      util.DataPath('bad_utf8'),
-      problems=transitfeed.ProblemReporter(),
-      extra_validation=True)
-    loader.Load()
-    # raises exception if not found
-    self.this_stdout.getvalue().index('Invalid value')
+
+    # tom.brown.code-utf8_weaknesses fixed a bug with problem reporter and bad
+    # utf-8 strings
+    def runTest(self):
+        loader = transitfeed.Loader(
+            util.DataPath("bad_utf8"),
+            problems=transitfeed.ProblemReporter(),
+            extra_validation=True,
+        )
+        loader.Load()
+        # raises exception if not found
+        self.this_stdout.getvalue().index("Invalid value")

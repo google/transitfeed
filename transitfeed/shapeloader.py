@@ -17,16 +17,17 @@
 from __future__ import absolute_import
 from .loader import Loader
 
-class ShapeLoader(Loader):
-  """A subclass of Loader that only loads the shapes from a GTFS file."""
 
-  def __init__(self, *args, **kwargs):
-    """Initialize a new ShapeLoader object.
+class ShapeLoader(Loader):
+    """A subclass of Loader that only loads the shapes from a GTFS file."""
+
+    def __init__(self, *args, **kwargs):
+        """Initialize a new ShapeLoader object.
 
     See Loader.__init__ for argument documentation.
     """
-    Loader.__init__(self, *args, **kwargs)
+        Loader.__init__(self, *args, **kwargs)
 
-  def Load(self):
-    self._LoadShapes()
-    return self._schedule
+    def Load(self):
+        self._LoadShapes()
+        return self._schedule

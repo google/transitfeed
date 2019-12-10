@@ -1,4 +1,3 @@
-
 # Copyright (C) 2019 Google Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -14,6 +13,6 @@
 # limitations under the License.
 
 try:  # py2
-  from StringIO import StringIO
+    from StringIO import StringIO
 except ImportError:
-  from io import StringIO
+    from io import StringIO
