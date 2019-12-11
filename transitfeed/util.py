@@ -287,7 +287,7 @@ def IsValidHexColor(color):
   Checks the validity of a hex color value:
     - the color string must consist of 6 hexadecimal digits
   """
-  return not re.match('^[0-9a-fA-F]{6}$', color) == None
+  return not re.match('^[0-9a-fA-F]{6}$', color) is None
 
 def IsValidLanguageCode(lang):
   """
@@ -473,7 +473,7 @@ def FormatSecondsSinceMidnight(s):
 def DateStringToDateObject(date_string):
   """Return a date object for a string "YYYYMMDD"."""
   # If this becomes a bottleneck date objects could be cached
-  if re.match('^\d{8}$', date_string) == None:
+  if re.match('^\d{8}$', date_string) is None:
     return None
   try:
     return datetime.date(int(date_string[0:4]), int(date_string[4:6]),

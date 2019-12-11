@@ -54,14 +54,14 @@ class FareAttribute(GtfsObjectBase):
       self.payment_method = int(self.payment_method)
     except (TypeError, ValueError):
       pass
-    if self.transfers == None or self.transfers == "":
+    if self.transfers is None or self.transfers == "":
       self.transfers = None
     else:
       try:
         self.transfers = int(self.transfers)
       except (TypeError, ValueError):
         pass
-    if self.transfer_duration == None or self.transfer_duration == "":
+    if self.transfer_duration is None or self.transfer_duration == "":
       self.transfer_duration = None
     else:
       try:
@@ -105,7 +105,7 @@ class FareAttribute(GtfsObjectBase):
       problems.MissingValue("fare_id")
 
   def ValidatePrice(self, problems):
-    if self.price == None:
+    if self.price is None:
       problems.MissingValue("price")
     elif not isinstance(self.price, float) and not isinstance(self.price, int):
       problems.InvalidValue("price", self.price)
@@ -119,20 +119,20 @@ class FareAttribute(GtfsObjectBase):
       problems.InvalidValue("currency_type", self.currency_type)
 
   def ValidatePaymentMethod(self, problems):
-    if self.payment_method == "" or self.payment_method == None:
+    if self.payment_method == "" or self.payment_method is None:
       problems.MissingValue("payment_method")
     elif (not isinstance(self.payment_method, int) or
           self.payment_method not in range(0, 2)):
       problems.InvalidValue("payment_method", self.payment_method)
 
   def ValidateTransfers(self, problems):
-    if not ((self.transfers == None) or
+    if not ((self.transfers is None) or
             (isinstance(self.transfers, int) and
              self.transfers in range(0, 3))):
       problems.InvalidValue("transfers", self.transfers)
 
   def ValidateTransferDuration(self, problems):
-    if ((self.transfer_duration != None) and
+    if ((self.transfer_duration is not None) and
         not isinstance(self.transfer_duration, int)):
       problems.InvalidValue("transfer_duration", self.transfer_duration)
     if self.transfer_duration and (self.transfer_duration < 0):

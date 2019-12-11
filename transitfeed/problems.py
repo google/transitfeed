@@ -435,7 +435,7 @@ class ExceptionWithContext(Exception):
     if not context:
       return d
     for k, v in zip(ExceptionWithContext.CONTEXT_PARTS, context):
-      if v != '' and v != None:  # Don't ignore int(0), a valid row_num
+      if v != '' and v is not None:  # Don't ignore int(0), a valid row_num
         d[k] = v
     return d
 

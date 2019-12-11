@@ -75,10 +75,10 @@ class StopTime(object):
     #
     # For more details see the discussion at
     # http://codereview.appspot.com/1713041
-    if stop_time != None:
+    if stop_time is not None:
       arrival_time = departure_time = stop_time
 
-    if arrival_secs != None:
+    if arrival_secs is not None:
       self.arrival_secs = arrival_secs
     elif arrival_time in (None, ""):
       self.arrival_secs = None  # Untimed
@@ -90,7 +90,7 @@ class StopTime(object):
         problems.InvalidValue('arrival_time', arrival_time)
         self.arrival_secs = None
 
-    if departure_secs != None:
+    if departure_secs is not None:
       self.departure_secs = departure_secs
     elif departure_time in (None, ""):
       self.departure_secs = None
@@ -116,7 +116,7 @@ class StopTime(object):
         drop_off_type, [0, 1, 2, 3], None, True, 'drop_off_type', problems)
 
     if (self.pickup_type == 1 and self.drop_off_type == 1 and
-        self.arrival_secs == None and self.departure_secs == None):
+        self.arrival_secs is None and self.departure_secs is None):
       problems.OtherProblem('This stop time has a pickup_type and '
                             'drop_off_type of 1, indicating that riders '
                             'can\'t get on or off here.  Since it doesn\'t '
@@ -124,7 +124,7 @@ class StopTime(object):
                             'purpose and should be excluded from the trip.',
                             type=problems_module.TYPE_WARNING)
 
-    if ((self.arrival_secs != None) and (self.departure_secs != None) and
+    if ((self.arrival_secs is not None) and (self.departure_secs is not None) and
         (self.departure_secs < self.arrival_secs)):
       problems.InvalidValue('departure_time', departure_time,
                             'The departure time at this stop (%s) is before '
@@ -134,8 +134,8 @@ class StopTime(object):
 
     # If the caller passed a valid arrival time but didn't attempt to pass a
     # departure time complain
-    if (self.arrival_secs != None and
-        self.departure_secs == None and departure_time == None):
+    if (self.arrival_secs is not None and
+        self.departure_secs is None and departure_time is None):
       # self.departure_secs might be None because departure_time was invalid,
       # so we need to check both
       problems.MissingValue('departure_time',
@@ -144,8 +144,8 @@ class StopTime(object):
                             'It\'s OK to set them both to the same value.')
     # If the caller passed a valid departure time but didn't attempt to pass a
     # arrival time complain
-    if (self.departure_secs != None and
-        self.arrival_secs == None and arrival_time == None):
+    if (self.departure_secs is not None and
+        self.arrival_secs is None and arrival_time is None):
       problems.MissingValue('arrival_time',
                             'arrival_time and departure_time should either '
                             'both be provided or both be left blank.  '
@@ -203,9 +203,9 @@ class StopTime(object):
   def GetTimeSecs(self):
     """Return the first of arrival_secs and departure_secs that is not None.
     If both are None return None."""
-    if self.arrival_secs != None:
+    if self.arrival_secs is not None:
       return self.arrival_secs
-    elif self.departure_secs != None:
+    elif self.departure_secs is not None:
       return self.departure_secs
     else:
       return None
@@ -214,10 +214,10 @@ class StopTime(object):
     if name == 'stop_id':
       return self.stop.stop_id
     elif name == 'arrival_time':
-      return (self.arrival_secs != None and
+      return (self.arrival_secs is not None and
           util.FormatSecondsSinceMidnight(self.arrival_secs) or '')
     elif name == 'departure_time':
-      return (self.departure_secs != None and
+      return (self.departure_secs is not None and
           util.FormatSecondsSinceMidnight(self.departure_secs) or '')
     elif name == 'shape_dist_traveled':
       return ''
