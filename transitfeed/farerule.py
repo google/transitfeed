@@ -15,7 +15,6 @@
 # limitations under the License.
 
 from __future__ import absolute_import
-from .problems import default_problem_reporter
 from .gtfsobjectbase import GtfsObjectBase
 
 class FareRule(GtfsObjectBase):

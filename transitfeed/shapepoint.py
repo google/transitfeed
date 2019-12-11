@@ -16,11 +16,9 @@
 # limitations under the License.
 
 from __future__ import absolute_import
-import bisect
 from .gtfsobjectbase import GtfsObjectBase
 from . import problems as problems_module
 from . import util
-import sys
 
 class ShapePoint(GtfsObjectBase):
   """This class represents a single shape point.

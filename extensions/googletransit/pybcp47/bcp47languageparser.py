@@ -14,8 +14,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import codecs
-import os
 from pkg_resources import resource_string
 import re
 import string

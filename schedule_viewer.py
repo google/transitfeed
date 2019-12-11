@@ -22,7 +22,8 @@ You must provide a Google Maps API key.
 from __future__ import print_function
 
 
-import BaseHTTPServer, sys, urlparse
+import BaseHTTPServer
+import urlparse
 import bisect
 from gtfsscheduleviewer.marey_graph import MareyGraph
 import gtfsscheduleviewer
@@ -32,7 +33,6 @@ import re
 import signal
 import json as simplejson
 import socket
-import time
 import transitfeed
 from transitfeed import util
 import urllib

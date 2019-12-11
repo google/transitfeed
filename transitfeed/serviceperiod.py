@@ -16,7 +16,6 @@
 
 from __future__ import absolute_import
 import datetime
-import re
 import time
 
 from . import problems as problems_module

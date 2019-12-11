@@ -22,8 +22,6 @@ from __future__ import print_function
 
 __author__ = 'chris.harrelson.code@gmail.com (Chris Harrelson)'
 
-import csv
-import glob
 import ogr
 import os
 import shutil
@@ -32,7 +30,6 @@ import tempfile
 import transitfeed
 from transitfeed import shapelib
 from transitfeed import util
-import zipfile
 
 
 class ShapeImporterError(Exception):
