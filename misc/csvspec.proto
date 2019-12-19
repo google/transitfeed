@@ -1,0 +1,465 @@
+// Copyright (C) 2019 Google Inc.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+syntax = "proto2";
+
+package maps_transit;
+
+// A CsvSpecProto specifies what an input csv is expected to look like. It
+// allows for some configuring of the csv such as renaming of columns, grouping
+// columns into keys, and defining column types.
+//
+// This file can be consumed by a GTFS schema generator by which CsvSpecProto
+// and some of its contained elements are turned into class structures and
+// accessors. Some elements (i.e. NamedValueProto) were especially added to
+// support the generator with some additional input.
+//
+// A CsvErrorProto describes how an input csv fails to meet some requirements.
+//
+////////////////////////////////////////////////////////////////////////////////
+message ColumnInputType {
+  enum InputType {
+    INPUT_TYPE_UNSPECIFIED = 0;
+
+    // This is the default type, it does not need to be specified.
+    STRING = 0x1;
+
+    // Integer values are parsed with strtoll, they must fit in int64s.
+    INT = 0x2;
+    // Decimal.
+    INT_DEC = 0x21;
+
+    // Hexadecimal.
+    INT_HEX = 0x22;
+
+    FLOAT = 0x3;
+    // Parsed with strtod.
+    FLOAT_STD = 0x31;
+
+    // Float values multiplied with 1e6 (or 1e7) and truncated to integers.
+    // (max int64).
+    FLOAT_E6 = 0x32;
+    FLOAT_E7 = 0x33;
+
+    // All date formats will parse to integer, representing days since epoch.
+    DATE = 0x4;
+    DATE_YYYYMMDD = 0x42;
+
+    // All time format will parse to integer, representing seconds since
+    // midnight.
+    TIME = 0x5;
+    TIME_SECONDS_SINCE_MIDNIGHT = 0x51;
+
+    // This is useful for columns that mixes formats. Note that for hh:mm
+    // times, the hours may not go past 24.
+    TIME_AUTODETECT = 0x52;
+
+    // hh:mm. The hours may go past 24 and have up to 15 digits.
+    // (That ensures the resulting number of seconds fits into an int64).
+    TIME_HHCMM = 0x53;
+
+    // hhmmss. The hours may go past 24 and have up to 15 digits.
+    TIME_HHMMSS = 0x54;
+
+    // hh:mm:ss. The hours may go past 24 and have up to 15 digits.
+    TIME_HHCMMCSS = 0x55;
+  }
+  // Wrapping the type in a message like this is just for exporting the enum to
+  // other proto files.
+  required InputType type = 1;
+}
+
+message SupersetKeySpecProto {
+  // This is used to define the keys of which the value tuples defined by the
+  // KeySpecProto must be a subset.
+  // This can be used to verify references between two tables. By default, rows
+  // with a null value in one of the key columns are silently skipped. Note that
+  // the superset table and keycolumns may be declared optional, but they must
+  // exist whenever the subset table and key columns exist and do not have a
+  // null key in each row. If the test is performed, and the superset key
+  // cannot be found, an error will be flagged.
+  required string csvname = 1;
+  required string keyname = 2;
+
+  // If true, a null value in one of the key columns in this table is
+  // recognized as an error (instead of being skipped), unless the superset
+  // key has no more than one non-null value.
+  optional bool restrictnulltosingleforeignkey = 3 [default = false];
+}
+
+message NamedValueProto {
+  // This message attaches a name to a specific constant value within various
+  // contexts. Eg. "parent_station" to value "1" in the context of the
+  // location_type column in stops.txt (see the GTFS spec). Exactly one of the
+  // *value fields must be set, according to the type of the value. Named values
+  // are intended to be used for code generation from a csv specification.
+  // CsvParser and CsvParserSet do not support them.
+  // For an example see the namedvalue definitions for the column location_type
+  // within the stops csvspec in gtfs_spec.asciipb.
+  required string name = 1;
+  optional int64 intvalue = 2;
+  optional string stringvalue = 3;
+  optional string enumtype = 4;
+}
+
+// Column value caching configuration.  Caching, when enabled, can speed up
+// processing for large CVS files, at the expense of higher memory
+// requirements.
+message ColumnCacheProto {
+  // When enabled, numeric values for columns with INT or FLOAT types will be
+  // cached, saving repeated string=>number conversions.
+  optional bool cache_numbers = 1 [default = false];
+
+  // When enabled, single-column key values will be cached, saving repeated key
+  // value generation and speeding up some sort operations.
+  optional bool cache_keys = 2 [default = false];
+}
+
+message ColumnSpecProto {
+  // This is the name to be used for this column. This field can be used in two
+  // ways:
+  // - To reference a column name given in the first row of the csv file.
+  // - To introduce a new name for the column, in that case, the original name
+  //   (the name given in the first row of the csv file) or a column number
+  //   (starting on 0) must be given as well.
+  // Note that every column name also is a key name. See KeySpecProto.
+  required string name = 1;
+  optional string originalname = 2;
+  optional int32 number = 3;
+
+  // If a template is used for this spec, and this flag is set true, this column
+  // spec will be merged with any corresponding column in the template. If
+  // false, the template column will be ignored.
+  optional bool inheritfields = 15 [default = false];
+
+  // This determines what will happen if this column is missing in the input
+  // csv. If true, an error will be flagged, if false, this will be silently
+  // ignored and all tests on this column, and any keys that includes this
+  // column will be skipped.
+  optional bool required = 4 [default = true];
+
+  // If specified, all cells in the column that matches this regexp are
+  // considered NULL. These cells will be disregarded in tests. This includes
+  // the integer and regexp tests below, as well as tests on properties of keys,
+  // see KeySpecProto.
+  optional string nullvalue = 5 [default = ""];
+
+  // This determines what will happen if a row value of this column is null
+  // (i.e. equal to the nullvalue field) in the input csv. If true, a
+  // MISSING_VALUE error will be flagged.
+  optional bool value_required = 17 [default = false];
+
+  // The input type of the column. See enum definition for detailed requirements
+  // on each format.
+  optional ColumnInputType type = 6;
+
+  // Specifies max/min values (inclusive) for integer types.
+  optional int32 intmin = 7;
+  optional int32 intmax = 8;
+
+  // Specifies max/min values for float types.
+  optional float floatmin = 13;
+  optional float floatmax = 14;
+
+  // Specifies names for certain values in this column, see message definition.
+  repeated NamedValueProto namedvalue = 16;
+
+  // If specified, all (non-null) values of this column must match this regexp.
+  optional string matchregexp = 9;
+
+  // These fields are syntactic sugar for testing properties of the key
+  // consisting of only this column. See SupersetKeySpecProto for more.
+  optional bool uniquevalues = 10 [default = false];
+  repeated SupersetKeySpecProto supersetkey = 11;
+
+  // Defines the value caching strategy for this column.  This can be useful
+  // for INT and FLOAT columns where repeatedly converting raw CSV string
+  // values to native types carries a performance hit.
+  optional ColumnCacheProto cache = 12;
+
+  // Field number for if the spec containing this column is converted to a
+  // protobuf message. Must be unique within the spec and >= 2.
+  optional int32 field_number = 18;
+}
+
+message KeySpecProto {
+  // The name of this key. Note that each column by default has a 1-column key
+  // with the same name. Properties of 1-column keys may be defined directly in
+  // the ColumnSpecProto. Key names may not overlap with column names declared
+  // in the same CsvSpecProto (this does not apply to column names provided in
+  // the input csv header line, that are only used for the originalname field
+  // in ColumnSpecProto).
+  required string name = 1;
+
+  // The tuple of columns that form this key. There must be at least one column.
+  // Note that order is significant. All columns listed here must also appear
+  // as ColunmSpecProtos in the same CsvSpecProto.
+  repeated string columnname = 2;
+
+  // If true, all value tuples defined by this table and key must be distinct.
+  // Rows where some column is null (see CsvColumnSpec) are disregarded.
+  optional bool uniquevalues = 3 [default = false];
+
+  // The set of value tuples defined by the KeySpecProto must be a subset of
+  // each of the value sets defined by the keys listed here. This can be used
+  // to verify references between two tables.
+  // See SupersetKeySpecProto for more information.
+  repeated SupersetKeySpecProto supersetkey = 4;
+}
+
+message CsvSpecProto {
+  // This is the name of the csv.
+  required string name = 1;
+
+  // This is the file where the csv is stored, without the directory path, that
+  // will be added elsewhere. Note: this is actually required, it is set as
+  // optional here just so that template/extension csv specs can be valid protos
+  // on their own even if this field is missing in one of them.
+  optional string filename = 2;
+
+  // If a template is used for this spec, and that template contains a csv spec
+  // with the same name as this, the two csv specs may be merged. These flags
+  // control which parts of the resulting csv spec should be based on the
+  // template.
+  // - Fields: all fields of the csv spec, except column and key.
+  //   This is a plain proto buffer merge, non-repeated fields may be overridden
+  //   from the template, repeated fields may be added to.
+  // - Input columns: any input columns of the template are added to the ones
+  //   given here. If a column with the same name exists both in template and
+  //   here, the two copies are merged. See ColumnSpecProto for details on that.
+  // - Output columns: just like input columns, except that a column with the
+  //   same name will simply override the template, none of the fields in the
+  //   template output column will be preserved.
+  // - Keys: like output columns.
+  optional bool inheritfields = 12 [default = false];
+  optional bool inheritinputcolumns = 13 [default = false];
+  optional bool inheritkeys = 15 [default = false];
+
+  // This determines what will happen if this csv is missing in the input
+  // set. If true, an error will be flagged, if false, this will be silently
+  // ignored and all tests on this csv, and any tests that reference it, will be
+  // skipped.
+  optional bool required = 3 [default = true];
+
+  // If this is true, the first row of the input file will be interpreted as
+  // column names.
+  optional bool hasheader = 4 [default = true];
+
+  // The character encoding of the document.
+  optional string encoding = 5 [default = "UTF-8"];
+
+  // The subset of columns to be used from this table. Existence of the given
+  // columns will be verified (as well as any properties specified).
+  repeated ColumnSpecProto column = 6;
+
+  // The keys of this table. A key is a tuple of one or more columns from the
+  // same table.
+  repeated KeySpecProto key = 7;
+
+  // The table rows will be re-sorted on this key. The first column of the key
+  // is the most significant.
+  optional string resortkey = 8;
+
+  // The table rows will be required to be sorted on these keys. Note: If there
+  // is a re-sorting key specified as well, the re-sorting will be carried out
+  // before this check.
+  repeated string requiresortedonkey = 9;
+
+  // Specifies names for certain values for columns of this csv spec.
+  repeated NamedValueProto namedvalue = 16;
+
+  // If set, overrides behavior inherited from CsvSpecProtos.
+  optional bool strip_protected_whitespace_from_values = 18;
+
+  // Define a default column-value caching strategy across all columns in this
+  // CSV file. Can be overwritten on a per-column basis.
+  optional ColumnCacheProto column_cache = 19;
+
+  reserved 10, 11, 14;
+}
+
+message CsvSpecProtos {
+  // A template file to base this csv spec file on (see CsvSpecProto for
+  // details). Path relative to this file.
+  optional string templatefile = 2;
+
+  repeated CsvSpecProto csvspec = 1;
+
+  // Specifies names for certain values of columns of any of these csv specs.
+  repeated NamedValueProto namedvalue = 3;
+
+  // If true, protected whitespace will be stripped from CSV values when they
+  // are read.  Note that the existing Google CSV parser implementation will
+  // strip whitespace from values (eg. ' a, b , c' producing [a,b,c]).
+  // However, whitespace for a value can be protected for a value by enclosing
+  // it in double quotes (eg. '" a "," b "," c"' producing [ a , b , c]).
+  // Controls default setting for all files in a CSV bundle.
+  optional bool strip_protected_whitespace_from_values = 4 [default = false];
+
+  // Define a default column-value caching strategy across all columns in all
+  // CSV files. Can be overwritten on a per-file and per-column basis.
+  optional ColumnCacheProto column_cache = 5;
+}
+
+message CsvErrorColumnProto {
+  // The index of the column.
+  optional int32 index = 1;
+
+  // The type of the column.
+  optional int32 type = 2;
+
+  // The original name of the column. This may be empty, if the input file does
+  // not have column names in its header.
+  optional string originalname = 3;
+
+  // The original column spec for this column.
+  optional ColumnSpecProto colspec = 4;
+}
+
+message CsvErrorLinesProto {
+  // The interval is given from startline to endline, inclusive. A one line
+  // interval only needs to specify a startline. The first line of the file is
+  // numbered 0.
+  required int32 startline = 1;
+  optional int32 endline = 2;
+}
+
+message CsvErrorLocationProto {
+  // The alias of the csv table where the error is located.
+  optional string csvname = 1;
+
+  // The filename of the csv table where the error is located. This is only
+  // intended for display and will not include the path.
+  optional string csvfilename = 2;
+
+  // The name given in the csvspec to the key (or column, since each column also
+  // has a 1-column key with the same name) where the error is located.
+  optional string keyname = 3;
+
+  // The columns of the key.
+  repeated CsvErrorColumnProto column = 4;
+
+  // A list of lines in the source csv file that all have this error. The first
+  // line of the file is numbered 0.  This is an intermediate step, the final
+  // protos ready for output will have an empty list here, and the line
+  // information moved to linerange instead.
+  repeated int32 linenumber = 5;
+
+  // A list of line ranges in the source csv that all have this error. The
+  // ranges are maximal and sorted.
+  repeated CsvErrorLinesProto linerange = 6;
+
+  // A list of rows in the source CsvParser data table that all have this
+  // error.  Rows are zero-based, do not include the csv file header, and may
+  // be different from linenumber, in the case of sort keys.
+  repeated int32 row = 7;
+}
+
+message CsvErrorProto {
+  enum ErrorType {
+    // The table file is missing.
+    MISSING_TABLE = 10;
+
+    // The input file is not a well-formed csv.
+    SPLITTING_ERROR = 20;
+
+    // The input file contained a null character ('\0').
+    CONTAINS_NULL_CHARACTER = 21;
+
+    // Deprecated.
+    UTF8_CONVERSION_ERROR = 22 [deprecated = true];
+
+    // The specified lines have characters that are not valid UTF-8 (either
+    // structure or interchange).
+    INVALID_UTF8 = 23;
+
+    // The input file CSV header has the same column name repeated.
+    DUPLICATE_COLUMN_NAME = 24;
+
+    // A row in the input file has a different number of values than specified
+    // by the CSV header.
+    BAD_NUMBER_OF_VALUES = 25;
+
+    // The input file is corrupted and cannot be read properly.
+    FILE_CORRUPTED = 26;
+
+    // A file was in an unexpected location
+    UNEXPECTED_LOCATION = 27;
+
+    // The column is missing in the input file, either the name cannot be found
+    // in the header line, or the number is out of bound.
+    MISSING_COLUMN = 30;
+
+    // The key was not properly added to its table, probably because one or more
+    // of its olumns are missing.
+    MISSING_KEY = 31;
+
+    // The input rows are not properly sorted on the given key.
+    UNSORTED = 40;
+
+    // The values in the given column of the input rows are not 1..n when
+    // grouped on some key.
+    NON_CONTIGUOUS = 41;
+
+    // The number of data rows of the table is not as required.
+    BAD_NUMBER_OF_ROWS = 42;
+
+    // The values in the given column of the input rows do not represent valid
+    // values according to the column type, or have values that conflict with
+    // others according to the requirements on the input.
+    VALUE_ERROR = 50;
+
+    // The values in the given column of the input rows do not match some
+    // regular expression.
+    REGEXP_MISMATCH = 51;
+
+    // The values in the given column of the input rows are out of range.
+    OUT_OF_RANGE = 52;
+
+    // The given column is null in the input rows, even though values are
+    // required.
+    MISSING_VALUE = 53;
+
+    // The values of the given key and rows of one table cannot be found a
+    // values of the given key in another table. This is the case when a foreign
+    // key of one table references a non-existing value in its original table.
+    MISSING_KEY_VALUE = 61;
+
+    // The values of the given key and rows are duplicates. The first occurrence
+    // of a value is not included in the duplicates list.
+    DUPLICATE_KEY_VALUE = 62;
+
+    // The values of the given key and rows reference a table that does not
+    // exist.
+    MISSING_KEY_TABLE = 63;
+
+    // The file size is too large to process (>=4GiB).
+    FILE_TOO_LARGE = 64;
+  }
+
+  // The type of the error.
+  required ErrorType errortype = 1;
+
+  // The location of the error, or locations rather, since multiple linenumbers
+  // may be specified in a CsvErrorLocationProto.
+  optional CsvErrorLocationProto location = 2;
+
+  // If this is a cross-reference error, the referred location may be specified
+  // here.
+  optional CsvErrorLocationProto otherlocation = 3;
+}
+
+message CsvErrorProtos {
+  repeated CsvErrorProto error = 1;
+}

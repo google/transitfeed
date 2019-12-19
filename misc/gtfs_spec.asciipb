@@ -1,0 +1,1954 @@
+# Copyright (C) 2019 Google Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#      http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# A specification file for the GTFS feed format understood by transit
+# parsing tools.
+#
+# This file contains a CsvSpecProtos protocol message in ASCII format,
+# see csvspec.proto
+# The message defines the file/table names and the names of columns in each
+# table.  Unknown files and columns are ignored.
+# For each column, it defines the data type to represent it after reading
+# (by default, a string), its permissible values (by default, any),
+# and its optional nullvalue regexp (if not given, there are no null values).
+
+###############################################################################
+## FEED_INFO
+###############################################################################
+
+csvspec: {
+  name: "feed_info"
+  filename: "feed_info.txt"
+  required: false
+  # This file contains one row with values about this feed as a whole.
+
+  column: {
+    field_number: 2
+    name: "feed_publisher_name"
+    required: true
+    # The name of the organization publishing the feed.
+  }
+
+  column: {
+    field_number: 3
+    name: "feed_publisher_url"
+    required: true
+    # The URL to be displayed for the organization publishing the feed.
+  }
+
+  column: {
+    field_number: 4
+    name: "feed_lang"
+    required: true
+    value_required: true
+    # The language code for an agency's primary language, or empty.
+    # This is the preferred alternative to the older agency_lang common to
+    # all agencies; see there for history and further details.
+  }
+
+  column: {
+    field_number: 5
+    name: "feed_start_date"
+    required: false
+    type: { type: DATE_YYYYMMDD }
+    # The first date for which the service described in this feed
+    # is complete and authoritative.
+  }
+
+  column: {
+    field_number: 6
+    name: "feed_end_date"
+    required: false
+    type: { type: DATE_YYYYMMDD }
+    # The last date for which the service described in this feed
+    # is complete and authoritative.
+  }
+
+  column: {
+    field_number: 7
+    name: "feed_version"
+    required: false
+    # A string identifying this particular feed version.
+  }
+
+  # Defines the language that should be used when the data consumer doesn’t know
+  # the language of the rider. It will often be "en" (English).
+  column: {
+    field_number: 8
+    name: "default_lang"
+    required: false
+  }
+}
+
+
+###############################################################################
+## AGENCY
+###############################################################################
+
+csvspec: {
+  name: "agency"
+  filename: "agency.txt"
+  required: false
+  # This file contains information about one or more transit agencies
+  # that are to be displayed as operators of transit services.
+
+  column: {
+    field_number: 2
+    name: "agency_name"
+    required: true
+    value_required: true
+    # An agency's full name.
+  }
+
+  column: {
+    field_number: 3
+    name: "agency_url"
+    required: false
+    # The URL to be displayed for an agency.
+  }
+
+  column: {
+    field_number: 4
+    name: "agency_fare_url"
+    required: false
+    # The URL of a web page that allows a rider to learn more about
+    # the agency's fare structure, and/or to purchase tickets or other
+    # fare instruments online.
+  }
+
+  column: {
+    field_number: 5
+    name: "agency_timezone"
+    required: true
+    value_required: true
+    # The timezone used in an agency's schedules, in zoneinfo format.
+    # Example: America/New_York, see http://en.wikipedia.org/wiki/Zoneinfo
+    #
+    # This column is required and all entries in it must be identical to each
+    # other. The constraint is not strictly necessary (as all times belong to a
+    # trip and hence to a unique agency), but multiple timezones for schedule
+    # definition (as opposed to stop_timezone, see there) appear more
+    # complicated than useful.
+  }
+
+  column: {
+    field_number: 6
+    name: "agency_id"
+    required: false
+    uniquevalues: true
+    # A unique key into this table.
+    # For feeds with a single agency, this field is optional.
+  }
+
+  column: {
+    field_number: 7
+    name: "agency_lang"
+    required: false
+    # The language code for an agency's primary language (e.g., "en"), or empty.
+    #
+    # The GTFS spec (revised 2010-01-11) wants a two-letter ISO 639-1 code here;
+    # see list at http://www.loc.gov/standards/iso639-2/php/code_list.php
+    # A proposal to allow all BCP-47 codes (see http://wiki/Main/LanguageTags )
+    # has been posted to gtfs-changes on 2009-05-02, see
+    # http://groups.google.com/group/gtfs-changes/browse_thread/thread/9991e71ac1cb3f2c
+    #
+    # If this column is present, all entries in it must be identical
+    # to each other, and to feed_lang, if provided.
+    #
+    # This column dates back to the time when only a single agency was
+    # permitted and feed_info did not yet exist.  It acquired the undocumented
+    # all-equal constraint when multiple agencies were allowed.  The constraint
+    # is necessary, because stops are not associated to a unique agency
+    # that could define the language of a stop name.
+  }
+
+  column: {
+    field_number: 8
+    name: "agency_phone"
+    required: false
+    # The phone number to be shown for an agency, formatted as customary
+    # in the agency's service area and potentially including dialable text
+    # in vanity numbers like "503-238-RIDE".
+  }
+
+  column: {
+    field_number: 10
+    name: "agency_email"
+    required: false
+    # This field contains a single valid email address actively monitored by
+    # the agency’s customer service department.  This email address will be
+    # considered a direct contact point where transit riders can reach a
+    # customer service representative at the agency.
+  }
+}
+
+
+###############################################################################
+## STOPS
+###############################################################################
+
+csvspec: {
+  name: "stops"
+  filename: "stops.txt"
+  required: true
+  # This file contains information about geographic locations where vehicles
+  # pick up or drop off passengers.
+  #
+  # Locations belong to one of the following types:
+  # - stop: An individual physical location, such as a bus stop on one side of
+  #   the street, or a platform (a or stretch of named segments on a platform)
+  #   in a station.
+  # - station: A named group of nearby stops, such as a train station or
+  #   matching bus stops on different sides of the street.
+  # - entrance: A station may have one or more associated entrances.
+  # - generic node: A station may have one or more associated generic nodes used
+  #   for detailed modeling of the internal walking routes.
+  # - boarding area: a specific location on a platform, where passengers can
+  #   board and/or alight vehicles.
+
+  column: {
+    field_number: 2
+    name: "stop_id"
+    required: true
+    value_required: true
+    uniquevalues: true
+    # A unique key into this table.
+  }
+
+  column: {
+    field_number: 3
+    name: "stop_name"
+    required: true
+    # value_required: false
+    # The name of a stop/station/entrance.
+  }
+
+  column: {
+    field_number: 4
+    name: "stop_code"
+    required: false
+    # User-visible short text or number identifying a stop,
+    # like those used in phone-based transit information systems.
+    # The stop_code of a station or entrance is ignored.
+  }
+
+  # The stop_lat field contains the latitude of a location. The field value must
+  # be a valid WGS 84 latitude.
+  #
+  # Conditionally required.
+  # - Required for locations which are stops/platforms (location_type=0),
+  #   stations (location_type=1), or entrances/exits (location_type=2).
+  # - Optional for locations which are generic nodes (location_type=3) or
+  #   boarding areas (location_type=4).
+  column: {
+    field_number: 5
+    name: "stop_lat"
+    type: { type: FLOAT_STD }
+    required: true
+    cache: {
+      cache_numbers: true
+    }
+  }
+
+  # The stop_lng field contains the longitude of a location. The field value
+  # must be a valid WGS 84 longitude.
+  #
+  # Conditionally required: same as for stop_lat.
+  column: {
+    field_number: 6
+    name: "stop_lon"
+    type: { type: FLOAT_STD }
+    required: true
+    cache: {
+      cache_numbers: true
+    }
+  }
+
+  column: {
+    field_number: 7
+    name: "stop_desc"
+    required: false
+    # Human-readable extra information on a GTFS-stop.
+  }
+
+  column: {
+    field_number: 8
+    name: "zone_id"
+    required: false
+    # The fare zone of this stop, ignored for stations and entrances.
+    # The zone_id of stops is referred to from table fare_rules by columns
+    # origin_id, destination_id, and contains_id; see there for more.
+  }
+
+  column: {
+    field_number: 9
+    name: "stop_url"
+    required: false
+    # A URL for a particular location, different from agency_url or route_url.
+  }
+
+  column: {
+    field_number: 10
+    ### When updating this, remember to update route_type in routes.txt too.
+    name: "vehicle_type"
+    required: false
+    matchregexp: "[0-9]|1[0-2]|[1-9][0-9]{2}|1[0-9]{3}"
+    type: { type: INT_DEC }
+    # The type of vehicles stopping at a station.
+    # The toplevel proto (CsvSpecProtos) defines constants with descriptive
+    # names for the permissible values of this field (see at the bottom of this
+    # file).
+    # Both the original GTFS types (vehicle_type..., now deprecated) and
+    # TPEG-like hierarchical vehicle types (hvt_...) are supported.
+  }
+
+  column: {
+    field_number: 11
+    name: "location_type"
+    required: false
+    type: { type: INT_DEC }
+    intmin: 0
+    intmax: 4
+    namedvalue: {
+      # Default.
+      name: "stop"
+      intvalue: 0
+    }
+    namedvalue: {
+      name: "station"
+      intvalue: 1
+    }
+    namedvalue: {
+      name: "entrance"
+      intvalue: 2
+    }
+    namedvalue: {
+      name: "generic_node"
+      intvalue: 3
+    }
+    namedvalue: {
+      name: "boarding_area"
+      intvalue: 4
+    }
+  }
+
+  column: {
+    field_number: 12
+    name: "parent_station"
+    required: false
+    supersetkey: {
+      csvname: "stops"
+      keyname: "stop_id"
+    }
+    # The station to which a stop/entrance belongs.
+    # The location referenced must have location_type 1 (station).
+    # If a stop is given without parent_station, a parent station is created.
+    # If an entrance is given without a parent_station, this is an error.
+    # A station cannot belong to a parent station.
+  }
+
+  column: {
+    field_number: 13
+    name: "stop_timezone"
+    required: false
+    # The timezone in which this stop/station lies.
+    # By default, this is set to agency_timezone, but a GTFS station,
+    # or a GTFS stop without a parent GTFS station, can override it with a
+    # value specified in this field.  This field is ignored for entrances and
+    # for stops that have a parent station.
+    # The stop_timezone is only used to display times to the user and does not
+    # affect the interpretation of times in stop_times.txt.
+  }
+
+  column: {
+    field_number: 14
+    name: "wheelchair_boarding"
+    required: false
+    type: { type: INT_DEC }
+    intmin: 0
+    intmax: 2
+    namedvalue: {
+      # Default. Indicates that there is no information about accessibility of
+      # the stop.
+      name: "accessibility_unknown"
+      intvalue: 0
+    }
+    namedvalue: {
+      # Indicates that this stop is handicap accessible. However, it is not
+      # guaranteed that all vehicles stopping at the stop will be accessible if
+      # the stop is accessible.
+      name: "accessible"
+      intvalue: 1
+    }
+    namedvalue: {
+      # Indicates that no vehicles can be boarded by wheelchair users at this
+      # stop (not even accessible vehicles).
+      name: "inaccessible"
+      intvalue: 2
+    }
+  }
+
+  column: {
+    field_number: 15
+    name: "platform_code"
+    required: false
+    # A platform code associated with this stop. Typically used to identify
+    # station platforms (eg "Platform 6 of Station Alpha"), the platform code
+    # should be ONLY the platform identifier ("6" in the previous example),
+    # excluding any localized word for "platform".  This is different from a
+    # stop_code, which is generally unique across all stops for a particular
+    # transit network, because a platform_code will often be duplicated between
+    # stations in the same network.
+  }
+
+  # The level_id field defines the level for the location.
+  column: {
+    field_number: 17
+    name: "level_id"
+    required: false
+    supersetkey: {
+      csvname: "levels"
+      keyname: "level_id"
+    }
+  }
+}
+
+
+###############################################################################
+## ROUTES
+###############################################################################
+
+csvspec: {
+  name: "routes"
+  filename: "routes.txt"
+  required: false  # required unless the feed is stops only.
+  # This file contains information about a transit organization's routes.
+
+  column: {
+    field_number: 2
+    name: "route_id"
+    required: true
+    value_required: true
+    uniquevalues: true
+    # A unique key into this table.
+  }
+
+  column: {
+    field_number: 3
+    name: "route_short_name"
+    required: true
+    # The short name of a route.  This will often be a short, abstract
+    # identifier like "32", "100X", or "Green" that riders use, but which
+    # doesn't give any indication of what places the route serves.  This
+    # field may be empty if the route has no short name but a long name.
+  }
+
+  column: {
+    field_number: 4
+    name: "route_long_name"
+    required: true
+    # The full name of a route.  This name is generally more descriptive
+    # than the route_short_name and will often include the route's destination
+    # or stops.
+    # This field may be empty if the route has no long name but a short name.
+  }
+
+  column: {
+    field_number: 5
+    name: "route_desc"
+    required: false
+    # Human-readable description and/or service information about the route.
+  }
+
+  column: {
+    field_number: 6
+    ### When updating this, remember to update vehicle_type in stops.txt too.
+    name: "route_type"
+    required: true
+    value_required: true
+    matchregexp: "[0-9]|1[0-2]|[1-9][0-9]{2}|1[0-9]{3}"
+    type: { type: INT_DEC }
+    # The type of vehicle running on this route.
+    # The toplevel proto (CsvSpecProtos) defines constants with descriptive
+    # names for the permissible values of this field (see at the bottom of this
+    # file).
+    # Both the original GTFS types (vehicle_type..., now deprecated) and
+    # TPEG-like hierarchical vehicle types (hvt_...) are supported.
+  }
+
+  column: {
+    field_number: 7
+    name: "agency_id"
+    required: false  # often required, see below
+    supersetkey: {
+      restrictnulltosingleforeignkey: true
+      csvname: "agency"
+      keyname: "agency_id"
+    }
+    # The agency displayed for this route, referenced from table agency.
+    # If the feed has more than one agency, this column is required and does
+    # not permit null values. If the feed has a single agency, this column may
+    # be omitted or contain null values and the single agency is used as the
+    # default.
+  }
+
+  column: {
+    field_number: 8
+    name: "route_url"
+    required: false
+    # A URL for this particular route, different from agency_url.
+  }
+
+  column: {
+    field_number: 9
+    name: "route_color"
+    required: false
+    matchregexp: "[0-9a-fA-F]{6}"
+    type: { type: INT_HEX }
+    # The color assigned to a route, if any, as six-place hexadecimal number.
+    # The first, middle, and last two places define the red, green, and blue
+    # sRGB color component, respectively, as an integer between 0 and 255.
+    # The route name is rendered against this background color.
+  }
+
+  column: {
+    field_number: 10
+    name: "route_text_color"
+    required: false
+    matchregexp: "[0-9a-fA-F]{6}"
+    type: { type: INT_HEX }
+    # Color to be used for text drawn on a background of route_color,
+    # as a six-place hexadecimal number.  The default is 000000 (black).
+    # This field is ignored if no route_color is given.
+  }
+
+  column: {
+    field_number: 13
+    name: "route_sort_order"
+    type: { type: INT_DEC }
+    required: false
+    intmin: 0
+    # The route_sort_order field can be used to order the routes in a way which
+    # is ideal for presentation to customers. Routes with smaller
+    # route_sort_order values should be displayed before routes with larger
+    # route_sort_order values.
+  }
+}
+
+
+###
+### NOTE: Specifying Sets of Dates
+###
+
+# GTFS needs to specify sets of days on which trips are serviced.
+# Sets of dates are associated to service_id's in two steps:
+# 1) A service_id may occur in at most one row of table calendar.
+#    This tentatively includes in the service_id all or none of the Mondays,
+#    all or none of the Tuesdays, and so on between the given start date
+#    and end date.
+#    If a service_id does not occur in table calendar, it tentatively
+#    includes no days.
+# 2) A service_id may occur in zero or more rows of table calendar_dates.
+#    Each row includes or excludes one specific date in the service_id,
+#    potentially overriding the information from table calendar.
+# A full feed needs at least one of these tables to define a service_id.
+# A patterns-only or stops-only feed needs neither of them.
+
+###############################################################################
+## CALENDAR (WEEKDAY)
+###############################################################################
+
+csvspec: {
+  name: "calendar"
+  filename: "calendar.txt"
+  required: false
+  # This file includes all of or none of the occurrences of each weekday
+  # in a service_id.  (See "NOTE: Specifying Sets of Dates" for context.)
+
+  column: {
+    field_number: 2
+    name: "service_id"
+    required: true
+    value_required: true
+    uniquevalues: true
+  }
+  column: {
+    field_number: 3
+    name: "start_date"
+    required: true
+    value_required: true
+    type: { type: DATE_YYYYMMDD }
+  }
+  column: {
+    field_number: 4
+    name: "end_date"
+    required: true
+    value_required: true
+    type: { type: DATE_YYYYMMDD }
+  }
+  column: {
+    field_number: 5
+    name: "monday"
+    required: true
+    value_required: true
+    type: { type: INT_DEC }
+    intmin: 0
+    intmax: 1
+  }
+  column: {
+    field_number: 6
+    name: "tuesday"
+    required: true
+    value_required: true
+    type: { type: INT_DEC }
+    intmin: 0
+    intmax: 1
+  }
+  column: {
+    field_number: 7
+    name: "wednesday"
+    required: true
+    value_required: true
+    type: { type: INT_DEC }
+    intmin: 0
+    intmax: 1
+  }
+  column: {
+    field_number: 8
+    name: "thursday"
+    required: true
+    value_required: true
+    type: { type: INT_DEC }
+    intmin: 0
+    intmax: 1
+  }
+  column: {
+    field_number: 9
+    name: "friday"
+    required: true
+    value_required: true
+    type: { type: INT_DEC }
+    intmin: 0
+    intmax: 1
+  }
+  column: {
+    field_number: 10
+    name: "saturday"
+    required: true
+    value_required: true
+    type: { type: INT_DEC }
+    intmin: 0
+    intmax: 1
+  }
+  column: {
+    field_number: 11
+    name: "sunday"
+    required: true
+    value_required: true
+    type: { type: INT_DEC }
+    intmin: 0
+    intmax: 1
+  }
+}
+
+
+###############################################################################
+## CALENDAR_DATES (DATES)
+###############################################################################
+
+csvspec: {
+  name: "calendar_dates"
+  filename: "calendar_dates.txt"
+  required: false
+  # This file includes or excludes specific dates from a service_id,
+  # potentially overriding the information from table calendar.
+  # (See "NOTE: Specifying Sets of Dates" for context.)
+
+  column: {
+    field_number: 2
+    name: "service_id"
+    required: true
+    value_required: true
+    # A service_id to be modified (may occur multiple times,
+    # but at most once for every date).
+  }
+
+  column: {
+    field_number: 3
+    name: "date"
+    required: true
+    value_required: true
+    type: { type: DATE_YYYYMMDD }
+    # The date to be included or excluded.
+  }
+
+  column: {
+    field_number: 4
+    name: "exception_type"
+    required: true
+    value_required: true
+    type: { type: INT_DEC }
+    intmin: 1
+    intmax: 2
+    namedvalue: {
+      # To include a date in service_id.
+      name: "include"
+      intvalue: 1
+    }
+    namedvalue: {
+      # To exclude a date from service_id.
+      name: "exclude"
+      intvalue: 2
+    }
+  }
+
+  # This is just for checking that we don't have more than one service ID per
+  # date.
+  key: {
+    name: "checkunique_servicekey_date"
+    uniquevalues: true
+    columnname: "service_id"
+    columnname: "date"
+  }
+}
+
+
+###############################################################################
+## TRIPS
+###############################################################################
+
+csvspec: {
+  name: "trips"
+  filename: "trips.txt"
+  required: false  # required unless the feed is stops only.
+  # This file contains information about trips.
+  # In the Transit context, the word trip means a scheduled trip
+  # of a transit vehicle advertised to passengers as a contiguous journey
+  # that departs from a first stop, possibly visits intermediate stops,
+  # and reaches a final destination
+  # such that each arrival at and each departure from a stop
+  # occurs at an exactly or approximately known time of day.
+  # On any given day, a trip runs at most once.
+  #
+  # GTFS has the related notion of a trip block:  Two or more GTFS-trips
+  # can be given the same block_id (see below) to combine them into
+  # a trip block.  A trip block contains a set of successive trips
+  # made by one vehicle such that passengers can change from one to the next
+  # by remaining in the vehicle.
+
+  column: {
+    field_number: 2
+    name: "service_id"
+    required: true
+    cache: {
+      cache_keys: true
+    }
+    # An identifier for set of dates on which a trip runs.
+  }
+
+  column: {
+    field_number: 3
+    name: "trip_id"
+    required: true
+    value_required: true
+    uniquevalues: true
+    # A unique key into this table.
+  }
+
+  column: {
+    field_number: 4
+    name: "route_id"
+    required: true
+    value_required: true
+    supersetkey: {
+      csvname: "routes"
+      keyname: "route_id"
+    }
+    # The route travelled by a trip, referenced from table routes.
+  }
+
+  column: {
+    field_number: 5
+    name: "shape_id"
+    required: false
+    supersetkey: {
+      csvname: "shapes"
+      keyname: "shape_id"
+    }
+    # The geographical shape of a trip, referenced from table shapes.
+  }
+
+  column: {
+    field_number: 6
+    name: "trip_headsign"
+    required: false
+    # The text that identifies a trip's destination to passengers.
+    # It may be overridden by stop_headsign in table stop_times if
+    # it changes along the trip. See there for a discussion of
+    # empty trip_headsign and stop_headsign fields.
+    # The values of this field are case-normalized.
+  }
+
+  column: {
+    field_number: 8
+    name: "block_id"
+    required: false
+    # The key of the trip block to which a trip belongs.
+  }
+
+  column: {
+    field_number: 9
+    name: "direction_id"
+    required: false
+    intmin: 0
+    intmax: 1
+    type: { type: INT_DEC }
+    # An optional binary value that can be used by an agency to group
+    # trips for the same route into seperate directions of travel.
+  }
+
+  column: {
+    field_number: 11
+    name: "trip_short_name"
+    required: false
+    # The "short name of a trip", typically used for train numbers of
+    # intercity or commuter trains.
+  }
+
+  column: {
+    field_number: 12
+    name: "bikes_allowed"
+    type: { type: INT_DEC }
+    required: false
+    intmin: 0
+    intmax: 2
+    # Specifies if bikes are allowed on transit vehicles for this trip.  If
+    # not-null or unknown, overrides any value specified in routes.txt.
+    # Semantics: 0=unknown (default), 1=yes, 2=no.
+  }
+
+  column: {
+    field_number: 13
+    name: "wheelchair_accessible"
+    required: false
+    type: { type: INT_DEC }
+    intmin: 0
+    intmax: 2
+    namedvalue: {
+      # Default. Indicates that there is no accessibility information for the
+      # trip.
+      name: "accessibility_unknown"
+      intvalue: 0
+    }
+    namedvalue: {
+      # Indicates that the vehicle being used on this particular trip can
+      # accommodate at least one rider in a wheelchair.
+      name: "accessible"
+      intvalue: 1
+    }
+    namedvalue: {
+      # Indicates that no riders in wheelchairs can be accommodated on this
+      # trip.
+      name: "inaccessible"
+      intvalue: 2
+    }
+  }
+
+  column: {
+    field_number: 15
+    name: "exceptional"
+    type: { type: INT_DEC }
+    intmin: 0
+    intmax: 1
+    required: false
+  }
+  # Specifies whether this trip should be taken into account for labelling a
+  # stop.
+  # Semantics 0=not exceptional(default) 1=exceptional
+}
+
+
+###############################################################################
+## STOP_TIMES
+###############################################################################
+
+csvspec: {
+  name: "stop_times"
+  filename: "stop_times.txt"
+  required: false  # required unless the feed is stops only.
+  # This file enumerates the stops on trips and gives arrival/departure times.
+  # More precisely, the pair (trip_id, stop_sequence) is a unique key into
+  # this table, and sorting all rows of a given trip_id in order of ascending
+  # stop_sequence values gives the sequence of stops visited by the trip.
+  # Each stop is identified by a stop_id and annotated with the arrival
+  # and departure times at that stop plus some additional information.
+  #
+  # In terms of graph theory, a trip can be seen as a path consisting of
+  # vertices that stand for a visit at a stop at a specific time and
+  # directed edges that stand for travel between successive stops.
+  # In those terms, this GTFS table describes a trip as a vertex sequence.
+  resortkey: "resortkey"
+  requiresortedonkey: "checksortkey_shape_dist_trav"
+  requiresortedonkey: "checksortkey_arrival_time"
+  requiresortedonkey: "checksortkey_departure_time"
+
+  column: {
+    field_number: 2
+    name: "trip_id"
+    required: true
+    value_required: true
+    supersetkey: {
+      csvname: "trips"
+      keyname: "trip_id"
+    }
+    # The key of a trip.
+  }
+
+  # Keys to sort the rows of each trip by stop_sequence, and to check that
+  # certain values increase along the trip.
+  key: {
+    name: "resortkey"
+    uniquevalues: true
+    columnname: "trip_id"
+    columnname: "stop_sequence"
+  }
+  key: {
+    name: "checksortkey_shape_dist_trav"
+    columnname: "trip_id"
+    columnname: "shape_dist_traveled"
+  }
+  key: {
+    name: "checksortkey_arrival_time"
+    columnname: "trip_id"
+    columnname: "arrival_time"
+  }
+  key: {
+    name: "checksortkey_departure_time"
+    columnname: "trip_id"
+    columnname: "departure_time"
+  }
+
+  column: {
+    field_number: 3
+    name: "stop_id"
+    required: true
+    value_required: true
+    supersetkey: {
+      csvname: "stops"
+      keyname: "stop_id"
+    }
+    # The key of a stop.
+  }
+
+  column: {
+    field_number: 4
+    name: "stop_sequence"
+    required: true
+    value_required: true
+    type: { type: INT_DEC }
+    cache: {
+      cache_numbers: true
+    }
+    # The values for stop_sequence must be non-negative integers,
+    # and they must increase along the trip.
+  }
+
+  # Scheduled arrival and departure time of a trip at a stop.
+  # If only one time is known, it is to be given as both arrival and departure.
+  # If no time is known (as for a non-timepoint stop), these fields are empty.
+  # Time has to increase (non-strictly) between the stops along a stop sequence
+  # and arrival_time must be less than or equal to departure_time at a stop.
+  # Times after 23:59:59 are possible, even for the first departure of a trip,
+  # in which case, the trip's service dates and all times are adjusted so that
+  # the first departure's departure time is in [00:00:00, 23:59:59].
+  # Hours are restricted to 2 digits, minutes and seconds are in the range of
+  # [0, 59].
+  # For a patterns-only feed, these fields are always empty.
+  column: {
+    field_number: 5
+    name: "arrival_time"
+    required: true
+    type: { type: TIME_HHCMMCSS }
+    cache: {
+      cache_numbers: true
+    }
+  }
+  column: {
+    field_number: 6
+    name: "departure_time"
+    required: true
+    type: { type: TIME_HHCMMCSS }
+    cache: {
+      cache_numbers: true
+    }
+  }
+
+  # The timepoint field can be used to indicate if the specified arrival and
+  # departure times for a stop are strictly adhered to by the transit vehicle
+  # or if they are instead approximate and/or interpolated times. The field
+  # allows a GTFS producer to provide interpolated stop times that potentially
+  # incorporate local knowledge, but still indicate if the times are
+  # approximate. For stop-time entries with specified arrival and departure
+  # times, valid values for this field are:
+  #   empty - Times are considered exact.
+  #   0 - Times are considered approximate.
+  #   1 - Times are considered exact.
+  column: {
+    field_number: 7
+    name: "timepoint"
+    type: { type: INT_DEC }
+    required: false
+    intmin: 0
+    intmax: 1
+  }
+
+  # Fields indicating whether passengers are dropped off or picked up,
+  # resp., by a trip at a stop, and whether this requires any special action
+  # by the passenger (such as phoning the agency in advance).
+  # The named values listed here define an enumeration with descriptive names
+  # for the permissible values of these two columns.
+  column: {
+    field_number: 8
+    name: "drop_off_type"
+    type: { type: INT_DEC }
+    required: false
+    intmin: 0
+    intmax: 3
+  }
+  column: {
+    field_number: 9
+    name: "pickup_type"
+    type: { type: INT_DEC }
+    required: false
+    intmin: 0
+    intmax: 3
+  }
+  namedvalue: {
+    name: "boarding_type_always"
+    intvalue: 0
+  }
+  namedvalue: {
+    name: "boarding_type_none"
+    intvalue: 1
+  }
+  namedvalue: {
+    name: "boarding_type_must_phone"
+    intvalue: 2
+  }
+  namedvalue: {
+    name: "boarding_type_on_request"
+    intvalue: 3
+  }
+
+  # If a trip has a shape, it can (but need not) specify the parameter
+  # values of the shape that correspond to its stops.  The public GTFS
+  # spec defines the column shape_dist_traveled for this purpose,
+  # which uses the custom parameterization by shape_dist_traveled in
+  # table shapes.
+  column: {
+    field_number: 10
+    name: "shape_dist_traveled"
+    type: { type: FLOAT_STD }
+    required: false
+    cache: {
+      cache_numbers: true
+    }
+    # The values of this field must increase along a trip.
+  }
+
+  column: {
+    field_number: 11
+    name: "stop_headsign"
+    required: false
+    # The text that identifies a trip's destination to passengers.
+    # If empty, trip_headsign is used instead.
+  }
+}
+
+
+###
+### NOTE: Specifying fares
+###
+
+# In the GTFS model, a fare is the payment of a fixed amount of money
+# that entitles a passenger to make one out of a set of journeys to which
+# this fare applies.  Only fares for single, contiguous, one-way journeys
+# on trips operated by the same agency can be modelled.  Special fares
+# for multiple journeys, cross-agency fares, and fares with eligibility
+# restrictions (children, discount card holders, etc.) cannot be modelled.
+# Table fare_attributes describes the known fares and may restrict the
+# set of journeys to which each fare applies in terms of a journey's
+# duration and its number of transfers.  Table fare_rules may restrict
+# the set in terms of the routes used and the fare zones of the stops
+# visited.  If no restrictions are given at all, a fare applies to all
+# contiguous, one-way journeys with its agency.
+
+###############################################################################
+## FARE_ATTRIBUTES
+###############################################################################
+
+csvspec: {
+  name: "fare_attributes"
+  filename: "fare_attributes.txt"
+  required: false
+  # The known fares and their attributes.
+
+  # There is a proposal to extend the GTFS spec with a service_id column
+  # in this table to specify validity dates for fares:
+  #   http://groups.google.com/group/gtfs-changes/browse_thread/thread/6c031990fa2d386d
+  # Besides weekend discounts, this would also make it possible to
+  # represent data across a fare change in a single GTFS feed without
+  # resorting to duplication of all stops and trips.
+
+  column: {
+    field_number: 2
+    name: "agency_id"
+    required: false  # often required, see below
+    supersetkey: {
+      csvname: "agency"
+      keyname: "agency_id"
+    }
+    # The agency to whose trips this fare applies.
+    # If the feed has more than one agency, this column is required.
+    # If the feed has a single agency, this column may be omitted,
+    # but it does not allow null values.
+  }
+
+  column: {
+    field_number: 3
+    name: "fare_id"
+    required: true
+    value_required: true
+    uniquevalues: true
+    # A unique key into this table.
+  }
+
+  # The amount of money to be paid for this fare: number and currency unit.
+  column: {
+    field_number: 4
+    name: "price"
+    required: true
+    value_required: true
+    type: { type: FLOAT_STD }
+    floatmin: 0.0
+  }
+  column: {
+    field_number: 5
+    name: "currency_type"
+    required: true
+    value_required: true
+    # An ISO-4217 currency code, like USD, EUR, or CHF.
+  }
+
+  column: {
+    field_number: 6
+    name: "payment_method"
+    required: true
+    value_required: true
+    type: { type: INT_DEC }
+    intmin: 0
+    intmax: 1
+    # When and how to pay.
+    namedvalue: {
+      name: "on_board"
+      intvalue: 0
+    }
+    namedvalue: {
+      name: "before_boarding"
+      intvalue: 1
+    }
+  }
+
+  column: {
+    field_number: 7
+    name: "transfers"
+    required: true
+    type: { type: INT_DEC }
+    intmin: 0
+    # The maximum number of transfers (excluding block transfers)
+    # that are possible with this fare; unlimited if empty.
+    # The public GTFS spec limits this value to at most 2, but there is no
+    # strict necessity for any fixed limit.
+    # To warn about implausible values is left to feedvalidator.
+  }
+
+  column: {
+    field_number: 8
+    name: "transfer_duration"
+    type: { type: INT_DEC }
+    required: false
+    intmin: 0
+    # The maximum duration (in seconds) for a journey with this fare,
+    # including the transfer/waiting time between trips, if any.
+    # The name derives from the use in fare systems that have a standard
+    # fare without transfers and an elevanted fare with transfers but
+    # a time limit.
+  }
+}
+
+
+###############################################################################
+## FARE_RULES
+###############################################################################
+
+csvspec: {
+  name: "fare_rules"
+  filename: "fare_rules.txt"
+  required: false
+  # Rules to restrict the applicability of fares by the routes used and
+  # by the zones of stops visited during travel.
+  #
+  # If a fare_id does not appear in this table, it is not restricted beyond
+  # its basic attributes from table fare_attributes. The transit importer
+  # will emit a cascade of matchers with less rules.
+  #
+  # If a fare_id appears in this table, every combination of origin_id
+  # and destination_id that occurs in a row of this table will be considered.
+
+  column: {
+    field_number: 2
+    name: "fare_id"
+    required: true
+    value_required: true
+    supersetkey: {
+      csvname: "fare_attributes"
+      keyname: "fare_id"
+    }
+    # A fare, referenced from table fare_attributes.  All rows in this table
+    # with the same fare_id define the rule how this fare can be applied.
+  }
+
+  # This fare is applicable to travel from the zone with id 'origin_id' to
+  # the zone with id 'destination_id'; possibly with transfers in between.
+  # A null value or missing column stands for "any zone", so that the
+  # applicability of the fare is not restricted in that parameter.
+  # Multiple rows for the same fare_id may specify different combinations
+  # of origin_id and destination_id to make the fare applicable to any of
+  # the given combinations, but these values do *not* combine implicitly
+  # across different rows.
+  column: {
+    field_number: 3
+    name: "origin_id"
+    required: false
+  }
+  column: {
+    field_number: 4
+    name: "destination_id"
+    required: false
+  }
+
+  column: {
+    field_number: 5
+    name: "route_id"
+    required: false
+    supersetkey: {
+      csvname: "routes"
+      keyname: "route_id"
+    }
+    # This fare is only applicable to travel on any subset of the given
+    # routes, collected over all columns of this fare_id.
+    # If the column is missing or all its values for this fare are null,
+    # this fare is not restricted in this parameter.
+  }
+
+  column: {
+    field_number: 6
+    name: "contains_id"
+    required: false
+    # This fare is only applicable to a travel that visits exactly the set of
+    # zones identified by the zone ids in all rows for this combination of
+    # (fare_id, route_id, origin_id, destination_id).
+    # The first and last zone of travel must be given in this column, too,
+    # irrespective of whether columns origin_id and destination_id are
+    # used or not.
+    # If the column is missing or all its values for this fare are null,
+    # this fare is not restricted in this parameter.
+  }
+}
+
+
+###############################################################################
+## SHAPES
+###############################################################################
+
+csvspec: {
+  name: "shapes"
+  filename: "shapes.txt"
+  required: false
+  # This file defines polylines as shapes of trips by associating a shape_id
+  # with a sequence of vertex points.  The vertices may be unrelated to the
+  # location of stops on the trip.
+  #
+  # For each shape_id, the vertex point sequence is given by the rows with
+  # this shape_id, sorted in ascending order of the shape_pt_sequence field.
+  resortkey: "resortkey"
+  requiresortedonkey: "checksortkey"
+  # Keys to sort the rows of each shape by point sequence, and to check that
+  # the traveled distance increases along the shape.
+  key: {
+    name: "resortkey"
+    uniquevalues: true
+    columnname: "shape_id"
+    columnname: "shape_pt_sequence"
+  }
+  key: {
+    name: "checksortkey"
+    columnname: "shape_id"
+    columnname: "shape_dist_traveled"
+  }
+
+  column: {
+    field_number: 2
+    name: "shape_id"
+    required: true
+    value_required: true
+    # The shape to whose definition this vertex belongs,
+    # referenced from trips.txt.
+  }
+  column: {
+    field_number: 3
+    name: "shape_pt_sequence"
+    required: true
+    value_required: true
+    type: { type: INT_DEC }
+    # The values of shape_pt_sequence must be non-negative integers.
+    # Per shape_id, the values of shape_pt_sequence must be unique.
+    # This field is used to define the order of points on each shape
+    # but is otherwise ignored.  In particular, the numbers in this
+    # column are unrelated to a shape's parameterization.
+  }
+  column: {
+    field_number: 4
+    name: "shape_dist_traveled"
+    type: { type: FLOAT_STD }
+    required: false
+    # Optionally, the "userdist" parameter value of this vertex (see above).
+  }
+  column: {
+    field_number: 5
+    name: "shape_pt_lat"
+    required: true
+    value_required: true
+    type: { type: FLOAT_STD }
+    # WGS 84 latitude of this vertex.
+  }
+  column: {
+    field_number: 6
+    name: "shape_pt_lon"
+    required: true
+    value_required: true
+    type: { type: FLOAT_STD }
+    # WGS 84 longitude of this vertex.
+  }
+}
+
+
+###############################################################################
+## FREQUENCIES
+###############################################################################
+
+csvspec: {
+  name: "frequencies"
+  filename: "frequencies.txt"
+  required: false
+
+  column: {
+    field_number: 2
+    name: "trip_id"
+    required: true
+    value_required: true
+    supersetkey: {
+      csvname: "trips"
+      keyname: "trip_id"
+    }
+    supersetkey: {
+      csvname: "stop_times"
+      keyname: "trip_id"
+    }
+    # The key of a prototype trip.
+  }
+
+  # The time interval with service at the specified frequency.
+  column: {
+    field_number: 3
+    name: "start_time"
+    required: true
+    value_required: true
+    type: { type: TIME_HHCMMCSS }
+    # Start of time interval (included).
+  }
+  column: {
+    field_number: 4
+    name: "end_time"
+    required: true
+    value_required: true
+    type: { type: TIME_HHCMMCSS }
+    # End of time interval (excluded, unless start_time = end_time).
+  }
+
+  column: {
+    field_number: 5
+    name: "headway_secs"
+    required: true
+    value_required: true
+    type: { type: INT_DEC }
+    # The distance in time between two successive trips.
+  }
+
+  column: {
+    field_number: 6
+    name: "exact_times"
+    type: { type: INT_DEC }
+    required: false
+    intmin: 0
+    intmax: 1
+    # Are the times resulting from frequency expansion exact?
+    # Yes (1) or no (0, default).
+  }
+}
+
+
+###############################################################################
+## TRANSLATIONS
+###############################################################################
+
+csvspec: {
+  name: "translations"
+  filename: "translations.txt"
+  required: false
+  # This file contains translations for text and URLs presented to the user.
+
+  # Each row in this table means:
+  # In language "lang", the phrase "trans_id" translates to "translation".
+  column: {
+    field_number: 2
+    name: "trans_id"
+    required: false
+  }
+
+  # Translated value.
+  column: {
+    field_number: 3
+    name: "translation"
+    required: true
+    value_required: true
+  }
+
+  # Must not be empty or "und" (the undefined language).
+  column: {
+    field_number: 4
+    name: "lang"
+    required: false
+  }
+
+  # Defines the table that contains the field to be translated. Allowed values
+  # are: agency, stops, routes, trips, stop_times, feed_info (do not include the
+  # .txt file extension). If a table with a new file name is added by another
+  # proposal in the future, the table name is the name of the filename without
+  # the .txt file extension.
+  column: {
+    field_number: 5
+    name: "table_name"
+    required: false
+  }
+
+  # Name of the field to be translated. Fields with type Text can be translated,
+  # fields with type URL, Email and Phone number can also be “translated” to
+  # provide resources in the correct language. Fields with other types should
+  # not be translated.
+  column: {
+    field_number: 6
+    name: "field_name"
+    required: false
+  }
+
+  # Language of translation.
+  #
+  # If the language is the same as in feed_info.feed_lang, the original value of
+  # the field will be assumed to be the default value to use in languages
+  # without specific translations.
+  column: {
+    field_number: 7
+    name: "language"
+    required: false
+  }
+
+  # Defines the record that corresponds to the field to be translated. The value
+  # in record_id should be a main ID of the table, e.g., agency_id, stop_id,
+  # route_id or trip_id.
+  column: {
+    field_number: 8
+    name: "record_id"
+    required: false
+  }
+
+  # Helps the record that contains the field to be translated when the table
+  # doesn’t have a unique ID. Currently, it is required for table stop_times and
+  # should be stop_sequence.
+  column: {
+    field_number: 9
+    name: "record_sub_id"
+    required: false
+  }
+
+  # Instead of defining which record should be translated by using record_id and
+  # record_sub_id, this field can be used to define the value which should be
+  # translated. When used, the translation will be applied when the fields
+  # identified by table_name and field_name contains the exact same value
+  # defined in field_value.
+  column: {
+    field_number: 10
+    name: "field_value"
+    required: false
+  }
+}
+
+
+###############################################################################
+## TRANSFERS
+###############################################################################
+
+csvspec: {
+  name: "transfers"
+  filename: "transfers.txt"
+  required: false
+  # This table provides explicit information how passengers can transfer
+  # from trips arriving at one stop to trips departing from the same or
+  # another stop, or how they can enter or exit a stop through an entrance.
+  # Its purpose is to override the default assumptions on these actions
+  # that are otherwise deduced from stop and entrance locations.
+
+  column: {
+    field_number: 2
+    name: "from_stop_id"
+    required: true
+    value_required: true
+    supersetkey: {
+      csvname: "stops"
+      keyname: "stop_id"
+    }
+    # The source location of the transfer.
+  }
+  column: {
+    field_number: 3
+    name: "to_stop_id"
+    required: true
+    value_required: true
+    supersetkey: {
+      csvname: "stops"
+      keyname: "stop_id"
+    }
+    # The destination location of the transfer.
+  }
+  column: {
+    field_number: 4
+    name: "from_route_id"
+    required: false
+    supersetkey: {
+      csvname: "routes"
+      keyname: "route_id"
+    }
+    # If non-null, this transfer applies only to trips of this route
+    # at the source.
+    # Currently (2011-07-14), this field is not part of the public GTFS spec.
+  }
+  column: {
+    field_number: 5
+    name: "to_route_id"
+    required: false
+    supersetkey: {
+      csvname: "routes"
+      keyname: "route_id"
+    }
+    # If non-null, this transfer applies only to trips of this route
+    # at the destination.
+    # Currently (2011-07-14), this field is not part of the public GTFS spec.
+  }
+  column: {
+    field_number: 6
+    name: "from_trip_id"
+    required: false
+    supersetkey: {
+      csvname: "trips"
+      keyname: "trip_id"
+    }
+    # If non-null, this transfer applies only to the specified trip at the
+    # source.
+    # Currently (2011-07-14), this field is not part of the public GTFS spec.
+  }
+  column: {
+    field_number: 7
+    name: "to_trip_id"
+    required: false
+    supersetkey: {
+      csvname: "trips"
+      keyname: "trip_id"
+    }
+    # If non-null, this transfer applies only to the specified trip at the
+    # destination.
+    # Currently (2011-07-14), this field is not part of the public GTFS spec.
+  }
+  column: {
+    field_number: 8
+    name: "transfer_type"
+    required: true
+    type: { type: INT_DEC }
+    intmin: 0
+    intmax: 3
+    # NOTE: By the public GTFS spec, the column is required,
+    # but the field may be empty, and this is equivalent to a value of 0.
+    #
+    # The values for this field have the following meanings for transfers
+    # from stop to stop:
+    namedvalue: {
+      # 0 (or empty):  This is a recommended transfer point between two routes.
+      name: "preferred"
+      intvalue: 0
+    }
+    namedvalue: {
+      # 1: This is a timed transfer point between two routes (the destination
+      #    trip is expected to wait for the arrival of the source trip).
+      name: "timed"
+      intvalue: 1
+    }
+    namedvalue: {
+      # 2: This transfer requires a minimum amount of time, as specified
+      #    in column min_transfer_time.
+      name: "min_time"
+      intvalue: 2
+    }
+    namedvalue: {
+      # 3: Transfers are not possible between these locations.
+      name: "disallow"
+      intvalue: 3
+    }
+  }
+  column: {
+    field_number: 9
+    name: "min_transfer_time"
+    type: { type: INT_DEC }
+    required: false
+    # A transfer is possible if times between the stops is at least this many
+    # seconds.  This field must be set for transfer_type=2 and empty for
+    # all other values of transfer_type.
+    # Negative values of this field are unreasonable, and are
+    # silently ignored.
+  }
+
+  key: {
+    name: "from_to_stop_id"
+    columnname: "from_stop_id"
+    columnname: "to_stop_id"
+  }
+  key: {
+    name: "from_to_route_id"
+    columnname: "from_route_id"
+    columnname: "to_route_id"
+  }
+}
+
+
+###############################################################################
+## PATHWAYS
+###############################################################################
+
+csvspec: {
+  name: "pathways"
+  filename: "pathways.txt"
+  required: false
+  # This table defines pedestrian pathways that connect stops, entrances and
+  # generic nodes that belong to the same or to different stations.
+
+  column: {
+    field_number: 8
+    name: "pathway_id"
+    required: true
+    value_required: true
+    uniquevalues: true
+    # A unique key into this table.
+  }
+
+  column: {
+    field_number: 9
+    name: "pathway_mode"
+    required: false
+    type: { type: INT_DEC }
+    intmin: 0
+    intmax: 7
+    # The mode of pathway.
+    namedvalue: {
+      name: "unknown"
+      intvalue: 0
+    }
+    namedvalue: {
+      name: "walkway"
+      intvalue: 1
+    }
+    namedvalue: {
+      name: "stairs"
+      intvalue: 2
+    }
+    namedvalue: {
+      name: "moving_sidewalk"
+      intvalue: 3
+    }
+    namedvalue: {
+      name: "escalator"
+      intvalue: 4
+    }
+    namedvalue: {
+      name: "elevator"
+      intvalue: 5
+    }
+    namedvalue: {
+      name: "fare_gate"
+      intvalue: 6
+    }
+    namedvalue: {
+      name: "exit_gate"
+      intvalue: 7
+    }
+  }
+
+  # The source and target location, resp., of the pathway.  If it is a station,
+  # it is expanded to all its stops fur further processing.
+  column: {
+    field_number: 3
+    name: "from_stop_id"
+    required: true
+    value_required: true
+    supersetkey: {
+      csvname: "stops"
+      keyname: "stop_id"
+    }
+    # The source location of the pathway.
+  }
+  column: {
+    field_number: 4
+    name: "to_stop_id"
+    required: true
+    value_required: true
+    supersetkey: {
+      csvname: "stops"
+      keyname: "stop_id"
+    }
+    # The target location of the pathway.
+  }
+  # The is_bidirectional field indicates in which direction the pathway can be used.
+  column: {
+    field_number: 15
+    name: "is_bidirectional"
+    required: false
+    type: { type: INT_DEC }
+    intmin: 0
+    intmax: 1
+    namedvalue: {
+      name: "unidirectional"
+      intvalue: 0
+    }
+    namedvalue: {
+      name: "bidirectional"
+      intvalue: 1
+    }
+  }
+
+  # The length field specifies the horizontal length in meters of the pathway
+  # from the origin location (defined in from_stop_id) to the destination
+  # location (defined in to_stop_id).
+  #
+  # This field is recommended for pathway_mode 1 (walkway), 6 (fare gate), 7
+  # (exit gate) and 8 (door).
+  column: {
+    field_number: 17
+    name: "length"
+    type: { type: FLOAT_STD }
+    required: false
+  }
+
+  # The traversal time of the pathway (non-negative), empty for unknown.
+  column: {
+    field_number: 5
+    name: "traversal_time"
+    type: { type: INT_DEC }
+    required: false
+    namedvalue: {
+      # Impossible.
+      name: "disallowed"
+      intvalue: -1
+    }
+    namedvalue: {
+      # Unknown.
+      name: "unknown"
+      intvalue: -2
+    }
+    # Whether it is good or not to allow this field to be empty is debatable.
+  }
+
+  # The number of stairs of the pathway. This field is allowed only for pathway
+  # mode STAIRS and ESCALATOR.
+  column: {
+    field_number: 11
+    name: "stair_count"
+    type: { type: INT_DEC }
+    required: false
+  }
+
+  # The max_slope field specified the maximum slope ratio of the pathway. Valid
+  # values for this field are:
+  # * 0 or (empty): no slope.
+  # * A float: slope ratio of the pathway, positive for upwards, negative for
+  #   downwards.
+  #
+  # This field should be used only with the pathway_type 1 (walkway) and 3
+  # (travelator).
+  column: {
+    field_number: 10
+    name: "max_slope"
+    type: { type: FLOAT_STD }
+    required: false
+  }
+
+  # The min_width field contains the minimum width of the pathway in meters.
+  #
+  # This field is highly recommended if the minimum width is less than 1 meter.
+  column: {
+    field_number: 19
+    name: "min_width"
+    type: { type: FLOAT_STD }
+    required: false
+  }
+
+  column: {
+    field_number: 7
+    name: "signposted_as"
+    required: false
+    # The inscription on signposts along the pathway, or empty if inapplicable.
+  }
+  column: {
+    field_number: 16
+    name: "reversed_signposted_as"
+    required: false
+    # Same as the signposted_as field, but when the pathways is used backward,
+    # i.e. from the to_stop_id to the from_stop_id.
+  }
+}
+
+
+###############################################################################
+## LEVELS
+###############################################################################
+
+# This file describes the different levels of the station. Is mostly useful with
+# the GTFS pathways, and is required for elevator (pathway_mode=5) to ask the
+# user to take the elevator to the "Mezzanine" or the "Platform" level.
+csvspec: {
+  name: "levels"
+  filename: "levels.txt"
+  required: false
+
+  # Id of the level that can be referenced from stops.txt.
+  column: {
+    field_number: 2
+    name: "level_id"
+    required: true
+    value_required: true
+  }
+
+  # Numeric index of the level that indicates relative position of this level in
+  # relation to other levels (levels with higher indices are assumed to be
+  # located above levels with lower indices).
+  #
+  # Ground level should have index 0, with levels above ground indicated by
+  # positive indices and levels below ground by negative indices.
+  column: {
+    field_number: 3
+    name: "level_index"
+    type: { type: FLOAT_STD }
+    required: true
+    value_required: true
+  }
+
+  # Optional name of the level (that matches level lettering/numbering used
+  # inside the building or the station). Is useful for elevator routing
+  # (e.g. "take the elevator to level 'Mezzanine'" or "Platforms" or "-1").
+  column: {
+    field_number: 4
+    name: "level_name"
+    required: false
+  }
+}
+
+###############################################################################
+## Non-table-specific information
+###############################################################################
+
+# Legacy GTFS vehicle types. Probably we will need to support them forever.
+namedvalue { enumtype: "VehicleTypeEnum" name: "vehicle_type_tram" intvalue: 0 }
+namedvalue { enumtype: "VehicleTypeEnum" name: "vehicle_type_subway" intvalue: 1 }
+namedvalue { enumtype: "VehicleTypeEnum" name: "vehicle_type_rail" intvalue: 2 }
+namedvalue { enumtype: "VehicleTypeEnum" name: "vehicle_type_bus" intvalue: 3 }
+namedvalue { enumtype: "VehicleTypeEnum" name: "vehicle_type_ferry" intvalue: 4 }
+namedvalue { enumtype: "VehicleTypeEnum" name: "vehicle_type_cable_car" intvalue: 5 }
+namedvalue { enumtype: "VehicleTypeEnum" name: "vehicle_type_gondola_lift" intvalue: 6 }
+namedvalue { enumtype: "VehicleTypeEnum" name: "vehicle_type_funicular" intvalue: 7 }
+namedvalue { enumtype: "VehicleTypeEnum" name: "vehicle_type_horse_carriage" intvalue: 8 }
+namedvalue { enumtype: "VehicleTypeEnum" name: "vehicle_type_intercity_bus" intvalue: 9 }
+namedvalue { enumtype: "VehicleTypeEnum" name: "vehicle_type_commuter_train" intvalue: 10 }
+namedvalue { enumtype: "VehicleTypeEnum" name: "vehicle_type_trolleybus" intvalue: 11 }
+namedvalue { enumtype: "VehicleTypeEnum" name: "vehicle_type_monorail" intvalue: 12 }
+
+# Hierarchical vehicle types (HVT).
+# Obtained as a result of a discussion at public GTFS group, but not officially
+# part of GTFS yet (April 2011).
+# http://groups.google.com/group/gtfs-changes/msg/9f1c27e827eda843
+namedvalue { enumtype: "VehicleTypeEnum" name: "hvt_railway_service" intvalue: 100 }
+namedvalue { enumtype: "VehicleTypeEnum" name: "hvt_high_speed_rail" intvalue: 101 }
+namedvalue { enumtype: "VehicleTypeEnum" name: "hvt_long_distance_trains" intvalue: 102 }
+namedvalue { enumtype: "VehicleTypeEnum" name: "hvt_inter_regional_rail" intvalue: 103 }
+namedvalue { enumtype: "VehicleTypeEnum" name: "hvt_sleeper_rail" intvalue: 105 }
+namedvalue { enumtype: "VehicleTypeEnum" name: "hvt_regional_rail" intvalue: 106 }
+namedvalue { enumtype: "VehicleTypeEnum" name: "hvt_tourist_rail" intvalue: 107 }
+namedvalue { enumtype: "VehicleTypeEnum" name: "hvt_rail_shuttle" intvalue: 108 }
+namedvalue { enumtype: "VehicleTypeEnum" name: "hvt_suburban_railway" intvalue: 109 }
+namedvalue { enumtype: "VehicleTypeEnum" name: "hvt_coach_service" intvalue: 200 }
+namedvalue { enumtype: "VehicleTypeEnum" name: "hvt_international_coach" intvalue: 201 }
+namedvalue { enumtype: "VehicleTypeEnum" name: "hvt_national_coach" intvalue: 202 }
+namedvalue { enumtype: "VehicleTypeEnum" name: "hvt_regional_coach" intvalue: 204 }
+namedvalue { enumtype: "VehicleTypeEnum" name: "hvt_commuter_coach" intvalue: 208 }
+namedvalue { enumtype: "VehicleTypeEnum" name: "hvt_urban_railway_service" intvalue: 400 }
+namedvalue { enumtype: "VehicleTypeEnum" name: "hvt_metro" intvalue: 401 }
+namedvalue { enumtype: "VehicleTypeEnum" name: "hvt_underground" intvalue: 402 }
+namedvalue { enumtype: "VehicleTypeEnum" name: "hvt_monorail" intvalue: 405 }
+namedvalue { enumtype: "VehicleTypeEnum" name: "hvt_bus_service" intvalue: 700 }
+namedvalue { enumtype: "VehicleTypeEnum" name: "hvt_regional_bus" intvalue: 701 }
+namedvalue { enumtype: "VehicleTypeEnum" name: "hvt_express_bus" intvalue: 702 }
+namedvalue { enumtype: "VehicleTypeEnum" name: "hvt_local_bus" intvalue: 704 }
+namedvalue { enumtype: "VehicleTypeEnum" name: "hvt_trolleybus_service" intvalue: 800 }
+namedvalue { enumtype: "VehicleTypeEnum" name: "hvt_tram_service" intvalue: 900 }
+namedvalue { enumtype: "VehicleTypeEnum" name: "hvt_water_transport_service" intvalue: 1000 }
+namedvalue { enumtype: "VehicleTypeEnum" name: "hvt_air_service" intvalue: 1100 }
+namedvalue { enumtype: "VehicleTypeEnum" name: "hvt_telecabin_service" intvalue: 1300 }
+namedvalue { enumtype: "VehicleTypeEnum" name: "hvt_funicular_service" intvalue: 1400 }
+namedvalue { enumtype: "VehicleTypeEnum" name: "hvt_taxi_service" intvalue: 1500 }
+namedvalue { enumtype: "VehicleTypeEnum" name: "hvt_communal_taxi" intvalue: 1501 }
+namedvalue { enumtype: "VehicleTypeEnum" name: "hvt_miscellaneous_service" intvalue: 1700 }
+namedvalue { enumtype: "VehicleTypeEnum" name: "hvt_cable_car" intvalue: 1701 }
+namedvalue { enumtype: "VehicleTypeEnum" name: "hvt_horse_drawn_carriage" intvalue: 1702 }
+
+# Continuous pick up and drop off type.
+# The type is used in both routes.txt and stop_times.txt.
+namedvalue: { enumtype: "ContinuousPickUpDropOffTypeEnum" name: "allowed" intvalue: 0 }
+namedvalue: { enumtype: "ContinuousPickUpDropOffTypeEnum" name: "not_available" intvalue: 1 }
+namedvalue: { enumtype: "ContinuousPickUpDropOffTypeEnum" name: "must_phone" intvalue: 2 }
+namedvalue: { enumtype: "ContinuousPickUpDropOffTypeEnum" name: "on_request" intvalue: 3 }
