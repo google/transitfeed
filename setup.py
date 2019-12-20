@@ -29,111 +29,128 @@ import os.path
 from transitfeed import __version__ as VERSION
 
 try:
-  import py2exe
-  has_py2exe = True
+    import py2exe
+
+    has_py2exe = True
 except ImportError as e:
-  # Won't be able to generate win32 exe
-  has_py2exe = False
+    # Won't be able to generate win32 exe
+    has_py2exe = False
 
 
 # py2exe doesn't automatically include pytz dependency because it is optional
-options = {'py2exe': {'packages': ['pytz', 'pybcp47']}}
-scripts_for_py2exe = ['feedvalidator.py', 'schedule_viewer.py', 'kmlparser.py',
-                      'kmlwriter.py', 'merge.py', 'unusual_trip_filter.py',
-                      'location_editor.py', 'feedvalidator_googletransit.py',
-                      'upgrade_translations.py', 'visualize_pathways.py']
+options = {"py2exe": {"packages": ["pytz", "pybcp47"]}}
+scripts_for_py2exe = [
+    "feedvalidator.py",
+    "schedule_viewer.py",
+    "kmlparser.py",
+    "kmlwriter.py",
+    "merge.py",
+    "unusual_trip_filter.py",
+    "location_editor.py",
+    "feedvalidator_googletransit.py",
+    "upgrade_translations.py",
+    "visualize_pathways.py",
+]
 # On Nov 23, 2009 Tom Brown said: I'm not confident that we can include a
 # working copy of this script in the py2exe distribution because it depends on
 # ogr. I do want it included in the source tar.gz.
-scripts_for_source_only = ['shape_importer.py']
+scripts_for_source_only = ["shape_importer.py"]
 kwargs = {}
 
 if has_py2exe:
-  kwargs['console'] = scripts_for_py2exe
-  # py2exe seems to ignore package_data and not add marey_graph. This makes it
-  # work.
-  kwargs['data_files'] = \
-      [('schedule_viewer_files',
-          glob.glob(os.path.join('gtfsscheduleviewer', 'files', '*')))]
-  options['py2exe'] = {'dist_dir': 'transitfeed-windows-binary-%s' % VERSION}
+    kwargs["console"] = scripts_for_py2exe
+    # py2exe seems to ignore package_data and not add marey_graph. This makes it
+    # work.
+    kwargs["data_files"] = [
+        (
+            "schedule_viewer_files",
+            glob.glob(os.path.join("gtfsscheduleviewer", "files", "*")),
+        )
+    ]
+    options["py2exe"] = {"dist_dir": "transitfeed-windows-binary-%s" % VERSION}
 
 setup(
     version=VERSION,
-    name='transitfeed',
-    url='https://github.com/google/transitfeed/',
-    download_url='https://github.com/google/transitfeed/archive/'
-        '%s.tar.gz' % VERSION,
-    maintainer='Multiple',
-    maintainer_email='transitfeed@googlegroups.com',
-    description='GTFS library and tools',
-    long_description='This module provides a library for reading, writing and '
-        'validating GTFS files. It includes some scripts that validate a feed, '
-        'display it using the Google Maps API and the start of a KML importer '
-        'and exporter.',
-    platforms='OS Independent',
-    license='Apache License, Version 2.0',
-    packages=['gtfsscheduleviewer', 'transitfeed'],
+    name="transitfeed",
+    url="https://github.com/google/transitfeed/",
+    download_url="https://github.com/google/transitfeed/archive/" "%s.tar.gz" % VERSION,
+    maintainer="Multiple",
+    maintainer_email="transitfeed@googlegroups.com",
+    description="GTFS library and tools",
+    long_description="This module provides a library for reading, writing and "
+    "validating GTFS files. It includes some scripts that validate a feed, "
+    "display it using the Google Maps API and the start of a KML importer "
+    "and exporter.",
+    platforms="OS Independent",
+    license="Apache License, Version 2.0",
+    packages=["gtfsscheduleviewer", "transitfeed"],
     # Also need to list package_data contents in MANIFEST.in for it to be
     # included in sdist. See "[Distutils] package_data not used by sdist
     # command" Feb 2, 2007
-    package_data={'gtfsscheduleviewer': ['files/*']},
+    package_data={"gtfsscheduleviewer": ["files/*"]},
     scripts=scripts_for_py2exe + scripts_for_source_only,
     zip_safe=False,
     classifiers=[
-        'Development Status :: 4 - Beta',
-        'Intended Audience :: Developers',
-        'Intended Audience :: Information Technology',
-        'Intended Audience :: Other Audience',
-        'License :: OSI Approved :: Apache Software License',
-        'Operating System :: OS Independent',
-        'Programming Language :: Python',
-        'Topic :: Scientific/Engineering :: GIS',
-        'Topic :: Software Development :: Libraries :: Python Modules'
-        ],
+        "Development Status :: 4 - Beta",
+        "Intended Audience :: Developers",
+        "Intended Audience :: Information Technology",
+        "Intended Audience :: Other Audience",
+        "License :: OSI Approved :: Apache Software License",
+        "Operating System :: OS Independent",
+        "Programming Language :: Python",
+        "Topic :: Scientific/Engineering :: GIS",
+        "Topic :: Software Development :: Libraries :: Python Modules",
+    ],
     options=options,
     **kwargs
-    )
+)
 
 if has_py2exe:
-  # Some data files are not copied automatically by py2exe into the
-  # library.zip file. This concerns mainly files which are loaded by modules
-  # using pkg_resources.
-  import zipfile
-  # Open the library.zip file for appending additional files.
-  zipfile_path = os.path.join(options['py2exe']['dist_dir'], 'library.zip')
-  z = zipfile.ZipFile(zipfile_path, 'a')
+    # Some data files are not copied automatically by py2exe into the
+    # library.zip file. This concerns mainly files which are loaded by modules
+    # using pkg_resources.
+    import zipfile
 
-  # Sometime between pytz-2008a and pytz-2008i common_timezones started to
-  # include only names of zones with a corresponding data file in zoneinfo.
-  # pytz installs the zoneinfo directory tree in the same directory
-  # as the pytz/__init__.py file. These data files are loaded using
-  # pkg_resources.resource_stream. py2exe does not copy this to library.zip so
-  # resource_stream can't find the files and common_timezones is empty when
-  # read in the py2exe executable.
-  # This manually copies zoneinfo into the zip. See also
-  # https://github.com/google/transitfeed/issues/121
-  import pytz
-  # Make sure the layout of pytz hasn't changed
-  assert (pytz.__file__.endswith('__init__.pyc') or
-          pytz.__file__.endswith('__init__.py')), pytz.__file__
-  zoneinfo_dir = os.path.join(os.path.dirname(pytz.__file__), 'zoneinfo')
-  # '..\\Lib\\pytz\\__init__.py' -> '..\\Lib'
-  disk_basedir = os.path.dirname(os.path.dirname(pytz.__file__))
-  for absdir, directories, filenames in os.walk(zoneinfo_dir):
-    assert absdir.startswith(disk_basedir), (absdir, disk_basedir)
-    zip_dir = absdir[len(disk_basedir):]
-    for f in filenames:
-      z.write(os.path.join(absdir, f), os.path.join(zip_dir, f))
+    # Open the library.zip file for appending additional files.
+    zipfile_path = os.path.join(options["py2exe"]["dist_dir"], "library.zip")
+    z = zipfile.ZipFile(zipfile_path, "a")
 
-  # The custom pybcp47 module included int the googletransit extension reads
-  # from a registry file in the resource path. This manually copies the file
-  # language-subtag-registry.txt to the library.zip file.
-  import extensions.googletransit.pybcp47 as pybcp47_module
-  pybcp47_dir = os.path.join(os.path.dirname(pybcp47_module.__file__))
-  disk_basedir = os.path.dirname(os.path.dirname(os.path.dirname(pybcp47_dir)))
-  zip_dir = pybcp47_dir[len(disk_basedir):]
-  z.write(os.path.join(pybcp47_dir, 'language-subtag-registry.txt'),
-          os.path.join(zip_dir, 'language-subtag-registry.txt'))
+    # Sometime between pytz-2008a and pytz-2008i common_timezones started to
+    # include only names of zones with a corresponding data file in zoneinfo.
+    # pytz installs the zoneinfo directory tree in the same directory
+    # as the pytz/__init__.py file. These data files are loaded using
+    # pkg_resources.resource_stream. py2exe does not copy this to library.zip so
+    # resource_stream can't find the files and common_timezones is empty when
+    # read in the py2exe executable.
+    # This manually copies zoneinfo into the zip. See also
+    # https://github.com/google/transitfeed/issues/121
+    import pytz
 
-  # Finally close the library.zip file.
-  z.close()
+    # Make sure the layout of pytz hasn't changed
+    assert pytz.__file__.endswith("__init__.pyc") or pytz.__file__.endswith(
+        "__init__.py"
+    ), pytz.__file__
+    zoneinfo_dir = os.path.join(os.path.dirname(pytz.__file__), "zoneinfo")
+    # '..\\Lib\\pytz\\__init__.py' -> '..\\Lib'
+    disk_basedir = os.path.dirname(os.path.dirname(pytz.__file__))
+    for absdir, directories, filenames in os.walk(zoneinfo_dir):
+        assert absdir.startswith(disk_basedir), (absdir, disk_basedir)
+        zip_dir = absdir[len(disk_basedir) :]
+        for f in filenames:
+            z.write(os.path.join(absdir, f), os.path.join(zip_dir, f))
+
+    # The custom pybcp47 module included int the googletransit extension reads
+    # from a registry file in the resource path. This manually copies the file
+    # language-subtag-registry.txt to the library.zip file.
+    import extensions.googletransit.pybcp47 as pybcp47_module
+
+    pybcp47_dir = os.path.join(os.path.dirname(pybcp47_module.__file__))
+    disk_basedir = os.path.dirname(os.path.dirname(os.path.dirname(pybcp47_dir)))
+    zip_dir = pybcp47_dir[len(disk_basedir) :]
+    z.write(
+        os.path.join(pybcp47_dir, "language-subtag-registry.txt"),
+        os.path.join(zip_dir, "language-subtag-registry.txt"),
+    )
+
+    # Finally close the library.zip file.
+    z.close()

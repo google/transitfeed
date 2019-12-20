@@ -21,17 +21,19 @@ from transitfeed import util
 
 parser = Bcp47LanguageParser()
 
+
 def IsValidLanguageCode(lang):
-  """
+    """
   Checks the validity of a language code value:
     - checks whether the code, as lower case, is well formed and valid BCP47
       using the pybcp47 module
   """
-  bcp47_obj = parser.ParseLanguage(str(lang.lower()))
-  return bcp47_obj.IsWellformed() and bcp47_obj.IsValid()
+    bcp47_obj = parser.ParseLanguage(str(lang.lower()))
+    return bcp47_obj.IsWellformed() and bcp47_obj.IsValid()
+
 
 def ValidateLanguageCode(lang, column_name=None, problems=None):
-  """
+    """
   Validates a non-required language code value using the pybcp47 module:
     - if invalid adds InvalidValue error (if problems accumulator is provided)
     - distinguishes between 'not well-formed' and 'not valid' and adds error
@@ -41,19 +43,25 @@ def ValidateLanguageCode(lang, column_name=None, problems=None):
     - returns true if the language is valid, false if not well-formed or
       invalid.
   """
-  if util.IsEmpty(lang):
+    if util.IsEmpty(lang):
+        return True
+    bcp47_obj = parser.ParseLanguage(str(lang.lower()))
+    if not bcp47_obj.wellformed:
+        if problems:
+            problems.InvalidValue(
+                column_name,
+                lang,
+                'language code "%s" is not well-formed' % lang,
+                type=problems_class.TYPE_ERROR,
+            )
+        return False
+    if not bcp47_obj.valid:
+        if problems:
+            problems.InvalidValue(
+                column_name,
+                lang,
+                'language code "%s" is not valid, parses as: %s' % (lang, bcp47_obj),
+                type=problems_class.TYPE_WARNING,
+            )
+        return False
     return True
-  bcp47_obj = parser.ParseLanguage(str(lang.lower()))
-  if not bcp47_obj.wellformed:
-    if problems:
-      problems.InvalidValue(column_name, lang,
-                            'language code "%s" is not well-formed' %
-                            lang, type=problems_class.TYPE_ERROR)
-    return False
-  if not bcp47_obj.valid:
-    if problems:
-      problems.InvalidValue(column_name, lang,
-                            'language code "%s" is not valid, parses as: %s' %
-                            (lang, bcp47_obj), type=problems_class.TYPE_WARNING)
-    return False
-  return True

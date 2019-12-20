@@ -17,8 +17,9 @@
 from __future__ import absolute_import
 from .gtfsfactoryuser import GtfsFactoryUser
 
+
 class GtfsObjectBase(GtfsFactoryUser):
-  """Object with arbitrary attributes which may be added to a schedule.
+    """Object with arbitrary attributes which may be added to a schedule.
 
   This class should be used as the base class for GTFS objects which may
   be stored in a Schedule. It defines some methods for reading and writing
@@ -39,83 +40,83 @@ class GtfsObjectBase(GtfsFactoryUser):
 
   """
 
-  # list of all required field names for the GTFS object
-  _REQUIRED_FIELD_NAMES = []
-  # list of all valid field names including the required ones
-  _FIELD_NAMES = _REQUIRED_FIELD_NAMES + []
-  # list of tuples of all deprecated field names and, optionally, their new name
-  # e.g. [('old_name', 'new_name')]
-  # use None if there is no new name, e.g. [('old_name', None)]
-  _DEPRECATED_FIELD_NAMES = []
+    # list of all required field names for the GTFS object
+    _REQUIRED_FIELD_NAMES = []
+    # list of all valid field names including the required ones
+    _FIELD_NAMES = _REQUIRED_FIELD_NAMES + []
+    # list of tuples of all deprecated field names and, optionally, their new name
+    # e.g. [('old_name', 'new_name')]
+    # use None if there is no new name, e.g. [('old_name', None)]
+    _DEPRECATED_FIELD_NAMES = []
 
-  def __getitem__(self, name):
-    """Return a unicode or str representation of name or "" if not set."""
-    if name in self.__dict__ and self.__dict__[name] is not None:
-      return "%s" % self.__dict__[name]
-    else:
-      return ""
+    def __getitem__(self, name):
+        """Return a unicode or str representation of name or "" if not set."""
+        if name in self.__dict__ and self.__dict__[name] is not None:
+            return "%s" % self.__dict__[name]
+        else:
+            return ""
 
-  def __getattr__(self, name):
-    """Return None or the default value if name is a known attribute.
+    def __getattr__(self, name):
+        """Return None or the default value if name is a known attribute.
 
     This method is only called when name is not found in __dict__.
     """
-    if name in self.__class__._FIELD_NAMES:
-      return None
-    elif name in [dfn[0] for dfn in self.__class__._DEPRECATED_FIELD_NAMES]:
-      return None
-    else:
-      raise AttributeError(name)
+        if name in self.__class__._FIELD_NAMES:
+            return None
+        elif name in [dfn[0] for dfn in self.__class__._DEPRECATED_FIELD_NAMES]:
+            return None
+        else:
+            raise AttributeError(name)
 
-  def iteritems(self):
-    """Return a iterable for (name, value) pairs of public attributes."""
-    for name, value in self.__dict__.iteritems():
-      if (not name) or name[0] == "_":
-        continue
-      yield name, value
+    def iteritems(self):
+        """Return a iterable for (name, value) pairs of public attributes."""
+        for name, value in self.__dict__.iteritems():
+            if (not name) or name[0] == "_":
+                continue
+            yield name, value
 
-  def __setattr__(self, name, value):
-    """Set an attribute, adding name to the list of columns as needed."""
-    object.__setattr__(self, name, value)
-    if name[0] != '_' and self._schedule:
-      self._schedule.AddTableColumn(self.__class__._TABLE_NAME, name)
+    def __setattr__(self, name, value):
+        """Set an attribute, adding name to the list of columns as needed."""
+        object.__setattr__(self, name, value)
+        if name[0] != "_" and self._schedule:
+            self._schedule.AddTableColumn(self.__class__._TABLE_NAME, name)
 
-  def __eq__(self, other):
-    """Return true iff self and other are equivalent"""
-    if not other:
-      return False
+    def __eq__(self, other):
+        """Return true iff self and other are equivalent"""
+        if not other:
+            return False
 
-    if id(self) == id(other):
-      return True
+        if id(self) == id(other):
+            return True
 
-    for k in self.keys().union(other.keys()):
-      # use __getitem__ which returns "" for missing columns values
-      if self[k] != other[k]:
-        return False
-    return True
+        for k in self.keys().union(other.keys()):
+            # use __getitem__ which returns "" for missing columns values
+            if self[k] != other[k]:
+                return False
+        return True
 
-  def __ne__(self, other):
-    return not self.__eq__(other)
+    def __ne__(self, other):
+        return not self.__eq__(other)
 
-  # TODO(Tom): According to
-  # http://docs.python.org/reference/datamodel.html#object.__hash__
-  # this class should set '__hash__ = None' because it defines __eq__. This
-  # can't be fixed until the merger is changed to not use a/b_merge_map.
+    # TODO(Tom): According to
+    # http://docs.python.org/reference/datamodel.html#object.__hash__
+    # this class should set '__hash__ = None' because it defines __eq__. This
+    # can't be fixed until the merger is changed to not use a/b_merge_map.
 
-  def __repr__(self):
-    return "<%s %s>" % (self.__class__.__name__, sorted(self.iteritems()))
+    def __repr__(self):
+        return "<%s %s>" % (self.__class__.__name__, sorted(self.iteritems()))
 
-  def keys(self):
-    """Return iterable of columns used by this object."""
-    columns = set()
-    for name in vars(self):
-      if (not name) or name[0] == "_":
-        continue
-      columns.add(name)
-    return columns
+    def keys(self):
+        """Return iterable of columns used by this object."""
+        columns = set()
+        for name in vars(self):
+            if (not name) or name[0] == "_":
+                continue
+            columns.add(name)
+        return columns
 
-  def _ColumnNames(self):
-    return self.keys()
+    def _ColumnNames(self):
+        return self.keys()
 
-  def AddToSchedule(self, schedule, problems):
-    self._schedule = schedule
+    def AddToSchedule(self, schedule, problems):
+        self._schedule = schedule
