@@ -21,6 +21,7 @@ from . import agency
 from . import fareattribute
 from . import route
 from . import stop
+from . import transfer
 
 def GetGtfsFactory(factory = None):
   if not factory:
@@ -37,5 +38,8 @@ def GetGtfsFactory(factory = None):
 
   # Stop class extension
   factory.UpdateClass('Stop', stop.Stop)
+
+  # Transfer class extension
+  factory.UpdateClass('Transfer', transfer.Transfer)
 
   return factory

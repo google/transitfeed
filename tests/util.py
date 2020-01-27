@@ -337,9 +337,9 @@ class LoadTestCase(TestCase):
     self.accumulator = RecordingProblemAccumulator(self, ("ExpirationDate",))
     self.problems = transitfeed.ProblemReporter(self.accumulator)
 
-  def Load(self, feed_name):
+  def Load(self, feed_name, gtfs_factory=None):
     loader = transitfeed.Loader(
-      DataPath(feed_name), problems=self.problems, extra_validation=True)
+      DataPath(feed_name), problems=self.problems, extra_validation=True, gtfs_factory=gtfs_factory)
     loader.Load()
 
   def ExpectInvalidValue(self, feed_name, column_name):
