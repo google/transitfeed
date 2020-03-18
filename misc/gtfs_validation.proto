@@ -1,0 +1,569 @@
+// Copyright (C) 2007 Google Inc.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+syntax = "proto2";
+
+package maps_transit;
+
+// Points are represented as latitude-longitude pairs in the E7
+// representation (degrees multiplied by 10**7 and rounded to the nearest
+// integer).  Latitudes should be in the range +/- 90 degrees and longitude
+// should be in the range +/- 180 degrees (inclusive).
+message PointProto {
+  optional fixed32 lat_e7 = 1;
+  optional fixed32 lng_e7 = 2;
+}
+
+// A specific GTFS validation problem.
+message GtfsProblem {
+  // The type of validation problem.
+  //
+  // Next tag: 336
+  enum Type {
+    // CSV error types: see maps/transit/parsing/csv/csvspec.proto.  We
+    // set the field tags to match the csvspec field tags directly to assist in
+    // matching.  To avoid potential collisions in case the set of error types
+    // in csvspec is ever expanded, we start numbering non-csv error types at
+    // 200.  In addition to the CSV error type, the remaining fields of the
+    // CsvErrorProto will be mapped as well.  Specifically, the
+    // CsvErrorLocationProto fields will mapped to GtfsProblem::Property
+    // attachments.  Simple string fields will be mapped directly if specified
+    // (eg. "csvname", "csvfilename", "keyname").  Repeated fields like
+    // CsvErrorLocationProto.column and CsvErrorLocationProto.linerange will be
+    // mapped as a column separated string.  Example:
+    //
+    // location {
+    //   csvname: 'stops'
+    //   csvfilename: 'stops.txt'
+    //   keyname: 'stop_id'
+    //   column {
+    //     originalname: 'stop_id'
+    //   }
+    //   column {
+    //     originalname: 'stop_name'
+    //   }
+    //   linerange {
+    //     startline: 10
+    //     endline: 12
+    //   }
+    //   linerange {
+    //     startline: 14
+    //   }
+    // }
+    //
+    // would be mapped to:
+    //
+    // property {
+    //   key: 'csvname'
+    //   value: 'stops'
+    // }
+    // property {
+    //   key: 'csvfilename'
+    //   value: 'stops.txt'
+    // }
+    // property {
+    //   key: 'keyname'
+    //   value: 'stop_id'
+    // }
+    // property {
+    //   key: 'columns'
+    //   value: 'stop_id,stop_name'
+    // }
+    // property {
+    //   key: 'linerange'
+    //   value: '10-12,14'
+    // }
+
+    // When an unknown CsvErrorProto::Type is encountered.
+    TYPE_CSV_UNKNOWN_ERROR = 1;
+
+    // The table file is missing.
+    TYPE_CSV_MISSING_TABLE = 10;
+
+    // The input file is not a well-formed csv. See csvparser.h for
+    // requirements (note that duplicate column names in the header line trigger
+    // this error).
+    TYPE_CSV_SPLITTING_ERROR = 20;
+
+    // The input file contained a null character ('\0').
+    TYPE_CSV_CONTAINS_NULL_CHARACTER = 21;
+
+    // Deprecated - There was way for these to be generated as internal errors
+    // in ConvertEncodingBufferToUTF8String are CHECKed as of 2007.
+    TYPE_CSV_UTF8_CONVERSION_ERROR = 22 [deprecated = true];
+
+    // The specified lines have characters that are not valid UTF-8.
+    TYPE_CSV_INVALID_UTF8 = 23;
+
+    // The input file CSV header has the same column name repeated.
+    TYPE_CSV_DUPLICATE_COLUMN_NAME = 24;
+
+    // A row in the input file has a different number of values than specified
+    // by the CSV header.
+    TYPE_CSV_BAD_NUMBER_OF_VALUES = 25;
+
+    // The input file is corrupted and cannot be read properly.
+    TYPE_CSV_FILE_CORRUPTED = 26;
+
+    // A file was in an unexpected location
+    TYPE_CSV_UNEXPECTED_LOCATION = 27;
+
+    // The column is missing in the input file, either the name cannot be found
+    // in the header line, or the number is out of bound.
+    TYPE_CSV_MISSING_COLUMN = 30;
+
+    // The key was not properly added to its table, probably because one or more
+    // of its olumns are missing.
+    TYPE_CSV_MISSING_KEY = 31;
+
+    // The input rows are not properly sorted on the given key.
+    TYPE_CSV_UNSORTED = 40;
+
+    // The values in the given column of the input rows are not 1..n when
+    // grouped on some key.
+    TYPE_CSV_NON_CONTIGUOUS = 41;
+
+    // The number of data rows of the table is not as required.
+    TYPE_CSV_BAD_NUMBER_OF_ROWS = 42;
+
+    // The values in the given column of the input rows do not represent valid
+    // values according to the column type, or have values that conflict with
+    // others according to the requirements on the input.
+    TYPE_CSV_VALUE_ERROR = 50;
+
+    // The values in the given column of the input rows do not match some
+    // regular expression.
+    TYPE_CSV_REGEXP_MISMATCH = 51;
+
+    // The values in the given column of the input rows are out of range.
+    TYPE_CSV_OUT_OF_RANGE = 52;
+
+    // The given column is null in the input rows, even though values are
+    // required.
+    TYPE_CSV_MISSING_VALUE = 53;
+
+    // The values of the given key and rows of one table cannot be found a
+    // values of the given key in another table. This is the case when a foreign
+    // key of one table references a non-existing value in its original table.
+    TYPE_CSV_MISSING_KEY_VALUE = 61;
+
+    // The values of the given key and rows are duplicates. The first occurrence
+    // of a value is not included in the duplicates list.
+    TYPE_CSV_DUPLICATE_KEY_VALUE = 62;
+
+    // The values of the given key and rows reference a table that does not
+    // exist.
+    TYPE_CSV_MISSING_KEY_TABLE = 63;
+
+    // The file size is too large to process (>=4GiB).
+    TYPE_CSV_FILE_TOO_LARGE = 64;
+
+    // From this point on, all problem types indicate non-CSV parsing related
+    // issues and are specific to GTFS validation.  To add a new field, use the
+    // tag value from the 'Next valid tag' comment from the end of this list
+    // and increment the value.  Insert your new problem type into the list in
+    // alphabetic order.
+
+    TYPE_AGENCIES_WITH_DIFFERENT_LANGUAGES = 249;
+
+    TYPE_AGENCIES_WITH_DIFFERENT_TIMEZONES = 231;
+
+    TYPE_AGENCY_LANG_AND_FEED_LANG_MISMATCH = 232;
+
+    TYPE_AMBIGUOUS_STOP_STATION_TRANSFERS = 286;
+
+    TYPE_BLOCK_TRIPS_WITH_INCONSISTENT_ROUTE_TYPES = 291;
+
+    TYPE_BLOCK_TRIPS_WITH_OVERLAPPING_STOP_TIMES = 241;
+
+    TYPE_CALENDAR_START_AND_END_DATE_OUT_OF_ORDER = 240;
+
+    TYPE_CALENDAR_HAS_NO_ACTIVE_DAYS_OF_WEEK = 228;
+
+    TYPE_LOCATION_WITHOUT_PARENT_STATION = 203;
+
+    TYPE_FARE_ATTRIBUTES_INVALID_CURRENCY_TYPE = 220;
+
+    TYPE_FARE_ATTRIBUTES_AGENCY_ID_REQUIRED = 221;
+
+    TYPE_FARE_RULE_WITH_BOTH_ROUTE_ID_REFERENCES = 290;
+
+    TYPE_FARES_WITH_AND_WITHOUT_RULES = 264;
+
+    TYPE_FAST_TRAVEL_BETWEEN_CONSECUTIVE_STOPS = 256;
+
+    TYPE_FAST_TRAVEL_BETWEEN_FAR_STOPS = 297;
+
+    TYPE_FEED_EXPIRATION_DATE = 233;
+
+    TYPE_FEED_FUTURE_SERVICE = 227;
+
+    TYPE_FEED_HAS_NO_LANGUAGE = 266;
+
+    TYPE_FEED_HAS_NO_SERVICE_DATE_EXCEPTIONS = 225;
+
+    TYPE_FEED_HAS_NO_SERVICE_DATES = 224;
+
+    // SUSPICIOUS
+    TYPE_FEED_HAS_VERY_SHORT_SERVICE = 295;
+
+    // ERROR
+    TYPE_EXPIRED_FEED_HAS_VERY_SHORT_SERVICE = 333;
+
+    TYPE_FEED_INFO_START_AND_END_DATE_OUT_OF_ORDER = 222;
+
+    TYPE_FEED_INFO_MORE_THAN_ONE_ENTRY = 223;
+
+    // SUSPICIOUS
+    TYPE_FEED_INFO_EARLY_START = 296;
+
+    TYPE_FEED_SERVICE_DATE_GAP = 230;
+
+    TYPE_FREQUENCY_HEADWAY_SECONDS_GREATER_THAN_INTERVAL = 280;
+
+    TYPE_FREQUENCY_HEADWAY_SECONDS_TOO_HIGH = 313;
+
+    TYPE_FREQUENCY_START_AND_END_TIME_ARE_EQUAL = 261;
+
+    TYPE_FREQUENCY_START_AND_END_TIME_OUT_OF_ORDER = 262;
+
+    TYPE_FREQUENCY_BASED_TRIP_TO_TRIP_TRANSFER = 284;
+
+    TYPE_INVALID_LANGUAGE_CODE = 242;
+
+    TYPE_INVALID_LATITUDE = 243;
+
+    TYPE_INVALID_LONGITUDE = 244;
+
+    TYPE_INVALID_ROUTE_TYPE = 263;
+
+    TYPE_INVALID_TIMEZONE = 245;
+
+    TYPE_INVALID_URL = 246;
+
+    TYPE_MULTIPLE_FARES_WITHOUT_RULES = 265;
+
+    TYPE_OVERLAPPING_FREQUENCY = 201;
+
+    TYPE_OVERLAPPING_FREQUENCY_FOR_TRIP_DUPLICATES = 281;
+
+    TYPE_PARENT_STATION_WITH_WRONG_LOCATION_TYPE = 289;
+
+    TYPE_POINT_NEAR_ORIGIN = 293;
+
+    TYPE_POINT_NEAR_POLE = 294;
+
+    TYPE_ROUTE_COLOR_CONTRAST = 207;
+
+    TYPE_ROUTE_NAME_REUSED = 226;
+
+    TYPE_ROUTE_SHORT_NAME_EQUALS_LONG_NAME = 209;
+
+    TYPE_ROUTE_SHORT_NAME_IS_CONTAINED_IN_LONG_NAME = 210;
+
+    TYPE_ROUTE_SHORT_NAME_IS_TOO_LONG = 208;
+
+    TYPE_ROUTE_SHORT_NAME_OR_LONG_NAME_REQUIRED = 211;
+
+    TYPE_ROUTE_BOTH_SHORT_NAME_AND_LONG_NAME_PRESENT = 314;
+
+    TYPE_ROUTE_LONG_NAME_HAS_ABBREVIATIONS = 315;
+
+    TYPE_ROUTE_NAME_NOT_CAPITALIZED = 316;
+
+    TYPE_ROUTE_NAME_HAS_SPECIAL_CHARACTERS = 321;
+
+    TYPE_SERVICE_ID_HAS_NO_ACTIVE_DAYS = 229;
+
+    TYPE_SHAPE_WITH_PARTIAL_SHAPE_DIST_TRAVELED = 269;
+
+    TYPE_STATION_UNUSED = 234;
+
+    TYPE_STATION_WITH_PARENT_STATION = 202;
+
+    TYPE_LOCATION_WITH_STOP_TIME_OVERRIDES = 303;
+
+    TYPE_LOCATION_WITH_STOP_TIMES = 235;
+
+    TYPE_STATIONS_TOO_CLOSE = 236;
+
+    TYPE_STOP_HAS_TOO_MANY_MATCHES_FOR_SHAPE = 250;
+
+    TYPE_STOP_TIME_OVERRIDES_CONFLICTING = 298;
+
+    TYPE_STOP_TIME_OVERRIDES_NOT_SAME_PARENT_STATION = 299;
+
+    TYPE_STOP_TIME_OVERRIDES_NOT_USED = 300;
+
+    TYPE_STOP_TIME_OVERRIDES_WITH_UNKNOWN_SERVICE_ID = 301;
+
+    TYPE_STOP_TIME_OVERRIDES_WITH_UNKNOWN_STOP_SEQUENCE = 302;
+
+    TYPE_STOP_TIMES_STOP_HEADSIGN_EQUALS_STOP_NAME = 260;
+
+    TYPE_STOP_TIMES_INCORRECT_STOP_HEADSIGN = 318;
+
+    TYPE_STOP_TIMES_WITH_ARRIVAL_BEFORE_PREVIOUS_DEPARTURE_TIME = 283;
+
+    TYPE_STOP_TIMES_WITH_DEPARTURE_BEFORE_ARRIVAL_TIME = 275;
+
+    TYPE_STOP_TIMES_WITH_LONG_ARRIVAL_INTERVAL = 254;
+
+    TYPE_STOP_TIMES_WITH_LONG_DEPARTURE_ARRIVAL_INTERVAL = 255;
+
+    TYPE_STOP_TIMES_WITH_ONLY_ARRIVAL_OR_DEPARTURE_TIME_SPECIFIED = 273;
+
+    TYPE_STOP_TOO_CLOSE_TO_STATION = 237;
+
+    TYPE_STOP_TOO_FAR_FROM_PARENT_STATION = 253;
+
+    TYPE_STOP_TOO_FAR_FROM_SHAPE = 251;
+
+    TYPE_STOP_TOO_FAR_FROM_SHAPE_USING_USER_DISTANCE = 292;
+
+    TYPE_STOP_UNUSED = 238;
+
+    TYPE_STOP_WITH_PARENT_STATION_AND_TIMEZONE = 204;
+
+    TYPE_STOP_WITH_SAME_NAME_AND_DESCRIPTION = 206;
+
+    TYPE_STOP_NAME_HAS_STOP_CODE_OR_ID = 319;
+
+    TYPE_STOP_NAME_HAS_SPECIAL_CHARACTERS = 320;
+
+    TYPE_STOP_HEADSIGN_HAS_SPECIAL_CHARACTERS = 322;
+
+    TYPE_STOPS_MATCH_SHAPE_OUT_OF_ORDER = 252;
+
+    TYPE_STOPS_TOO_CLOSE = 239;
+
+    TYPE_STOP_NAME_NOT_CAPITALIZED = 317;
+
+    TYPE_PLATFORM_CODE_IS_MISSING = 332;
+
+    TYPE_TOO_MANY_CONSECUTIVE_STOP_TIMES_WITH_SAME_TIME = 257;
+
+    TYPE_TOO_MANY_ENTRIES = 305;
+
+    TYPE_TRANSFER_DISTANCE_IS_VERY_LARGE = 218;
+
+    TYPE_TRANSFER_DUPLICATE = 258;
+
+    TYPE_TRANSFER_WALKING_SPEED_IS_TOO_FAST = 219;
+
+    TYPE_TRANSFER_MIN_TRANSFER_TIME_AND_INVALID_TYPE = 282;
+
+    TYPE_TRANSFER_MIN_TRANSFER_TIME_IS_MISSING = 288;
+
+    TYPE_TRANSFER_MIN_TRANSFER_TIME_IS_NEGATIVE = 216;
+
+    TYPE_TRANSFER_MIN_TRANSFER_TIME_IS_VERY_LARGE = 217;
+
+    TYPE_TRANSFER_VIA_ENTRANCE = 285;
+
+    TYPE_TRANSFER_WITH_INVALID_ROUTE_AND_TRIP = 287;
+
+    TYPE_TRIP_DUPLICATES = 276;
+
+    TYPE_TRIP_HEADSIGN_CONTAINS_ROUTE_LONG_NAME = 278;
+
+    TYPE_TRIP_HEADSIGN_CONTAINS_ROUTE_SHORT_NAME = 277;
+
+    TYPE_TRIP_LENGTH_TOO_LONG = 309;
+
+    TYPE_TRIP_STARTS_LATE = 310;
+
+    TYPE_TRIP_STARTS_TOO_LATE = 311;
+
+    TYPE_TRIP_WITH_NO_TIME_FOR_FIRST_STOP_TIME = 212;
+
+    TYPE_TRIP_WITH_NO_TIME_FOR_LAST_STOP_TIME = 213;
+
+    TYPE_TRIP_WITH_NO_USABLE_STOPS = 267;
+
+    TYPE_TRIP_WITH_OUT_OF_ORDER_ARRIVAL_TIME = 214;
+
+    TYPE_TRIP_WITH_OUT_OF_ORDER_DEPARTURE_TIME = 215;
+
+    TYPE_TRIP_WITH_OUT_OF_ORDER_SHAPE_DIST_TRAVELED = 248;
+
+    TYPE_TRIP_WITH_PARTIAL_SHAPE_DIST_TRAVELED = 270;
+
+    TYPE_TRIP_WITH_SHAPE_DIST_TRAVELED_BUT_NO_SHAPE = 271;
+
+    TYPE_TRIP_WITH_SHAPE_DIST_TRAVELED_BUT_NO_SHAPE_DISTANCES = 272;
+
+    TYPE_TRIP_WITH_UNKNOWN_SERVICE_ID = 268;
+
+    TYPE_TRIP_WITH_DUPLICATE_STOPS = 312;
+
+    TYPE_TRIP_HEADSIGN_HAS_SPECIAL_CHARACTERS = 323;
+
+    TYPE_UNKNOWN_COLUMN = 274;
+
+    TYPE_UNKNOWN_FILE = 259;
+
+    // Impossible to open feed zip archive
+    TYPE_ARCHIVE_CORRUPTED = 306;
+
+    // The current feed is identical to the last valid feed
+    TYPE_DUPLICATE_FEED = 307;
+
+    // Feed doesn't contain stops.
+    TYPE_EMPTY_STOPS = 308;
+
+    // frequencies.txt contains mixed values of exact_times for a trip.
+    TYPE_INCONSISTENT_EXACT_TIMES_FOR_TRIP = 324;
+
+    // Deprecated - pathway_id is always required and is checked by parser.
+    TYPE_PATHWAY_MISSING_PATHWAY_ID = 325 [deprecated = true];
+
+    // A reciprocal pathway is missing.
+    TYPE_PATHWAY_MISSING_RECIPROCAL = 326;
+
+    // A location (stop, entrance or generic node) has no pathway but some other
+    // locations in the same parent station have pathways.
+    TYPE_PATHWAY_DANGLING_LOCATION = 327;
+
+    // A platform has pathways but is not connected to any entrance, even
+    // indirectly.
+    TYPE_PATHWAY_PLATFORM_WITHOUT_ENTRANCES = 328;
+
+    // A platform which already has boarding areas may not have pathways.
+    TYPE_PATHWAY_WRONG_PLATFORM_ENDPOINT = 329;
+
+    // A column is missing from pathways.txt. This column is required by Core
+    // GTFS-Pathways (2019) but not by the old spec (2010).
+    TYPE_PATHWAY_MISSING_COLUMN = 330;
+
+    // A value is missing from pathways.txt. This value is required by Core
+    // GTFS-Pathways (2019) but not by the old spec (2010).
+    TYPE_PATHWAY_MISSING_VALUE = 331;
+
+    // A column is missing from attributions.txt.
+    TYPE_ATTRIBUTION_MISSING_COLUMN = 334;
+
+    // A role value is missing from attributions.txt.
+    TYPE_ATTRIBUTION_MISSING_ROLE = 335;
+
+    reserved 247, 279, 304;
+  }
+  optional Type type = 1;
+
+  // The severity of the validation problem.
+  enum Severity {
+    // A warning indicates that something is not quite right but most GTFS
+    // consumers will still be able to handle the feed.
+    WARNING = 1;
+
+    // An error indicates that something is broken in such as a way that most
+    // GTFS consumers will not be able to handle the feed.
+    ERROR = 2;
+
+    // The feed has something that is potentially very broken. It should be
+    // blocked until manually reviewed.
+    SUSPICIOUS_WARNING = 3;
+  }
+  optional Severity severity = 2;
+
+  // The name of the CSV file (eg. "stops.txt") where this problem occurred.
+  optional string csv_file_name = 3;
+
+  // The name of a CSV key that is implicated in this problem.
+  optional string csv_key_name = 4;
+
+  // The name of columns in the CSV file where this problem occurred.
+  repeated string csv_column_name = 5;
+
+  // The name of an additional CSV file (eg. "routes.txt") that is related to
+  // this problem.
+  optional string other_csv_file_name = 15;
+
+  // The name of an additional CSV key that is related to this problem.
+  optional string other_csv_key_name = 16;
+
+  // The name of additional columns in the alt CSV file that are related to
+  // this problem.
+  repeated string other_csv_column_name = 17;
+
+  // The row number in a CSV file where this problem occurred.  The first line
+  // (includes the header) of a file should have an entity_row value of 1.
+  // Typically, the first row of non-header data will have an entity_row value
+  // of 2.
+  optional uint32 entity_row = 6;
+
+  // A human-readable name associated with the GTFS entity experiencing a
+  // problem (eg. stop name).
+  optional string entity_name = 7;
+
+  // A human-readable id associated with the GTFS entity experiencing a problem
+  // (eg. stop id).
+  optional string entity_id = 8;
+
+  // A human-readable value associated with the GTFS entity experiencing a
+  // problem.
+  optional string entity_value = 9;
+
+  // Location information associated with the GTFS entity experiencing a
+  // problem.
+  optional PointProto entity_location = 21;
+
+  // The row number in a CSV file of an alternate GTFS entity that's in
+  // conflict with the primary row.
+  optional uint32 alt_entity_row = 10;
+
+  // A human-readable name associated with an alternate GTFS entity that's in
+  // conflict with the primary row (eg. conflicting stop name).
+  optional string alt_entity_name = 11;
+
+  // A human-readable id associated with an alternate GTFS entity that's in
+  // conflict with the primary row (eg. conflicting stop id).
+  optional string alt_entity_id = 12;
+
+  // A human-readable value associated with the alernate GTFS entity
+  // experiencing a problem.
+  optional string alt_entity_value = 13;
+
+  // Location information associated with the alternate GTFS entity
+  // experiencing a problem.
+  optional PointProto alt_entity_location = 22;
+
+  // The row number in a CSV file of a GTFS entity that's a parent to the
+  // primary entity.
+  optional uint32 parent_entity_row = 18;
+
+  // A human-readable name associated with the parent GTFS entity.
+  optional string parent_entity_name = 19;
+
+  // A human-readable id associated with the parent GTFS entity.
+  optional string parent_entity_id = 20;
+
+  // A value associated with the problem.  This could be an invalid value
+  // pulled from the GTFS directly or some other related value (eg "travel is
+  // to too fast, a X kph", where X is replaced with 'value').
+  optional string value = 14;
+
+  // An alternate value associated with the problem.  Similar to 'value' field
+  // in use, use 'value' and 'alt_value' when two values are associated with
+  // the same primary entity.  Use 'entity_value' and 'alt_entity_value' when
+  // the two values are associated with separate entities in the same file.
+  optional string alt_value = 23;
+
+  // A value in the range [0.0, 1.0] (most important is 1.0), indicating the
+  // importance of the problem based on the importance of the locations of the
+  // geographical entities involved.
+  optional double importance = 24;
+
+  // Next tag = 25
+}
