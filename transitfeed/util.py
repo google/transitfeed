@@ -230,7 +230,7 @@ def _MaxVersion(versions):
   if len(versions) == 0:
     return None
 
-  version_tuple = lambda x: tuple(int(item) for item in x.split('.')) 
+  version_tuple = lambda x: tuple(int(item) for item in x.split('.'))
   return max(versions, key=version_tuple)
 
 OUTPUT_ENCODING = 'utf-8'
@@ -534,6 +534,8 @@ def ApproximateDistanceBetweenStops(stop1, stop2):
   Earth is a sphere."""
   if (stop1.stop_lat is None or stop1.stop_lon is None or
       stop2.stop_lat is None or stop2.stop_lon is None):
+    print('Cannot determine distance between stops %s and %s due to missing coordinates'
+          % (stop1.stop_id, stop2.stop_id))
     return None
   return ApproximateDistance(stop1.stop_lat, stop1.stop_lon,
                              stop2.stop_lat, stop2.stop_lon)
