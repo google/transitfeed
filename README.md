@@ -1,4 +1,6 @@
-# transitfeed
+> ⚠️ **NOTE:**  This project is no longer actively maintained.  For up-to-date GTFS validation tools, see the https://github.com/MobilityData/gtfs-validator project. ⚠️
+
+## transitfeed
 
 Provides a library to help you parse, validate, and generate [General Transit Feed Spec (GTFS)](https://developers.google.com/transit/gtfs/) feed files.  See INSTALL for installation instructions.
 
