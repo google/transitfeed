@@ -298,6 +298,21 @@ class TransferObjectTestCase(util.ValidationTestCase):
     transfer.Validate(self.problems)
     self.accumulator.AssertNoMoreExceptions()
 
+  def testStationsWithoutCoordsDoNotCrashValidation(self):
+    # from_stop_id and to_stop_id are present in schedule,
+    # but one of the stops has no coordinates
+    schedule = transitfeed.Schedule()
+    stop1 = schedule.AddStop(57.5, 30.2, "stop 1")
+    stop2 = schedule.AddStop(None, None, "stop 2")
+    transfer = transitfeed.Transfer(schedule=schedule)
+    transfer.from_stop_id = stop1.stop_id
+    transfer.to_stop_id = stop2.stop_id
+    transfer.transfer_type = 2
+    transfer.min_transfer_time = 60
+    repr(transfer)  # shouldn't crash
+    transfer.Validate(self.problems)
+    self.accumulator.AssertNoMoreExceptions()
+
   def testCustomAttribute(self):
     """Add unknown attributes to a Transfer and make sure they are saved."""
     transfer = transitfeed.Transfer()
