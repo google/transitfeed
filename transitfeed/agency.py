@@ -89,7 +89,7 @@ class Agency(GtfsObjectBase):
     """Validate attribute values and this object's internal consistency.
 
     Returns:
-      True iff all validation checks passed.
+      True if all validation checks passed.
     """
     found_problem = False
     found_problem = ((not util.ValidateRequiredFieldsAreNotEmpty(
@@ -111,4 +111,3 @@ class Agency(GtfsObjectBase):
 
   def AddToSchedule(self, schedule, problems):
     schedule.AddAgencyObject(self, problems)
-
