@@ -26,7 +26,12 @@ import re
 import socket
 import sys
 import time
-import urllib2
+try: # py3
+  import urllib.request as urlrequest
+  import urllib.error as urlerror
+except ImportError:
+  import urllib2 as urlrequest
+  urlerror = urlrequest
 
 from . import errors
 from .version import __version__
@@ -190,23 +195,23 @@ def CheckVersion(problems, latest_version=None):
   if not latest_version:
     timeout = 20
     socket.setdefaulttimeout(timeout)
-    request = urllib2.Request(LATEST_RELEASE_VERSION_URL)
+    request = urlrequest.Request(LATEST_RELEASE_VERSION_URL)
 
     try:
-      response = urllib2.urlopen(request)
+      response = urlrequest.urlopen(request)
       content = response.read()
       m = re.search(r'version=(\d+\.\d+\.\d+)', content)
       if m:
         latest_version = m.group(1)
 
-    except urllib2.HTTPError as e:
+    except urlerror.HTTPError as e:
       description = ('During the new-version check, we failed to reach '
                      'transitfeed server: Reason: %s [%s].' %
                      (e.reason, e.code))
       problems.OtherProblem(
         description=description, type=errors.TYPE_NOTICE)
       return
-    except urllib2.URLError as e:
+    except urlerror.URLError as e:
       description = ('During the new-version check, we failed to reach '
                      'transitfeed server. Reason: %s.' % e.reason)
       problems.OtherProblem(

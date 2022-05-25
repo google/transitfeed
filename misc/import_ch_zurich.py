@@ -30,8 +30,12 @@ import csv
 import datetime
 import optparse
 import sys
-import urllib
 import zipfile
+
+try:  # py3
+  import urllib.parse as urlparse
+except ImportError:
+  import urlparse
 
 
 # Zurich tram lines
@@ -221,7 +225,7 @@ class DivaImporter:
       station.name, station.city = self.DemangleName(name)
       station.country = 'CH'
       station.url = 'http://fahrplan.zvv.ch/?to.0=' + \
-                    urllib.quote(name.encode('iso-8859-1'))
+                    urlparse.quote(name.encode('iso-8859-1'))
       station.advertised_lines = set()
       self.stations[id] = station
     for station_id, line_id in ReadCSV(adv_file, ['ORT_NR', 'LI_NR']):

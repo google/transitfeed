@@ -33,9 +33,13 @@ import os.path
 import random
 import sys
 import transitfeed
-import urllib
-import urlparse
 
+try:  # py3
+  import urllib.parse as urllibparse
+  urlparse = urllibparse
+except ImportError:
+  import urllib as urllibparse
+  import urlparse
 
 def Distance(lat0, lng0, lat1, lng1):
   """
@@ -106,7 +110,7 @@ def LatLngsToGoogleUrl(source, destination, dt):
             "ie": "UTF8",
             "oe": "UTF8"}
   url = urlparse.urlunsplit(("http", "maps.google.com", "/maps",
-                             urllib.urlencode(params), ""))
+                             urllibparse.urlencode(params), ""))
   return url
 
 

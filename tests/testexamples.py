@@ -7,13 +7,17 @@ import os
 import re
 import transitfeed
 import unittest
-import urllib
+try:  # py3
+  import urllib.request as urlrequest
+except ImportError:
+  import urllib as urlrequest
+
 from tests import util
 
 class WikiExample(util.TempDirTestCaseBase):
   # Download example from wiki and run it
   def runTest(self):
-    wiki_source = urllib.urlopen(
+    wiki_source = urlrequest.urlopen(
       'https://raw.githubusercontent.com/wiki/google/transitfeed/TransitFeed.md'
     ).read()
     m = re.search(r'```\s*(import transitfeed.*)```', wiki_source, re.DOTALL)
