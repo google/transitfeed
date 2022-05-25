@@ -51,8 +51,8 @@ class GtfsFactory(object):
       'Stop': Stop,
       'StopTime': StopTime,
       'Route': Route,
-      'Transfer': Transfer,
       'Trip': Trip,
+      'Transfer': Transfer,
       'Schedule': Schedule,
       'Loader': Loader
     }
@@ -91,12 +91,11 @@ class GtfsFactory(object):
         'routes.txt': { 'required': True, 'loading_order': 20,
                         'classes': ['Route']},
 
-        'transfers.txt': { 'required': False, 'loading_order': 30,
-                           'classes': ['Transfer']},
-
-        'trips.txt': { 'required': True, 'loading_order': 40,
+        'trips.txt': { 'required': True, 'loading_order': 30,
                        'classes': ['Trip']},
 
+        'transfers.txt': { 'required': False, 'loading_order': 40,
+                           'classes': ['Transfer']},
         }
 
   def __getattr__(self, name):
