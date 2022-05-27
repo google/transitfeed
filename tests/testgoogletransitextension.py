@@ -24,6 +24,7 @@ import re
 import transitfeed
 from tests.testfeedvalidator import FullTests
 from tests.util import MemoryZipTestCase, ValidationTestCase
+from tests import util
 
 
 class ExtensionFullTests(FullTests):
@@ -50,6 +51,21 @@ class ExtensionFullTests(FullTests):
     self.assertFalse(re.search(r'ERROR', htmlout))
     self.assertFalse(os.path.exists('transitfeedcrash.txt'))
 
+class TransfersInvalidTripIds(util.LoadTestCase):
+  def runTest(self):
+    gtfs_factory = extensions.googletransit.GetGtfsFactory()
+    self.Load('googletransit/transfers_invalid_trip_id', gtfs_factory)
+    e = self.accumulator.PopException('InvalidValue')
+    self.assertTrue(re.search(r'from_trip_id', e.column_name))
+    self.assertTrue(re.search(r'FAKE', e.value))
+    self.accumulator.AssertNoMoreExceptions()
+
+class TransfersDuplicateIds(util.LoadTestCase):
+  def runTest(self):
+    gtfs_factory = extensions.googletransit.GetGtfsFactory()
+    self.Load('googletransit/transfers_duplicate_id', gtfs_factory)
+    self.accumulator.PopException('DuplicateID')
+    self.accumulator.AssertNoMoreExceptions()
 
 class ExtensionMemoryZipTestCase(MemoryZipTestCase):
   """ExtendMemoryZipTestCase to also ignore DeprecatedColumn errors.

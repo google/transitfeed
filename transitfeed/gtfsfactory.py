@@ -73,7 +73,7 @@ class GtfsFactory(object):
         'fare_rules.txt': { 'required': False, 'loading_order': 60,
                             'classes': ['FareRule']},
 
-        'feed_info.txt': { 'required': False, 'loading_order': 100, 
+        'feed_info.txt': { 'required': False, 'loading_order': 100,
                            'classes': ['FeedInfo']},
 
         'frequencies.txt': { 'required': False, 'loading_order': 70,
@@ -91,10 +91,10 @@ class GtfsFactory(object):
         'routes.txt': { 'required': True, 'loading_order': 20,
                         'classes': ['Route']},
 
-        'transfers.txt': { 'required': False, 'loading_order': 30,
+        'transfers.txt': { 'required': False, 'loading_order': 40,
                            'classes': ['Transfer']},
 
-        'trips.txt': { 'required': True, 'loading_order': 40,
+        'trips.txt': { 'required': True, 'loading_order': 30,
                        'classes': ['Trip']},
 
         }
