@@ -22,10 +22,8 @@ For usage information run feedvalidator.py --help
 from __future__ import print_function
 
 import bisect
-import codecs
 import datetime
 from transitfeed.util import defaultdict
-import optparse
 import os
 import os.path
 import re

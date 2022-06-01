@@ -75,7 +75,6 @@ try:
 except ImportError as e:
   import elementtree.ElementTree as ET  # older pythons
 import extensions.googletransit as googletransit
-import optparse
 import os.path
 import sys
 import transitfeed

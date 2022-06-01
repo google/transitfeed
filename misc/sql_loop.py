@@ -23,7 +23,6 @@ import re
 import csv
 import os
 import os.path
-import resource
 import pstats
 
 try:

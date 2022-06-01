@@ -24,11 +24,6 @@ from __future__ import print_function
 
 __author__ = 'Jiri Semecky <jiri.semecky@gmail.com>'
 
-import codecs
-import os
-import os.path
-import sys
-import time
 import transitfeed
 from transitfeed import util
 

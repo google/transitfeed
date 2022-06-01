@@ -25,7 +25,6 @@ import random
 import re
 import socket
 import sys
-import time
 import urllib2
 
 from . import errors
@@ -230,7 +229,7 @@ def _MaxVersion(versions):
   if len(versions) == 0:
     return None
 
-  version_tuple = lambda x: tuple(int(item) for item in x.split('.')) 
+  version_tuple = lambda x: tuple(int(item) for item in x.split('.'))
   return max(versions, key=version_tuple)
 
 OUTPUT_ENCODING = 'utf-8'

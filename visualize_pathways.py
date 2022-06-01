@@ -46,7 +46,6 @@ import csv
 import re
 import os
 import subprocess
-import sys
 
 
 class LocationType(Enum):

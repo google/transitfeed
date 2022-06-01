@@ -21,7 +21,7 @@ import logging
 import time
 
 from . import util
-from .errors import TYPE_ERROR, TYPE_WARNING, TYPE_NOTICE, ALL_TYPES, Error
+from .errors import ALL_TYPES, TYPE_ERROR, TYPE_NOTICE, TYPE_WARNING, Error
 
 MAX_DISTANCE_FROM_STOP_TO_SHAPE = 1000
 MAX_DISTANCE_BETWEEN_STOP_AND_PARENT_STATION_WARNING = 100.0

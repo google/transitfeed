@@ -43,7 +43,6 @@ __author__ = 'timothy.stranex@gmail.com (Timothy Stranex)'
 
 
 import datetime
-import optparse
 import os
 import re
 import sys
