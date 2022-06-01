@@ -15,9 +15,10 @@
 # limitations under the License.
 
 from __future__ import absolute_import
-from .gtfsobjectbase import GtfsObjectBase
 from . import problems as problems_module
 from . import util
+from .gtfsobjectbase import GtfsObjectBase
+
 
 class Transfer(GtfsObjectBase):
   """Represents a transfer in a schedule"""
@@ -154,12 +155,16 @@ class Transfer(GtfsObjectBase):
       return
 
     distance = self.GetTransferDistance()
+    if distance is None:
+      # If the distance cannot be determined because of missing coordinates on a stop, return
+      # The stops.txt validation will report the missing coordinates.
+      return
     # If min_transfer_time + 120s isn't enough for someone walking very fast
     # (2m/s) then issue a warning.
     #
     # Stops that are close together (less than 240m appart) never trigger this
     # warning, regardless of min_transfer_time.
-    FAST_WALKING_SPEED= 2 # 2m/s
+    FAST_WALKING_SPEED = 2  # 2m/s
     if self.min_transfer_time + 120 < distance / FAST_WALKING_SPEED:
       problems.TransferWalkingSpeedTooFast(from_stop_id=self.from_stop_id,
                                            to_stop_id=self.to_stop_id,
