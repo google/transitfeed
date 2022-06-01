@@ -129,7 +129,7 @@ class ServicePeriod(object):
                            (self.service_id, date),
                            type=problems_module.TYPE_WARNING)
     exception_context_tuple = (has_service and self._EXCEPTION_TYPE_ADD or
-                               self._EXCEPTION_TYPE_REMOVE, problems != None and
+                               self._EXCEPTION_TYPE_REMOVE, problems is not None and
                                problems.GetFileContext() or None)
     self.date_exceptions[date] = exception_context_tuple
 

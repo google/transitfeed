@@ -137,13 +137,13 @@ class Trip(GtfsObjectBase):
     if row[0] is None:
       # This is the first stop_time of the trip
       stoptime.stop_sequence = 1
-      if new_secs == None:
+      if new_secs is None:
         problems.OtherProblem(
             'No time for first StopTime of trip_id "%s"' % (self.trip_id,))
     else:
       stoptime.stop_sequence = row[0] + 1
       prev_secs = max(row[1], row[2])
-      if new_secs != None and new_secs < prev_secs:
+      if new_secs is not None and new_secs < prev_secs:
         problems.OtherProblem(
             'out of order stop time for stop_id=%s trip_id=%s %s < %s' %
             (util.EncodeUnicode(stoptime.stop_id),
@@ -194,14 +194,14 @@ class Trip(GtfsObjectBase):
     distance_traveled_between_timepoints = 0
 
     for i, st in enumerate(stoptimes):
-      if st.GetTimeSecs() != None:
+      if st.GetTimeSecs() is not None:
         cur_timepoint = st
         distance_between_timepoints = 0
         distance_traveled_between_timepoints = 0
         if i + 1 < len(stoptimes):
           k = i + 1
           distance_between_timepoints += util.ApproximateDistanceBetweenStops(stoptimes[k-1].stop, stoptimes[k].stop)
-          while stoptimes[k].GetTimeSecs() == None:
+          while stoptimes[k].GetTimeSecs() is None:
             k += 1
             distance_between_timepoints += util.ApproximateDistanceBetweenStops(stoptimes[k-1].stop, stoptimes[k].stop)
           next_timepoint = stoptimes[k]
@@ -281,9 +281,9 @@ class Trip(GtfsObjectBase):
       # go through the pattern and generate stoptimes
       for st in stoptime_pattern:
         arrival_secs, departure_secs = None, None # default value if the stoptime is not timepoint
-        if st.arrival_secs != None:
+        if st.arrival_secs is not None:
           arrival_secs = st.arrival_secs - first_secs + run_secs
-        if st.departure_secs != None:
+        if st.departure_secs is not None:
           departure_secs = st.departure_secs - first_secs + run_secs
         # append stoptime
         stoptimes.append(stoptime_class(problems=problems, stop=st.stop,
@@ -308,9 +308,9 @@ class Trip(GtfsObjectBase):
         'SELECT arrival_secs,departure_secs FROM stop_times WHERE '
         'trip_id=? ORDER BY stop_sequence LIMIT 1', (self.trip_id,))
     (arrival_secs, departure_secs) = cursor.fetchone()
-    if arrival_secs != None:
+    if arrival_secs is not None:
       return arrival_secs
-    elif departure_secs != None:
+    elif departure_secs is not None:
       return departure_secs
     else:
       problems.InvalidValue('departure_time', '',
@@ -350,9 +350,9 @@ class Trip(GtfsObjectBase):
         'SELECT arrival_secs,departure_secs FROM stop_times WHERE '
         'trip_id=? ORDER BY stop_sequence DESC LIMIT 1', (self.trip_id,))
     (arrival_secs, departure_secs) = cursor.fetchone()
-    if departure_secs != None:
+    if departure_secs is not None:
       return departure_secs
-    elif arrival_secs != None:
+    elif arrival_secs is not None:
       return arrival_secs
     else:
       problems.InvalidValue('arrival_time', '',
@@ -420,7 +420,7 @@ class Trip(GtfsObjectBase):
     Returns:
       None
     """
-    if start_time == None or start_time == '':  # 0 is OK
+    if start_time is None or start_time == '':  # 0 is OK
       problem_reporter.MissingValue('start_time')
       return
     if isinstance(start_time, basestring):
@@ -432,7 +432,7 @@ class Trip(GtfsObjectBase):
     elif start_time < 0:
       problem_reporter.InvalidValue('start_time', start_time)
 
-    if end_time == None or end_time == '':
+    if end_time is None or end_time == '':
       problem_reporter.MissingValue('end_time')
       return
     if isinstance(end_time, basestring):
@@ -719,7 +719,7 @@ class Trip(GtfsObjectBase):
   def _CheckSpeed(self, prev_stop, next_stop, depart_time,
                   arrive_time, max_speed, problems):
     # Checks that the speed between two stops is not faster than max_speed
-    if prev_stop != None:
+    if prev_stop is not None:
       try:
         time_between_stops = arrive_time - depart_time
       except TypeError:

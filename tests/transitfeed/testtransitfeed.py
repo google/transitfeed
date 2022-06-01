@@ -120,12 +120,12 @@ class DeprecatedFieldNamesTestCase(util.MemoryZipTestCase):
     schedule = self.MakeLoaderAndLoad(self.problems,
                                       gtfs_factory=self.gtfs_factory)
     agency = schedule._agencies.values()[0]
-    self.assertTrue(agency.agency_url == None)
+    self.assertTrue(agency.agency_url is None)
     # stop.txt from util.MemoryZipTestCase does not have 'stop_desc', accessing
     # the variable stop_desc should default to None instead of raising an
     # AttributeError
     stop = schedule.stops.values()[0]
-    self.assertTrue(stop.stop_desc == None)
+    self.assertTrue(stop.stop_desc is None)
     self.accumulator.AssertNoMoreExceptions()
 
 
