@@ -110,7 +110,10 @@ or an email to the public group transitfeed@googlegroups.com. Sorry!
     print(apology)
 
     try:
-      raw_input('Press enter to continue...')
+      try:
+        raw_input('Press enter to continue...')
+      except NameError:
+        input('Press enter to continue...')
     except EOFError:
       # Ignore stdin being closed. This happens during some tests.
       pass
