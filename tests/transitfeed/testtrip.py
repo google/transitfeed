@@ -15,7 +15,7 @@
 # Unit tests for the trip module.
 from __future__ import absolute_import
 
-from StringIO import StringIO
+from transitfeed.compat import BytesIO
 from tests import util
 import transitfeed
 
@@ -78,7 +78,7 @@ class TripMemoryZipTestCase(util.MemoryZipTestCase):
     schedule.AddTripObject(trip2)
     trip2.AddStopTime(stop=schedule.GetStop("BULLFROG"), stop_time="09:00:00")
     trip2.AddStopTime(stop=schedule.GetStop("STAGECOACH"), stop_time="09:30:00")
-    saved_schedule_file = StringIO()
+    saved_schedule_file = BytesIO()
     schedule.WriteGoogleTransitFeed(saved_schedule_file)
     self.accumulator.AssertNoMoreExceptions()
 
@@ -100,7 +100,7 @@ class TripMemoryZipTestCase(util.MemoryZipTestCase):
     load1_problems = util.GetTestFailureProblemReporter(
         self, ("ExpirationDate", "UnrecognizedColumn"))
     schedule = self.MakeLoaderAndLoad(problems=load1_problems)
-    saved_schedule_file = StringIO()
+    saved_schedule_file = BytesIO()
     schedule.WriteGoogleTransitFeed(saved_schedule_file)
 
     self.assertLoadAndCheckExtraValues(saved_schedule_file)

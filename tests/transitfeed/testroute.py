@@ -17,7 +17,7 @@
 # Unit tests for the route module.
 from __future__ import absolute_import
 
-from StringIO import StringIO
+from transitfeed.compat import BytesIO
 from tests import util
 import transitfeed
 
@@ -59,7 +59,7 @@ class RouteMemoryZipTestCase(util.MemoryZipTestCase):
     route_n = transitfeed.Route(short_name="N", route_type="Bus", route_id="n")
     route_n.n_foo = "bar"
     schedule.AddRouteObject(route_n)
-    saved_schedule_file = StringIO()
+    saved_schedule_file = BytesIO()
     schedule.WriteGoogleTransitFeed(saved_schedule_file)
     self.accumulator.AssertNoMoreExceptions()
 
@@ -79,7 +79,7 @@ class RouteMemoryZipTestCase(util.MemoryZipTestCase):
     load1_problems = util.GetTestFailureProblemReporter(
         self, ("ExpirationDate", "UnrecognizedColumn"))
     schedule = self.MakeLoaderAndLoad(problems=load1_problems)
-    saved_schedule_file = StringIO()
+    saved_schedule_file = BytesIO()
     schedule.WriteGoogleTransitFeed(saved_schedule_file)
 
     self.assertLoadAndCheckExtraValues(saved_schedule_file)

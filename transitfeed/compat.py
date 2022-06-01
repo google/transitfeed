@@ -17,3 +17,8 @@ try:  # py2
   from StringIO import StringIO
 except ImportError:
   from io import StringIO
+
+try:  # py2
+  from BytesIO import BytesIO
+except ImportError:
+  from io import BytesIO

@@ -27,7 +27,7 @@ import sys
 import tempfile
 import traceback
 import transitfeed
-from transitfeed.compat import StringIO
+from transitfeed.compat import StringIO, BytesIO
 import unittest
 import zipfile
 
@@ -197,7 +197,7 @@ class TempDirTestCaseBase(GetPathTestCase):
 
     Returns:
         The new file's in-memory contents as a file-like object."""
-    zipfile_mem = StringIO()
+    zipfile_mem = BytesIO()
     zip = zipfile.ZipFile(zipfile_mem, 'a')
     for arcname, contents in dict.items():
       zip.writestr(arcname, contents)
@@ -319,7 +319,7 @@ class MemoryZipTestCase(TestCase):
 
   def CreateZip(self):
     """Create an in-memory GTFS zipfile from the contents of the file dict."""
-    self.zipfile = StringIO()
+    self.zipfile = BytesIO()
     self.zip = zipfile.ZipFile(self.zipfile, 'a')
     for (arcname, contents) in self.zip_contents.items():
       self.zip.writestr(arcname, contents)

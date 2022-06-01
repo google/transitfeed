@@ -16,13 +16,12 @@
 from __future__ import absolute_import
 
 import re
-from StringIO import StringIO
 import tempfile
 from tests import util
 import transitfeed
+from transitfeed.compat import StringIO, BytesIO
 import zipfile
 import zlib
-
 
 class UnrecognizedColumnRecorder(transitfeed.ProblemReporter):
   """Keeps track of unrecognized column errors."""
@@ -462,7 +461,7 @@ class CsvDictTestCase(util.TestCase):
   def setUp(self):
     self.accumulator = util.RecordingProblemAccumulator(self)
     self.problems = transitfeed.ProblemReporter(self.accumulator)
-    self.zip = zipfile.ZipFile(StringIO(), 'a')
+    self.zip = zipfile.ZipFile(BytesIO(), 'a')
     self.loader = transitfeed.Loader(
         problems=self.problems,
         zip=self.zip)
@@ -733,7 +732,7 @@ class ReadCsvTestCase(util.TestCase):
   def setUp(self):
     self.accumulator = util.RecordingProblemAccumulator(self)
     self.problems = transitfeed.ProblemReporter(self.accumulator)
-    self.zip = zipfile.ZipFile(StringIO(), 'a')
+    self.zip = zipfile.ZipFile(BytesIO(), 'a')
     self.loader = transitfeed.Loader(
         problems=self.problems,
         zip=self.zip)

@@ -69,7 +69,7 @@ class GtfsObjectBase(GtfsFactoryUser):
 
   def iteritems(self):
     """Return a iterable for (name, value) pairs of public attributes."""
-    for name, value in self.__dict__.iteritems():
+    for name, value in self.__dict__.items():
       if (not name) or name[0] == "_":
         continue
       yield name, value
@@ -88,7 +88,7 @@ class GtfsObjectBase(GtfsFactoryUser):
     if id(self) == id(other):
       return True
 
-    for k in self.keys().union(other.keys()):
+    for k in list(self.keys().union(other.keys())):
       # use __getitem__ which returns "" for missing columns values
       if self[k] != other[k]:
         return False
@@ -115,7 +115,7 @@ class GtfsObjectBase(GtfsFactoryUser):
     return columns
 
   def _ColumnNames(self):
-    return self.keys()
+    return list(self.keys())
 
   def AddToSchedule(self, schedule, problems):
     self._schedule = schedule
